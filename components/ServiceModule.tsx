@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { ServiceTicket, AMCReminder } from '../types';
-import { Wrench, Calendar, MapPin, CheckCircle, Clock, AlertTriangle, Cpu } from 'lucide-react';
-import { analyzeServiceTicket } from '../geminiService';
+import { Wrench, Calendar, MapPin, Clock, AlertTriangle } from 'lucide-react';
 
 const MOCK_TICKETS: ServiceTicket[] = [
   { id: 'T-101', customer: 'Mercy Hospital', equipment: 'Philips MRI 1.5T', issue: 'Helium level warning showing sporadically.', priority: 'High', status: 'Open', assignedTo: 'Tech Mike', dueDate: '2023-10-27', type: 'Breakdown' },
@@ -16,16 +15,6 @@ const MOCK_AMC: AMCReminder[] = [
 
 export const ServiceModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'tickets' | 'amc'>('tickets');
-  const [analysis, setAnalysis] = useState<{id: string, text: string} | null>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
-
-  const handleAnalyze = async (ticket: ServiceTicket) => {
-    setLoadingAnalysis(true);
-    setAnalysis(null);
-    const result = await analyzeServiceTicket(ticket.issue + " on " + ticket.equipment);
-    setAnalysis({ id: ticket.id, text: result });
-    setLoadingAnalysis(false);
-  };
 
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
@@ -82,22 +71,9 @@ export const ServiceModule: React.FC = () => {
                                     <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg"><MapPin size={14}/> {ticket.assignedTo}</div>
                                     <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg"><Clock size={14}/> Due: {ticket.dueDate}</div>
                                 </div>
-
-                                {analysis && analysis.id === ticket.id && (
-                                    <div className="mt-4 bg-indigo-50/50 p-4 rounded-2xl text-sm text-indigo-900 border border-indigo-100 animate-in fade-in">
-                                        <div className="font-bold flex items-center gap-2 mb-2 text-indigo-700"><Cpu size={16}/> AI Diagnostics</div>
-                                        <div className="whitespace-pre-wrap text-xs leading-relaxed opacity-90">{analysis.text}</div>
-                                    </div>
-                                )}
                             </div>
                             <div className="flex flex-col justify-between items-end gap-3 pl-4 border-l border-slate-100">
                                 <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">{ticket.status}</span>
-                                <button 
-                                    onClick={() => handleAnalyze(ticket)}
-                                    disabled={loadingAnalysis}
-                                    className="text-xs bg-indigo-600 text-white px-4 py-2.5 rounded-xl hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all active:scale-95 font-bold">
-                                    {loadingAnalysis && analysis?.id !== ticket.id ? 'Thinking...' : <><Cpu size={14}/> AI Diagnose</>}
-                                </button>
                             </div>
                         </div>
                     ))}
