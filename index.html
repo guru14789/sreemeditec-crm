@@ -24,20 +24,31 @@
       }
     </script>
     <style>
-      /* Custom scrollbar for cleaner look */
+      /* Global Scrollbar Settings */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
+      
+      /* Track is always transparent */
       ::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: transparent;
       }
+      
+      /* Thumb is transparent (hidden) by default */
       ::-webkit-scrollbar-thumb {
-        background: #059669; /* Updated to brand emerald */
-        border-radius: 4px;
+        background: transparent;
+        border-radius: 10px;
       }
+      
+      /* Thumb becomes visible ONLY when hovering over the scrollable element */
+      *:hover::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1; /* Slate-300 */
+      }
+      
+      /* Thumb becomes darker (Brand Color) when grabbing/hovering the scrollbar itself */
       ::-webkit-scrollbar-thumb:hover {
-        background: #047857;
+        background-color: #059669 !important; /* Brand Emerald */
       }
     </style>
   <script type="importmap">

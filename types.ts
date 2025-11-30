@@ -128,6 +128,32 @@ export interface Task {
   relatedTo?: string; // e.g., Lead Name or Ticket ID
 }
 
+// User Profile
+export interface UserProfile {
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  department: string;
+  location: string;
+  bio: string;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
+}
+
+// Global Notifications
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: 'info' | 'alert' | 'warning' | 'success';
+  read: boolean;
+}
+
 export enum TabView {
   DASHBOARD = 'dashboard',
   LEADS = 'leads',
@@ -140,4 +166,5 @@ export enum TabView {
   BILLING = 'billing',
   SUPPORT = 'support',
   REPORTS = 'reports',
+  PROFILE = 'profile',
 }

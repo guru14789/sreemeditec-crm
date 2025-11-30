@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, User, CheckCircle, XCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail } from 'lucide-react';
+import { Clock, MapPin, User, CheckCircle, XCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare } from 'lucide-react';
+import { Task } from '../types';
 
 interface Employee {
   id: string;
@@ -24,7 +24,12 @@ const MOCK_EMPLOYEES: Employee[] = [
 
 type WorkMode = 'Office' | 'Field' | 'Remote';
 
-export const AttendanceModule: React.FC = () => {
+interface AttendanceModuleProps {
+    tasks: Task[];
+    currentUser: string;
+}
+
+export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, currentUser }) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
@@ -32,10 +37,13 @@ export const AttendanceModule: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   
-  // GPS State
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+
+  // Check for blocking tasks
+  const blockingTasks = tasks.filter(t => t.assignedTo === currentUser && t.status === 'To Do');
+  const hasPendingTasks = blockingTasks.length > 0;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -43,14 +51,17 @@ export const AttendanceModule: React.FC = () => {
   }, []);
 
   const handleCheckInOut = () => {
+    if (hasPendingTasks && !isCheckedIn) {
+        // Prevent checkin
+        return;
+    }
+
     if (isCheckedIn) {
-      // Check Out Logic
       setIsCheckedIn(false);
       setCheckInTime(null);
       setLocationCoords(null);
       setGeoError(null);
     } else {
-      // Check In Logic
       if (workMode === 'Field') {
         setIsGettingLocation(true);
         setGeoError(null);
@@ -69,20 +80,16 @@ export const AttendanceModule: React.FC = () => {
                 setIsGettingLocation(false);
             },
             (error) => {
-                console.error("GPS Error: ", error);
                 let msg = "Unable to retrieve location.";
                 if (error.code === 1) msg = "Location permission denied. Please enable GPS.";
                 else if (error.code === 2) msg = "Position unavailable. Check your GPS signal.";
                 else if (error.code === 3) msg = "GPS timeout. Try again.";
-                
                 setGeoError(msg);
                 setIsGettingLocation(false);
-                // We prevent check-in if GPS is mandatory for Field work
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
       } else {
-        // Office or Remote check-in (GPS optional)
         performCheckIn();
       }
     }
@@ -117,43 +124,59 @@ export const AttendanceModule: React.FC = () => {
     : MOCK_EMPLOYEES.filter(e => e.status === filterStatus);
 
   return (
-    <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-1">
+    <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
+      
+      {/* Pending Tasks Warning Banner */}
+      {hasPendingTasks && !isCheckedIn && (
+        <div className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 rounded-3xl p-5 flex flex-col sm:flex-row items-center gap-4 shrink-0 shadow-sm animate-in slide-in-from-top-2">
+            <div className="bg-indigo-100 p-2.5 rounded-full text-indigo-600 shrink-0">
+                <CheckSquare size={20} />
+            </div>
+            <div className="flex-1">
+                <h4 className="font-bold text-indigo-900">Task Review Required</h4>
+                <p className="text-sm text-indigo-700/80">
+                    You have <span className="font-bold">{blockingTasks.length} pending task(s)</span> assigned to you. 
+                    Please mark them as 'In Progress' or 'Done' in the Task Manager to unlock daily attendance.
+                </p>
+            </div>
+        </div>
+      )}
       
       {/* Top Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white to-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-                <p className="text-sm text-slate-500 font-medium">Total Staff</p>
-                <h3 className="text-2xl font-bold text-slate-800">24</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Staff</p>
+                <h3 className="text-2xl font-black text-slate-800 mt-1">24</h3>
             </div>
-            <div className="bg-slate-100 p-3 rounded-full text-slate-600">
+            <div className="bg-slate-100 p-3 rounded-2xl text-slate-600 shadow-sm">
                 <User size={20} />
             </div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white to-green-50 p-5 rounded-3xl border border-green-100 shadow-sm flex items-center justify-between">
             <div>
-                <p className="text-sm text-slate-500 font-medium">Present (Office)</p>
-                <h3 className="text-2xl font-bold text-green-600">14</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Present</p>
+                <h3 className="text-2xl font-black text-green-600 mt-1">14</h3>
             </div>
-            <div className="bg-green-100 p-3 rounded-full text-green-600">
+            <div className="bg-green-100 p-3 rounded-2xl text-green-600 shadow-sm">
                 <Building2 size={20} />
             </div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white to-blue-50 p-5 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between">
             <div>
-                <p className="text-sm text-slate-500 font-medium">On Field Site</p>
-                <h3 className="text-2xl font-bold text-blue-600">5</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">On Field</p>
+                <h3 className="text-2xl font-black text-blue-600 mt-1">5</h3>
             </div>
-            <div className="bg-blue-100 p-3 rounded-full text-blue-600">
+            <div className="bg-blue-100 p-3 rounded-2xl text-blue-600 shadow-sm">
                 <Navigation size={20} />
             </div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div className="bg-gradient-to-br from-white to-purple-50 p-5 rounded-3xl border border-purple-100 shadow-sm flex items-center justify-between">
             <div>
-                <p className="text-sm text-slate-500 font-medium">Remote / WFH</p>
-                <h3 className="text-2xl font-bold text-purple-600">4</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Remote</p>
+                <h3 className="text-2xl font-black text-purple-600 mt-1">4</h3>
             </div>
-            <div className="bg-purple-100 p-3 rounded-full text-purple-600">
+            <div className="bg-purple-100 p-3 rounded-2xl text-purple-600 shadow-sm">
                 <Home size={20} />
             </div>
         </div>
@@ -163,32 +186,34 @@ export const AttendanceModule: React.FC = () => {
         
         {/* Check-In/Out Widget */}
         <div className="w-full lg:w-1/3 flex flex-col gap-6 shrink-0">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-full h-2 ${isCheckedIn ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+            <div className="bg-white rounded-3xl shadow-lg shadow-slate-200 border border-slate-100 p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                <div className={`absolute top-0 left-0 w-full h-1.5 ${isCheckedIn ? 'bg-gradient-to-r from-green-400 to-emerald-500' : hasPendingTasks ? 'bg-slate-300' : 'bg-slate-200'}`}></div>
                 
-                <h3 className="text-lg font-semibold text-slate-800 mb-1">My Attendance</h3>
-                <p className="text-slate-500 text-sm mb-6">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">My Attendance</h3>
+                <p className="text-slate-400 text-xs font-medium mb-8">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 
-                <div className="mb-6">
-                    <div className="text-4xl font-mono font-bold text-slate-800 tracking-wider">
-                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                <div className="mb-8 relative">
+                    <div className="text-5xl font-black text-slate-800 tracking-tight font-mono">
+                        {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <span className="text-xl text-slate-400 ml-1">{currentTime.toLocaleTimeString([], { second: '2-digit' }).slice(-2)}</span>
                     </div>
                 </div>
 
                 {/* Work Mode Selector */}
                 {!isCheckedIn && (
-                    <div className="w-full mb-6">
-                        <label className="text-xs font-semibold text-slate-500 uppercase mb-2 block text-left">Select Work Mode</label>
-                        <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                    <div className="w-full mb-8">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block text-center tracking-widest">Select Work Mode</label>
+                        <div className="flex gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
                             {(['Office', 'Field', 'Remote'] as WorkMode[]).map((mode) => (
                                 <button
                                     key={mode}
                                     onClick={() => setWorkMode(mode)}
-                                    className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-md transition-all ${
+                                    disabled={hasPendingTasks}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all ${
                                         workMode === mode 
-                                            ? 'bg-white text-medical-600 shadow-sm ring-1 ring-slate-200' 
-                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                                    }`}
+                                            ? 'bg-white text-medical-600 shadow-md shadow-slate-200 ring-1 ring-slate-100' 
+                                            : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                                    } ${hasPendingTasks ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {getModeIcon(mode)} {mode}
                                 </button>
@@ -198,19 +223,18 @@ export const AttendanceModule: React.FC = () => {
                 )}
 
                 {/* Status Box */}
-                <div className={`bg-slate-50 rounded-lg p-4 w-full mb-4 flex items-center justify-between border ${geoError ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
-                    <div className="text-left w-full">
-                        <p className={`text-xs uppercase font-semibold mb-1 ${geoError ? 'text-red-600' : 'text-slate-500'}`}>
-                            {geoError ? 'Check-in Error' : 'Status'}
+                <div className={`bg-slate-50/50 rounded-2xl p-4 w-full mb-6 flex items-center justify-between border ${geoError ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
+                    <div className="text-left">
+                        <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${geoError ? 'text-red-500' : 'text-slate-400'}`}>
+                            {geoError ? 'Check-in Error' : 'Current Status'}
                         </p>
                         
                         {geoError ? (
-                            <div className="text-red-700 text-sm font-medium flex items-start gap-2">
-                                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                                {geoError}
+                            <div className="text-red-700 text-xs font-bold flex items-center gap-1">
+                                <AlertCircle size={14} /> {geoError}
                             </div>
                         ) : (
-                            <div className={`font-medium flex items-center gap-1.5 ${isCheckedIn ? 'text-green-600' : 'text-slate-500'}`}>
+                            <div className={`font-bold text-sm flex items-center gap-2 ${isCheckedIn ? 'text-green-600' : 'text-slate-500'}`}>
                                 {isCheckedIn ? (
                                     <>
                                         {getModeIcon(workMode)}
@@ -223,26 +247,32 @@ export const AttendanceModule: React.FC = () => {
                         )}
                     </div>
                     {isCheckedIn && !geoError && (
-                        <div className="text-right shrink-0 ml-4">
-                             <p className="text-xs text-slate-500 uppercase font-semibold">Time</p>
-                             <p className="font-medium text-slate-800">{checkInTime}</p>
+                        <div className="text-right">
+                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Time</p>
+                             <p className="font-bold text-slate-800">{checkInTime}</p>
                         </div>
                     )}
                 </div>
 
                 <button 
                     onClick={handleCheckInOut}
-                    disabled={isGettingLocation}
-                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed ${
-                        isCheckedIn 
-                        ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' 
-                        : 'bg-medical-600 text-white hover:bg-medical-700 shadow-lg shadow-medical-500/30'
+                    disabled={isGettingLocation || (hasPendingTasks && !isCheckedIn)}
+                    className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 text-sm uppercase tracking-wide shadow-lg ${
+                        hasPendingTasks && !isCheckedIn
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none border-2 border-slate-100'
+                        : isCheckedIn 
+                            ? 'bg-white text-red-500 hover:bg-red-50 border-2 border-red-100 shadow-red-100' 
+                            : 'bg-gradient-to-r from-medical-600 to-teal-500 text-white hover:shadow-medical-500/30 border-2 border-transparent disabled:opacity-70 disabled:cursor-not-allowed'
                     }`}
                 >
                     {isGettingLocation ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             Acquiring GPS...
+                        </>
+                    ) : hasPendingTasks && !isCheckedIn ? (
+                        <>
+                            <CheckSquare size={20} /> Tasks Pending
                         </>
                     ) : isCheckedIn ? (
                         <>
@@ -258,44 +288,46 @@ export const AttendanceModule: React.FC = () => {
 
             {/* Field Map / Location Info */}
             {workMode === 'Field' || workMode === 'Office' ? (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex-1 flex flex-col min-h-[250px]">
-                    <h4 className="font-semibold text-slate-800 mb-4 flex items-center justify-between">
-                        <span className="flex items-center gap-2">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-5 flex-1 flex flex-col min-h-[250px]">
+                    <h4 className="font-bold text-slate-700 mb-4 flex items-center justify-between">
+                        <span className="flex items-center gap-2 text-sm">
                             <MapPin size={18} className="text-medical-600" /> 
                             {workMode === 'Field' ? 'GPS Location Tracking' : 'Office Location'}
                         </span>
                         {locationCoords && (
-                            <a href={`https://www.google.com/maps?q=${locationCoords.lat},${locationCoords.lng}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                                Open Map <ExternalLink size={12} />
+                            <a href={`https://www.google.com/maps?q=${locationCoords.lat},${locationCoords.lng}`} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1 transition-colors">
+                                Open Map <ExternalLink size={10} />
                             </a>
                         )}
                     </h4>
                     
-                    <div className="flex-1 bg-slate-100 rounded-lg border border-slate-200 relative flex items-center justify-center overflow-hidden group">
-                        <div className="absolute inset-0 opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-cover bg-center"></div>
+                    <div className="flex-1 bg-slate-100/50 rounded-2xl border border-slate-200 relative flex items-center justify-center overflow-hidden group">
+                        <div className="absolute inset-0 opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-cover bg-center mix-blend-multiply"></div>
                         
                         {workMode === 'Field' && isCheckedIn && locationCoords ? (
                             <div className="z-10 text-center animate-in fade-in zoom-in duration-500">
-                                <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
-                                    <Navigation size={32} className="text-blue-600" />
+                                <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-3 relative">
+                                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping"></div>
+                                    <Navigation size={36} className="text-blue-600 relative z-10" />
                                 </div>
-                                <p className="text-sm font-semibold text-slate-700">Tracking Active</p>
-                                <div className="text-xs text-slate-500 mt-1 font-mono bg-white/80 px-2 py-1 rounded">
+                                <p className="text-sm font-bold text-slate-800">Tracking Active</p>
+                                <div className="text-xs text-slate-500 mt-2 font-mono bg-white shadow-sm border border-slate-100 px-3 py-1.5 rounded-lg inline-block">
                                     {locationCoords.lat.toFixed(5)}, {locationCoords.lng.toFixed(5)}
                                 </div>
-                                <p className="text-[10px] text-slate-400 mt-1">Updates every 5 mins</p>
                             </div>
                         ) : (
                             <div className="z-10 text-center px-4">
                                 {isGettingLocation ? (
-                                     <div className="flex flex-col items-center gap-2 text-medical-600">
-                                        <div className="w-8 h-8 border-4 border-medical-200 border-t-medical-600 rounded-full animate-spin"></div>
-                                        <span className="text-sm font-medium">Triangulating satellites...</span>
+                                     <div className="flex flex-col items-center gap-3 text-medical-600">
+                                        <div className="w-10 h-10 border-4 border-medical-200 border-t-medical-600 rounded-full animate-spin"></div>
+                                        <span className="text-xs font-bold uppercase tracking-wider">Triangulating satellites...</span>
                                      </div>
                                 ) : (
                                     <>
-                                        <Smartphone size={32} className="mx-auto text-slate-400 mb-2" />
-                                        <p className="text-sm text-slate-500">
+                                        <div className="w-16 h-16 bg-slate-200/50 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                            <Smartphone size={32} />
+                                        </div>
+                                        <p className="text-xs font-medium text-slate-500">
                                             {workMode === 'Field' 
                                                 ? 'Check in to enable GPS tracking.' 
                                                 : 'Location fixed to Office HQ.'}
@@ -307,31 +339,31 @@ export const AttendanceModule: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                 <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 flex-1 flex flex-col justify-center items-center text-center min-h-[250px]">
-                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                        <Home size={32} className="text-purple-600" />
+                 <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-5 flex-1 flex flex-col justify-center items-center text-center min-h-[250px]">
+                    <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mb-4">
+                        <Home size={36} className="text-purple-500" />
                     </div>
-                    <h4 className="font-semibold text-slate-800">Remote Work Active</h4>
-                    <p className="text-sm text-slate-500 mt-2 max-w-[200px]">You are currently logged in for remote work. Ensure you are available on Teams/Slack.</p>
+                    <h4 className="font-bold text-slate-800">Remote Work Active</h4>
+                    <p className="text-xs font-medium text-slate-500 mt-2 max-w-[200px]">You are logged in remotely. Stay available on communication channels.</p>
                  </div>
             )}
         </div>
 
         {/* Team List / Grid */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:overflow-hidden min-h-[400px]">
-            <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-slate-800">Team Status</h3>
-                    <div className="flex bg-slate-100 rounded-lg p-1 ml-2">
+        <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:overflow-hidden min-h-[400px]">
+            <div className="p-5 border-b border-slate-100 flex flex-wrap gap-4 justify-between items-center bg-slate-50/30">
+                <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-lg text-slate-800">Team Status</h3>
+                    <div className="flex bg-slate-100 rounded-xl p-1">
                          <button 
                             onClick={() => setViewMode('list')}
-                            className={`p-1.5 rounded transition-all ${viewMode === 'list' ? 'bg-white shadow text-medical-600' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow text-medical-600' : 'text-slate-400 hover:text-slate-600'}`}
                             title="List View">
                             <ListIcon size={16} />
                          </button>
                          <button 
                             onClick={() => setViewMode('grid')}
-                            className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-white shadow text-medical-600' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow text-medical-600' : 'text-slate-400 hover:text-slate-600'}`}
                             title="Grid View">
                             <LayoutGrid size={16} />
                          </button>
@@ -342,10 +374,10 @@ export const AttendanceModule: React.FC = () => {
                         <button 
                             key={status}
                             onClick={() => setFilterStatus(status)}
-                            className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
                                 filterStatus === status 
-                                ? 'bg-medical-50 text-medical-600 border border-medical-100' 
-                                : 'text-slate-500 hover:text-slate-700 bg-slate-50 border border-transparent'
+                                ? 'bg-medical-50 text-medical-700 border border-medical-200' 
+                                : 'text-slate-500 hover:text-slate-700 bg-white border border-slate-200'
                             }`}
                         >
                             {status}
@@ -354,16 +386,16 @@ export const AttendanceModule: React.FC = () => {
                 </div>
             </div>
             
-            <div className="flex-1 overflow-auto bg-slate-50">
+            <div className="flex-1 overflow-auto bg-slate-50/50 custom-scrollbar">
                 {viewMode === 'list' ? (
                     <table className="w-full text-left text-sm text-slate-600 min-w-[700px]">
-                        <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                        <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10 text-xs uppercase font-bold text-slate-500">
                             <tr>
-                                <th className="px-6 py-3 font-semibold text-slate-700">Employee</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700">Role</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700">Status</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700">Location</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700 text-right">Action</th>
+                                <th className="px-6 py-4">Employee</th>
+                                <th className="px-6 py-4">Role</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Location</th>
+                                <th className="px-6 py-4 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
@@ -371,29 +403,29 @@ export const AttendanceModule: React.FC = () => {
                                 <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${emp.avatarColor}`}>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm ${emp.avatarColor}`}>
                                                 {emp.name.split(' ').map(n => n[0]).join('')}
                                             </div>
                                             <div>
-                                                <div className="font-medium text-slate-900">{emp.name}</div>
-                                                <div className="text-xs text-slate-400">ID: {emp.id}</div>
+                                                <div className="font-bold text-slate-800">{emp.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-mono">ID: {emp.id}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-500">{emp.role}</td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium">{emp.role}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(emp.status)}`}>
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusBadge(emp.status)}`}>
                                             {emp.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center gap-1.5 text-slate-600">
+                                        <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
                                             <MapPin size={14} className="text-slate-400" />
                                             <span className="truncate max-w-[150px]" title={emp.location}>{emp.location}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-medical-600 transition-colors">
+                                        <button className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-medical-600 transition-colors">
                                             <Phone size={16} />
                                         </button>
                                     </td>
@@ -402,40 +434,40 @@ export const AttendanceModule: React.FC = () => {
                         </tbody>
                     </table>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 p-5">
                         {filteredEmployees.map((emp) => (
-                            <div key={emp.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                            <div key={emp.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4 hover:shadow-lg hover:border-medical-100 transition-all group">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${emp.avatarColor}`}>
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base border-2 border-white shadow-md ${emp.avatarColor}`}>
                                             {emp.name.split(' ').map(n => n[0]).join('')}
                                         </div>
                                         <div>
-                                            <div className="font-semibold text-slate-900 leading-tight">{emp.name}</div>
-                                            <div className="text-xs text-slate-500">{emp.role}</div>
+                                            <div className="font-bold text-slate-900 leading-tight">{emp.name}</div>
+                                            <div className="text-xs text-slate-500 font-medium">{emp.role}</div>
                                         </div>
                                     </div>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(emp.status)}`}>
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${getStatusBadge(emp.status)}`}>
                                         {emp.status}
                                     </span>
                                 </div>
                                 
-                                <div className="bg-slate-50 rounded-lg p-2 text-xs space-y-1.5">
+                                <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100">
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <Clock size={14} className="text-slate-400" />
-                                        <span>In: <span className="font-medium text-slate-800">{emp.checkIn}</span></span>
+                                        <span>In: <span className="font-bold text-slate-800">{emp.checkIn}</span></span>
                                     </div>
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <MapPin size={14} className="text-slate-400" />
-                                        <span className="truncate">{emp.location}</span>
+                                        <span className="truncate font-medium">{emp.location}</span>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-2 mt-auto">
-                                    <a href={`tel:${emp.phone}`} className="flex-1 bg-white border border-slate-200 text-slate-600 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-medical-600 flex items-center justify-center gap-1 transition-colors">
+                                    <a href={`tel:${emp.phone}`} className="flex-1 bg-white border border-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-medical-600 hover:border-medical-200 flex items-center justify-center gap-1.5 transition-colors">
                                         <Phone size={14} /> Call
                                     </a>
-                                    <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-50 hover:text-medical-600 flex items-center justify-center gap-1 transition-colors">
+                                    <button className="flex-1 bg-white border border-slate-200 text-slate-600 py-2 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-medical-600 hover:border-medical-200 flex items-center justify-center gap-1.5 transition-colors">
                                         <Mail size={14} /> Message
                                     </button>
                                 </div>
