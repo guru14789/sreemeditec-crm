@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Task } from '../types';
-import { CheckSquare, Clock, Plus, Filter, User, Calendar, MoreHorizontal, LayoutGrid, List as ListIcon, CheckCircle2, Circle, AlertCircle, ArrowRight, TrendingUp } from 'lucide-react';
+import { CheckSquare, Clock, Plus, Filter, User, Calendar, MoreHorizontal, LayoutGrid, List as ListIcon, CheckCircle2, Circle, AlertCircle, ArrowRight, TrendingUp, MapPin, X, MessageSquare, ShieldCheck } from 'lucide-react';
 
 interface TaskModuleProps {
     tasks: Task[];
@@ -9,10 +10,37 @@ interface TaskModuleProps {
     isAdmin: boolean;
 }
 
+// Haversine formula to calculate distance between two points
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    var R = 6371; // Radius of the earth in km
+    var dLat = deg2rad(lat2-lat1);  // deg2rad below
+    var dLon = deg2rad(lon2-lon1); 
+    var a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2)
+      ; 
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    var d = R * c; // Distance in km
+    return d;
+}
+
+function deg2rad(deg: number) {
+    return deg * (Math.PI/180)
+}
+
 export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, currentUser, isAdmin }) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({ priority: 'Medium', status: 'To Do', assignedTo: 'Unassigned' });
+  
+  // Exception Handling Modal State
+  const [showExceptionModal, setShowExceptionModal] = useState(false);
+  const [exceptionTask, setExceptionTask] = useState<Task | null>(null);
+  const [exceptionNote, setExceptionNote] = useState('');
+  
+  // Simulation State for Demo
+  const [simulateLocation, setSimulateLocation] = useState(false);
 
   // Filter tasks based on role: Admin sees all, Employee sees only theirs
   const visibleTasks = isAdmin ? tasks : tasks.filter(t => t.assignedTo === currentUser);
@@ -72,6 +100,72 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
     setNewTask({ priority: 'Medium', status: 'To Do', assignedTo: 'Unassigned' });
   };
 
+  const checkLocationAndComplete = (task: Task) => {
+      // If task has no coords, just complete it
+      if (!task.coords) {
+          updateTaskStatus(task.id, 'Done');
+          return;
+      }
+
+      // Geo-Fencing Logic
+      if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition((position) => {
+              const userLat = simulateLocation ? task.coords!.lat : position.coords.latitude;
+              const userLng = simulateLocation ? task.coords!.lng : position.coords.longitude;
+              
+              const distance = getDistanceFromLatLonInKm(
+                  userLat, userLng, 
+                  task.coords!.lat, task.coords!.lng
+              );
+
+              // STRICT REQUIREMENT: Must be within 2 KM
+              if (distance <= 2) {
+                  // Within 2km radius
+                  updateTaskStatus(task.id, 'Done');
+                  alert(`Location Verified! You are ${distance.toFixed(2)}km away. Task Completed.`);
+              } else {
+                  // Too far
+                  if(confirm(`You are ${distance.toFixed(2)}km away from the task location (Max 2km allowed). You cannot mark this as Done automatically.\n\nDo you want to request manual approval from Admin?`)) {
+                      setExceptionTask(task);
+                      setShowExceptionModal(true);
+                  }
+              }
+          }, (error) => {
+              alert("Error getting location. Please enable GPS.");
+          });
+      } else {
+          alert("Geolocation not supported.");
+      }
+  };
+
+  const handleRequestApproval = () => {
+      if (!exceptionTask) return;
+      
+      setTasks(prev => prev.map(t => t.id === exceptionTask.id ? {
+          ...t,
+          status: 'Review',
+          completionRequest: {
+              requested: true,
+              note: exceptionNote,
+              timestamp: new Date().toISOString()
+          }
+      } : t));
+
+      setShowExceptionModal(false);
+      setExceptionTask(null);
+      setExceptionNote('');
+  };
+
+  const handleAdminApprove = (task: Task) => {
+      if(confirm(`Approve task "${task.title}" completion?`)) {
+        setTasks(prev => prev.map(t => t.id === task.id ? {
+            ...t,
+            status: 'Done',
+            completionRequest: undefined // Clear request
+        } : t));
+      }
+  };
+
   const updateTaskStatus = (taskId: string, newStatus: Task['status']) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
   };
@@ -93,6 +187,13 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
             <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
                 {columnTasks.map(task => (
                     <div key={task.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 group relative">
+                         {/* Exception Badge */}
+                        {task.completionRequest?.requested && status === 'Review' && (
+                            <div className="bg-orange-50 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-lg mb-2 flex items-center gap-1 border border-orange-100">
+                                <AlertCircle size={12} /> Approval Requested
+                            </div>
+                        )}
+
                         <div className="flex justify-between items-start mb-2">
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wide font-bold border ${getPriorityColor(task.priority)}`}>
                                 {task.priority}
@@ -102,7 +203,13 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                             </button>
                         </div>
                         <h5 className="font-semibold text-slate-800 text-sm mb-1">{task.title}</h5>
-                        <p className="text-xs text-slate-500 line-clamp-2 mb-4 leading-relaxed">{task.description}</p>
+                        <p className="text-xs text-slate-500 line-clamp-2 mb-2 leading-relaxed">{task.description}</p>
+                        
+                        {task.locationName && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium mb-3">
+                                <MapPin size={12} /> {task.locationName}
+                            </div>
+                        )}
                         
                         <div className="flex items-center justify-between pt-3 border-t border-slate-50">
                             <div className="flex items-center gap-2">
@@ -116,14 +223,49 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                             </div>
                         </div>
                         
-                        {/* Hover Actions - Only allow moving forward if it's the user's task or Admin */}
-                        {(status !== 'Done') && (isAdmin || task.assignedTo === currentUser) && (
-                            <button 
-                                onClick={() => updateTaskStatus(task.id, status === 'To Do' ? 'In Progress' : status === 'In Progress' ? 'Review' : 'Done')}
-                                className="absolute -right-2 top-1/2 -translate-y-1/2 bg-white text-medical-600 p-2 rounded-full shadow-lg border border-medical-50 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all hover:bg-medical-50 z-10"
-                                title="Move to Next Stage">
-                                <ArrowRight size={16} />
-                            </button>
+                        {/* Action Buttons */}
+                        {status !== 'Done' && (
+                             <div className="absolute -right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all z-10 flex flex-col gap-1">
+                                
+                                {/* Employee Logic */}
+                                {!isAdmin && task.assignedTo === currentUser && (
+                                    <>
+                                        {status === 'To Do' && (
+                                            <button 
+                                                onClick={() => updateTaskStatus(task.id, 'In Progress')}
+                                                className="bg-white text-medical-600 p-2 rounded-full shadow-lg border border-medical-50 hover:bg-medical-50" title="Start Task">
+                                                <ArrowRight size={16} />
+                                            </button>
+                                        )}
+                                        {status === 'In Progress' && (
+                                             <button 
+                                                onClick={() => checkLocationAndComplete(task)}
+                                                className="bg-medical-600 text-white p-2 rounded-full shadow-lg border border-medical-600 hover:bg-medical-700" title="Complete (Verify Location)">
+                                                <CheckSquare size={16} />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Admin Logic */}
+                                {isAdmin && (
+                                    <>
+                                        {task.completionRequest?.requested ? (
+                                            <button 
+                                                onClick={() => handleAdminApprove(task)}
+                                                className="bg-emerald-600 text-white p-2 rounded-full shadow-lg border border-emerald-600 hover:bg-emerald-700" title="Approve Request">
+                                                <ShieldCheck size={16} />
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={() => updateTaskStatus(task.id, status === 'To Do' ? 'In Progress' : status === 'In Progress' ? 'Review' : 'Done')}
+                                                className="bg-white text-medical-600 p-2 rounded-full shadow-lg border border-medical-50 hover:bg-medical-50" title="Move Next">
+                                                <ArrowRight size={16} />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                             </div>
                         )}
                     </div>
                 ))}
@@ -160,6 +302,14 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
             </div>
             
             <div className="flex items-center gap-3">
+                {/* Mock GPS Toggle */}
+                <button 
+                    onClick={() => setSimulateLocation(!simulateLocation)}
+                    className={`text-xs px-3 py-2 rounded-xl font-bold border transition-colors ${simulateLocation ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}
+                >
+                    {simulateLocation ? 'GPS Sim: Active' : 'GPS Sim: Off'}
+                </button>
+
                 <div className="flex bg-slate-100/80 p-1 rounded-xl">
                      <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg transition-all ${viewMode === 'kanban' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
                         <LayoutGrid size={18} />
@@ -178,9 +328,9 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
             </div>
         </div>
 
-        {/* Stats Strip - Updated to Match Dashboard Dark Theme */}
+        {/* Stats Strip */}
         <div className="flex gap-4 overflow-x-auto pb-2 shrink-0">
-            {/* Total Tasks - Slate/Dark Theme */}
+            {/* Total Tasks */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-3xl shadow-lg shadow-slate-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden min-w-[240px] flex-1">
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                     <CheckSquare size={100} />
@@ -199,7 +349,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                 </div>
             </div>
 
-            {/* Completed - Emerald Theme */}
+            {/* Completed */}
             <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl shadow-lg shadow-emerald-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden min-w-[240px] flex-1">
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                     <CheckCircle2 size={100} />
@@ -218,7 +368,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                 </div>
             </div>
 
-            {/* High Priority - Rose Theme */}
+            {/* High Priority */}
             <div className="bg-gradient-to-br from-rose-800 to-red-900 p-6 rounded-3xl shadow-lg shadow-rose-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden min-w-[240px] flex-1">
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                     <AlertCircle size={100} />
@@ -237,7 +387,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                 </div>
             </div>
 
-            {/* Pending - Blue Theme */}
+            {/* Pending */}
             <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-3xl shadow-lg shadow-blue-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden min-w-[240px] flex-1">
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Clock size={100} />
@@ -386,6 +536,39 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                     <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/80 rounded-b-3xl">
                         <button onClick={() => setShowAddTaskModal(false)} className="px-5 py-2.5 text-slate-600 text-sm font-bold hover:bg-slate-200/80 rounded-xl transition-colors">Cancel</button>
                         <button onClick={handleAddTask} className="px-6 py-2.5 bg-medical-600 text-white text-sm font-bold rounded-xl hover:bg-medical-700 shadow-lg shadow-medical-500/20 transition-all transform active:scale-95">Create Task</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Exception Request Modal */}
+        {showExceptionModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full flex flex-col overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+                    <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-orange-50 to-white">
+                        <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                            <AlertCircle className="text-orange-500" size={24}/> Request Manual Approval
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">You are not at the required location. Please explain why.</p>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h4 className="font-bold text-sm text-slate-800 mb-1">{exceptionTask?.title}</h4>
+                            <p className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={12}/> {exceptionTask?.locationName}</p>
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Reason / Note</label>
+                             <textarea 
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" rows={4}
+                                value={exceptionNote} 
+                                onChange={e => setExceptionNote(e.target.value)} 
+                                placeholder="e.g. GPS signal is weak, or client met at a different location..." 
+                             />
+                        </div>
+                    </div>
+                     <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/80 rounded-b-3xl">
+                        <button onClick={() => setShowExceptionModal(false)} className="px-5 py-2.5 text-slate-600 text-sm font-bold hover:bg-slate-200/80 rounded-xl transition-colors">Cancel</button>
+                        <button onClick={handleRequestApproval} className="px-6 py-2.5 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 shadow-lg shadow-orange-500/20 transition-all transform active:scale-95">Submit Request</button>
                     </div>
                 </div>
             </div>

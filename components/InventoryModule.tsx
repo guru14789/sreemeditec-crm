@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
-import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save } from 'lucide-react';
+import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet } from 'lucide-react';
 
 const MOCK_INVENTORY: Product[] = [
   { id: 'P-1', name: 'MRI Coil (Head)', category: 'Spare Part', sku: 'MRI-H-001', stock: 2, price: 15000, minLevel: 3, location: 'Shelf A1' },
@@ -75,8 +75,51 @@ export const InventoryModule: React.FC = () => {
       return acc + (quantityNeeded * item.price);
   }, 0);
 
+  // Calculate Stats
+  const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.price), 0);
+  const totalStockCount = products.reduce((acc, product) => acc + product.stock, 0);
+
   return (
     <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
+      
+      {/* Inventory Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 rounded-3xl text-white shadow-lg shadow-emerald-900/20 relative overflow-hidden group h-full flex flex-col justify-between">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Wallet size={100} />
+              </div>
+              <div className="relative z-10">
+                  <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+                      <Wallet size={14} /> Total Inventory Value
+                  </p>
+                  <h3 className="text-3xl font-black tracking-tight mt-1">${totalInventoryValue.toLocaleString()}</h3>
+                  <p className="text-xs text-emerald-100/60 mt-2 font-medium">Estimated asset value</p>
+              </div>
+          </div>
+          
+           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
+              <div>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Products</p>
+                  <h3 className="text-2xl font-black text-slate-800">{products.length}</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-1">{totalStockCount} units in stock</p>
+              </div>
+               <div className="bg-slate-100 p-3 rounded-2xl text-slate-600 group-hover:scale-110 transition-transform">
+                  <Package size={24} />
+              </div>
+          </div>
+
+           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
+              <div>
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Low Stock Items</p>
+                  <h3 className={`text-2xl font-black ${lowStockItems.length > 0 ? 'text-red-600' : 'text-slate-800'}`}>{lowStockItems.length}</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-1">Requires re-ordering</p>
+              </div>
+               <div className={`p-3 rounded-2xl group-hover:scale-110 transition-transform ${lowStockItems.length > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
+                  <AlertTriangle size={24} />
+              </div>
+          </div>
+      </div>
+
       {/* Low Stock Alert Banner */}
       {showNotification && lowStockItems.length > 0 && (
         <div className="bg-gradient-to-r from-red-50 to-white border border-red-100 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 shrink-0 shadow-sm">

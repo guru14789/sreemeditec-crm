@@ -4,7 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, Package, Wrench, 
   UserCheck, Receipt, ShoppingCart, Headset, BarChart3, 
-  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink
+  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { LeadsModule } from './components/LeadsModule';
@@ -14,6 +14,9 @@ import { AttendanceModule } from './components/AttendanceModule';
 import { HRModule } from './components/HRModule';
 import { TaskModule } from './components/TaskModule';
 import { ProfileModule } from './components/ProfileModule';
+import { BillingModule } from './components/BillingModule';
+import { DeliveryChallanModule } from './components/DeliveryChallanModule';
+import { ReportsModule } from './components/ReportsModule';
 import { TabView, Task, AppNotification } from './types';
 
 // Placeholder for unimplemented modules
@@ -30,12 +33,53 @@ const PlaceholderModule: React.FC<{title: string, desc: string}> = ({title, desc
 
 type UserRole = 'Admin' | 'Employee';
 
-// Initial Mock Tasks moved to App level
+// Initial Mock Tasks with Geolocation Data
 const INITIAL_TASKS: Task[] = [
-  { id: 'T-1', title: 'Prepare Quote for Apollo', description: 'Include 3 years AMC pricing for MRI machine.', assignedTo: 'Rahul Sharma', priority: 'High', status: 'To Do', dueDate: '2023-10-28', relatedTo: 'Apollo Clinic' },
-  { id: 'T-2', title: 'Service Visit Report', description: 'Upload the signed service report for Westview Clinic.', assignedTo: 'Mike Ross', priority: 'Medium', status: 'In Progress', dueDate: '2023-10-27', relatedTo: 'T-101' },
-  { id: 'T-3', title: 'Inventory Audit', description: 'Count physical stock of consumables in Warehouse B.', assignedTo: 'David Kim', priority: 'Low', status: 'Done', dueDate: '2023-10-25' },
-  { id: 'T-4', title: 'Client Follow-up', description: 'Call Dr. Smith regarding the new X-Ray inquiry.', assignedTo: 'Rahul Sharma', priority: 'High', status: 'To Do', dueDate: '2023-10-29', relatedTo: 'Dr. Sarah Smith' },
+  { 
+    id: 'T-1', 
+    title: 'Site Visit: Apollo Clinic', 
+    description: 'Perform routine maintenance check on MRI machine.', 
+    assignedTo: 'Rahul Sharma', 
+    priority: 'High', 
+    status: 'To Do', 
+    dueDate: '2023-10-28', 
+    relatedTo: 'Apollo Clinic',
+    locationName: 'Apollo Clinic, Indiranagar',
+    coords: { lat: 12.9716, lng: 77.5946 } // Example: Bangalore Central
+  },
+  { 
+    id: 'T-2', 
+    title: 'Deliver Consumables', 
+    description: 'Deliver 50 boxes of syringes to Westview Clinic.', 
+    assignedTo: 'Rahul Sharma', 
+    priority: 'Medium', 
+    status: 'In Progress', 
+    dueDate: '2023-10-27', 
+    relatedTo: 'Westview Clinic',
+    locationName: 'Westview Clinic, Koramangala',
+    coords: { lat: 12.9352, lng: 77.6245 } 
+  },
+  { 
+    id: 'T-3', 
+    title: 'Inventory Audit', 
+    description: 'Count physical stock of consumables in Warehouse B.', 
+    assignedTo: 'David Kim', 
+    priority: 'Low', 
+    status: 'Done', 
+    dueDate: '2023-10-25',
+    locationName: 'Main Warehouse'
+  },
+  { 
+    id: 'T-4', 
+    title: 'Client Follow-up', 
+    description: 'Call Dr. Smith regarding the new X-Ray inquiry.', 
+    assignedTo: 'Rahul Sharma', 
+    priority: 'High', 
+    status: 'To Do', 
+    dueDate: '2023-10-29', 
+    relatedTo: 'Dr. Sarah Smith',
+    locationName: 'Remote / Phone'
+  },
 ];
 
 const INITIAL_NOTIFICATIONS: AppNotification[] = [
@@ -123,6 +167,7 @@ const App: React.FC = () => {
     TabView.SERVICE,
     TabView.INVENTORY,
     TabView.QUOTES,
+    TabView.DELIVERY,
     TabView.SUPPORT,
     TabView.PROFILE
   ];
@@ -165,7 +210,7 @@ const App: React.FC = () => {
       case TabView.LEADS: return <LeadsModule />;
       case TabView.SERVICE: return <ServiceModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser} userRole={userRole} />;
       case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUser} isAdmin={userRole === 'Admin'} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={setUserRole} currentUser={currentUser} />;
@@ -187,9 +232,10 @@ const App: React.FC = () => {
             />
         </div>
       );
-      case TabView.BILLING: return <PlaceholderModule title="Billing & GST" desc="Generate GST compliant invoices, track payments, and manage expenses." />;
+      case TabView.BILLING: return <BillingModule />;
+      case TabView.DELIVERY: return <DeliveryChallanModule />;
+      case TabView.REPORTS: return <ReportsModule />;
       case TabView.SUPPORT: return <PlaceholderModule title="Support Tickets" desc="Customer support portal for ticket management and resolution tracking." />;
-      case TabView.REPORTS: return <PlaceholderModule title="Reports & Analytics" desc="Deep dive analytics into sales performance, service efficiency, and financial health." />;
       default: return <Dashboard />;
     }
   };
@@ -241,6 +287,7 @@ const App: React.FC = () => {
             {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Operations</div>}
             <NavItem tab={TabView.TASKS} icon={CheckSquare} label="Task Manager" />
             <NavItem tab={TabView.INVENTORY} icon={Package} label="Inventory" />
+            <NavItem tab={TabView.DELIVERY} icon={Truck} label="Delivery Challan" />
             <NavItem tab={TabView.SERVICE} icon={Wrench} label="Service & AMC" />
             <NavItem tab={TabView.ATTENDANCE} icon={Clock} label="Attendance" />
             
@@ -290,7 +337,10 @@ const App: React.FC = () => {
                         {activeTab === TabView.HR && 'HR & Payroll Management'}
                         {activeTab === TabView.PROFILE && 'User Profile'}
                         {activeTab === TabView.QUOTES && 'Quotation Builder'}
-                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES].includes(activeTab) && 'Module'}
+                        {activeTab === TabView.BILLING && 'Invoices & Billing'}
+                        {activeTab === TabView.DELIVERY && 'Delivery Challans'}
+                        {activeTab === TabView.REPORTS && 'Analytics & Reports'}
+                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES, TabView.BILLING, TabView.DELIVERY, TabView.REPORTS].includes(activeTab) && 'Module'}
                     </h2>
                     <p className="text-xs text-slate-400 font-medium hidden sm:block">Overview and updates</p>
                 </div>

@@ -1,4 +1,5 @@
 
+
 export enum LeadStatus {
   NEW = 'New',
   CONTACTED = 'Contacted',
@@ -126,6 +127,79 @@ export interface Task {
   status: 'To Do' | 'In Progress' | 'Review' | 'Done';
   dueDate: string;
   relatedTo?: string; // e.g., Lead Name or Ticket ID
+  
+  // New Fields for Geo-Fencing
+  coords?: { lat: number; lng: number }; // Target location coordinates
+  locationName?: string; // Human readable location
+  
+  // Exception Handling
+  completionRequest?: {
+    requested: boolean;
+    note: string;
+    timestamp: string;
+  };
+}
+
+// Billing & Invoicing
+export interface InvoiceItem {
+  id: string;
+  description: string; // Product Name
+  hsn: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number; // GST %
+  amount: number; // Qty * UnitPrice
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string; // Used as SMCPO NO in template
+  date: string;
+  dueDate: string;
+  customerName: string;
+  customerHospital: string;
+  customerAddress: string;
+  customerGstin?: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  status: 'Paid' | 'Pending' | 'Overdue';
+  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI';
+  
+  // New Fields for PO Format
+  smcpoNumber?: string;
+  cpoNumber?: string;
+  cpoDate?: string;
+  deliveryAddress?: string;
+  discount?: number;
+  advanceAmount?: number;
+  advanceDate?: string;
+  advanceMode?: string;
+  bankDetails?: string;
+  deliveryTime?: string;
+  specialNote?: string;
+}
+
+// Delivery Challan
+export interface ChallanItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit?: string; // e.g., Box, Pcs
+  remarks?: string;
+}
+
+export interface DeliveryChallan {
+  id: string;
+  challanNumber: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  vehicleNumber?: string;
+  items: ChallanItem[];
+  status: 'Dispatched' | 'Delivered' | 'Returned';
+  referenceOrder?: string;
 }
 
 // User Profile
@@ -164,6 +238,7 @@ export enum TabView {
   ATTENDANCE = 'attendance',
   TASKS = 'tasks',
   BILLING = 'billing',
+  DELIVERY = 'delivery',
   SUPPORT = 'support',
   REPORTS = 'reports',
   PROFILE = 'profile',

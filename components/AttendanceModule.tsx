@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, User, CheckCircle, XCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare } from 'lucide-react';
+import { Clock, MapPin, User, CheckCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare, Timer, PauseCircle } from 'lucide-react';
 import { Task } from '../types';
 
 interface Employee {
@@ -27,12 +28,18 @@ type WorkMode = 'Office' | 'Field' | 'Remote';
 interface AttendanceModuleProps {
     tasks: Task[];
     currentUser: string;
+    userRole: 'Admin' | 'Employee';
 }
 
-export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, currentUser }) => {
+export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, currentUser, userRole }) => {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [checkInTime, setCheckInTime] = useState<string | null>(null);
+  
+  // State for accumulated time calculation
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [accumulatedMs, setAccumulatedMs] = useState(0);
+  const [checkInTimeStr, setCheckInTimeStr] = useState<string>('--:--');
+
   const [workMode, setWorkMode] = useState<WorkMode>('Office');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [filterStatus, setFilterStatus] = useState<string>('All');
@@ -41,53 +48,118 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
 
-  // Check for blocking tasks
-  const blockingTasks = tasks.filter(t => t.assignedTo === currentUser && t.status === 'To Do');
-  const hasPendingTasks = blockingTasks.length > 0;
+  // Constants
+  const REQUIRED_OFFICE_HOURS = 7;
+
+  // Field Staff Logic: Tasks for Today
+  const myTasksToday = tasks.filter(t => t.assignedTo === currentUser);
+  const pendingTasks = myTasksToday.filter(t => t.status !== 'Done');
+  const completedTasks = myTasksToday.filter(t => t.status === 'Done');
+  
+  const taskCompletionPercentage = myTasksToday.length > 0 
+    ? Math.round((completedTasks.length / myTasksToday.length) * 100) 
+    : 100;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const handleCheckInOut = () => {
-    if (hasPendingTasks && !isCheckedIn) {
-        // Prevent checkin
-        return;
-    }
+  // Helper: Calculate duration for other staff based on simple string check-in
+  const calculateStaffDuration = (checkInStr: string | null) => {
+      if (!checkInStr || checkInStr === '--') return '--';
+      
+      const timeMatch = checkInStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!timeMatch) return '--';
 
+      let [_, hoursStr, minsStr, modifier] = timeMatch;
+      let hours = parseInt(hoursStr);
+      const minutes = parseInt(minsStr);
+      modifier = modifier.toUpperCase();
+
+      if (modifier === 'PM' && hours < 12) hours += 12;
+      if (modifier === 'AM' && hours === 12) hours = 0;
+
+      const checkInDate = new Date(currentTime);
+      checkInDate.setHours(hours, minutes, 0, 0);
+
+      // Handle edge case where check-in looks like it's in future due to clock sync/mock data issues
+      if (checkInDate > currentTime) return '0h 0m';
+
+      const diffMs = currentTime.getTime() - checkInDate.getTime();
+      const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      return `${diffHrs}h ${diffMins}m`;
+  };
+
+  // Helper: Calculate precise duration for current user
+  const getTotalWorkedMs = () => {
+      let currentSessionMs = 0;
+      if (isCheckedIn && sessionStartTime) {
+          currentSessionMs = currentTime.getTime() - sessionStartTime.getTime();
+      }
+      return accumulatedMs + currentSessionMs;
+  };
+
+  const formatDuration = (ms: number) => {
+      if (ms < 0) ms = 0;
+      const hours = Math.floor(ms / (1000 * 60 * 60));
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
+  };
+
+  const totalWorkedMs = getTotalWorkedMs();
+  const totalWorkedHours = totalWorkedMs / (1000 * 60 * 60);
+  
+  // Logic rules for finishing the day
+  // Office: Must work 7 hours to "Confirm". Before that, it's just "Check Out (Pause)".
+  // Field: Must complete all tasks to "Confirm". Before that, it's just "Check Out (Pause)".
+  const isOfficeHoursComplete = totalWorkedHours >= REQUIRED_OFFICE_HOURS;
+  
+  const canConfirmAttendance = workMode === 'Field' 
+    ? pendingTasks.length === 0 
+    : isOfficeHoursComplete;
+
+  const handleCheckInOut = () => {
+    // If currently checked in, we are either "Pausing" (Break) or "Confirming" (Done)
     if (isCheckedIn) {
-      setIsCheckedIn(false);
-      setCheckInTime(null);
-      setLocationCoords(null);
-      setGeoError(null);
+        // Calculate session time to add to total
+        const currentSessionMs = currentTime.getTime() - (sessionStartTime?.getTime() || currentTime.getTime());
+        setAccumulatedMs(prev => prev + currentSessionMs);
+        setSessionStartTime(null);
+        setIsCheckedIn(false);
+        setLocationCoords(null);
+        setGeoError(null);
+
+        if (canConfirmAttendance) {
+             alert(`Attendance Confirmed! Total Worked: ${formatDuration(accumulatedMs + currentSessionMs)}.`);
+             // Here you would typically send the final log to the backend
+             // Reset for next day simulation if needed, or keep as "Done" state
+        }
     } else {
+      // Checking In (Starting/Resuming)
       if (workMode === 'Field') {
         setIsGettingLocation(true);
         setGeoError(null);
 
         if (!navigator.geolocation) {
-            setGeoError("Geolocation is not supported by your browser");
+            setGeoError("Geolocation is not supported");
             setIsGettingLocation(false);
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
-                setLocationCoords({ lat: latitude, lng: longitude });
+                setLocationCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
                 performCheckIn();
                 setIsGettingLocation(false);
             },
             (error) => {
-                let msg = "Unable to retrieve location.";
-                if (error.code === 1) msg = "Location permission denied. Please enable GPS.";
-                else if (error.code === 2) msg = "Position unavailable. Check your GPS signal.";
-                else if (error.code === 3) msg = "GPS timeout. Try again.";
-                setGeoError(msg);
+                setGeoError("GPS Signal Lost. Try again.");
                 setIsGettingLocation(false);
             },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 10000 }
         );
       } else {
         performCheckIn();
@@ -97,7 +169,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
 
   const performCheckIn = () => {
       setIsCheckedIn(true);
-      setCheckInTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setSessionStartTime(new Date());
+      setCheckInTimeStr(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
   };
 
   const getStatusBadge = (status: string) => {
@@ -126,20 +199,51 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
       
-      {/* Pending Tasks Warning Banner */}
-      {hasPendingTasks && !isCheckedIn && (
-        <div className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 rounded-3xl p-5 flex flex-col sm:flex-row items-center gap-4 shrink-0 shadow-sm animate-in slide-in-from-top-2">
-            <div className="bg-indigo-100 p-2.5 rounded-full text-indigo-600 shrink-0">
-                <CheckSquare size={20} />
+      {/* Field Staff Progress Banner */}
+      {workMode === 'Field' && isCheckedIn && (
+         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-3xl p-5 shrink-0 shadow-sm animate-in slide-in-from-top-2">
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-indigo-900 flex items-center gap-2">
+                    <CheckSquare size={18} /> Field Task Progress
+                </h4>
+                <span className="text-xs font-bold bg-white px-2 py-1 rounded-lg border border-blue-100 text-indigo-600">
+                    {completedTasks.length} / {myTasksToday.length} Completed
+                </span>
             </div>
-            <div className="flex-1">
-                <h4 className="font-bold text-indigo-900">Task Review Required</h4>
-                <p className="text-sm text-indigo-700/80">
-                    You have <span className="font-bold">{blockingTasks.length} pending task(s)</span> assigned to you. 
-                    Please mark them as 'In Progress' or 'Done' in the Task Manager to unlock daily attendance.
-                </p>
+            <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-blue-100">
+                <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500" style={{ width: `${taskCompletionPercentage}%` }}></div>
             </div>
-        </div>
+            <p className="text-xs text-indigo-700/70">
+                {pendingTasks.length > 0 
+                    ? `Complete ${pendingTasks.length} more tasks to confirm attendance.` 
+                    : "All tasks completed! You can now confirm your daily attendance."}
+            </p>
+         </div>
+      )}
+
+      {/* Office Staff Progress Banner */}
+      {workMode === 'Office' && (isCheckedIn || accumulatedMs > 0) && (
+         <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-3xl p-5 shrink-0 shadow-sm animate-in slide-in-from-top-2">
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-bold text-emerald-900 flex items-center gap-2">
+                    <Clock size={18} /> Daily Work Hours
+                </h4>
+                <span className="text-xs font-bold bg-white px-2 py-1 rounded-lg border border-emerald-100 text-emerald-600">
+                    {formatDuration(totalWorkedMs)} / {REQUIRED_OFFICE_HOURS}h Goal
+                </span>
+            </div>
+            <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-emerald-100 overflow-hidden">
+                <div 
+                    className={`h-2 rounded-full transition-all duration-500 ${isOfficeHoursComplete ? 'bg-emerald-500' : 'bg-emerald-400'}`} 
+                    style={{ width: `${Math.min((totalWorkedHours / REQUIRED_OFFICE_HOURS) * 100, 100)}%` }}
+                ></div>
+            </div>
+            <p className="text-xs text-emerald-700/70">
+                {!isOfficeHoursComplete 
+                    ? `Work ${formatDuration((REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs)} more to complete your day.` 
+                    : "You have completed your required hours. You can now confirm attendance."}
+            </p>
+         </div>
       )}
       
       {/* Top Stats Cards */}
@@ -187,20 +291,29 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
         {/* Check-In/Out Widget */}
         <div className="w-full lg:w-1/3 flex flex-col gap-6 shrink-0">
             <div className="bg-white rounded-3xl shadow-lg shadow-slate-200 border border-slate-100 p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group">
-                <div className={`absolute top-0 left-0 w-full h-1.5 ${isCheckedIn ? 'bg-gradient-to-r from-green-400 to-emerald-500' : hasPendingTasks ? 'bg-slate-300' : 'bg-slate-200'}`}></div>
+                <div className={`absolute top-0 left-0 w-full h-1.5 ${isCheckedIn ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-slate-200'}`}></div>
                 
                 <h3 className="text-lg font-bold text-slate-800 mb-1">My Attendance</h3>
                 <p className="text-slate-400 text-xs font-medium mb-8">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 
                 <div className="mb-8 relative">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Current Time</p>
                     <div className="text-5xl font-black text-slate-800 tracking-tight font-mono">
                         {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         <span className="text-xl text-slate-400 ml-1">{currentTime.toLocaleTimeString([], { second: '2-digit' }).slice(-2)}</span>
                     </div>
+                    {/* Live Worked Hours Display */}
+                    <div className="mt-4 flex flex-col items-center justify-center animate-in fade-in">
+                         <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-5 py-2 rounded-2xl font-black text-xl shadow-sm border border-emerald-100">
+                             <Timer size={22} className="text-emerald-500" />
+                             <span>{formatDuration(totalWorkedMs)}</span>
+                         </div>
+                         <span className="text-[10px] font-bold text-emerald-500/70 mt-1 uppercase tracking-wider">Worked Today</span>
+                    </div>
                 </div>
 
                 {/* Work Mode Selector */}
-                {!isCheckedIn && (
+                {!isCheckedIn && accumulatedMs === 0 && (
                     <div className="w-full mb-8">
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block text-center tracking-widest">Select Work Mode</label>
                         <div className="flex gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
@@ -208,12 +321,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                 <button
                                     key={mode}
                                     onClick={() => setWorkMode(mode)}
-                                    disabled={hasPendingTasks}
                                     className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition-all ${
                                         workMode === mode 
                                             ? 'bg-white text-medical-600 shadow-md shadow-slate-200 ring-1 ring-slate-100' 
                                             : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                                    } ${hasPendingTasks ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    }`}
                                 >
                                     {getModeIcon(mode)} {mode}
                                 </button>
@@ -226,7 +338,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                 <div className={`bg-slate-50/50 rounded-2xl p-4 w-full mb-6 flex items-center justify-between border ${geoError ? 'border-red-200 bg-red-50' : 'border-slate-100'}`}>
                     <div className="text-left">
                         <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${geoError ? 'text-red-500' : 'text-slate-400'}`}>
-                            {geoError ? 'Check-in Error' : 'Current Status'}
+                            {geoError ? 'Error' : 'Current Status'}
                         </p>
                         
                         {geoError ? (
@@ -238,7 +350,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                 {isCheckedIn ? (
                                     <>
                                         {getModeIcon(workMode)}
-                                        <span>Checked In ({workMode})</span>
+                                        <span>Checked In</span>
                                     </>
                                 ) : (
                                     'Not Checked In'
@@ -246,22 +358,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                             </div>
                         )}
                     </div>
-                    {isCheckedIn && !geoError && (
+                    
+                    {!geoError && isCheckedIn && (
                         <div className="text-right">
-                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Time</p>
-                             <p className="font-bold text-slate-800">{checkInTime}</p>
+                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Start Time</p>
+                             <div className="text-[10px] font-bold text-slate-600 mt-1 font-mono">{checkInTimeStr}</div>
                         </div>
                     )}
                 </div>
 
                 <button 
                     onClick={handleCheckInOut}
-                    disabled={isGettingLocation || (hasPendingTasks && !isCheckedIn)}
+                    disabled={isGettingLocation || (isCheckedIn && !canConfirmAttendance && workMode === 'Field')}
                     className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all transform active:scale-95 text-sm uppercase tracking-wide shadow-lg ${
-                        hasPendingTasks && !isCheckedIn
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none border-2 border-slate-100'
-                        : isCheckedIn 
-                            ? 'bg-white text-red-500 hover:bg-red-50 border-2 border-red-100 shadow-red-100' 
+                        isCheckedIn 
+                            ? canConfirmAttendance
+                                ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-green-500/30'
+                                : 'bg-white text-orange-500 hover:bg-orange-50 border-2 border-orange-100 shadow-orange-100' 
                             : 'bg-gradient-to-r from-medical-600 to-teal-500 text-white hover:shadow-medical-500/30 border-2 border-transparent disabled:opacity-70 disabled:cursor-not-allowed'
                     }`}
                 >
@@ -270,17 +383,19 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             Acquiring GPS...
                         </>
-                    ) : hasPendingTasks && !isCheckedIn ? (
-                        <>
-                            <CheckSquare size={20} /> Tasks Pending
-                        </>
                     ) : isCheckedIn ? (
-                        <>
-                            <XCircle size={20} /> Check Out
-                        </>
+                         canConfirmAttendance ? (
+                            <>
+                                <CheckCircle size={20} /> Confirm Attendance (End Day)
+                            </>
+                         ) : (
+                            <>
+                                <PauseCircle size={20} /> Check Out (Pause/Break)
+                            </>
+                         )
                     ) : (
                         <>
-                            <Clock size={20} /> Check In Now
+                            <Clock size={20} /> {accumulatedMs > 0 ? 'Resume Work' : 'Check In Now'}
                         </>
                     )}
                 </button>
@@ -394,6 +509,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                 <th className="px-6 py-4">Employee</th>
                                 <th className="px-6 py-4">Role</th>
                                 <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Worked Hours</th>
                                 <th className="px-6 py-4">Location</th>
                                 <th className="px-6 py-4 text-right">Action</th>
                             </tr>
@@ -417,6 +533,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusBadge(emp.status)}`}>
                                             {emp.status}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs bg-slate-50 px-2 py-1 rounded-lg w-fit border border-slate-100">
+                                            <Timer size={14} className="text-emerald-500" />
+                                            {calculateStaffDuration(emp.checkIn)}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-1.5 text-slate-600 text-xs font-medium">
@@ -456,6 +578,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <Clock size={14} className="text-slate-400" />
                                         <span>In: <span className="font-bold text-slate-800">{emp.checkIn}</span></span>
+                                        {emp.checkIn !== '--' && (
+                                            <span className="text-[10px] bg-white text-emerald-700 px-1.5 py-0.5 rounded ml-auto font-bold border border-slate-200 flex items-center gap-1 shadow-sm">
+                                                <Timer size={10} /> {calculateStaffDuration(emp.checkIn)}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <MapPin size={14} className="text-slate-400" />
