@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { DeliveryChallan, ChallanItem } from '../types';
 import { Truck, Plus, FileText, Printer, Search, Filter, Trash2, Calendar, Building2, User, Package, MapPin, CheckCircle2, Box, ArrowRight, X } from 'lucide-react';
+import { useData } from './DataContext';
 
 const MOCK_CHALLANS: DeliveryChallan[] = [
   {
@@ -34,6 +35,7 @@ const MOCK_CHALLANS: DeliveryChallan[] = [
 ];
 
 export const DeliveryChallanModule: React.FC = () => {
+  const { clients, products } = useData();
   const [challans, setChallans] = useState<DeliveryChallan[]>(MOCK_CHALLANS);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -66,6 +68,15 @@ export const DeliveryChallanModule: React.FC = () => {
 
   const removeItem = (id: string) => {
       setNewChallan(prev => ({ ...prev, items: (prev.items || []).filter(i => i.id !== id) }));
+  };
+
+  const handleCustomerChange = (name: string) => {
+      const client = clients.find(c => c.name === name);
+      setNewChallan(prev => ({
+          ...prev,
+          customerName: name,
+          ...(client && { customerAddress: client.address })
+      }));
   };
 
   const handleSaveChallan = () => {
@@ -249,8 +260,18 @@ export const DeliveryChallanModule: React.FC = () => {
                                   <User size={16} /> Consignee Details
                               </h4>
                               <div className="grid grid-cols-1 gap-3">
-                                  <input type="text" placeholder="Customer Name *" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2 text-sm outline-none focus:border-medical-500"
-                                      value={newChallan.customerName || ''} onChange={e => setNewChallan({...newChallan, customerName: e.target.value})} />
+                                  <input 
+                                      type="text" 
+                                      list="challan-clients" 
+                                      placeholder="Customer Name *" 
+                                      className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2 text-sm outline-none focus:border-medical-500"
+                                      value={newChallan.customerName || ''} 
+                                      onChange={e => handleCustomerChange(e.target.value)} 
+                                  />
+                                  <datalist id="challan-clients">
+                                      {clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}
+                                  </datalist>
+
                                   <input type="text" placeholder="Delivery Address" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2 text-sm outline-none focus:border-medical-500"
                                       value={newChallan.customerAddress || ''} onChange={e => setNewChallan({...newChallan, customerAddress: e.target.value})} />
                                   <input type="text" placeholder="Reference Order No." className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2 text-sm outline-none focus:border-medical-500"
@@ -297,9 +318,13 @@ export const DeliveryChallanModule: React.FC = () => {
                                       {(newChallan.items || []).map((item) => (
                                           <tr key={item.id} className="bg-white">
                                               <td className="p-2">
-                                                  <input type="text" placeholder="Item Description" 
-                                                      className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-medical-500"
-                                                      value={item.description} onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                                  <input 
+                                                    type="text" 
+                                                    list="challan-products"
+                                                    placeholder="Item Description" 
+                                                    className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:border-medical-500"
+                                                    value={item.description} 
+                                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                                   />
                                               </td>
                                               <td className="p-2">
@@ -340,6 +365,12 @@ export const DeliveryChallanModule: React.FC = () => {
                                   </button>
                               </div>
                           </div>
+                          
+                          <datalist id="challan-products">
+                              {products.map((p, idx) => (
+                                  <option key={idx} value={p.name} />
+                              ))}
+                          </datalist>
                       </div>
                   </div>
 

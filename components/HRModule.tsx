@@ -15,6 +15,20 @@ const MOCK_LEAVES: LeaveRequest[] = [
   { id: 'L-102', employeeName: 'Mike Ross', type: 'Casual', startDate: '2023-11-10', endDate: '2023-11-12', reason: 'Family Function', status: 'Pending' },
 ];
 
+// Helper for Indian Number Formatting (K, L, Cr)
+const formatIndianNumber = (num: number) => {
+  if (num >= 10000000) {
+    return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+  }
+  if (num >= 100000) {
+    return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+  }
+  return num.toString();
+};
+
 const calculatePayrollForEmployee = (emp: Employee, lopDays: number = 0): PayrollRecord => {
   const TOTAL_WORKING_DAYS = 30;
   const paidDays = TOTAL_WORKING_DAYS - lopDays;
@@ -143,7 +157,7 @@ export const HRModule: React.FC = () => {
             </div>
             <div className="relative z-10">
                 <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider">Est. Payroll Cost</p>
-                <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹{totalPayrollCost.toLocaleString()}</h3>
+                <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹{formatIndianNumber(totalPayrollCost)}</h3>
                 <p className="text-xs text-emerald-200/60 mt-1 font-medium">Processing for Oct 2023</p>
             </div>
         </div>

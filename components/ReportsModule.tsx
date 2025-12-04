@@ -10,6 +10,20 @@ import {
   Filter, MoreHorizontal, Users 
 } from 'lucide-react';
 
+// Helper for Indian Number Formatting (K, L, Cr)
+const formatIndianNumber = (num: number) => {
+  if (num >= 10000000) {
+    return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+  }
+  if (num >= 100000) {
+    return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+  }
+  return num.toString();
+};
+
 // Mock Data for Charts
 const MONTHLY_PERFORMANCE = [
   { month: 'Jan', revenue: 45000, expenses: 32000, profit: 13000 },
@@ -103,7 +117,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Revenue</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹6,32,000</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(632000)}</h3>
                 </div>
              </div>
 
@@ -119,7 +133,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Net Profit</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹2,18,000</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(218000)}</h3>
                 </div>
              </div>
 
@@ -135,7 +149,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Expenses</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹4,14,000</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(414000)}</h3>
                 </div>
              </div>
 
@@ -195,13 +209,14 @@ export const ReportsModule: React.FC = () => {
                                 axisLine={false} 
                                 tickLine={false} 
                                 tick={{fontSize: 12, fill: '#64748b'}} 
-                                tickFormatter={(value) => `₹${value/1000}k`}
+                                tickFormatter={(value) => `₹${formatIndianNumber(value)}`}
                             />
                             <Tooltip 
                                 cursor={{fill: '#f8fafc'}}
                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                                 itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                                 labelStyle={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}
+                                formatter={(value: number) => [`₹${formatIndianNumber(value)}`, '']}
                             />
                             <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                             
@@ -285,7 +300,7 @@ export const ReportsModule: React.FC = () => {
                                     <p className="text-xs text-slate-400 font-medium">{product.sales} units sold</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm font-bold text-slate-800">₹{(product.revenue / 1000).toFixed(0)}k</p>
+                                    <p className="text-sm font-bold text-slate-800">₹{formatIndianNumber(product.revenue)}</p>
                                     <div className="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
                                         <div 
                                             className="h-full bg-indigo-500 rounded-full" 

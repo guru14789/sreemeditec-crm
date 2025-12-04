@@ -2,16 +2,24 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
 import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet } from 'lucide-react';
+import { useData } from './DataContext';
 
-const MOCK_INVENTORY: Product[] = [
-  { id: 'P-1', name: 'MRI Coil (Head)', category: 'Spare Part', sku: 'MRI-H-001', stock: 2, price: 15000, minLevel: 3, location: 'Shelf A1' },
-  { id: 'P-2', name: 'Ultrasound Gel (5L)', category: 'Consumable', sku: 'USG-GEL-5L', stock: 150, price: 25, minLevel: 50, location: 'Warehouse B' },
-  { id: 'P-3', name: 'Patient Monitor X12', category: 'Equipment', sku: 'PM-X12', stock: 8, price: 1200, minLevel: 5, location: 'Showroom' },
-  { id: 'P-4', name: 'X-Ray Tube Housing', category: 'Spare Part', sku: 'XR-TB-99', stock: 1, price: 4500, minLevel: 2, location: 'Shelf C4' },
-];
+// Helper for Indian Number Formatting (K, L, Cr)
+const formatIndianNumber = (num: number) => {
+  if (num >= 10000000) {
+    return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+  }
+  if (num >= 100000) {
+    return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+  }
+  return num.toString();
+};
 
 export const InventoryModule: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>(MOCK_INVENTORY);
+  const { products, addProduct, updateProduct } = useData();
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
   const [showPOModal, setShowPOModal] = useState(false);
@@ -38,13 +46,14 @@ export const InventoryModule: React.FC = () => {
     setTimeout(() => {
         setProcessingOrder(false);
         setShowPOModal(false);
-        const updatedProducts = products.map(p => {
-            if (p.stock < p.minLevel) {
-                return { ...p, stock: p.minLevel + 10 }; 
-            }
-            return p;
+        
+        // Update stock levels in central store
+        products.forEach(p => {
+             if (p.stock < p.minLevel) {
+                 updateProduct(p.id, { stock: p.minLevel + 10 });
+             }
         });
-        setProducts(updatedProducts);
+        
         setShowNotification(false);
         alert("Purchase Orders generated and sent to vendors!");
     }, 1500);
@@ -52,7 +61,7 @@ export const InventoryModule: React.FC = () => {
 
   const handleSaveProduct = () => {
     if (!newProduct.name || !newProduct.sku || !newProduct.price) {
-        alert("Please fill in Name, SKU and Price.");
+        alert("Please fill Name, SKU and Price.");
         return;
     }
     const productToAdd: Product = {
@@ -63,11 +72,15 @@ export const InventoryModule: React.FC = () => {
         stock: Number(newProduct.stock) || 0,
         price: Number(newProduct.price) || 0,
         minLevel: Number(newProduct.minLevel) || 5,
-        location: newProduct.location || 'Unassigned'
+        location: newProduct.location || 'Unassigned',
+        hsn: newProduct.hsn || '',
+        taxRate: newProduct.taxRate || 18,
+        model: newProduct.model || '',
+        description: newProduct.description || ''
     };
-    setProducts([productToAdd, ...products]);
+    addProduct(productToAdd);
     setShowAddProductModal(false);
-    setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0 });
+    setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '' });
   };
 
   const poTotalCost = lowStockItems.reduce((acc, item) => {
@@ -92,7 +105,7 @@ export const InventoryModule: React.FC = () => {
                   <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
                       <Wallet size={14} /> Total Inventory Value
                   </p>
-                  <h3 className="text-3xl font-black tracking-tight mt-1">${totalInventoryValue.toLocaleString()}</h3>
+                  <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(totalInventoryValue)}</h3>
                   <p className="text-xs text-emerald-100/60 mt-2 font-medium">Estimated asset value</p>
               </div>
           </div>
@@ -208,7 +221,7 @@ export const InventoryModule: React.FC = () => {
                                 <td className={`px-6 py-4 text-right font-bold ${isLowStock ? 'text-red-600' : 'text-slate-700'}`}>
                                     {product.stock} <span className="text-xs font-medium text-slate-400">/ {product.minLevel}</span>
                                 </td>
-                                <td className="px-6 py-4 text-right font-medium text-slate-800">${product.price.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-right font-medium text-slate-800">₹{product.price.toLocaleString()}</td>
                                 <td className="px-6 py-4 text-xs font-medium text-slate-500">{product.location}</td>
                                 <td className="px-6 py-4">
                                     {isLowStock ? (
@@ -263,7 +276,7 @@ export const InventoryModule: React.FC = () => {
                                         <td className="px-4 py-3 font-bold text-slate-700">{item.name}</td>
                                         <td className="px-4 py-3 text-right text-red-600 font-bold">{item.stock}</td>
                                         <td className="px-4 py-3 text-right font-medium">{qty}</td>
-                                        <td className="px-4 py-3 text-right font-medium text-slate-600">${(qty * item.price).toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right font-medium text-slate-600">₹{(qty * item.price).toLocaleString()}</td>
                                     </tr>
                                 );
                             })}
@@ -271,7 +284,7 @@ export const InventoryModule: React.FC = () => {
                         <tfoot className="border-t border-slate-200 bg-slate-50/50">
                             <tr>
                                 <td colSpan={3} className="px-4 py-3 text-right font-bold text-slate-600">Total Estimated Cost:</td>
-                                <td className="px-4 py-3 text-right text-medical-700 font-black text-lg">${poTotalCost.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right text-medical-700 font-black text-lg">₹{formatIndianNumber(poTotalCost)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -341,9 +354,33 @@ export const InventoryModule: React.FC = () => {
                             />
                         </div>
                     </div>
+                    
+                    {/* Additional Details for Centralized Usage */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Price ($) *</label>
+                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Model</label>
+                             <input 
+                                type="text" 
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
+                                placeholder="Model Name"
+                                value={newProduct.model || ''}
+                                onChange={(e) => setNewProduct({...newProduct, model: e.target.value})}
+                             />
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">GST Rate (%)</label>
+                             <input 
+                                type="number" 
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
+                                value={newProduct.taxRate || 0}
+                                onChange={(e) => setNewProduct({...newProduct, taxRate: parseInt(e.target.value)})}
+                             />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Price (₹) *</label>
                              <input 
                                 type="number" 
                                 className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"

@@ -9,6 +9,16 @@ export enum LeadStatus {
   LOST = 'Lost'
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  hospital?: string;
+  address: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface OrderItem {
   name: string;
   quantity: number;
@@ -57,6 +67,11 @@ export interface Product {
   price: number;
   minLevel: number;
   location: string;
+  // Enhanced fields for Billing auto-fill
+  hsn?: string;
+  taxRate?: number; // GST %
+  model?: string;
+  description?: string; // Features
 }
 
 export interface ServiceTicket {
@@ -69,6 +84,18 @@ export interface ServiceTicket {
   assignedTo: string;
   dueDate: string;
   type: 'Breakdown' | 'AMC' | 'Installation';
+}
+
+export interface ServiceReport {
+  id: string;
+  date: string;
+  customerName: string;
+  equipmentName: string;
+  serialNumber?: string;
+  problemReported: string;
+  actionTaken: string;
+  engineerName: string;
+  status: 'Completed' | 'Pending Spares' | 'Observation';
 }
 
 export interface AMCReminder {
@@ -141,11 +168,22 @@ export interface Task {
 }
 
 // Billing & Invoicing
+export interface PaymentRecord {
+  id: string;
+  date: string;
+  amount: number;
+  mode: string;
+  reference?: string;
+}
+
 export interface InvoiceItem {
   id: string;
   description: string; // Product Name
+  model?: string;
+  features?: string;
   hsn: string;
   quantity: number;
+  unit?: string;
   unitPrice: number;
   taxRate: number; // GST %
   amount: number; // Qty * UnitPrice
@@ -164,7 +202,7 @@ export interface Invoice {
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial';
   paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI';
   
   // New Fields for PO Format
@@ -179,6 +217,19 @@ export interface Invoice {
   bankDetails?: string;
   deliveryTime?: string;
   specialNote?: string;
+  
+  // New Fields for Quotation Generator UI
+  subject?: string;
+  freightAmount?: number;
+  freightTaxRate?: number;
+  paymentTerms?: string;
+  warrantyTerms?: string;
+  deliveryTerms?: string; // Expanded terms
+  
+  // Payment Tracking
+  payments?: PaymentRecord[];
+  totalPaid?: number;
+  balanceDue?: number;
 }
 
 // Delivery Challan

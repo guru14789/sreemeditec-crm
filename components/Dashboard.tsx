@@ -46,8 +46,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider">Today's Revenue</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹4,250</h3>
-                    <p className="text-xs text-emerald-200/60 mt-1 font-medium">vs ₹3,800 yesterday</p>
+                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹4.25K</h3>
+                    <p className="text-xs text-emerald-200/60 mt-1 font-medium">vs ₹3.8K yesterday</p>
                 </div>
             </div>
 
@@ -66,7 +66,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider">This Week</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹28,400</h3>
+                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹28.4K</h3>
                     <p className="text-xs text-blue-200/60 mt-1 font-medium">Oct 22 - Oct 28</p>
                 </div>
             </div>
@@ -86,8 +86,8 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                     <p className="text-xs font-bold text-purple-200/80 uppercase tracking-wider">This Month</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹124,500</h3>
-                    <p className="text-xs text-purple-200/60 mt-1 font-medium">Target: ₹110,000</p>
+                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹1.25L</h3>
+                    <p className="text-xs text-purple-200/60 mt-1 font-medium">Target: ₹1.1L</p>
                 </div>
             </div>
         </div>
@@ -134,7 +134,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="relative z-10">
                      <p className="text-xs font-bold text-orange-200/80 uppercase tracking-wider">Monthly Expenses</p>
-                     <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹38,200</h3>
+                     <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹38.2K</h3>
                      <p className="text-xs text-orange-200/60 mt-1 font-medium">Salaries, Stock, Utilities</p>
                 </div>
             </div>
