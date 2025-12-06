@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
@@ -216,25 +218,8 @@ const App: React.FC = () => {
       case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUser} isAdmin={userRole === 'Admin'} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={setUserRole} currentUser={currentUser} />;
-      case TabView.QUOTES: return (
-        <div className="h-full w-full rounded-3xl overflow-hidden border border-slate-200 shadow-sm bg-white flex flex-col">
-            <div className="bg-slate-50 border-b border-slate-200 p-3 flex justify-between items-center shrink-0">
-                 <div className="flex items-center gap-2">
-                    <FileText className="text-medical-600" size={18} />
-                    <span className="font-bold text-slate-700 text-sm">Quotation Maker</span>
-                 </div>
-                 <a href="https://sreemeditec-quotemaker.vercel.app/" target="_blank" rel="noreferrer" className="text-xs font-bold text-medical-600 hover:text-medical-700 flex items-center gap-1 bg-white border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
-                    Open in New Window <ExternalLink size={12} />
-                 </a>
-            </div>
-            <iframe 
-                src="https://sreemeditec-quotemaker.vercel.app/" 
-                className="w-full h-full border-0"
-                title="Sree Meditec Quote Maker"
-            />
-        </div>
-      );
-      case TabView.BILLING: return <BillingModule />;
+      case TabView.QUOTES: return <BillingModule variant="quotes" />;
+      case TabView.BILLING: return <BillingModule variant="billing" />;
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;

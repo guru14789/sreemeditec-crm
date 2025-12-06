@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { ServiceTicket, AMCReminder, ServiceReport } from '../types';
 import { Wrench, Calendar, MapPin, Clock, AlertTriangle, FileText, Plus, X, Search, CheckCircle } from 'lucide-react';
@@ -15,7 +17,7 @@ const MOCK_AMC: AMCReminder[] = [
 ];
 
 export const ServiceModule: React.FC = () => {
-  const { clients, products } = useData();
+  const { clients, products, addClient } = useData();
   const [activeTab, setActiveTab] = useState<'tickets' | 'amc' | 'reports'>('tickets');
   const [showReportModal, setShowReportModal] = useState(false);
   const [reports, setReports] = useState<ServiceReport[]>([]);
@@ -29,6 +31,19 @@ export const ServiceModule: React.FC = () => {
           alert("Please fill customer and equipment details");
           return;
       }
+
+      // Check for new client
+      const existingClient = clients.find(c => c.name === newReport.customerName);
+      if (!existingClient) {
+          addClient({
+              id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+              name: newReport.customerName,
+              hospital: '', 
+              address: '',
+              gstin: ''
+          });
+      }
+
       const report: ServiceReport = {
           id: `SR-${Date.now()}`,
           date: newReport.date!,

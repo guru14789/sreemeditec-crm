@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { DeliveryChallan, ChallanItem } from '../types';
 import { Truck, Plus, FileText, Printer, Search, Filter, Trash2, Calendar, Building2, User, Package, MapPin, CheckCircle2, Box, ArrowRight, X } from 'lucide-react';
@@ -35,7 +37,7 @@ const MOCK_CHALLANS: DeliveryChallan[] = [
 ];
 
 export const DeliveryChallanModule: React.FC = () => {
-  const { clients, products } = useData();
+  const { clients, products, addClient } = useData();
   const [challans, setChallans] = useState<DeliveryChallan[]>(MOCK_CHALLANS);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -83,6 +85,18 @@ export const DeliveryChallanModule: React.FC = () => {
       if (!newChallan.customerName || !newChallan.items || newChallan.items.length === 0) {
           alert("Please fill customer details and add at least one item.");
           return;
+      }
+
+      // Check if new client, if so, add to central store AUTOMATICALLY
+      const existingClient = clients.find(c => c.name === newChallan.customerName);
+      if (!existingClient) {
+          addClient({
+              id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+              name: newChallan.customerName!,
+              hospital: '', // Not captured in challan usually, maybe infer or leave empty
+              address: newChallan.customerAddress || '',
+              gstin: ''
+          });
       }
 
       const challan: DeliveryChallan = {

@@ -203,6 +203,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoiceNumber: string; // Used as SMCPO NO in template
+  documentType?: 'Quotation' | 'PO'; // Distinguish between Quotes and Orders
   date: string;
   dueDate: string;
   customerName: string;
@@ -213,7 +214,7 @@ export interface Invoice {
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial';
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial' | 'Draft';
   paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI';
   
   // New Fields for PO Format

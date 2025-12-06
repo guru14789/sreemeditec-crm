@@ -1,5 +1,6 @@
 
 
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Client, Product, Invoice, StockMovement } from '../types';
 
@@ -12,6 +13,7 @@ interface DataContextType {
   updateClient: (id: string, client: Partial<Client>) => void;
   addProduct: (product: Product) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
+  removeProduct: (id: string) => void;
   addInvoice: (invoice: Invoice) => void;
   updateInvoice: (id: string, invoice: Invoice) => void;
   recordStockMovement: (movement: StockMovement) => void;
@@ -49,6 +51,7 @@ const INITIAL_INVOICES: Invoice[] = [
   {
     id: 'INV-001',
     invoiceNumber: 'SMCPO-001',
+    documentType: 'PO',
     date: '2023-10-20',
     dueDate: '2023-11-20',
     customerName: 'Dr. Sarah Smith',
@@ -78,6 +81,31 @@ const INITIAL_INVOICES: Invoice[] = [
     ],
     totalPaid: 5000,
     balanceDue: 11800
+  },
+  {
+    id: 'Q-001',
+    invoiceNumber: 'QT-2023-001',
+    documentType: 'Quotation',
+    date: '2023-10-25',
+    dueDate: '2023-11-25',
+    customerName: 'Mr. Rajesh Kumar',
+    customerHospital: 'Apollo Clinic',
+    customerAddress: 'Plot 12, Sector 5, Rohini, New Delhi',
+    customerGstin: '07XXXYY1234A1Z9',
+    items: [
+        { id: '1', description: 'Patient Monitor X12', hsn: '9018', quantity: 2, unitPrice: 1200, taxRate: 18, amount: 2400 }
+    ],
+    subtotal: 2400,
+    taxTotal: 432,
+    grandTotal: 2832,
+    status: 'Pending',
+    smcpoNumber: 'QT-2023-001',
+    subject: 'Quotation for Patient Monitors',
+    paymentTerms: '100% advance before delivery.',
+    deliveryTerms: 'Ex-stock, subject to prior sale.',
+    warrantyTerms: 'Standard 1 year warranty.',
+    totalPaid: 0,
+    balanceDue: 2832
   }
 ];
 
@@ -117,6 +145,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
+  const removeProduct = (id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+  };
+
   const addInvoice = (invoice: Invoice) => {
     setInvoices(prev => [invoice, ...prev]);
   };
@@ -133,7 +165,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <DataContext.Provider value={{ 
         clients, products, invoices, stockMovements,
         addClient, updateClient, 
-        addProduct, updateProduct,
+        addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice,
         recordStockMovement
     }}>

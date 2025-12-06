@@ -1,8 +1,9 @@
 
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, StockMovement } from '../types';
-import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle } from 'lucide-react';
+import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -20,7 +21,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const InventoryModule: React.FC = () => {
-  const { products, addProduct, updateProduct, stockMovements, recordStockMovement, clients } = useData();
+  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient } = useData();
   const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
@@ -140,6 +141,12 @@ export const InventoryModule: React.FC = () => {
     setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '' });
   };
 
+  const handleDeleteProduct = (id: string, name: string) => {
+      if (confirm(`Are you sure you want to delete "${name}" from inventory? This action cannot be undone.`)) {
+          removeProduct(id);
+      }
+  };
+
   const handleSendForDemo = () => {
       if (!demoData.productId || demoData.quantity <= 0 || !demoData.clientName) {
           alert("Please fill all details.");
@@ -152,6 +159,18 @@ export const InventoryModule: React.FC = () => {
       if(product.stock < demoData.quantity) {
           alert("Insufficient stock for this operation.");
           return;
+      }
+
+      // Check for new client
+      const existingClient = clients.find(c => c.name === demoData.clientName);
+      if (!existingClient) {
+          addClient({
+              id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+              name: demoData.clientName,
+              hospital: demoData.location || '', // Using location as potential hospital/company name or address
+              address: demoData.location || '',
+              gstin: ''
+          });
       }
 
       // 1. Deduct Stock
@@ -401,6 +420,7 @@ export const InventoryModule: React.FC = () => {
                             <th className="px-6 py-4 border-b border-slate-100 text-right">Price</th>
                             <th className="px-6 py-4 border-b border-slate-100">Location</th>
                             <th className="px-6 py-4 border-b border-slate-100">Status</th>
+                            <th className="px-6 py-4 border-b border-slate-100 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -430,6 +450,15 @@ export const InventoryModule: React.FC = () => {
                                                 <CheckCircle size={14} /> In Stock
                                             </div>
                                         )}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button 
+                                            onClick={() => handleDeleteProduct(product.id, product.name)}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Delete Product"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
                             );

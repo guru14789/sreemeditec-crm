@@ -1,8 +1,7 @@
 
-
 import React, { useState } from 'react';
 import { Invoice, InvoiceItem, PaymentRecord, Client } from '../types';
-import { Receipt, Plus, FileText, Printer, Download, Search, Filter, AlertCircle, CheckCircle2, Clock, Trash2, Calendar, Building2, User, ChevronDown, IndianRupee, CreditCard, X, Upload, Save, Image, Box, Percent, Eye, PenTool, ArrowLeft } from 'lucide-react';
+import { Receipt, Plus, FileText, Printer, Download, Search, Filter, AlertCircle, CheckCircle2, Clock, Trash2, Calendar, Building2, User, ChevronDown, IndianRupee, CreditCard, X, Upload, Save, Image, Box, Percent, Eye, PenTool, ArrowLeft, Edit } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -19,19 +18,28 @@ const formatIndianNumber = (num: number) => {
   return num.toString();
 };
 
-export const BillingModule: React.FC = () => {
+interface BillingModuleProps {
+    variant?: 'billing' | 'quotes';
+}
+
+export const BillingModule: React.FC<BillingModuleProps> = ({ variant = 'billing' }) => {
   const { clients, products, addClient, invoices, addInvoice, updateInvoice: updateContextInvoice, updateProduct, recordStockMovement } = useData();
   const [viewState, setViewState] = useState<'list' | 'create'>('list');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   
   // Mobile Tab State for Quotation Generator
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
 
+  const isQuoteMode = variant === 'quotes';
+  const documentTitle = isQuoteMode ? 'QUOTATION' : 'CUSTOMER PURCHASE ORDER';
+  const refLabel = isQuoteMode ? 'Ref' : 'SMCPO NO';
+
   // New Invoice State (Quotation Generator Format)
-  const [newInv, setNewInv] = useState<Partial<Invoice>>({
+  const initialInvoiceState: Partial<Invoice> = {
       date: new Date().toISOString().split('T')[0],
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       items: [],
@@ -43,7 +51,15 @@ export const BillingModule: React.FC = () => {
       deliveryTerms: 'Within 10 days from the date of the receipt of your purchase order.',
       warrantyTerms: 'Warranty against manufacturing defects for a period of one year from the date of delivery.',
       subject: '',
-      smcpoNumber: `SMQ ${String(invoices.length + 1).padStart(3, '0')}`, // Default reference style
+      smcpoNumber: '', // Will be set on init
+      documentType: isQuoteMode ? 'Quotation' : 'PO'
+  };
+
+  const [newInv, setNewInv] = useState<Partial<Invoice>>({
+      ...initialInvoiceState,
+      smcpoNumber: isQuoteMode 
+        ? `SMQ ${String(invoices.length + 1).padStart(3, '0')}`
+        : `SMCPO ${String(invoices.length + 1).padStart(3, '0')}`,
   });
 
   // Payment State
@@ -58,6 +74,9 @@ export const BillingModule: React.FC = () => {
       
       const freightTaxAmount = freight * (freightTax / 100);
       
+      // Grand Total = (Subtotal - Discount) + Tax + Freight(with Tax)
+      // Note: This logic assumes Discount is applied pre-tax or tax is fixed on base. 
+      // Current implementation sums line-item taxes, so effectively discount is treated as reducing the payable amount directly.
       const grandTotal = Math.max(0, subtotal + taxTotal + freight + freightTaxAmount - discount);
       return { subtotal, taxTotal, grandTotal };
   };
@@ -70,7 +89,7 @@ export const BillingModule: React.FC = () => {
           features: '',
           hsn: '',
           quantity: 1,
-          unit: 'No',
+          unit: 'Nos',
           unitPrice: 0,
           taxRate: 12,
           amount: 0
@@ -122,24 +141,55 @@ export const BillingModule: React.FC = () => {
       }));
   };
 
+  const handleCreateNew = () => {
+      setIsEditing(false);
+      setSelectedInvoice(null);
+      setNewInv({
+          ...initialInvoiceState,
+          smcpoNumber: isQuoteMode 
+            ? `SMQ ${String(invoices.length + 1).padStart(3, '0')}`
+            : `SMCPO ${String(invoices.length + 1).padStart(3, '0')}`,
+          documentType: isQuoteMode ? 'Quotation' : 'PO'
+      });
+      setViewState('create');
+      setMobileTab('edit');
+  };
+
+  const handleEditInvoice = (inv: Invoice) => {
+      setSelectedInvoice(inv);
+      setNewInv({
+          ...inv,
+          // Ensure we have defaults for potentially missing optional fields
+          items: inv.items || [],
+          discount: inv.discount || 0,
+          freightAmount: inv.freightAmount || 0,
+          freightTaxRate: inv.freightTaxRate || 18,
+          paymentTerms: inv.paymentTerms || initialInvoiceState.paymentTerms,
+          deliveryTerms: inv.deliveryTerms || initialInvoiceState.deliveryTerms,
+          warrantyTerms: inv.warrantyTerms || initialInvoiceState.warrantyTerms,
+      });
+      setIsEditing(true);
+      setViewState('create');
+      setMobileTab('edit');
+      setShowViewModal(false);
+  };
+
   const handleSaveInvoice = () => {
       if (!newInv.customerName || !newInv.items || newInv.items.length === 0) {
           alert("Please fill Client Name and add at least one Product.");
           return;
       }
 
-      // Check if new client, if so, add to central store
+      // Check if new client, if so, add to central store AUTOMATICALLY
       const existingClient = clients.find(c => c.name === newInv.customerName);
       if (!existingClient) {
-          if (confirm(`"${newInv.customerName}" is a new client. Save to Client Database?`)) {
-              addClient({
-                  id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
-                  name: newInv.customerName,
-                  hospital: newInv.customerHospital,
-                  address: newInv.customerAddress || '',
-                  gstin: newInv.customerGstin
-              });
-          }
+          addClient({
+              id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+              name: newInv.customerName,
+              hospital: newInv.customerHospital,
+              address: newInv.customerAddress || '',
+              gstin: newInv.customerGstin
+          });
       }
 
       const { subtotal, taxTotal, grandTotal } = calculateInvoiceTotals(
@@ -149,9 +199,10 @@ export const BillingModule: React.FC = () => {
           newInv.freightTaxRate
       );
 
-      const invoice: Invoice = {
-          id: `INV-${Date.now()}`,
-          invoiceNumber: newInv.smcpoNumber || `SMQ ${String(invoices.length + 1)}`,
+      const invoiceData: Invoice = {
+          id: isEditing && selectedInvoice ? selectedInvoice.id : `INV-${Date.now()}`,
+          invoiceNumber: newInv.smcpoNumber || (isQuoteMode ? `SMQ ${String(invoices.length + 1)}` : `SMCPO ${String(invoices.length + 1)}`),
+          documentType: isQuoteMode ? 'Quotation' : 'PO',
           date: newInv.date!,
           dueDate: newInv.dueDate!,
           customerName: newInv.customerName!,
@@ -162,7 +213,7 @@ export const BillingModule: React.FC = () => {
           subtotal,
           taxTotal,
           grandTotal,
-          status: 'Pending',
+          status: isEditing && selectedInvoice ? selectedInvoice.status : 'Pending',
           
           subject: newInv.subject,
           smcpoNumber: newInv.smcpoNumber,
@@ -175,53 +226,46 @@ export const BillingModule: React.FC = () => {
           deliveryTerms: newInv.deliveryTerms,
           warrantyTerms: newInv.warrantyTerms,
           
-          // Legacy/Compatibility fields
-          advanceAmount: 0,
-          payments: [],
-          totalPaid: 0,
-          balanceDue: grandTotal,
-          deliveryTime: newInv.deliveryTerms?.substring(0, 20) + '...', // approximate
+          // Preserve existing payment info if editing, else default
+          advanceAmount: isEditing && selectedInvoice ? selectedInvoice.advanceAmount : 0,
+          payments: isEditing && selectedInvoice ? selectedInvoice.payments : [],
+          totalPaid: isEditing && selectedInvoice ? selectedInvoice.totalPaid : 0,
+          balanceDue: isEditing && selectedInvoice ? (grandTotal - (selectedInvoice.totalPaid || 0)) : grandTotal,
+          
+          deliveryTime: newInv.deliveryTerms?.substring(0, 20) + '...',
           specialNote: `${newInv.paymentTerms}\n${newInv.deliveryTerms}\n${newInv.warrantyTerms}`
       };
 
-      addInvoice(invoice);
-
-      // INVENTORY UPDATE: Reduce Stock & Record Movement for items sold
-      newInv.items.forEach(item => {
-          const product = products.find(p => p.name === item.description);
-          if (product) {
-              const newStock = Math.max(0, product.stock - item.quantity);
-              
-              // 1. Update Product Stock
-              updateProduct(product.id, { stock: newStock });
-
-              // 2. Record Stock Movement (OUT)
-              recordStockMovement({
-                  id: `MOV-${Date.now()}-${item.id}`,
-                  productId: product.id,
-                  productName: product.name,
-                  type: 'Out',
-                  quantity: item.quantity,
-                  date: newInv.date!,
-                  reference: invoice.invoiceNumber,
-                  purpose: 'Sale'
+      if (isEditing && selectedInvoice) {
+          updateContextInvoice(selectedInvoice.id, invoiceData);
+      } else {
+          addInvoice(invoiceData);
+          
+          // INVENTORY UPDATE: Only for New Billing (PO), not Quotes, and not on Edit (to avoid double deduction for now)
+          if (!isQuoteMode) {
+              newInv.items.forEach(item => {
+                  const product = products.find(p => p.name === item.description);
+                  if (product) {
+                      const newStock = Math.max(0, product.stock - item.quantity);
+                      updateProduct(product.id, { stock: newStock });
+                      recordStockMovement({
+                          id: `MOV-${Date.now()}-${item.id}`,
+                          productId: product.id,
+                          productName: product.name,
+                          type: 'Out',
+                          quantity: item.quantity,
+                          date: newInv.date!,
+                          reference: invoiceData.invoiceNumber,
+                          purpose: 'Sale'
+                      });
+                  }
               });
           }
-      });
+      }
 
       setViewState('list');
-      
-      // Reset
-      setNewInv({ 
-          date: new Date().toISOString().split('T')[0], 
-          dueDate: '', items: [], status: 'Pending', discount: 0, freightAmount: 0, freightTaxRate: 18,
-          paymentTerms: '50% advance with purchase order payable in the name of Sreemeditec and balance 50% on delivery of Machine.', 
-          deliveryTerms: 'Within 10 days from the date of the receipt of your purchase order.', 
-          warrantyTerms: 'Warranty against manufacturing defects for a period of one year from the date of delivery.',
-          smcpoNumber: `SMQ ${String(invoices.length + 2).padStart(3, '0')}`
-      });
-
-      setSelectedInvoice(invoice);
+      setIsEditing(false);
+      setSelectedInvoice(invoiceData);
       setShowViewModal(true);
   };
 
@@ -258,10 +302,24 @@ export const BillingModule: React.FC = () => {
       setShowViewModal(true);
   };
 
+  // Filtered Invoices for Search and Mode
+  const filteredInvoices = invoices.filter(inv => {
+      const matchSearch = inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (inv.cpoNumber && inv.cpoNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          inv.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          inv.customerHospital.toLowerCase().includes(searchQuery.toLowerCase());
+          
+      const matchType = isQuoteMode 
+          ? inv.documentType === 'Quotation' 
+          : (inv.documentType === 'PO' || !inv.documentType); // Backward compat for old records
+          
+      return matchSearch && matchType;
+  });
+
   // Stats
-  const totalRevenue = invoices.reduce((sum, i) => sum + (i.totalPaid || 0), 0);
-  const pendingAmount = invoices.reduce((sum, i) => sum + (i.balanceDue || (i.status === 'Paid' ? 0 : i.grandTotal)), 0);
-  const overdueAmount = invoices.filter(i => i.status === 'Overdue').reduce((sum, i) => sum + (i.balanceDue || i.grandTotal), 0);
+  const totalRevenue = filteredInvoices.reduce((sum, i) => sum + (i.totalPaid || 0), 0);
+  const pendingAmount = filteredInvoices.reduce((sum, i) => sum + (i.balanceDue || (i.status === 'Paid' ? 0 : i.grandTotal)), 0);
+  const overdueAmount = filteredInvoices.filter(i => i.status === 'Overdue').reduce((sum, i) => sum + (i.balanceDue || i.grandTotal), 0);
 
   // Live Totals for Preview
   const liveTotals = calculateInvoiceTotals(
@@ -271,12 +329,153 @@ export const BillingModule: React.FC = () => {
       newInv.freightTaxRate || 0
   );
 
-  // Filtered Invoices for Search
-  const filteredInvoices = invoices.filter(inv => 
-      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (inv.cpoNumber && inv.cpoNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      inv.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.customerHospital.toLowerCase().includes(searchQuery.toLowerCase())
+  // Common Template Renderer for Quotation Format
+  const renderQuotationTemplate = (data: Partial<Invoice>, totals: {subtotal: number, taxTotal: number, grandTotal: number}) => (
+        <div className="bg-white p-8 text-black font-calibri leading-tight max-w-[210mm] mx-auto min-h-[297mm] relative" style={{ fontFamily: 'Calibri, sans-serif' }}>
+            {/* Header */}
+            <div className="text-center mb-4">
+                <h1 className="text-4xl font-bold uppercase text-black mb-1 tracking-wider">SREE MEDITEC</h1>
+                <p className="text-sm font-semibold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai 600 073.</p>
+                <p className="text-sm font-semibold">Mob: 9884818398.</p>
+                <p className="text-sm font-bold mt-1">GST NO: 33APGPS4675G2ZL</p>
+            </div>
+
+            <div className="text-center mb-6">
+                <span className="text-xl font-bold border-b-2 border-black inline-block pb-0.5">Quotation</span>
+            </div>
+
+            <div className="flex justify-between font-bold mb-4 text-sm px-1">
+                <div>Ref: {data.smcpoNumber}</div>
+                <div>Date: {data.date}</div>
+            </div>
+
+            <div className="mb-4 text-sm font-bold px-1">To,</div>
+            
+            {/* Address Block */}
+            <div className="mb-6 ml-0 text-sm px-1 min-h-[60px]">
+                <div className="font-bold">{data.customerName}</div>
+                <div>{data.customerHospital}</div>
+                <div className="whitespace-pre-wrap max-w-[70%]">{data.customerAddress}</div>
+            </div>
+
+            <div className="mb-2 text-sm font-bold px-1">
+                Sub: Reg. Price Quotation for {data.subject || 'Medical Equipment'}.
+            </div>
+
+            <div className="mb-6 text-sm px-1">
+                Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.
+            </div>
+
+            {/* Table */}
+            <table className="w-full border-collapse border border-black text-xs mb-4">
+                <thead>
+                    <tr className="bg-gray-200 font-bold text-center">
+                        <th className="border border-black p-2 w-[25%]">Product</th>
+                        <th className="border border-black p-2 w-[15%]">Model</th>
+                        <th className="border border-black p-2 w-[15%]">Features</th>
+                        <th className="border border-black p-2 w-[8%]">Qty</th>
+                        <th className="border border-black p-2 w-[10%]">Rate</th>
+                        <th className="border border-black p-2 w-[7%]">GST %</th>
+                        <th className="border border-black p-2 w-[10%]">GST Amt</th>
+                        <th className="border border-black p-2 w-[10%]">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {(data.items || []).map((item, idx) => {
+                        const gstAmt = (item.amount * item.taxRate) / 100;
+                        const lineTotal = item.amount + gstAmt; // Rate*Qty + GST
+                        return (
+                            <tr key={idx} className="text-center align-top">
+                                <td className="border border-black p-2 text-left font-bold">{item.description}</td>
+                                <td className="border border-black p-2">{item.model || '-'}</td>
+                                <td className="border border-black p-2 text-left">{item.features || '-'}</td>
+                                <td className="border border-black p-2">{item.quantity} {item.unit}</td>
+                                <td className="border border-black p-2 text-right">Rs.{(item.unitPrice || 0).toFixed(2)}</td>
+                                <td className="border border-black p-2">{item.taxRate}%</td>
+                                <td className="border border-black p-2 text-right">Rs.{gstAmt.toFixed(2)}</td>
+                                <td className="border border-black p-2 text-right">Rs.{lineTotal.toFixed(2)}</td>
+                            </tr>
+                        );
+                    })}
+                    {(!data.items || data.items.length === 0) && (
+                        <tr><td colSpan={8} className="border border-black p-4 text-center italic text-gray-400">Add products to view</td></tr>
+                    )}
+                </tbody>
+            </table>
+
+            {/* Totals */}
+            <div className="flex flex-col items-end text-sm font-bold mb-8">
+                <div className="w-1/2 flex justify-between border-b border-black py-1 px-1">
+                    <span>Gross Total</span>
+                    <span>Rs.{totals.subtotal.toFixed(2)}</span>
+                </div>
+                {/* Conditionally show Discount and Taxable Subtotal */}
+                {(data.discount || 0) > 0 && (
+                    <>
+                        <div className="w-1/2 flex justify-between border-b border-black py-1 px-1 text-slate-600">
+                            <span>Discount</span>
+                            <span>- Rs.{(data.discount || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="w-1/2 flex justify-between border-b border-black py-1 px-1">
+                            <span>Sub Total (Taxable)</span>
+                            <span>Rs.{(totals.subtotal - (data.discount || 0)).toFixed(2)}</span>
+                        </div>
+                    </>
+                )}
+                <div className="w-1/2 flex justify-between border-b border-black py-1 px-1">
+                    <span>Total GST</span>
+                    <span>Rs.{totals.taxTotal.toFixed(2)}</span>
+                </div>
+                {(data.freightAmount || 0) > 0 && (
+                    <div className="w-1/2 flex justify-between border-b border-black py-1 px-1">
+                        <span>Freight & Charges</span>
+                        <span>Rs.{(data.freightAmount! + (data.freightAmount! * (data.freightTaxRate || 0)/100)).toFixed(2)}</span>
+                    </div>
+                )}
+                <div className="w-1/2 flex justify-between border-b-2 border-black py-1 text-lg px-1">
+                    <span>Grand Total</span>
+                    <span>Rs.{totals.grandTotal.toFixed(2)}</span>
+                </div>
+            </div>
+
+            {/* Terms */}
+            <div className="text-xs space-y-2 mb-8 px-1">
+                <h4 className="font-bold underline mb-2 text-sm">Terms and condition:</h4>
+                <div className="grid grid-cols-[100px_1fr] gap-y-1 gap-x-2">
+                    <span className="font-bold">Validity :</span>
+                    <span>The above price is valid up to 30 days from the date of submission of the Quotation.</span>
+                    
+                    <span className="font-bold">Taxes :</span>
+                    <span>GST is applicable to the price mentioned as per item-wise rates.</span>
+                    
+                    <span className="font-bold">Payment :</span>
+                    <span>{data.paymentTerms || '50% advance with purchase order payable in the name of Sreemeditec and balance 50% on delivery of Machine.'}</span>
+                    
+                    <span className="font-bold">Banking details :</span>
+                    <div>
+                        Bank name: ICICI Bank, Branch: Selaiyur<br/>
+                        A/C name: Sreemeditec, A/C type: CA<br/>
+                        A/C No: 603705016939, IFSC Code: ICIC0006037
+                    </div>
+                    
+                    <span className="font-bold">Delivery :</span>
+                    <span>{data.deliveryTerms || 'Within 10 days from the date of the receipt of your purchase order.'}</span>
+                    
+                    <span className="font-bold">Warranty :</span>
+                    <span>{data.warrantyTerms || 'Warranty against manufacturing defects for a period of one year from the date of delivery.'}</span>
+                </div>
+            </div>
+
+            <div className="text-sm mb-12 px-1">
+                Thanking you and looking forward for your order.
+            </div>
+
+            <div className="text-sm font-bold px-1">
+                <p className="mb-8">With Regards,<br/>For SREE MEDITEC,</p>
+                <p className="text-lg">S. Suresh Kumar.</p>
+                <p>9884818398</p>
+            </div>
+        </div>
   );
 
   if (viewState === 'create') {
@@ -295,7 +494,7 @@ export const BillingModule: React.FC = () => {
                           </button>
                           <h2 className="text-sm md:text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
                               <FileText className="text-medical-600" /> 
-                              <span>New Quotation / Order</span>
+                              <span>{isEditing ? 'Edit' : 'New'} {isQuoteMode ? 'Quotation' : 'Order'}</span>
                           </h2>
                       </div>
                       <div className="flex gap-2">
@@ -326,10 +525,10 @@ export const BillingModule: React.FC = () => {
                       <div className={`w-full lg:w-1/2 overflow-y-auto p-4 md:p-6 space-y-8 custom-scrollbar bg-white ${mobileTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
                         {/* Quotation Details */}
                         <section>
-                            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">Quotation Details</h3>
+                            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">Document Details</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Reference No.</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">{refLabel}</label>
                                     <input type="text" className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-medical-500"
                                         value={newInv.smcpoNumber} onChange={e => setNewInv({...newInv, smcpoNumber: e.target.value})} />
                                 </div>
@@ -383,7 +582,7 @@ export const BillingModule: React.FC = () => {
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-slate-500 uppercase">Subject Line</label>
                                 <input type="text" className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-medical-500"
-                                    placeholder="e.g. Quotation for MRI Machine"
+                                    placeholder="e.g. MRI Machine"
                                     value={newInv.subject} onChange={e => setNewInv({...newInv, subject: e.target.value})} />
                             </div>
                         </section>
@@ -424,7 +623,7 @@ export const BillingModule: React.FC = () => {
                                                 <label className="text-xs font-bold text-slate-500 uppercase">Quantity Type</label>
                                                 <select className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-medical-500 bg-white"
                                                     value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
-                                                    <option>No</option>
+                                                    <option>Nos</option>
                                                     <option>Set</option>
                                                     <option>Box</option>
                                                     <option>Pack</option>
@@ -484,7 +683,7 @@ export const BillingModule: React.FC = () => {
                         </section>
 
                         {/* Terms & Conditions */}
-                        <section>
+                        <section className="mb-8">
                             <h3 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">Terms & Conditions</h3>
                             <div className="space-y-4">
                                 <div className="space-y-1.5">
@@ -504,202 +703,25 @@ export const BillingModule: React.FC = () => {
                                 </div>
                             </div>
                         </section>
-
-                        {/* Assets */}
-                        <section className="mb-8">
-                            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">Assets</h3>
-                            <div className="grid grid-cols-3 gap-4">
-                                {['Logo', 'Signature', 'Stamp'].map(asset => (
-                                    <div key={asset} className="border border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 hover:border-slate-400 transition-colors cursor-pointer bg-slate-50/50">
-                                        <div className="p-2 bg-white rounded-full shadow-sm">
-                                            <Image size={20} />
-                                        </div>
-                                        <span className="text-xs font-bold">{asset}</span>
-                                        <button className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded shadow-sm text-slate-600">Choose file</button>
-                                        <span className="text-[10px] text-slate-300">No file chosen</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
                       </div>
                       
                       {/* Right Side: Live Preview */}
                       <div className={`w-full lg:w-1/2 bg-slate-50 border-l border-slate-200 overflow-y-auto p-4 justify-center custom-scrollbar ${mobileTab === 'edit' ? 'hidden lg:flex' : 'flex'}`}>
-                           <div className="bg-white shadow-xl min-h-[1000px] w-full max-w-[210mm] p-4 lg:p-8 origin-top scale-[0.6] sm:scale-75 md:scale-90 lg:scale-[0.85] xl:scale-95 transition-transform duration-200 origin-top-center" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                                 {/* --- SREE MEDITEC TEMPLATE (LIVE) --- */}
-                                  <div className="text-black border-2 border-black p-0 h-full relative">
-                                      {/* Header */}
-                                      <div className="text-center p-2">
-                                          <h1 className="text-3xl font-bold uppercase tracking-wide">SREE MEDITEC</h1>
-                                          <p className="text-sm mt-1">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
-                                          <p className="text-sm font-bold">Mob: 9884818398</p>
-                                      </div>
-
-                                      {/* Title Box */}
-                                      <div className="border-t-2 border-b-2 border-black text-center py-1 font-bold text-lg bg-gray-100">
-                                          CUSTOMER PURCHASE ORDER
-                                      </div>
-
-                                      {/* PO Numbers Grid */}
-                                      <div className="grid grid-cols-2 border-b-2 border-black">
-                                          <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                              <div className="flex justify-between mb-1">
-                                                  <span>SMCPO NO: {newInv.smcpoNumber}</span>
-                                                  <span>DATE: {newInv.date}</span>
-                                              </div>
-                                          </div>
-                                          <div className="p-2 text-sm font-bold"></div>
-                                      </div>
-
-                                      <div className="grid grid-cols-2 border-b-2 border-black">
-                                          <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                              <div className="flex justify-between mb-1">
-                                                  <span>CPO NO: {newInv.cpoNumber || ''}</span>
-                                                  <span>DATE: {newInv.cpoDate || ''}</span>
-                                              </div>
-                                          </div>
-                                          <div className="p-2 text-sm font-bold"></div>
-                                      </div>
-
-                                      {/* Address Grid */}
-                                      <div className="grid grid-cols-2 border-b-2 border-black">
-                                          <div className="border-r-2 border-black p-2 text-sm min-h-[80px]">
-                                              <span className="font-bold block mb-1">Name of the Customer and Address:</span>
-                                              <p>{newInv.customerName}</p>
-                                              <p>{newInv.customerHospital}</p>
-                                              <p className="whitespace-pre-wrap">{newInv.customerAddress}</p>
-                                          </div>
-                                          <div className="p-2 text-sm min-h-[80px]">
-                                              <span className="font-bold block mb-1">Delivery Address:</span>
-                                              <p className="whitespace-pre-wrap">{newInv.deliveryAddress || newInv.customerAddress}</p>
-                                          </div>
-                                      </div>
-
-                                      {/* GST Grid */}
-                                      <div className="grid grid-cols-2 border-b-2 border-black">
-                                          <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                              GST No: {newInv.customerGstin || ''}
-                                          </div>
-                                          <div className="p-2 text-sm font-bold">
-                                              GST No: 33AKLPS1234F1Z1
-                                          </div>
-                                      </div>
-                                      
-                                      {/* Subject Line if present */}
-                                      {newInv.subject && (
-                                          <div className="border-b-2 border-black p-2 text-sm">
-                                              <span className="font-bold">Sub:</span> {newInv.subject}
-                                          </div>
-                                      )}
-
-                                      {/* Order Details Title */}
-                                      <div className="border-b-2 border-black text-center py-1 font-bold text-sm bg-gray-100">
-                                          ORDER DETAILS
-                                      </div>
-
-                                      {/* Items Table */}
-                                      <table className="w-full text-xs text-left border-collapse">
-                                          <thead>
-                                              <tr className="border-b-2 border-black text-center">
-                                                  <th className="border-r-2 border-black p-1 w-[5%]">Sl no.</th>
-                                                  <th className="border-r-2 border-black p-1 w-[30%]">Product</th>
-                                                  <th className="border-r-2 border-black p-1 w-[8%]">Qty</th>
-                                                  <th className="border-r-2 border-black p-1 w-[10%]">Rate</th>
-                                                  <th className="border-r-2 border-black p-1 w-[12%]">Amount</th>
-                                                  <th className="border-r-2 border-black p-1 w-[8%]">Gst %</th>
-                                                  <th className="border-r-2 border-black p-1 w-[10%]">Gst value</th>
-                                                  <th className="p-1 w-[17%]">Price with Gst</th>
-                                              </tr>
-                                          </thead>
-                                          <tbody>
-                                              {(newInv.items || []).map((item, idx) => {
-                                                  const gstValue = (item.amount || 0) * ((item.taxRate || 0) / 100);
-                                                  const lineTotal = (item.amount || 0) + gstValue;
-                                                  return (
-                                                    <tr key={idx} className="border-b border-black">
-                                                        <td className="border-r-2 border-black p-1 text-center align-top">{idx + 1}</td>
-                                                        <td className="border-r-2 border-black p-1">
-                                                            <span className="font-bold block">{item.description}</span>
-                                                            {item.model && <span className="block text-[10px]">Model: {item.model}</span>}
-                                                            {item.features && (
-                                                                <div className="mt-1 text-[10px] whitespace-pre-wrap text-gray-600">{item.features}</div>
-                                                            )}
-                                                        </td>
-                                                        <td className="border-r-2 border-black p-1 text-center align-top">{item.quantity} {item.unit}</td>
-                                                        <td className="border-r-2 border-black p-1 text-right align-top">{(item.unitPrice || 0).toLocaleString()}</td>
-                                                        <td className="border-r-2 border-black p-1 text-right align-top">{(item.amount || 0).toLocaleString()}</td>
-                                                        <td className="border-r-2 border-black p-1 text-center align-top">{item.taxRate}%</td>
-                                                        <td className="border-r-2 border-black p-1 text-right align-top">{gstValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                                        <td className="p-1 text-right font-bold align-top">{lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                                    </tr>
-                                                  );
-                                              })}
-                                              {(!newInv.items || newInv.items.length === 0) && (
-                                                  <tr className="border-b border-black">
-                                                      <td colSpan={8} className="p-4 text-center text-gray-400 italic">Add products to see details...</td>
-                                                  </tr>
-                                              )}
-                                          </tbody>
-                                      </table>
-
-                                      {/* Totals Section */}
-                                      <div className="border-b-2 border-black">
-                                           <div className="flex border-b border-black">
-                                               <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Total</div>
-                                               <div className="w-[17%] p-1 text-right font-bold">
-                                                   {(liveTotals.subtotal + liveTotals.taxTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                               </div>
-                                           </div>
-                                           <div className="flex border-b border-black">
-                                               <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Discount/Buyback/Adjustment</div>
-                                               <div className="w-[17%] p-1 text-right font-bold">
-                                                   {(newInv.discount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                               </div>
-                                           </div>
-                                           {newInv.freightAmount && newInv.freightAmount > 0 ? (
-                                               <div className="flex border-b border-black">
-                                                    <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Freight & Charges</div>
-                                                    <div className="w-[17%] p-1 text-right font-bold">
-                                                        {(newInv.freightAmount + (newInv.freightAmount * (newInv.freightTaxRate || 0) / 100)).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                                    </div>
-                                                </div>
-                                           ) : null}
-                                           <div className="flex bg-gray-100">
-                                               <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Grand Total</div>
-                                               <div className="w-[17%] p-1 text-right font-bold text-lg">
-                                                   {liveTotals.grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                               </div>
-                                           </div>
-                                      </div>
-
-                                      {/* Delivery Time */}
-                                      <div className="border-b-2 border-black flex">
-                                          <div className="p-2 text-sm border-r-2 border-black w-1/2 font-bold min-h-[40px]">
-                                              Delivery time: {newInv.deliveryTerms?.substring(0, 50)}...
-                                          </div>
-                                          <div className="p-2 text-sm w-1/2"></div>
-                                      </div>
-
-                                      {/* Special Note / Terms */}
-                                      <div className="border-b-2 border-black p-2 text-sm min-h-[120px]">
-                                          <span className="font-bold">Terms & Conditions:</span>
-                                          <div className="mt-1 text-xs space-y-1">
-                                              {newInv.paymentTerms && <p><span className="font-semibold">Payment:</span> {newInv.paymentTerms}</p>}
-                                              {newInv.deliveryTerms && <p><span className="font-semibold">Delivery:</span> {newInv.deliveryTerms}</p>}
-                                              {newInv.warrantyTerms && <p><span className="font-semibold">Warranty:</span> {newInv.warrantyTerms}</p>}
-                                          </div>
-                                      </div>
-
-                                      {/* Signatures */}
-                                      <div className="grid grid-cols-2 text-sm h-32 absolute bottom-0 w-full border-t-2 border-black">
-                                          <div className="border-r-2 border-black p-2 flex flex-col justify-end">
-                                              <span className="font-bold">Customer seal and signature:</span>
-                                          </div>
-                                          <div className="p-2 flex flex-col justify-end">
-                                              <span className="font-bold">Sreemeditec representative signature:</span>
-                                          </div>
-                                      </div>
-                                  </div>
+                           <div className="bg-white shadow-xl min-h-[1000px] w-full max-w-[210mm] p-0 origin-top scale-[0.6] sm:scale-75 md:scale-90 lg:scale-[0.85] xl:scale-95 transition-transform duration-200 origin-top-center overflow-hidden">
+                                {isQuoteMode ? (
+                                    renderQuotationTemplate(newInv, liveTotals)
+                                ) : (
+                                    /* --- EXISTING PO TEMPLATE PREVIEW --- */
+                                    <div className="text-black border-2 border-black p-4 h-full relative" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                                        {/* Simplified preview for PO - reuse logic or keep as is */}
+                                        <div className="text-center font-bold text-2xl border-b-2 border-black pb-2">CUSTOMER PURCHASE ORDER PREVIEW</div>
+                                        <div className="p-4 text-center text-gray-500 italic">
+                                            (Purchase Order Format Preview)
+                                            <br/>
+                                            Total: {liveTotals.grandTotal.toFixed(2)}
+                                        </div>
+                                    </div>
+                                )}
                            </div>
                       </div>
                   </div>
@@ -710,7 +732,7 @@ export const BillingModule: React.FC = () => {
                           Cancel
                       </button>
                       <button onClick={handleSaveInvoice} className="px-6 py-3 bg-gradient-to-r from-medical-500 to-teal-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-medical-500/30 transition-all active:scale-95">
-                          Generate PDF & Create New
+                          {isEditing ? 'Update' : 'Generate PDF & Save'} {isQuoteMode ? 'Quote' : 'Order'}
                       </button>
                   </div>
               </div>
@@ -735,9 +757,11 @@ export const BillingModule: React.FC = () => {
                 <Receipt size={100} />
              </div>
              <div className="relative z-10">
-                <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider mb-1">Total Revenue Collected</p>
+                <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider mb-1">
+                    {isQuoteMode ? 'Total Quotes Value' : 'Total Revenue Collected'}
+                </p>
                 <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(totalRevenue)}</h3>
-                <p className="text-xs text-emerald-200/60 mt-1 font-medium">From {invoices.filter(i => i.status === 'Paid' || i.status === 'Partial').length} active orders</p>
+                <p className="text-xs text-emerald-200/60 mt-1 font-medium">From {filteredInvoices.length} records</p>
              </div>
           </div>
 
@@ -746,9 +770,13 @@ export const BillingModule: React.FC = () => {
                 <Clock size={100} />
              </div>
              <div className="relative z-10">
-                <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider mb-1">Outstanding Balance</p>
+                <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider mb-1">
+                    {isQuoteMode ? 'Pending Conversions' : 'Outstanding Balance'}
+                </p>
                 <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(pendingAmount)}</h3>
-                <p className="text-xs text-blue-200/60 mt-1 font-medium">Pending collections</p>
+                <p className="text-xs text-blue-200/60 mt-1 font-medium">
+                    {isQuoteMode ? 'Potential Revenue' : 'Pending collections'}
+                </p>
              </div>
           </div>
 
@@ -757,9 +785,11 @@ export const BillingModule: React.FC = () => {
                 <AlertCircle size={100} />
              </div>
              <div className="relative z-10">
-                <p className="text-xs font-bold text-rose-200/80 uppercase tracking-wider mb-1">Overdue Amount</p>
+                <p className="text-xs font-bold text-rose-200/80 uppercase tracking-wider mb-1">
+                    {isQuoteMode ? 'Expired Quotes' : 'Overdue Amount'}
+                </p>
                 <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(overdueAmount)}</h3>
-                <p className="text-xs text-rose-200/60 mt-1 font-medium">Immediate attention required</p>
+                <p className="text-xs text-rose-200/60 mt-1 font-medium">Requires attention</p>
              </div>
           </div>
       </div>
@@ -770,7 +800,8 @@ export const BillingModule: React.FC = () => {
         {/* Toolbar */}
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Receipt size={20} /></div> Invoices & Orders
+                <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Receipt size={20} /></div> 
+                {isQuoteMode ? 'Quotations' : 'Invoices & Orders'}
             </h2>
             
             <div className="flex flex-col sm:flex-row gap-3">
@@ -778,16 +809,16 @@ export const BillingModule: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                         type="text" 
-                        placeholder="Search PO or Customer..." 
+                        placeholder={isQuoteMode ? "Search Quote #..." : "Search PO or Customer..."}
                         className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
                  <button 
-                    onClick={() => { setViewState('create'); setMobileTab('edit'); }}
+                    onClick={handleCreateNew}
                     className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
-                    <Plus size={18} /> New Order
+                    <Plus size={18} /> New {isQuoteMode ? 'Quote' : 'Order'}
                 </button>
             </div>
         </div>
@@ -797,7 +828,7 @@ export const BillingModule: React.FC = () => {
             <table className="w-full text-left text-sm text-slate-600 min-w-[900px]">
                 <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                     <tr>
-                        <th className="px-6 py-4">Ref / Invoice #</th>
+                        <th className="px-6 py-4">Ref / {isQuoteMode ? 'Quote' : 'Invoice'} #</th>
                         <th className="px-6 py-4">Customer</th>
                         <th className="px-6 py-4 text-right">Grand Total</th>
                         <th className="px-6 py-4 text-right">Balance Due</th>
@@ -833,16 +864,24 @@ export const BillingModule: React.FC = () => {
                                 </span>
                             </td>
                             <td className="px-6 py-4 text-right">
-                                <button className="text-medical-600 hover:bg-medical-50 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100">
-                                    <FileText size={18} />
-                                </button>
+                                <div className="flex justify-end gap-2">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleEditInvoice(invoice); }} 
+                                        className="p-2 hover:bg-white hover:shadow-sm text-slate-400 hover:text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-slate-100"
+                                        title="Edit">
+                                        <Edit size={16} />
+                                    </button>
+                                    <button className="text-medical-600 hover:bg-medical-50 p-2 rounded-full transition-colors">
+                                        <FileText size={18} />
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     ))}
                     {filteredInvoices.length === 0 && (
                         <tr>
                             <td colSpan={6} className="text-center py-12 text-slate-400">
-                                No invoices found matching your search.
+                                No {isQuoteMode ? 'quotations' : 'invoices'} found matching your search.
                             </td>
                         </tr>
                     )}
@@ -857,10 +896,16 @@ export const BillingModule: React.FC = () => {
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col scale-100 animate-in zoom-in-95">
                   <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl print:hidden">
                       <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                          <FileText size={20} /> Customer Purchase Order / Quotation Preview
+                          <FileText size={20} /> {selectedInvoice.documentType === 'Quotation' ? 'Quotation' : 'Invoice'} Preview
                       </h3>
                       <div className="flex gap-2">
-                          {selectedInvoice.status !== 'Paid' && selectedInvoice.balanceDue && selectedInvoice.balanceDue > 0 && (
+                          <button 
+                            onClick={() => handleEditInvoice(selectedInvoice)} 
+                            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
+                          >
+                              <Edit size={16} /> Edit
+                          </button>
+                          {selectedInvoice.status !== 'Paid' && selectedInvoice.balanceDue && selectedInvoice.balanceDue > 0 && !isQuoteMode && (
                              <button 
                                 onClick={() => setShowPaymentModal(true)} 
                                 className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
@@ -882,241 +927,202 @@ export const BillingModule: React.FC = () => {
 
                   <div className="flex-1 overflow-y-auto bg-white p-8 print:p-0" id="invoice-print">
                       
-                      {/* --- SREE MEDITEC TEMPLATE --- */}
-                      <div className="text-black border-2 border-black p-0 max-w-[210mm] mx-auto bg-white" style={{ fontFamily: 'Calibri, sans-serif' }}>
-                          
-                          {/* Header */}
-                          <div className="text-center p-2">
-                              <h1 className="text-3xl font-bold uppercase tracking-wide">SREE MEDITEC</h1>
-                              <p className="text-sm mt-1">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
-                              <p className="text-sm font-bold">Mob: 9884818398</p>
-                          </div>
+                      {selectedInvoice.documentType === 'Quotation' ? (
+                          renderQuotationTemplate(selectedInvoice, {
+                              subtotal: selectedInvoice.subtotal,
+                              taxTotal: selectedInvoice.taxTotal,
+                              grandTotal: selectedInvoice.grandTotal
+                          })
+                      ) : (
+                          /* --- SREE MEDITEC TEMPLATE (PO) --- */
+                          <div className="text-black border-2 border-black p-0 max-w-[210mm] mx-auto bg-white" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                              
+                              {/* Header */}
+                              <div className="text-center p-2">
+                                  <h1 className="text-3xl font-bold uppercase tracking-wide">SREE MEDITEC</h1>
+                                  <p className="text-sm mt-1">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
+                                  <p className="text-sm font-bold">Mob: 9884818398</p>
+                              </div>
 
-                          {/* Title Box */}
-                          <div className="border-t-2 border-b-2 border-black text-center py-1 font-bold text-lg bg-gray-100">
-                              CUSTOMER PURCHASE ORDER
-                          </div>
+                              {/* Title Box */}
+                              <div className="border-t-2 border-b-2 border-black text-center py-1 font-bold text-lg bg-gray-100">
+                                  CUSTOMER PURCHASE ORDER
+                              </div>
 
-                          {/* PO Numbers Grid */}
-                          <div className="grid grid-cols-2 border-b-2 border-black">
-                              <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                  <div className="flex justify-between mb-1">
-                                      <span>SMCPO NO: {selectedInvoice.smcpoNumber}</span>
-                                      <span>DATE: {selectedInvoice.date}</span>
+                              {/* PO Numbers Grid */}
+                              <div className="grid grid-cols-2 border-b-2 border-black">
+                                  <div className="border-r-2 border-black p-2 text-sm font-bold">
+                                      <div className="flex justify-between mb-1">
+                                          <span>SMCPO NO: {selectedInvoice.smcpoNumber || selectedInvoice.invoiceNumber}</span>
+                                          <span>DATE: {selectedInvoice.date}</span>
+                                      </div>
+                                  </div>
+                                  <div className="p-2 text-sm font-bold"></div>
+                              </div>
+
+                               <div className="grid grid-cols-2 border-b-2 border-black">
+                                  <div className="border-r-2 border-black p-2 text-sm font-bold">
+                                      <div className="flex justify-between mb-1">
+                                          <span>CPO NO: {selectedInvoice.cpoNumber || 'N/A'}</span>
+                                          <span>DATE: {selectedInvoice.cpoDate || 'N/A'}</span>
+                                      </div>
+                                  </div>
+                                  <div className="p-2 text-sm font-bold"></div>
+                              </div>
+
+                              {/* Address Grid */}
+                              <div className="grid grid-cols-2 border-b-2 border-black">
+                                  <div className="border-r-2 border-black p-2 text-sm">
+                                      <span className="font-bold block mb-1">Name of the Customer and Address:</span>
+                                      <p>{selectedInvoice.customerName}</p>
+                                      <p>{selectedInvoice.customerHospital}</p>
+                                      <p className="whitespace-pre-wrap">{selectedInvoice.customerAddress}</p>
+                                  </div>
+                                  <div className="p-2 text-sm">
+                                      <span className="font-bold block mb-1">Delivery Address:</span>
+                                      <p className="whitespace-pre-wrap">{selectedInvoice.deliveryAddress || selectedInvoice.customerAddress}</p>
                                   </div>
                               </div>
-                              <div className="p-2 text-sm font-bold">
-                                  {/* Right side blank/Subject can go here if needed, but keeping template layout */}
-                              </div>
-                          </div>
 
-                           <div className="grid grid-cols-2 border-b-2 border-black">
-                              <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                  <div className="flex justify-between mb-1">
-                                      <span>CPO NO: {selectedInvoice.cpoNumber || 'N/A'}</span>
-                                      <span>DATE: {selectedInvoice.cpoDate || 'N/A'}</span>
+                              {/* GST Grid */}
+                              <div className="grid grid-cols-2 border-b-2 border-black">
+                                  <div className="border-r-2 border-black p-2 text-sm font-bold">
+                                      GST No: {selectedInvoice.customerGstin || ''}
+                                  </div>
+                                  <div className="p-2 text-sm font-bold">
+                                      GST No: 33AKLPS1234F1Z1
                                   </div>
                               </div>
-                              <div className="p-2 text-sm font-bold">
-                                   {/* Right side blank */}
-                              </div>
-                          </div>
 
-                          {/* Address Grid */}
-                          <div className="grid grid-cols-2 border-b-2 border-black">
-                              <div className="border-r-2 border-black p-2 text-sm">
-                                  <span className="font-bold block mb-1">Name of the Customer and Address:</span>
-                                  <p>{selectedInvoice.customerName}</p>
-                                  <p>{selectedInvoice.customerHospital}</p>
-                                  <p className="whitespace-pre-wrap">{selectedInvoice.customerAddress}</p>
+                              {/* Order Details Title */}
+                              <div className="border-b-2 border-black text-center py-1 font-bold text-sm bg-gray-100">
+                                  ORDER DETAILS
                               </div>
-                              <div className="p-2 text-sm">
-                                  <span className="font-bold block mb-1">Delivery Address:</span>
-                                  <p className="whitespace-pre-wrap">{selectedInvoice.deliveryAddress || selectedInvoice.customerAddress}</p>
-                              </div>
-                          </div>
 
-                          {/* GST Grid */}
-                          <div className="grid grid-cols-2 border-b-2 border-black">
-                              <div className="border-r-2 border-black p-2 text-sm font-bold">
-                                  GST No: {selectedInvoice.customerGstin || ''}
-                              </div>
-                              <div className="p-2 text-sm font-bold">
-                                  GST No: 33AKLPS1234F1Z1
-                              </div>
-                          </div>
-                          
-                          {/* Subject Line if present */}
-                          {selectedInvoice.subject && (
-                              <div className="border-b-2 border-black p-2 text-sm">
-                                  <span className="font-bold">Sub:</span> {selectedInvoice.subject}
-                              </div>
-                          )}
+                              {/* Items Table */}
+                              <table className="w-full text-xs text-left border-collapse">
+                                  <thead>
+                                      <tr className="border-b-2 border-black text-center">
+                                          <th className="border-r-2 border-black p-1 w-[5%]">Sl no.</th>
+                                          <th className="border-r-2 border-black p-1 w-[30%]">Product</th>
+                                          <th className="border-r-2 border-black p-1 w-[8%]">Qty</th>
+                                          <th className="border-r-2 border-black p-1 w-[10%]">Rate</th>
+                                          <th className="border-r-2 border-black p-1 w-[12%]">Amount</th>
+                                          <th className="border-r-2 border-black p-1 w-[8%]">Gst %</th>
+                                          <th className="border-r-2 border-black p-1 w-[10%]">Gst value</th>
+                                          <th className="p-1 w-[17%]">Price with Gst</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {selectedInvoice.items.map((item, idx) => {
+                                          const gstValue = item.amount * (item.taxRate / 100);
+                                          const lineTotal = item.amount + gstValue;
+                                          return (
+                                            <tr key={idx} className="border-b border-black">
+                                                <td className="border-r-2 border-black p-1 text-center align-top">{idx + 1}</td>
+                                                <td className="border-r-2 border-black p-1">
+                                                    <span className="font-bold block">{item.description}</span>
+                                                    {item.model && <span className="block text-[10px]">Model: {item.model}</span>}
+                                                </td>
+                                                <td className="border-r-2 border-black p-1 text-center align-top">{item.quantity} {item.unit}</td>
+                                                <td className="border-r-2 border-black p-1 text-right align-top">{item.unitPrice.toLocaleString()}</td>
+                                                <td className="border-r-2 border-black p-1 text-right align-top">{item.amount.toLocaleString()}</td>
+                                                <td className="border-r-2 border-black p-1 text-center align-top">{item.taxRate}%</td>
+                                                <td className="border-r-2 border-black p-1 text-right align-top">{gstValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                                <td className="p-1 text-right font-bold align-top">{lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                            </tr>
+                                          );
+                                      })}
+                                  </tbody>
+                              </table>
 
-                          {/* Order Details Title */}
-                          <div className="border-b-2 border-black text-center py-1 font-bold text-sm bg-gray-100">
-                              ORDER DETAILS
-                          </div>
-
-                          {/* Items Table */}
-                          <table className="w-full text-xs text-left border-collapse">
-                              <thead>
-                                  <tr className="border-b-2 border-black text-center">
-                                      <th className="border-r-2 border-black p-1 w-[5%]">Sl no.</th>
-                                      <th className="border-r-2 border-black p-1 w-[30%]">Product</th>
-                                      <th className="border-r-2 border-black p-1 w-[8%]">Qty</th>
-                                      <th className="border-r-2 border-black p-1 w-[10%]">Rate</th>
-                                      <th className="border-r-2 border-black p-1 w-[12%]">Amount</th>
-                                      <th className="border-r-2 border-black p-1 w-[8%]">Gst %</th>
-                                      <th className="border-r-2 border-black p-1 w-[10%]">Gst value</th>
-                                      <th className="p-1 w-[17%]">Price with Gst</th>
-                                  </tr>
-                              </thead>
-                              <tbody>
-                                  {selectedInvoice.items.map((item, idx) => {
-                                      const gstValue = item.amount * (item.taxRate / 100);
-                                      const lineTotal = item.amount + gstValue;
-                                      return (
-                                        <tr key={idx} className="border-b border-black">
-                                            <td className="border-r-2 border-black p-1 text-center align-top">{idx + 1}</td>
-                                            <td className="border-r-2 border-black p-1">
-                                                <span className="font-bold block">{item.description}</span>
-                                                {item.model && <span className="block text-[10px]">Model: {item.model}</span>}
-                                                {item.features && (
-                                                    <div className="mt-1 text-[10px] whitespace-pre-wrap text-gray-600">{item.features}</div>
-                                                )}
-                                            </td>
-                                            <td className="border-r-2 border-black p-1 text-center align-top">{item.quantity} {item.unit}</td>
-                                            <td className="border-r-2 border-black p-1 text-right align-top">{item.unitPrice.toLocaleString()}</td>
-                                            <td className="border-r-2 border-black p-1 text-right align-top">{item.amount.toLocaleString()}</td>
-                                            <td className="border-r-2 border-black p-1 text-center align-top">{item.taxRate}%</td>
-                                            <td className="border-r-2 border-black p-1 text-right align-top">{gstValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                            <td className="p-1 text-right font-bold align-top">{lineTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                                        </tr>
-                                      );
-                                  })}
-                              </tbody>
-                          </table>
-
-                          {/* Totals Section */}
-                          <div className="border-b-2 border-black">
-                               <div className="flex border-b border-black">
-                                   <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Total</div>
-                                   <div className="w-[17%] p-1 text-right font-bold">
-                                       {(selectedInvoice.subtotal + selectedInvoice.taxTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                   </div>
-                               </div>
-                               <div className="flex border-b border-black">
-                                   <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Discount/Buyback/Adjustment</div>
-                                   <div className="w-[17%] p-1 text-right font-bold">
-                                       {(selectedInvoice.discount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                   </div>
-                               </div>
-                               {selectedInvoice.freightAmount && selectedInvoice.freightAmount > 0 && (
+                              {/* Totals Section */}
+                              <div className="border-b-2 border-black">
                                    <div className="flex border-b border-black">
-                                        <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Freight & Charges</div>
-                                        <div className="w-[17%] p-1 text-right font-bold">
-                                            {(selectedInvoice.freightAmount + (selectedInvoice.freightAmount * (selectedInvoice.freightTaxRate || 0) / 100)).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                        </div>
-                                    </div>
-                               )}
-                               <div className="flex bg-gray-100">
-                                   <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Grand Total</div>
-                                   <div className="w-[17%] p-1 text-right font-bold text-lg">
-                                       {selectedInvoice.grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                       <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Total</div>
+                                       <div className="w-[17%] p-1 text-right font-bold">
+                                           {(selectedInvoice.subtotal + selectedInvoice.taxTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                       </div>
                                    </div>
-                               </div>
-                          </div>
-                          
-                          {/* Payment History Section (New) */}
-                           <div className="border-b-2 border-black p-2 text-sm bg-gray-50">
-                               <div className="flex justify-between font-bold mb-1">
-                                   <span>Payment History:</span>
-                                   <span>Balance Due: ₹{((selectedInvoice.balanceDue ?? selectedInvoice.grandTotal)).toLocaleString()}</span>
-                               </div>
-                               {selectedInvoice.payments && selectedInvoice.payments.length > 0 ? (
-                                   <ul className="list-disc pl-5 text-xs">
-                                       {selectedInvoice.payments.map(p => (
-                                           <li key={p.id}>Received ₹{p.amount.toLocaleString()} on {p.date} via {p.mode}</li>
-                                       ))}
-                                   </ul>
-                               ) : (
-                                   <span className="text-xs italic text-gray-500">No payments recorded yet.</span>
-                               )}
-                          </div>
+                                   <div className="flex border-b border-black">
+                                       <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Discount/Buyback/Adjustment</div>
+                                       <div className="w-[17%] p-1 text-right font-bold">
+                                           {(selectedInvoice.discount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                       </div>
+                                   </div>
+                                   <div className="flex bg-gray-100">
+                                       <div className="flex-1 p-1 text-right font-bold border-r-2 border-black pr-2">Grand Total</div>
+                                       <div className="w-[17%] p-1 text-right font-bold text-lg">
+                                           {selectedInvoice.grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                       </div>
+                                   </div>
+                              </div>
+                              
+                              {/* Advance Payment Details */}
+                              <div className="border-b-2 border-black p-2 text-sm">
+                                  <span className="font-bold">Advance Payment details:</span>
+                                  {selectedInvoice.advanceAmount ? (
+                                      <span className="ml-2">₹{selectedInvoice.advanceAmount} received on {selectedInvoice.advanceDate} via {selectedInvoice.advanceMode}</span>
+                                  ) : (
+                                      <span className="ml-2">N/A</span>
+                                  )}
+                              </div>
 
-                          {/* Advance Payment Details (Legacy Template Field) */}
-                          <div className="border-b-2 border-black p-2 text-sm">
-                              <span className="font-bold">Advance Payment details (Initial):</span>
-                              {selectedInvoice.advanceAmount ? (
-                                  <span className="ml-2">₹{selectedInvoice.advanceAmount} received on {selectedInvoice.advanceDate} via {selectedInvoice.advanceMode}</span>
-                              ) : (
-                                  <span className="ml-2">N/A</span>
-                              )}
-                          </div>
-
-                          {/* Payment DETAILS Box */}
-                          <div className="border-b-2 border-black">
-                              <div className="bg-gray-100 text-center font-bold text-sm border-b-2 border-black py-1">PAYMENT DETAILS</div>
-                              <div className="grid grid-cols-4 text-sm divide-x-2 divide-black">
-                                  <div className="p-2 h-16">
-                                      <span className="font-bold block">Bank and Branch:</span>
-                                      {selectedInvoice.bankDetails || 'HDFC Bank, Chennai'}
-                                  </div>
-                                  <div className="p-2">
-                                      <span className="font-bold block">Mode of payment:</span>
-                                      {selectedInvoice.advanceMode || 'Cheque / NEFT'}
-                                  </div>
-                                  <div className="p-2">
-                                      <span className="font-bold block">Date:</span>
-                                      {selectedInvoice.advanceDate}
-                                  </div>
-                                  <div className="p-2">
-                                      <span className="font-bold block">Amount:</span>
-                                      {selectedInvoice.advanceAmount}
+                              {/* Payment DETAILS Box */}
+                              <div className="border-b-2 border-black">
+                                  <div className="bg-gray-100 text-center font-bold text-sm border-b-2 border-black py-1">PAYMENT DETAILS</div>
+                                  <div className="grid grid-cols-4 text-sm divide-x-2 divide-black">
+                                      <div className="p-2 h-16">
+                                          <span className="font-bold block">Bank and Branch:</span>
+                                          {selectedInvoice.bankDetails || 'HDFC Bank, Chennai'}
+                                      </div>
+                                      <div className="p-2">
+                                          <span className="font-bold block">Mode of payment:</span>
+                                          {selectedInvoice.advanceMode || 'Cheque / NEFT'}
+                                      </div>
+                                      <div className="p-2">
+                                          <span className="font-bold block">Date:</span>
+                                          {selectedInvoice.advanceDate}
+                                      </div>
+                                      <div className="p-2">
+                                          <span className="font-bold block">Amount:</span>
+                                          {selectedInvoice.advanceAmount}
+                                      </div>
                                   </div>
                               </div>
-                          </div>
 
-                          {/* Delivery Time */}
-                          <div className="border-b-2 border-black flex">
-                              <div className="p-2 text-sm border-r-2 border-black w-1/2 font-bold">
-                                  Delivery time: {selectedInvoice.deliveryTime}
+                              {/* Delivery Time */}
+                              <div className="border-b-2 border-black flex">
+                                  <div className="p-2 text-sm border-r-2 border-black w-1/2 font-bold">
+                                      Delivery time: {selectedInvoice.deliveryTime}
+                                  </div>
+                                  <div className="p-2 text-sm w-1/2"></div>
                               </div>
-                              <div className="p-2 text-sm w-1/2">
-                                  
-                              </div>
-                          </div>
 
-                          {/* Special Note / Terms */}
-                          <div className="border-b-2 border-black p-2 text-sm">
-                              <span className="font-bold">Terms & Conditions:</span>
-                              <div className="mt-1 text-xs space-y-1">
-                                  {selectedInvoice.paymentTerms && <p><span className="font-semibold">Payment:</span> {selectedInvoice.paymentTerms}</p>}
-                                  {selectedInvoice.deliveryTerms && <p><span className="font-semibold">Delivery:</span> {selectedInvoice.deliveryTerms}</p>}
-                                  {selectedInvoice.warrantyTerms && <p><span className="font-semibold">Warranty:</span> {selectedInvoice.warrantyTerms}</p>}
-                                  {selectedInvoice.specialNote && !selectedInvoice.paymentTerms && <p>{selectedInvoice.specialNote}</p>}
+                              {/* Special Note */}
+                              <div className="border-b-2 border-black p-2 text-sm">
+                                  <span className="font-bold">Any special note regarding supply, payment terms(to be filled by company personal):</span>
+                                  <p>{selectedInvoice.specialNote}</p>
                               </div>
-                          </div>
 
-                          {/* Signatures */}
-                          <div className="grid grid-cols-2 text-sm h-32">
-                              <div className="border-r-2 border-black p-2 flex flex-col justify-end">
-                                  <span className="font-bold">Customer seal and signature:</span>
-                              </div>
-                              <div className="p-2 flex flex-col justify-end">
-                                  <span className="font-bold">Sreemeditec representative signature:</span>
+                              {/* Signatures */}
+                              <div className="grid grid-cols-2 text-sm h-32">
+                                  <div className="border-r-2 border-black p-2 flex flex-col justify-end">
+                                      <span className="font-bold">Customer seal and signature:</span>
+                                  </div>
+                                  <div className="p-2 flex flex-col justify-end">
+                                      <span className="font-bold">Sreemeditec representative signature:</span>
+                                  </div>
                               </div>
                           </div>
-
-                      </div>
+                      )}
                   </div>
               </div>
           </div>
       )}
 
       {/* Record Payment Modal */}
-      {showPaymentModal && selectedInvoice && (
+      {showPaymentModal && selectedInvoice && !isQuoteMode && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm flex flex-col animate-in zoom-in-95">
                 <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-3xl">
