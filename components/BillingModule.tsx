@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Invoice, InvoiceItem, PaymentRecord, Client } from '../types';
 import { Receipt, Plus, FileText, Printer, Download, Search, Filter, AlertCircle, CheckCircle2, Clock, Trash2, Calendar, Building2, User, ChevronDown, IndianRupee, CreditCard, X, Upload, Save, Image, Box, Percent, Eye, PenTool, ArrowLeft } from 'lucide-react';
@@ -18,49 +19,13 @@ const formatIndianNumber = (num: number) => {
   return num.toString();
 };
 
-const MOCK_INVOICES: Invoice[] = [
-  {
-    id: 'INV-001',
-    invoiceNumber: 'SMCPO-001',
-    date: '2023-10-20',
-    dueDate: '2023-11-20',
-    customerName: 'Dr. Sarah Smith',
-    customerHospital: 'City General Hospital',
-    customerAddress: '45 Medical Park Rd, Bangalore',
-    customerGstin: '29ABCDE1234F1Z5',
-    items: [
-      { id: '1', description: 'Philips MRI Coil (Head)', hsn: '9018', quantity: 1, unitPrice: 15000, taxRate: 12, amount: 15000 }
-    ],
-    subtotal: 15000,
-    taxTotal: 1800,
-    grandTotal: 16800,
-    status: 'Partial',
-    paymentMethod: 'Bank Transfer',
-    smcpoNumber: 'SMCPO-001',
-    cpoNumber: 'CPO-9981',
-    cpoDate: '2023-10-18',
-    deliveryAddress: 'City General Hospital, Main Block',
-    advanceAmount: 5000,
-    advanceDate: '2023-10-20',
-    advanceMode: 'NEFT',
-    bankDetails: 'HDFC Bank, Adyar Branch',
-    deliveryTime: '2 Weeks',
-    specialNote: 'Warranty valid for 1 year from installation.',
-    payments: [
-        { id: 'PAY-1', date: '2023-10-20', amount: 5000, mode: 'NEFT', reference: 'REF123' }
-    ],
-    totalPaid: 5000,
-    balanceDue: 11800
-  }
-];
-
 export const BillingModule: React.FC = () => {
-  const { clients, products, addClient } = useData();
-  const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+  const { clients, products, addClient, invoices, addInvoice, updateInvoice: updateContextInvoice, updateProduct, recordStockMovement } = useData();
   const [viewState, setViewState] = useState<'list' | 'create'>('list');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Mobile Tab State for Quotation Generator
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
@@ -168,7 +133,7 @@ export const BillingModule: React.FC = () => {
       if (!existingClient) {
           if (confirm(`"${newInv.customerName}" is a new client. Save to Client Database?`)) {
               addClient({
-                  id: `C${Date.now()}`,
+                  id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
                   name: newInv.customerName,
                   hospital: newInv.customerHospital,
                   address: newInv.customerAddress || '',
@@ -219,7 +184,31 @@ export const BillingModule: React.FC = () => {
           specialNote: `${newInv.paymentTerms}\n${newInv.deliveryTerms}\n${newInv.warrantyTerms}`
       };
 
-      setInvoices([invoice, ...invoices]);
+      addInvoice(invoice);
+
+      // INVENTORY UPDATE: Reduce Stock & Record Movement for items sold
+      newInv.items.forEach(item => {
+          const product = products.find(p => p.name === item.description);
+          if (product) {
+              const newStock = Math.max(0, product.stock - item.quantity);
+              
+              // 1. Update Product Stock
+              updateProduct(product.id, { stock: newStock });
+
+              // 2. Record Stock Movement (OUT)
+              recordStockMovement({
+                  id: `MOV-${Date.now()}-${item.id}`,
+                  productId: product.id,
+                  productName: product.name,
+                  type: 'Out',
+                  quantity: item.quantity,
+                  date: newInv.date!,
+                  reference: invoice.invoiceNumber,
+                  purpose: 'Sale'
+              });
+          }
+      });
+
       setViewState('list');
       
       // Reset
@@ -258,7 +247,7 @@ export const BillingModule: React.FC = () => {
           status: newStatus as any
       };
 
-      setInvoices(prev => prev.map(inv => inv.id === selectedInvoice.id ? updatedInvoice : inv));
+      updateContextInvoice(selectedInvoice.id, updatedInvoice);
       setSelectedInvoice(updatedInvoice);
       setShowPaymentModal(false);
       setPaymentAmount(0);
@@ -280,6 +269,14 @@ export const BillingModule: React.FC = () => {
       newInv.discount || 0, 
       newInv.freightAmount || 0, 
       newInv.freightTaxRate || 0
+  );
+
+  // Filtered Invoices for Search
+  const filteredInvoices = invoices.filter(inv => 
+      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (inv.cpoNumber && inv.cpoNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      inv.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.customerHospital.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (viewState === 'create') {
@@ -775,7 +772,18 @@ export const BillingModule: React.FC = () => {
             <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                 <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Receipt size={20} /></div> Invoices & Orders
             </h2>
-            <div className="flex gap-3">
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+                 <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Search PO or Customer..." 
+                        className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
                  <button 
                     onClick={() => { setViewState('create'); setMobileTab('edit'); }}
                     className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
@@ -798,7 +806,7 @@ export const BillingModule: React.FC = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {invoices.map(invoice => (
+                    {filteredInvoices.map(invoice => (
                         <tr key={invoice.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => viewInvoice(invoice)}>
                             <td className="px-6 py-4">
                                 <div className="font-bold text-slate-800">{invoice.invoiceNumber}</div>
@@ -831,6 +839,13 @@ export const BillingModule: React.FC = () => {
                             </td>
                         </tr>
                     ))}
+                    {filteredInvoices.length === 0 && (
+                        <tr>
+                            <td colSpan={6} className="text-center py-12 text-slate-400">
+                                No invoices found matching your search.
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>

@@ -74,6 +74,17 @@ export interface Product {
   description?: string; // Features
 }
 
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  type: 'In' | 'Out'; // In = Restock, Out = Sold/Used
+  quantity: number;
+  date: string;
+  reference: string; // Invoice # or PO #
+  purpose?: 'Sale' | 'Demo' | 'Restock' | 'Service' | 'Return'; // Context for the movement
+}
+
 export interface ServiceTicket {
   id: string;
   customer: string;
@@ -293,4 +304,5 @@ export enum TabView {
   SUPPORT = 'support',
   REPORTS = 'reports',
   PROFILE = 'profile',
+  CLIENTS = 'clients',
 }

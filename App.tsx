@@ -4,7 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, Package, Wrench, 
   UserCheck, Receipt, ShoppingCart, Headset, BarChart3, 
-  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck
+  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck, Contact
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { LeadsModule } from './components/LeadsModule';
@@ -17,6 +17,7 @@ import { ProfileModule } from './components/ProfileModule';
 import { BillingModule } from './components/BillingModule';
 import { DeliveryChallanModule } from './components/DeliveryChallanModule';
 import { ReportsModule } from './components/ReportsModule';
+import { ClientModule } from './components/ClientModule';
 import { TabView, Task, AppNotification } from './types';
 
 // Placeholder for unimplemented modules
@@ -169,7 +170,8 @@ const App: React.FC = () => {
     TabView.QUOTES,
     TabView.DELIVERY,
     TabView.SUPPORT,
-    TabView.PROFILE
+    TabView.PROFILE,
+    TabView.CLIENTS
   ];
 
   const hasAccess = (tab: TabView) => {
@@ -233,6 +235,7 @@ const App: React.FC = () => {
         </div>
       );
       case TabView.BILLING: return <BillingModule />;
+      case TabView.CLIENTS: return <ClientModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.SUPPORT: return <PlaceholderModule title="Support Tickets" desc="Customer support portal for ticket management and resolution tracking." />;
@@ -283,6 +286,7 @@ const App: React.FC = () => {
             <NavItem tab={TabView.DASHBOARD} icon={LayoutDashboard} label="Dashboard" />
             <NavItem tab={TabView.LEADS} icon={Users} label="Lead CRM" />
             <NavItem tab={TabView.QUOTES} icon={FileText} label="Quotations" />
+            <NavItem tab={TabView.CLIENTS} icon={Contact} label="Client Database" />
             
             {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Operations</div>}
             <NavItem tab={TabView.TASKS} icon={CheckSquare} label="Task Manager" />
@@ -340,7 +344,8 @@ const App: React.FC = () => {
                         {activeTab === TabView.BILLING && 'Invoices & Billing'}
                         {activeTab === TabView.DELIVERY && 'Delivery Challans'}
                         {activeTab === TabView.REPORTS && 'Analytics & Reports'}
-                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES, TabView.BILLING, TabView.DELIVERY, TabView.REPORTS].includes(activeTab) && 'Module'}
+                        {activeTab === TabView.CLIENTS && 'Client Management'}
+                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES, TabView.BILLING, TabView.DELIVERY, TabView.REPORTS, TabView.CLIENTS].includes(activeTab) && 'Module'}
                     </h2>
                     <p className="text-xs text-slate-400 font-medium hidden sm:block">Overview and updates</p>
                 </div>

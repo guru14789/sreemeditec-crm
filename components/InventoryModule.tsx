@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { Product } from '../types';
-import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Product, StockMovement } from '../types';
+import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -19,7 +20,8 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const InventoryModule: React.FC = () => {
-  const { products, addProduct, updateProduct } = useData();
+  const { products, addProduct, updateProduct, stockMovements, recordStockMovement, clients } = useData();
+  const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
   const [showPOModal, setShowPOModal] = useState(false);
@@ -33,6 +35,25 @@ export const InventoryModule: React.FC = () => {
     location: 'Warehouse A'
   });
 
+  // Send for Demo Modal State
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [demoData, setDemoData] = useState({
+      productId: '',
+      quantity: 1,
+      clientName: '',
+      date: new Date().toISOString().split('T')[0],
+      location: ''
+  });
+
+  // Barcode Scanner State
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanQuery, setScanQuery] = useState('');
+  const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
+  const [scanStatus, setScanStatus] = useState<'idle' | 'found' | 'not-found'>('idle');
+  const [scanOperation, setScanOperation] = useState<'In' | 'Out'>('In'); // Toggle for Add/Remove
+  const [quickStockAmount, setQuickStockAmount] = useState<number>(1);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const low = products.filter(p => p.stock < p.minLevel);
     setLowStockItems(low);
@@ -41,21 +62,42 @@ export const InventoryModule: React.FC = () => {
     }
   }, [products]);
 
+  // Auto-focus input when scan modal opens and is in idle state
+  useEffect(() => {
+      if (showScanModal && scanStatus === 'idle' && scanInputRef.current) {
+          // Small timeout to ensure modal render
+          setTimeout(() => {
+              scanInputRef.current?.focus();
+          }, 100);
+      }
+  }, [showScanModal, scanStatus]);
+
   const handleGeneratePO = () => {
     setProcessingOrder(true);
     setTimeout(() => {
         setProcessingOrder(false);
         setShowPOModal(false);
         
-        // Update stock levels in central store
+        // Update stock levels in central store and record movement
         products.forEach(p => {
              if (p.stock < p.minLevel) {
-                 updateProduct(p.id, { stock: p.minLevel + 10 });
+                 const qtyToAdd = 10;
+                 updateProduct(p.id, { stock: p.stock + qtyToAdd });
+                 recordStockMovement({
+                     id: `MOV-${Date.now()}-${p.id}`,
+                     productId: p.id,
+                     productName: p.name,
+                     type: 'In',
+                     quantity: qtyToAdd,
+                     date: new Date().toISOString().split('T')[0],
+                     reference: `PO-${Date.now().toString().slice(-4)}`,
+                     purpose: 'Restock'
+                 });
              }
         });
         
         setShowNotification(false);
-        alert("Purchase Orders generated and sent to vendors!");
+        alert("Purchase Orders generated! Stock has been replenished.");
     }, 1500);
   };
 
@@ -79,8 +121,136 @@ export const InventoryModule: React.FC = () => {
         description: newProduct.description || ''
     };
     addProduct(productToAdd);
+    
+    // Record initial stock as movement
+    if ((newProduct.stock || 0) > 0) {
+        recordStockMovement({
+             id: `MOV-INIT-${Date.now()}`,
+             productId: productToAdd.id,
+             productName: productToAdd.name,
+             type: 'In',
+             quantity: productToAdd.stock,
+             date: new Date().toISOString().split('T')[0],
+             reference: 'Opening Stock',
+             purpose: 'Restock'
+        });
+    }
+
     setShowAddProductModal(false);
     setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '' });
+  };
+
+  const handleSendForDemo = () => {
+      if (!demoData.productId || demoData.quantity <= 0 || !demoData.clientName) {
+          alert("Please fill all details.");
+          return;
+      }
+      
+      const product = products.find(p => p.id === demoData.productId);
+      if(!product) return;
+
+      if(product.stock < demoData.quantity) {
+          alert("Insufficient stock for this operation.");
+          return;
+      }
+
+      // 1. Deduct Stock
+      updateProduct(product.id, { stock: product.stock - demoData.quantity });
+
+      // 2. Record Movement
+      recordStockMovement({
+          id: `MOV-DEMO-${Date.now()}`,
+          productId: product.id,
+          productName: product.name,
+          type: 'Out',
+          quantity: demoData.quantity,
+          date: demoData.date,
+          reference: `Demo: ${demoData.clientName} ${demoData.location ? `(${demoData.location})` : ''}`,
+          purpose: 'Demo'
+      });
+
+      setShowDemoModal(false);
+      setDemoData({ productId: '', quantity: 1, clientName: '', date: new Date().toISOString().split('T')[0], location: '' });
+      setActiveTab('history'); // Switch to history to show the action
+  };
+
+  const handleScanSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!scanQuery.trim()) return;
+
+      const foundProduct = products.find(p => p.sku.toLowerCase() === scanQuery.toLowerCase());
+      
+      if (foundProduct) {
+          setScannedProduct(foundProduct);
+          setScanStatus('found');
+          setScanOperation('In'); // Default to adding stock
+          setQuickStockAmount(1);
+      } else {
+          setScanStatus('not-found');
+      }
+  };
+
+  const handleStockUpdate = () => {
+      if (!scannedProduct || quickStockAmount <= 0) return;
+
+      let newStock = scannedProduct.stock;
+      
+      if (scanOperation === 'In') {
+          newStock += quickStockAmount;
+      } else {
+          if (scannedProduct.stock < quickStockAmount) {
+              alert(`Insufficient stock! Current stock is ${scannedProduct.stock}.`);
+              return;
+          }
+          newStock -= quickStockAmount;
+      }
+
+      updateProduct(scannedProduct.id, { stock: newStock });
+      
+      recordStockMovement({
+          id: `MOV-SCAN-${Date.now()}`,
+          productId: scannedProduct.id,
+          productName: scannedProduct.name,
+          type: scanOperation,
+          quantity: quickStockAmount,
+          date: new Date().toISOString().split('T')[0],
+          reference: 'Barcode Scan',
+          purpose: scanOperation === 'In' ? 'Restock' : 'Sale'
+      });
+
+      handleResetScan();
+      // Use a subtle notification instead of alert for smoother flow? Alert is fine for now.
+      alert(`Successfully ${scanOperation === 'In' ? 'Added' : 'Removed'} ${quickStockAmount} units.`);
+  };
+
+  const handleCreateFromScan = () => {
+      setShowScanModal(false);
+      // Pre-fill the SKU in the new product form
+      setNewProduct(prev => ({ 
+          ...prev, 
+          sku: scanQuery,
+          stock: 0,
+          category: 'Equipment',
+          location: 'Warehouse A'
+      }));
+      setShowAddProductModal(true);
+      handleResetScan();
+  };
+
+  const handleResetScan = () => {
+      setScannedProduct(null);
+      setScanStatus('idle');
+      setScanQuery('');
+      setQuickStockAmount(1);
+      // Timeout to allow UI render before focus
+      setTimeout(() => {
+          if (scanInputRef.current) scanInputRef.current.focus();
+      }, 50);
+  };
+
+  const triggerScanForAddProduct = () => {
+      setShowAddProductModal(false);
+      setShowScanModal(true);
   };
 
   const poTotalCost = lowStockItems.reduce((acc, item) => {
@@ -166,81 +336,285 @@ export const InventoryModule: React.FC = () => {
       {/* Main Inventory Section */}
       <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
         
-        {/* Toolbar */}
+        {/* Toolbar with Tabs */}
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Package size={20} /></div> Inventory List
-            </h2>
+            <div className="flex flex-col gap-3">
+                 <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Package size={20} /></div> Inventory Management
+                </h2>
+                <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                    <button 
+                        onClick={() => setActiveTab('stock')}
+                        className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'stock' ? 'bg-white shadow-sm text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <Package size={14} /> In Office (Stock)
+                    </button>
+                     <button 
+                        onClick={() => setActiveTab('history')}
+                        className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white shadow-sm text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                        <History size={14} /> Went Out (History)
+                    </button>
+                </div>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                        type="text" 
-                        placeholder="Search SKU or Name..." 
-                        className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
-                    />
-                </div>
-                <button className="px-4 py-2.5 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 text-sm font-bold transition-colors">
-                    <Filter size={16} /> Filter
-                </button>
-                 <button 
-                    onClick={() => setShowAddProductModal(true)}
-                    className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
-                    <Plus size={18} /> Add Product
-                </button>
+                {activeTab === 'stock' && (
+                    <>
+                        <div className="relative hidden lg:block">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Search SKU or Name..." 
+                                className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
+                            />
+                        </div>
+                        <button 
+                            onClick={() => { setShowScanModal(true); handleResetScan(); }}
+                            className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
+                            <ScanBarcode size={16} /> Scan Barcode
+                        </button>
+                        <button 
+                            onClick={() => setShowDemoModal(true)}
+                            className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                            <Send size={16} /> Send for Demo
+                        </button>
+                        <button 
+                            onClick={() => setShowAddProductModal(true)}
+                            className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
+                            <Plus size={18} /> Add Product
+                        </button>
+                    </>
+                )}
             </div>
         </div>
 
-        {/* Table */}
+        {/* Table Content */}
         <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
-                <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                    <tr>
-                        <th className="px-6 py-4 border-b border-slate-100">Product Name</th>
-                        <th className="px-6 py-4 border-b border-slate-100">SKU</th>
-                        <th className="px-6 py-4 border-b border-slate-100">Category</th>
-                        <th className="px-6 py-4 border-b border-slate-100 text-right">Stock</th>
-                        <th className="px-6 py-4 border-b border-slate-100 text-right">Price</th>
-                        <th className="px-6 py-4 border-b border-slate-100">Location</th>
-                        <th className="px-6 py-4 border-b border-slate-100">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {products.map((product) => {
-                        const isLowStock = product.stock < product.minLevel;
-                        return (
-                            <tr key={product.id} className={`hover:bg-slate-50 transition-colors ${isLowStock ? 'bg-red-50/30' : ''}`}>
-                                <td className="px-6 py-4 font-bold text-slate-800">{product.name}</td>
-                                <td className="px-6 py-4 font-mono text-xs text-slate-500">{product.sku}</td>
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                        {product.category}
-                                    </span>
-                                </td>
-                                <td className={`px-6 py-4 text-right font-bold ${isLowStock ? 'text-red-600' : 'text-slate-700'}`}>
-                                    {product.stock} <span className="text-xs font-medium text-slate-400">/ {product.minLevel}</span>
-                                </td>
-                                <td className="px-6 py-4 text-right font-medium text-slate-800">₹{product.price.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-xs font-medium text-slate-500">{product.location}</td>
-                                <td className="px-6 py-4">
-                                    {isLowStock ? (
-                                        <div className="flex items-center gap-1.5 text-red-600 text-xs font-bold">
-                                            <AlertTriangle size={14} /> Low Stock
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 text-green-600 text-xs font-bold">
-                                            <CheckCircle size={14} /> In Stock
-                                        </div>
-                                    )}
-                                </td>
+            {activeTab === 'stock' ? (
+                /* IN OFFICE / CURRENT STOCK TABLE */
+                <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
+                    <thead className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+                        <tr>
+                            <th className="px-6 py-4 border-b border-slate-100">Product Name</th>
+                            <th className="px-6 py-4 border-b border-slate-100">SKU</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Category</th>
+                            <th className="px-6 py-4 border-b border-slate-100 text-right">Stock</th>
+                            <th className="px-6 py-4 border-b border-slate-100 text-right">Price</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Location</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {products.map((product) => {
+                            const isLowStock = product.stock < product.minLevel;
+                            return (
+                                <tr key={product.id} className={`hover:bg-slate-50 transition-colors ${isLowStock ? 'bg-red-50/30' : ''}`}>
+                                    <td className="px-6 py-4 font-bold text-slate-800">{product.name}</td>
+                                    <td className="px-6 py-4 font-mono text-xs text-slate-500">{product.sku}</td>
+                                    <td className="px-6 py-4">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                            {product.category}
+                                        </span>
+                                    </td>
+                                    <td className={`px-6 py-4 text-right font-bold ${isLowStock ? 'text-red-600' : 'text-slate-700'}`}>
+                                        {product.stock} <span className="text-xs font-medium text-slate-400">/ {product.minLevel}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-medium text-slate-800">₹{product.price.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-xs font-medium text-slate-500">{product.location}</td>
+                                    <td className="px-6 py-4">
+                                        {isLowStock ? (
+                                            <div className="flex items-center gap-1.5 text-red-600 text-xs font-bold">
+                                                <AlertTriangle size={14} /> Low Stock
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5 text-green-600 text-xs font-bold">
+                                                <CheckCircle size={14} /> In Stock
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            ) : (
+                /* WENT OUT / HISTORY TABLE */
+                <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
+                    <thead className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+                        <tr>
+                            <th className="px-6 py-4 border-b border-slate-100">Date</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Purpose / Status</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Product Name</th>
+                            <th className="px-6 py-4 border-b border-slate-100 text-right">Quantity</th>
+                            <th className="px-6 py-4 border-b border-slate-100">Reference / Location</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {stockMovements.length > 0 ? (
+                            stockMovements.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((movement) => (
+                                <tr key={movement.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 text-slate-500 font-medium">{movement.date}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                            movement.type === 'In' 
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                                : movement.purpose === 'Demo' 
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                                    : 'bg-orange-50 text-orange-700 border-orange-200'
+                                        }`}>
+                                            {movement.type === 'In' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+                                            {movement.type === 'In' ? 'Restock (In Office)' : movement.purpose === 'Demo' ? 'Sent for Demo' : 'Sold (Out)'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 font-bold text-slate-800">{movement.productName}</td>
+                                    <td className="px-6 py-4 text-right font-bold text-slate-700">
+                                        {movement.quantity}
+                                    </td>
+                                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                                        {movement.reference}
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan={5} className="text-center py-12 text-slate-400 italic">No stock movement history available.</td>
                             </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                        )}
+                    </tbody>
+                </table>
+            )}
         </div>
       </div>
+
+      {/* Barcode Scanner Modal */}
+      {showScanModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                  <div className={`p-6 text-white text-center relative transition-colors duration-300 ${scanStatus === 'not-found' ? 'bg-orange-500' : scanStatus === 'found' ? 'bg-emerald-600' : 'bg-slate-900'}`}>
+                      <button onClick={() => { setShowScanModal(false); handleResetScan(); }} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+                          <X size={24} />
+                      </button>
+                      <div className="bg-white/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                          {scanStatus === 'not-found' ? <PackagePlus size={32} /> : scanStatus === 'found' ? <CheckCircle size={32} /> : <ScanBarcode size={32} />}
+                      </div>
+                      <h3 className="text-xl font-bold">
+                          {scanStatus === 'idle' && 'Scan Mode Active'}
+                          {scanStatus === 'found' && 'Product Found'}
+                          {scanStatus === 'not-found' && 'Product Not Found'}
+                      </h3>
+                      <p className="text-white/70 text-sm mt-1">
+                          {scanStatus === 'idle' && 'Ready for input. Scan a barcode now.'}
+                          {scanStatus === 'found' && 'Product detected in inventory.'}
+                          {scanStatus === 'not-found' && 'This item is not in your inventory.'}
+                      </p>
+                  </div>
+                  
+                  <div className="p-8">
+                      {scanStatus === 'idle' && (
+                          <form onSubmit={handleScanSubmit} className="space-y-4">
+                              <input 
+                                  ref={scanInputRef}
+                                  type="text" 
+                                  className="w-full text-center text-2xl font-mono font-bold py-4 border-b-2 border-slate-200 outline-none focus:border-medical-500 bg-transparent placeholder-slate-300"
+                                  placeholder="Waiting for scan..."
+                                  value={scanQuery}
+                                  onChange={(e) => setScanQuery(e.target.value)}
+                                  autoFocus
+                              />
+                              <p className="text-xs text-center text-slate-400">
+                                  Use your scanner or type SKU manually and press Enter.
+                              </p>
+                          </form>
+                      )}
+
+                      {scanStatus === 'found' && scannedProduct && (
+                          <div className="space-y-6 animate-in slide-in-from-bottom-4">
+                              <div className="text-center">
+                                  <h4 className="text-xl font-bold text-slate-800">{scannedProduct.name}</h4>
+                                  <p className="text-slate-500 font-mono text-sm mt-1">{scannedProduct.sku}</p>
+                              </div>
+                              
+                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-2 gap-4 text-center">
+                                  <div>
+                                      <p className="text-xs font-bold text-slate-400 uppercase">Current Stock</p>
+                                      <p className="text-xl font-black text-slate-800">{scannedProduct.stock}</p>
+                                  </div>
+                                  <div>
+                                      <p className="text-xs font-bold text-slate-400 uppercase">Price</p>
+                                      <p className="text-xl font-black text-slate-800">₹{scannedProduct.price}</p>
+                                  </div>
+                              </div>
+
+                              {/* Operation Toggle */}
+                              <div className="flex bg-slate-100 p-1 rounded-xl">
+                                  <button 
+                                      onClick={() => setScanOperation('In')}
+                                      className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${scanOperation === 'In' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                      <PlusCircle size={16} /> Stock In (Add)
+                                  </button>
+                                  <button 
+                                      onClick={() => setScanOperation('Out')}
+                                      className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${scanOperation === 'Out' ? 'bg-orange-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                                      <MinusCircle size={16} /> Stock Out (Remove)
+                                  </button>
+                              </div>
+
+                              <div className="space-y-3">
+                                  <label className="text-xs font-bold text-slate-500 uppercase block text-center">
+                                      {scanOperation === 'In' ? 'Quantity to Add' : 'Quantity to Remove'}
+                                  </label>
+                                  <div className="flex items-center justify-center gap-4">
+                                      <button onClick={() => setQuickStockAmount(Math.max(1, quickStockAmount - 1))} className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-600">-</button>
+                                      <input 
+                                          type="number" 
+                                          className="w-20 text-center font-bold text-xl border-none outline-none bg-transparent"
+                                          value={quickStockAmount}
+                                          onChange={(e) => setQuickStockAmount(parseInt(e.target.value) || 0)}
+                                      />
+                                      <button onClick={() => setQuickStockAmount(quickStockAmount + 1)} className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-600">+</button>
+                                  </div>
+                              </div>
+
+                              <div className="flex gap-3 pt-2">
+                                  <button 
+                                      onClick={handleResetScan}
+                                      className="flex-1 py-3 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                                      Scan Next
+                                  </button>
+                                  <button 
+                                      onClick={handleStockUpdate}
+                                      className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-colors ${
+                                          scanOperation === 'In' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/20'
+                                      }`}>
+                                      <Zap size={18} /> Confirm {scanOperation}
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+
+                      {scanStatus === 'not-found' && (
+                          <div className="text-center animate-in slide-in-from-bottom-4">
+                              <p className="text-slate-600 mb-6 text-sm">
+                                  The barcode <span className="font-mono font-bold bg-slate-100 px-2 py-1 rounded mx-1">{scanQuery}</span> does not exist in the system.
+                              </p>
+                              
+                              <div className="flex flex-col gap-3">
+                                   <button 
+                                      onClick={handleCreateFromScan}
+                                      className="w-full py-4 text-white font-bold bg-orange-500 rounded-2xl hover:bg-orange-600 shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all active:scale-95">
+                                      <PackagePlus size={20} /> Create New Product
+                                   </button>
+                                   <button 
+                                      onClick={handleResetScan}
+                                      className="w-full py-3 text-slate-600 font-bold bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors">
+                                      Scan Again
+                                   </button>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Purchase Order Modal */}
       {showPOModal && (
@@ -307,6 +681,105 @@ export const InventoryModule: React.FC = () => {
         </div>
       )}
 
+      {/* Send for Demo Modal */}
+      {showDemoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full flex flex-col scale-100 animate-in zoom-in-95">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-white rounded-t-3xl">
+                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <Send className="text-purple-600" size={20} /> Send for Demo
+                    </h3>
+                    <button onClick={() => setShowDemoModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                     <p className="text-xs text-slate-500">Items sent for demo will be deducted from "In Office" stock but tracked in history.</p>
+                     
+                     <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Product</label>
+                        <select 
+                            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none appearance-none"
+                            value={demoData.productId}
+                            onChange={(e) => setDemoData({...demoData, productId: e.target.value})}
+                        >
+                            <option value="">Select Product...</option>
+                            {products.map(p => (
+                                <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock})</option>
+                            ))}
+                        </select>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Quantity</label>
+                            <input 
+                                type="number"
+                                min="1"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                value={demoData.quantity}
+                                onChange={(e) => setDemoData({...demoData, quantity: parseInt(e.target.value)})}
+                            />
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Date</label>
+                             <input 
+                                type="date"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                value={demoData.date}
+                                onChange={(e) => setDemoData({...demoData, date: e.target.value})}
+                            />
+                        </div>
+                     </div>
+
+                     <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Client / Prospect</label>
+                        <div className="relative">
+                            <input 
+                                type="text"
+                                list="demo-clients"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                placeholder="Client Name"
+                                value={demoData.clientName}
+                                onChange={(e) => setDemoData({...demoData, clientName: e.target.value})}
+                            />
+                            <Briefcase size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <datalist id="demo-clients">
+                                {clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}
+                            </datalist>
+                        </div>
+                     </div>
+
+                     <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Location / Notes</label>
+                        <div className="relative">
+                            <input 
+                                type="text"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                                placeholder="e.g. Apollo Hospital, Indiranagar"
+                                value={demoData.location}
+                                onChange={(e) => setDemoData({...demoData, location: e.target.value})}
+                            />
+                            <MapPin size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        </div>
+                     </div>
+                </div>
+                <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-3xl">
+                    <button 
+                        onClick={() => setShowDemoModal(false)}
+                        className="px-5 py-2.5 text-slate-600 font-bold hover:bg-slate-200/50 rounded-xl transition-colors text-sm">
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleSendForDemo}
+                        className="px-6 py-2.5 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-500/30 flex items-center gap-2 transition-all active:scale-95 text-sm">
+                        Confirm Transfer
+                    </button>
+                </div>
+             </div>
+        </div>
+      )}
+
       {/* Add Product Modal */}
       {showAddProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
@@ -344,14 +817,22 @@ export const InventoryModule: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">SKU *</label>
-                            <input 
-                                type="text" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                                placeholder="e.g. EQ-001"
-                                value={newProduct.sku || ''}
-                                onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                            />
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">SKU / Barcode *</label>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 pr-10 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
+                                    placeholder="e.g. EQ-001"
+                                    value={newProduct.sku || ''}
+                                    onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
+                                />
+                                <button 
+                                    onClick={triggerScanForAddProduct}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+                                    title="Scan Barcode">
+                                    <ScanBarcode size={16} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
