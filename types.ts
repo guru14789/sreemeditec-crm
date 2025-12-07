@@ -1,5 +1,4 @@
 
-
 export enum LeadStatus {
   NEW = 'New',
   CONTACTED = 'Contacted',
@@ -265,6 +264,17 @@ export interface DeliveryChallan {
   referenceOrder?: string;
 }
 
+// Expense Management
+export interface ExpenseRecord {
+  id: string;
+  date: string;
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
+  amount: number;
+  description: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  receiptUrl?: string; // Placeholder for file
+}
+
 // User Profile
 export interface UserProfile {
   name: string;
@@ -306,4 +316,6 @@ export enum TabView {
   REPORTS = 'reports',
   PROFILE = 'profile',
   CLIENTS = 'clients',
+  EXPENSES = 'expenses',
+  PERFORMANCE = 'performance',
 }

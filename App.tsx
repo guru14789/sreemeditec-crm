@@ -1,12 +1,10 @@
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, FileText, Package, Wrench, 
   UserCheck, Receipt, ShoppingCart, Headset, BarChart3, 
-  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck, Contact
+  Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck, Contact, Trophy, PieChart
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { LeadsModule } from './components/LeadsModule';
@@ -20,6 +18,8 @@ import { BillingModule } from './components/BillingModule';
 import { DeliveryChallanModule } from './components/DeliveryChallanModule';
 import { ReportsModule } from './components/ReportsModule';
 import { ClientModule } from './components/ClientModule';
+import { ExpenseModule } from './components/ExpenseModule';
+import { PerformanceModule } from './components/PerformanceModule';
 import { TabView, Task, AppNotification } from './types';
 
 // Placeholder for unimplemented modules
@@ -108,6 +108,15 @@ const App: React.FC = () => {
   // Determine Current User Name based on Role (Simulated Login)
   const currentUser = userRole === 'Admin' ? 'Admin User' : 'Rahul Sharma';
 
+  // Update default tab based on role change
+  useEffect(() => {
+      if (userRole === 'Employee' && !employeeAllowedTabs.includes(activeTab)) {
+          setActiveTab(TabView.TASKS);
+      } else if (userRole === 'Admin' && activeTab === TabView.PERFORMANCE) {
+          setActiveTab(TabView.DASHBOARD);
+      }
+  }, [userRole]);
+
   // Auto-close sidebar on mobile on initial load
   useEffect(() => {
     const handleResize = () => {
@@ -161,19 +170,13 @@ const App: React.FC = () => {
       }
   };
 
-  // Define permissions
+  // Define permissions - STRICT LIST FOR EMPLOYEES
   const employeeAllowedTabs = [
-    TabView.DASHBOARD,
     TabView.TASKS,
     TabView.ATTENDANCE,
-    TabView.LEADS,
-    TabView.SERVICE,
-    TabView.INVENTORY,
-    TabView.QUOTES,
-    TabView.DELIVERY,
-    TabView.SUPPORT,
-    TabView.PROFILE,
-    TabView.CLIENTS
+    TabView.EXPENSES,
+    TabView.PERFORMANCE,
+    TabView.PROFILE
   ];
 
   const hasAccess = (tab: TabView) => {
@@ -223,6 +226,8 @@ const App: React.FC = () => {
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
+      case TabView.EXPENSES: return <ExpenseModule />;
+      case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.SUPPORT: return <PlaceholderModule title="Support Tickets" desc="Customer support portal for ticket management and resolution tracking." />;
       default: return <Dashboard />;
     }
@@ -267,32 +272,40 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar">
-            {isSidebarOpen && <div className="px-6 mb-3 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sales & CRM</div>}
-            <NavItem tab={TabView.DASHBOARD} icon={LayoutDashboard} label="Dashboard" />
-            <NavItem tab={TabView.LEADS} icon={Users} label="Lead CRM" />
-            <NavItem tab={TabView.QUOTES} icon={FileText} label="Quotations" />
-            <NavItem tab={TabView.CLIENTS} icon={Contact} label="Client Database" />
+            {/* Common Items / Employee View */}
+            {isSidebarOpen && userRole === 'Employee' && <div className="px-6 mb-3 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">My Work</div>}
             
-            {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Operations</div>}
-            <NavItem tab={TabView.TASKS} icon={CheckSquare} label="Task Manager" />
-            <NavItem tab={TabView.INVENTORY} icon={Package} label="Inventory" />
-            <NavItem tab={TabView.DELIVERY} icon={Truck} label="Delivery Challan" />
-            <NavItem tab={TabView.SERVICE} icon={Wrench} label="Service & AMC" />
-            <NavItem tab={TabView.ATTENDANCE} icon={Clock} label="Attendance" />
-            
-            {/* Admin Section - Only show header if user is Admin */}
+            {/* Admin Items */}
             {userRole === 'Admin' && (
                 <>
-                    {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Admin</div>}
-                    <NavItem tab={TabView.HR} icon={UserCheck} label="HR & Payroll" />
-                    <NavItem tab={TabView.BILLING} icon={Receipt} label="Billing" />
-                    <NavItem tab={TabView.REPORTS} icon={BarChart3} label="Reports" />
+                    {isSidebarOpen && <div className="px-6 mb-3 mt-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sales & CRM</div>}
+                    <NavItem tab={TabView.DASHBOARD} icon={LayoutDashboard} label="Dashboard" />
+                    <NavItem tab={TabView.LEADS} icon={Users} label="Lead CRM" />
+                    <NavItem tab={TabView.QUOTES} icon={FileText} label="Quotations" />
+                    <NavItem tab={TabView.CLIENTS} icon={Contact} label="Client Database" />
+                    
+                    {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Operations</div>}
                 </>
             )}
 
-            {/* Support is visible to everyone, but positioned at bottom */}
-            <div className="mt-4"></div>
-            <NavItem tab={TabView.SUPPORT} icon={Headset} label="Support" />
+            <NavItem tab={TabView.TASKS} icon={CheckSquare} label="Task Manager" />
+            <NavItem tab={TabView.ATTENDANCE} icon={Clock} label="Attendance" />
+            <NavItem tab={TabView.EXPENSES} icon={Receipt} label="My Expenses" />
+            <NavItem tab={TabView.PERFORMANCE} icon={Trophy} label="Performance" />
+
+            {userRole === 'Admin' && (
+                <>
+                    <NavItem tab={TabView.INVENTORY} icon={Package} label="Inventory" />
+                    <NavItem tab={TabView.DELIVERY} icon={Truck} label="Delivery Challan" />
+                    <NavItem tab={TabView.SERVICE} icon={Wrench} label="Service & AMC" />
+                    
+                    {isSidebarOpen && <div className="px-6 mb-3 mt-8 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Admin</div>}
+                    <NavItem tab={TabView.HR} icon={UserCheck} label="HR & Payroll" />
+                    <NavItem tab={TabView.BILLING} icon={PieChart} label="Billing" />
+                    <NavItem tab={TabView.REPORTS} icon={BarChart3} label="Reports" />
+                    <NavItem tab={TabView.SUPPORT} icon={Headset} label="Support" />
+                </>
+            )}
           </div>
 
           <div className="p-4">
@@ -330,7 +343,9 @@ const App: React.FC = () => {
                         {activeTab === TabView.DELIVERY && 'Delivery Challans'}
                         {activeTab === TabView.REPORTS && 'Analytics & Reports'}
                         {activeTab === TabView.CLIENTS && 'Client Management'}
-                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES, TabView.BILLING, TabView.DELIVERY, TabView.REPORTS, TabView.CLIENTS].includes(activeTab) && 'Module'}
+                        {activeTab === TabView.EXPENSES && 'Expense Management'}
+                        {activeTab === TabView.PERFORMANCE && 'My Performance'}
+                        {![TabView.DASHBOARD, TabView.LEADS, TabView.SERVICE, TabView.INVENTORY, TabView.ATTENDANCE, TabView.TASKS, TabView.HR, TabView.PROFILE, TabView.QUOTES, TabView.BILLING, TabView.DELIVERY, TabView.REPORTS, TabView.CLIENTS, TabView.EXPENSES, TabView.PERFORMANCE].includes(activeTab) && 'Module'}
                     </h2>
                     <p className="text-xs text-slate-400 font-medium hidden sm:block">Overview and updates</p>
                 </div>
