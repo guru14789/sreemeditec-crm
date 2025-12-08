@@ -275,6 +275,22 @@ export interface ExpenseRecord {
   receiptUrl?: string; // Placeholder for file
 }
 
+// Performance & Gamification
+export interface PointHistory {
+  id: string;
+  date: string;
+  points: number;
+  category: 'Task' | 'Attendance' | 'Sales' | 'Bonus';
+  description: string;
+}
+
+export interface UserStats {
+  points: number;
+  tasksCompleted: number;
+  attendanceStreak: number;
+  salesRevenue: number;
+}
+
 // User Profile
 export interface UserProfile {
   name: string;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, User, CheckCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare, Timer, PauseCircle } from 'lucide-react';
 import { Task } from '../types';
+import { useData } from './DataContext';
 
 interface Employee {
   id: string;
@@ -32,6 +33,7 @@ interface AttendanceModuleProps {
 }
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, currentUser, userRole }) => {
+  const { addPoints } = useData(); // Consume context
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -168,9 +170,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   };
 
   const performCheckIn = () => {
+      const now = new Date();
       setIsCheckedIn(true);
-      setSessionStartTime(new Date());
-      setCheckInTimeStr(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+      setSessionStartTime(now);
+      setCheckInTimeStr(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+
+      // Check-In Points Logic (Only for first check-in of the day)
+      // Check if already accumulated any time (means this is a pause/resume, not first check-in)
+      if (accumulatedMs === 0) {
+          const cutoff = new Date();
+          cutoff.setHours(9, 30, 0, 0); // 9:30 AM Cutoff
+
+          if (now <= cutoff) {
+              addPoints(10, 'Attendance', 'On-time Check-in (+10)');
+          } else {
+              addPoints(-10, 'Attendance', 'Late Check-in (-10)');
+          }
+      }
   };
 
   const getStatusBadge = (status: string) => {

@@ -1,14 +1,18 @@
 
-
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Client, Product, Invoice, StockMovement } from '../types';
+import { Client, Product, Invoice, StockMovement, PointHistory, UserStats } from '../types';
 
 interface DataContextType {
   clients: Client[];
   products: Product[];
   invoices: Invoice[];
   stockMovements: StockMovement[];
+  
+  // Performance & Points
+  userStats: UserStats;
+  pointHistory: PointHistory[];
+  addPoints: (amount: number, category: PointHistory['category'], description: string) => void;
+
   addClient: (client: Client) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
   addProduct: (product: Product) => void;
@@ -123,11 +127,29 @@ const INITIAL_MOVEMENTS: StockMovement[] = [
   }
 ];
 
+// Initial Stats
+const INITIAL_STATS: UserStats = {
+    points: 2450,
+    tasksCompleted: 45,
+    attendanceStreak: 12,
+    salesRevenue: 450000
+};
+
+const INITIAL_HISTORY: PointHistory[] = [
+    { id: 'PH-1', date: '2023-10-25', points: 50, category: 'Sales', description: 'Lead Converted: Dr. Smith' },
+    { id: 'PH-2', date: '2023-10-26', points: 10, category: 'Attendance', description: 'On-time Check-in' },
+    { id: 'PH-3', date: '2023-10-26', points: 15, category: 'Task', description: 'Task Done (On Time)' },
+];
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
+  
+  // Performance State
+  const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
+  const [pointHistory, setPointHistory] = useState<PointHistory[]>(INITIAL_HISTORY);
 
   const addClient = (client: Client) => {
     setClients(prev => [...prev, client]);
@@ -161,13 +183,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setStockMovements(prev => [movement, ...prev]);
   };
 
+  const addPoints = (amount: number, category: PointHistory['category'], description: string) => {
+      const newHistory: PointHistory = {
+          id: `PH-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          points: amount,
+          category,
+          description
+      };
+      
+      setPointHistory(prev => [newHistory, ...prev]);
+      setUserStats(prev => ({
+          ...prev,
+          points: prev.points + amount,
+          tasksCompleted: category === 'Task' ? prev.tasksCompleted + 1 : prev.tasksCompleted
+      }));
+  };
+
   return (
     <DataContext.Provider value={{ 
         clients, products, invoices, stockMovements,
         addClient, updateClient, 
         addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice,
-        recordStockMovement
+        recordStockMovement,
+        userStats, pointHistory, addPoints
     }}>
       {children}
     </DataContext.Provider>

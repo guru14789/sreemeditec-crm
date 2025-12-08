@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Task } from '../types';
 import { CheckSquare, Clock, Plus, Filter, User, Calendar, MoreHorizontal, LayoutGrid, List as ListIcon, CheckCircle2, Circle, AlertCircle, ArrowRight, TrendingUp, MapPin, X, MessageSquare, ShieldCheck } from 'lucide-react';
+import { useData } from './DataContext';
 
 interface TaskModuleProps {
     tasks: Task[];
@@ -30,6 +31,7 @@ function deg2rad(deg: number) {
 }
 
 export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, currentUser, isAdmin }) => {
+  const { addPoints } = useData(); // Consume context
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({ priority: 'Medium', status: 'To Do', assignedTo: 'Unassigned' });
@@ -158,16 +160,39 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
 
   const handleAdminApprove = (task: Task) => {
       if(confirm(`Approve task "${task.title}" completion?`)) {
-        setTasks(prev => prev.map(t => t.id === task.id ? {
-            ...t,
-            status: 'Done',
-            completionRequest: undefined // Clear request
-        } : t));
+        updateTaskStatus(task.id, 'Done'); // Reuse update logic to award points if needed
       }
   };
 
   const updateTaskStatus = (taskId: string, newStatus: Task['status']) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    // Find task
+    const task = tasks.find(t => t.id === taskId);
+    
+    // Only calculate points if moving TO 'Done' from a different status
+    if (task && newStatus === 'Done' && task.status !== 'Done') {
+        let points = 10; // Base
+        let reasons = ['Task Completed (+10)'];
+
+        // Priority Bonus
+        if (task.priority === 'High') {
+            points += 10;
+            reasons.push('High Priority (+10)');
+        }
+
+        // On-Time Bonus
+        if (new Date() <= new Date(task.dueDate)) {
+            points += 5;
+            reasons.push('On-Time (+5)');
+        }
+
+        addPoints(points, 'Task', `${task.title}: ${reasons.join(', ')}`);
+    }
+
+    setTasks(prev => prev.map(t => t.id === taskId ? { 
+        ...t, 
+        status: newStatus,
+        completionRequest: newStatus === 'Done' ? undefined : t.completionRequest 
+    } : t));
   };
 
   // Kanban Column Component

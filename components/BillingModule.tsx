@@ -23,7 +23,7 @@ interface BillingModuleProps {
 }
 
 export const BillingModule: React.FC<BillingModuleProps> = ({ variant = 'billing' }) => {
-  const { clients, products, addClient, invoices, addInvoice, updateInvoice: updateContextInvoice, updateProduct, recordStockMovement } = useData();
+  const { clients, products, addClient, invoices, addInvoice, updateInvoice: updateContextInvoice, updateProduct, recordStockMovement, addPoints } = useData();
   const [viewState, setViewState] = useState<'list' | 'create'>('list');
   const [showViewModal, setShowViewModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -241,8 +241,9 @@ export const BillingModule: React.FC<BillingModuleProps> = ({ variant = 'billing
       } else {
           addInvoice(invoiceData);
           
-          // INVENTORY UPDATE: Only for New Billing (PO), not Quotes, and not on Edit (to avoid double deduction for now)
+          // Only process logic if NOT editing (new creation)
           if (!isQuoteMode) {
+              // 1. Inventory Deduction
               newInv.items.forEach(item => {
                   const product = products.find(p => p.name === item.description);
                   if (product) {
@@ -260,6 +261,12 @@ export const BillingModule: React.FC<BillingModuleProps> = ({ variant = 'billing
                       });
                   }
               });
+
+              // 2. Points Calculation (2 points per 1000 rupees revenue)
+              const pointsEarned = Math.floor((grandTotal / 1000) * 2);
+              if (pointsEarned > 0) {
+                  addPoints(pointsEarned, 'Sales', `Invoice Generated: ${invoiceData.invoiceNumber}`);
+              }
           }
       }
 
@@ -750,49 +757,51 @@ export const BillingModule: React.FC<BillingModuleProps> = ({ variant = 'billing
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
       
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 shrink-0">
-          <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl shadow-lg shadow-emerald-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Receipt size={100} />
-             </div>
-             <div className="relative z-10">
-                <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider mb-1">
-                    {isQuoteMode ? 'Total Quotes Value' : 'Total Revenue Collected'}
-                </p>
-                <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(totalRevenue)}</h3>
-                <p className="text-xs text-emerald-200/60 mt-1 font-medium">From {filteredInvoices.length} records</p>
-             </div>
-          </div>
+      {/* Top Stats - Only for Billing Mode */}
+      {!isQuoteMode && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 shrink-0">
+            <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl shadow-lg shadow-emerald-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Receipt size={100} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider mb-1">
+                        Total Revenue Collected
+                    </p>
+                    <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(totalRevenue)}</h3>
+                    <p className="text-xs text-emerald-200/60 mt-1 font-medium">From {filteredInvoices.length} records</p>
+                </div>
+            </div>
 
-          <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-3xl shadow-lg shadow-blue-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Clock size={100} />
-             </div>
-             <div className="relative z-10">
-                <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider mb-1">
-                    {isQuoteMode ? 'Pending Conversions' : 'Outstanding Balance'}
-                </p>
-                <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(pendingAmount)}</h3>
-                <p className="text-xs text-blue-200/60 mt-1 font-medium">
-                    {isQuoteMode ? 'Potential Revenue' : 'Pending collections'}
-                </p>
-             </div>
-          </div>
+            <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-3xl shadow-lg shadow-blue-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Clock size={100} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider mb-1">
+                        Outstanding Balance
+                    </p>
+                    <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(pendingAmount)}</h3>
+                    <p className="text-xs text-blue-200/60 mt-1 font-medium">
+                        Pending collections
+                    </p>
+                </div>
+            </div>
 
-          <div className="bg-gradient-to-br from-rose-800 to-red-900 p-6 rounded-3xl shadow-lg shadow-rose-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <AlertCircle size={100} />
-             </div>
-             <div className="relative z-10">
-                <p className="text-xs font-bold text-rose-200/80 uppercase tracking-wider mb-1">
-                    {isQuoteMode ? 'Expired Quotes' : 'Overdue Amount'}
-                </p>
-                <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(overdueAmount)}</h3>
-                <p className="text-xs text-rose-200/60 mt-1 font-medium">Requires attention</p>
-             </div>
-          </div>
-      </div>
+            <div className="bg-gradient-to-br from-rose-800 to-red-900 p-6 rounded-3xl shadow-lg shadow-rose-900/20 text-white flex flex-col justify-between group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <AlertCircle size={100} />
+                </div>
+                <div className="relative z-10">
+                    <p className="text-xs font-bold text-rose-200/80 uppercase tracking-wider mb-1">
+                        Overdue Amount
+                    </p>
+                    <h3 className="text-3xl font-black tracking-tight">₹{formatIndianNumber(overdueAmount)}</h3>
+                    <p className="text-xs text-rose-200/60 mt-1 font-medium">Requires attention</p>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[500px]">

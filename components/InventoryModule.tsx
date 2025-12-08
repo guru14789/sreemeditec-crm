@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, StockMovement } from '../types';
 import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle, Trash2 } from 'lucide-react';
@@ -383,23 +381,23 @@ export const InventoryModule: React.FC = () => {
                             <input 
                                 type="text" 
                                 placeholder="Search SKU or Name..." 
-                                className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
+                                className="pl-10 pr-4 py-2 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 w-full sm:w-64 transition-all"
                             />
                         </div>
                         <button 
                             onClick={() => { setShowScanModal(true); handleResetScan(); }}
-                            className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
+                            className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
                             <ScanBarcode size={16} /> Scan Barcode
                         </button>
                         <button 
                             onClick={() => setShowDemoModal(true)}
-                            className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                            className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors">
                             <Send size={16} /> Send for Demo
                         </button>
                         <button 
                             onClick={() => setShowAddProductModal(true)}
-                            className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
-                            <Plus size={18} /> Add Product
+                            className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
+                            <Plus size={16} /> Add Product
                         </button>
                     </>
                 )}

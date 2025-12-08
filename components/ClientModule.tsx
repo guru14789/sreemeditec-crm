@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Client, Invoice } from '../types';
-import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet } from 'lucide-react';
+import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting
@@ -16,6 +16,83 @@ export const ClientModule: React.FC = () => {
   const { clients, invoices } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Security State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [otpStep, setOtpStep] = useState<'initial' | 'sent'>('initial');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [enteredOtp, setEnteredOtp] = useState('');
+
+  const requestOtp = () => {
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      setGeneratedOtp(code);
+      setOtpStep('sent');
+      // Simulate SMS delay to specific number
+      setTimeout(() => alert(`MEDEQUIP SECURITY: OTP ${code} has been sent to +91 7200021788`), 500);
+  };
+
+  const verifyOtp = () => {
+      if (enteredOtp === generatedOtp) {
+          setIsAuthenticated(true);
+      } else {
+          alert("Incorrect OTP. Please try again.");
+          setEnteredOtp('');
+      }
+  };
+
+  // Lock Screen Render
+  if (!isAuthenticated) {
+      return (
+          <div className="h-full flex items-center justify-center bg-slate-50 p-4">
+              <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+                  <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
+                      <Lock size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Restricted Access</h2>
+                  <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+                      The Client Database contains sensitive information. 
+                      {otpStep === 'sent' 
+                        ? <span className="block mt-1 font-bold text-slate-700">Enter the OTP sent to +91 7200021788</span>
+                        : "Please verify your identity via OTP sent to your registered number."}
+                  </p>
+                  
+                  {otpStep === 'initial' ? (
+                      <button 
+                          onClick={requestOtp}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 active:scale-95"
+                      >
+                          <Smartphone size={20} /> Send OTP to +91 7200021788
+                      </button>
+                  ) : (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                          <div className="relative">
+                              <input 
+                                  type="text" 
+                                  placeholder="Enter 4-digit OTP" 
+                                  maxLength={4}
+                                  className="w-full text-center text-2xl font-mono font-bold tracking-[0.5em] py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 transition-colors text-slate-700 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
+                                  value={enteredOtp}
+                                  onChange={(e) => setEnteredOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                              />
+                          </div>
+                          <button 
+                              onClick={verifyOtp}
+                              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95"
+                          >
+                              <ShieldCheck size={20} /> Verify & Access
+                          </button>
+                          <button 
+                              onClick={() => { setOtpStep('initial'); setEnteredOtp(''); }}
+                              className="text-xs text-slate-400 font-bold hover:text-blue-600 underline transition-colors flex items-center justify-center gap-1 mx-auto"
+                          >
+                              <RefreshCw size={10} /> Resend OTP
+                          </button>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )
+  }
 
   // Calculate total order value for each client
   const getClientTotalRevenue = (clientName: string) => {
