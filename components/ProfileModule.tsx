@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { User, Mail, Phone, MapPin, Shield, Bell, Save, Camera, Key, LogOut, ToggleLeft, ToggleRight, Building2, BadgeCheck } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Shield, Bell, Save, Camera, Key, LogOut, ToggleLeft, ToggleRight, Building2, BadgeCheck, Globe, Moon, Sun, Monitor, CreditCard, Database, Download, AlertTriangle, FileText, Briefcase } from 'lucide-react';
 
 interface ProfileModuleProps {
     userRole: 'Admin' | 'Employee';
@@ -10,13 +9,13 @@ interface ProfileModuleProps {
 }
 
 export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserRole, currentUser }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'security' | 'preferences'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'security' | 'preferences' | 'company' | 'system'>('general');
     
     // Mock User Data State
     const [profile, setProfile] = useState<UserProfile>({
         name: currentUser,
         role: userRole === 'Admin' ? 'General Manager' : 'Senior Technician',
-        email: userRole === 'Admin' ? 'admin@medequip.com' : 'rahul.s@medequip.com',
+        email: userRole === 'Admin' ? 'admin@sreemeditec.com' : 'rahul.s@sreemeditec.com',
         phone: '+91 98765 43210',
         department: userRole === 'Admin' ? 'Administration' : 'Field Operations',
         location: 'Bangalore, India',
@@ -28,12 +27,34 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
         }
     });
 
+    // Mock Company Settings (Admin Only)
+    const [companySettings, setCompanySettings] = useState({
+        name: 'Sree Meditec',
+        address: '123, Healthcare Park, Industrial Area, Bangalore - 560001',
+        phone: '+91 80 1234 5678',
+        email: 'contact@sreemeditec.com',
+        website: 'www.sreemeditec.com',
+        gstin: '29ABCDE1234F1Z5',
+        bankName: 'HDFC Bank',
+        accountNo: '50100987654321',
+        ifsc: 'HDFC0001234',
+        branch: 'Indiranagar, Bangalore'
+    });
+
+    // Mock App Preferences
+    const [appPreferences, setAppPreferences] = useState({
+        theme: 'light', // light, dark, system
+        density: 'comfortable', // comfortable, compact
+        language: 'en',
+        timezone: 'Asia/Kolkata',
+        currency: 'INR'
+    });
+
     const [isEditing, setIsEditing] = useState(false);
 
     const handleSave = () => {
         setIsEditing(false);
-        // In a real app, this would make an API call
-        alert("Profile updated successfully!");
+        alert("Settings saved successfully!");
     };
 
     const toggleNotification = (key: keyof typeof profile.notifications) => {
@@ -70,6 +91,10 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                             <span className="flex items-center gap-1.5"><Building2 size={16} /> {profile.department}</span>
                             <span className="hidden md:inline">•</span>
                             <span className="flex items-center gap-1.5"><MapPin size={16} /> {profile.location}</span>
+                            <span className="hidden md:inline">•</span>
+                            <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-xs border border-emerald-500/30 uppercase tracking-wide">
+                                {userRole}
+                            </span>
                         </div>
                     </div>
                     <div className="flex gap-3">
@@ -86,30 +111,45 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
             <div className="flex-1 flex flex-col lg:flex-row gap-6 lg:overflow-hidden min-h-[500px]">
                 
                 {/* Sidebar Navigation */}
-                <div className="w-full lg:w-64 bg-white rounded-3xl shadow-sm border border-slate-100 p-4 shrink-0 h-fit">
-                    <nav className="space-y-1">
-                        <button 
-                            onClick={() => setActiveTab('general')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'general' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                            <User size={18} /> Personal Info
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('security')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'security' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                            <Shield size={18} /> Security
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('preferences')}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'preferences' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                            <Bell size={18} /> Preferences
-                        </button>
-                    </nav>
+                <div className="w-full lg:w-64 bg-white rounded-3xl shadow-sm border border-slate-100 p-4 shrink-0 h-fit flex flex-col gap-1 overflow-y-auto custom-scrollbar">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-2">Account</p>
+                    <button 
+                        onClick={() => setActiveTab('general')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'general' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                        <User size={18} /> Personal Info
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('security')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'security' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                        <Shield size={18} /> Security
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('preferences')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'preferences' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                        <Bell size={18} /> Preferences
+                    </button>
+
+                    {userRole === 'Admin' && (
+                        <>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-4">Organization</p>
+                            <button 
+                                onClick={() => setActiveTab('company')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'company' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                <Briefcase size={18} /> Company Settings
+                            </button>
+                        </>
+                    )}
+
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-4 mt-4">System</p>
+                    <button 
+                        onClick={() => setActiveTab('system')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'system' ? 'bg-medical-50 text-medical-700' : 'text-slate-500 hover:bg-slate-50'}`}>
+                        <Database size={18} /> Data & Backup
+                    </button>
                     
-                    <div className="mt-6 pt-6 border-t border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Account Management</p>
+                    <div className="mt-4 pt-4 border-t border-slate-100">
                          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/60 mb-3">
-                            <p className="text-xs font-bold text-slate-600 mb-2">Demo Mode Control</p>
-                            <p className="text-[10px] text-slate-400 mb-3">Switch between Admin and Employee views to test permissions.</p>
+                            <p className="text-xs font-bold text-slate-600 mb-2">Demo Role Switcher</p>
                             <button 
                                 onClick={() => setUserRole(userRole === 'Admin' ? 'Employee' : 'Admin')}
                                 className="w-full bg-slate-800 text-white py-2 rounded-lg text-xs font-bold hover:bg-slate-900 transition-colors">
@@ -257,8 +297,9 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                 <p className="text-sm text-slate-500">Customize your notification and display settings.</p>
                             </div>
 
+                            {/* Notifications */}
                             <div className="space-y-4">
-                                <h4 className="font-bold text-slate-700 text-sm mb-4">Notifications</h4>
+                                <h4 className="font-bold text-slate-700 text-sm mb-2 flex items-center gap-2"><Bell size={16}/> Notifications</h4>
                                 
                                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <div className="flex items-center gap-3">
@@ -290,9 +331,174 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Appearance */}
+                             <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <h4 className="font-bold text-slate-700 text-sm mb-2 flex items-center gap-2"><Monitor size={16}/> Appearance</h4>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <button 
+                                        onClick={() => setAppPreferences({...appPreferences, theme: 'light'})}
+                                        className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${appPreferences.theme === 'light' ? 'border-medical-500 bg-medical-50 text-medical-700' : 'border-slate-200 hover:bg-slate-50 text-slate-500'}`}>
+                                        <Sun size={24} />
+                                        <span className="text-xs font-bold">Light</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setAppPreferences({...appPreferences, theme: 'dark'})}
+                                        className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${appPreferences.theme === 'dark' ? 'border-medical-500 bg-medical-50 text-medical-700' : 'border-slate-200 hover:bg-slate-50 text-slate-500'}`}>
+                                        <Moon size={24} />
+                                        <span className="text-xs font-bold">Dark</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setAppPreferences({...appPreferences, theme: 'system'})}
+                                        className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all ${appPreferences.theme === 'system' ? 'border-medical-500 bg-medical-50 text-medical-700' : 'border-slate-200 hover:bg-slate-50 text-slate-500'}`}>
+                                        <Monitor size={24} />
+                                        <span className="text-xs font-bold">System</span>
+                                    </button>
+                                </div>
+                             </div>
+
+                             {/* Localization */}
+                             <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <h4 className="font-bold text-slate-700 text-sm mb-2 flex items-center gap-2"><Globe size={16}/> Localization</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Language</label>
+                                        <select 
+                                            className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none"
+                                            value={appPreferences.language}
+                                            onChange={(e) => setAppPreferences({...appPreferences, language: e.target.value})}
+                                        >
+                                            <option value="en">English (US)</option>
+                                            <option value="en-in">English (India)</option>
+                                            <option value="hi">Hindi</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Timezone</label>
+                                        <select 
+                                            className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none"
+                                            value={appPreferences.timezone}
+                                            onChange={(e) => setAppPreferences({...appPreferences, timezone: e.target.value})}
+                                        >
+                                            <option value="Asia/Kolkata">India (IST)</option>
+                                            <option value="UTC">UTC</option>
+                                            <option value="America/New_York">New York (EST)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                             </div>
                         </div>
                     )}
 
+                    {/* COMPANY SETTINGS - ADMIN ONLY */}
+                    {activeTab === 'company' && userRole === 'Admin' && (
+                        <div className="max-w-3xl space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-1">Company Information</h3>
+                                <p className="text-sm text-slate-500">Manage business details used for Invoicing and Reports.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Company Name</label>
+                                    <input type="text" className="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-medical-500" value={companySettings.name} onChange={(e) => setCompanySettings({...companySettings, name: e.target.value})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">GSTIN</label>
+                                    <input type="text" className="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-medical-500" value={companySettings.gstin} onChange={(e) => setCompanySettings({...companySettings, gstin: e.target.value})} />
+                                </div>
+                                <div className="col-span-full space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Registered Address</label>
+                                    <textarea rows={2} className="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-medical-500 resize-none" value={companySettings.address} onChange={(e) => setCompanySettings({...companySettings, address: e.target.value})} />
+                                </div>
+                                 <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Contact Email</label>
+                                    <input type="email" className="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-medical-500" value={companySettings.email} onChange={(e) => setCompanySettings({...companySettings, email: e.target.value})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Website</label>
+                                    <input type="text" className="w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-medical-500" value={companySettings.website} onChange={(e) => setCompanySettings({...companySettings, website: e.target.value})} />
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-slate-100">
+                                <h4 className="font-bold text-slate-700 text-sm mb-4 flex items-center gap-2">
+                                    <CreditCard size={16} /> Banking Details (For Invoices)
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bank Name</label>
+                                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={companySettings.bankName} onChange={(e) => setCompanySettings({...companySettings, bankName: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Account Number</label>
+                                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={companySettings.accountNo} onChange={(e) => setCompanySettings({...companySettings, accountNo: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">IFSC Code</label>
+                                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={companySettings.ifsc} onChange={(e) => setCompanySettings({...companySettings, ifsc: e.target.value})} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Branch</label>
+                                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" value={companySettings.branch} onChange={(e) => setCompanySettings({...companySettings, branch: e.target.value})} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-end">
+                                <button 
+                                    onClick={() => alert("Company Details Updated!")}
+                                    className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-slate-900 transition-all active:scale-95">
+                                    <Save size={18} /> Update Business Profile
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'system' && (
+                        <div className="max-w-2xl space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                             <div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-1">System & Data</h3>
+                                <p className="text-sm text-slate-500">Manage your data exports and system information.</p>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Database size={20}/></div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-700 text-sm">Export Data</h4>
+                                        <p className="text-xs text-slate-500">Download a full backup of Leads, Inventory, and Invoices.</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button className="flex-1 bg-slate-50 border border-slate-200 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-white hover:border-medical-500 hover:text-medical-600 transition-all flex items-center justify-center gap-2">
+                                        <FileText size={14}/> CSV Format
+                                    </button>
+                                    <button className="flex-1 bg-slate-50 border border-slate-200 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-white hover:border-medical-500 hover:text-medical-600 transition-all flex items-center justify-center gap-2">
+                                        <Download size={14}/> JSON Backup
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-5 flex items-start gap-4">
+                                <div className="bg-white p-2 rounded-full text-rose-600 shrink-0 border border-rose-100">
+                                    <AlertTriangle size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-rose-900 text-sm">Danger Zone</h4>
+                                    <p className="text-xs text-rose-800/80 mt-1 mb-3">Irreversible actions. Proceed with caution.</p>
+                                    <button className="text-xs font-bold bg-white border border-rose-200 text-rose-600 px-4 py-2 rounded-lg hover:bg-rose-600 hover:text-white transition-colors">
+                                        Reset Application Data
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="text-center pt-8 border-t border-slate-100">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sree Meditec CRM</p>
+                                <p className="text-[10px] text-slate-300 mt-1">Version 1.2.0 (Build 2023.10.27)</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

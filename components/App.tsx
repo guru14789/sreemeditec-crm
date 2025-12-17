@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
@@ -6,21 +5,21 @@ import {
   UserCheck, Receipt, ShoppingCart, Headset, BarChart3, 
   Menu, Bell, LogOut, Clock, PlusCircle, CheckSquare, ChevronDown, Check, X, AlertCircle, Info, CheckCircle2, ExternalLink, Truck, Contact, Trophy, PieChart
 } from 'lucide-react';
-import { Dashboard } from './components/Dashboard';
-import { LeadsModule } from './components/LeadsModule';
-import { ServiceModule } from './components/ServiceModule';
-import { InventoryModule } from './components/InventoryModule';
-import { AttendanceModule } from './components/AttendanceModule';
-import { HRModule } from './components/HRModule';
-import { TaskModule } from './components/TaskModule';
-import { ProfileModule } from './components/ProfileModule';
-import { BillingModule } from './components/BillingModule';
-import { DeliveryChallanModule } from './components/DeliveryChallanModule';
-import { ReportsModule } from './components/ReportsModule';
-import { ClientModule } from './components/ClientModule';
-import { ExpenseModule } from './components/ExpenseModule';
-import { PerformanceModule } from './components/PerformanceModule';
-import { TabView, Task, AppNotification } from './types';
+import { Dashboard } from './Dashboard';
+import { LeadsModule } from './LeadsModule';
+import { ServiceModule } from './ServiceModule';
+import { InventoryModule } from './InventoryModule';
+import { AttendanceModule } from './AttendanceModule';
+import { HRModule } from './HRModule';
+import { TaskModule } from './TaskModule';
+import { ProfileModule } from './ProfileModule';
+import { BillingModule } from './BillingModule';
+import { DeliveryChallanModule } from './DeliveryChallanModule';
+import { ReportsModule } from './ReportsModule';
+import { ClientModule } from './ClientModule';
+import { ExpenseModule } from './ExpenseModule';
+import { PerformanceModule } from './PerformanceModule';
+import { TabView, Task, AppNotification } from '../types';
 
 // Placeholder for unimplemented modules
 const PlaceholderModule: React.FC<{title: string, desc: string}> = ({title, desc}) => (
@@ -266,7 +265,7 @@ const App: React.FC = () => {
                     <div className="bg-gradient-to-br from-medical-500 to-teal-400 p-1.5 rounded-xl shadow-lg shadow-medical-500/20">
                         <PlusCircle size={18} className="text-white" />
                     </div>
-                    <span className="font-bold text-xl tracking-tight text-white">Sreemeditec</span>
+                    <span className="font-bold text-xl tracking-tight text-white">Sree Meditec</span>
                 </div>
              )}
           </div>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Client, Invoice } from '../types';
 import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw } from 'lucide-react';
@@ -28,7 +27,7 @@ export const ClientModule: React.FC = () => {
       setGeneratedOtp(code);
       setOtpStep('sent');
       // Simulate SMS delay to specific number
-      setTimeout(() => alert(`MEDEQUIP SECURITY: OTP ${code} has been sent to +91 7200021788`), 500);
+      setTimeout(() => alert(`SREE MEDITEC SECURITY: OTP ${code} has been sent to +91 7200021788`), 500);
   };
 
   const verifyOtp = () => {

@@ -1,12 +1,13 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Client, Product, Invoice, StockMovement, PointHistory, UserStats } from '../types';
+import { Client, Product, Invoice, StockMovement, PointHistory, UserStats, ExpenseRecord } from '../types';
 
 interface DataContextType {
   clients: Client[];
   products: Product[];
   invoices: Invoice[];
   stockMovements: StockMovement[];
+  expenses: ExpenseRecord[];
   
   // Performance & Points
   userStats: UserStats;
@@ -21,6 +22,10 @@ interface DataContextType {
   addInvoice: (invoice: Invoice) => void;
   updateInvoice: (id: string, invoice: Invoice) => void;
   recordStockMovement: (movement: StockMovement) => void;
+  
+  // Expense Actions
+  addExpense: (expense: ExpenseRecord) => void;
+  updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -127,6 +132,13 @@ const INITIAL_MOVEMENTS: StockMovement[] = [
   }
 ];
 
+const INITIAL_EXPENSES: ExpenseRecord[] = [
+  { id: 'EXP-001', employeeName: 'Rahul Sharma', date: '2023-10-25', category: 'Travel', amount: 450, description: 'Auto fare to Apollo Hospital', status: 'Approved' },
+  { id: 'EXP-002', employeeName: 'Rahul Sharma', date: '2023-10-26', category: 'Food', amount: 120, description: 'Lunch during client visit', status: 'Pending' },
+  { id: 'EXP-003', employeeName: 'Admin User', date: '2023-10-24', category: 'Supplies', amount: 2500, description: 'Office stationery', status: 'Approved' },
+  { id: 'EXP-004', employeeName: 'Mike Ross', date: '2023-10-27', category: 'Travel', amount: 1500, description: 'Train ticket for Service Call', status: 'Pending' },
+];
+
 // Initial Stats
 const INITIAL_STATS: UserStats = {
     points: 2450,
@@ -146,6 +158,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   
   // Performance State
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
@@ -183,6 +196,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setStockMovements(prev => [movement, ...prev]);
   };
 
+  const addExpense = (expense: ExpenseRecord) => {
+      setExpenses(prev => [expense, ...prev]);
+  };
+
+  const updateExpenseStatus = (id: string, status: ExpenseRecord['status']) => {
+      setExpenses(prev => prev.map(e => e.id === id ? { ...e, status } : e));
+  };
+
   const addPoints = (amount: number, category: PointHistory['category'], description: string) => {
       const newHistory: PointHistory = {
           id: `PH-${Date.now()}`,
@@ -202,11 +223,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{ 
-        clients, products, invoices, stockMovements,
+        clients, products, invoices, stockMovements, expenses,
         addClient, updateClient, 
         addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice,
         recordStockMovement,
+        addExpense, updateExpenseStatus,
         userStats, pointHistory, addPoints
     }}>
       {children}

@@ -1,13 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { Employee, PayrollRecord, LeaveRequest } from '../types';
 import { Users, IndianRupee, FileText, Plus, Search, Filter, CheckCircle, XCircle, Clock, CreditCard, ChevronRight, Download, MoreHorizontal, UserPlus, X, Calculator, TrendingUp, AlertCircle, Calendar } from 'lucide-react';
 
 const MOCK_EMPLOYEES: Employee[] = [
-  { id: 'EMP001', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@medequip.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active' },
-  { id: 'EMP002', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@medequip.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active' },
-  { id: 'EMP003', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@medequip.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'On Leave' },
-  { id: 'EMP004', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@medequip.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active' },
+  { id: 'EMP001', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@sreemeditec.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active' },
+  { id: 'EMP002', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@sreemeditec.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active' },
+  { id: 'EMP003', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@sreemeditec.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'On Leave' },
+  { id: 'EMP004', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@sreemeditec.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active' },
 ];
 
 const MOCK_LEAVES: LeaveRequest[] = [

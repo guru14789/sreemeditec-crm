@@ -1,17 +1,19 @@
 
 import React, { useState } from 'react';
 import { ExpenseRecord } from '../types';
-import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search } from 'lucide-react';
+import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search, User, Check, X, Eye, Image } from 'lucide-react';
+import { useData } from './DataContext';
 
-const MOCK_EXPENSES: ExpenseRecord[] = [
-  { id: 'EXP-001', date: '2023-10-25', category: 'Travel', amount: 450, description: 'Auto fare to Apollo Hospital', status: 'Approved' },
-  { id: 'EXP-002', date: '2023-10-26', category: 'Food', amount: 120, description: 'Lunch during client visit', status: 'Pending' },
-  { id: 'EXP-003', date: '2023-10-24', category: 'Supplies', amount: 2500, description: 'Office stationery', status: 'Approved' },
-];
+interface ExpenseModuleProps {
+    currentUser: string;
+    userRole: 'Admin' | 'Employee';
+}
 
-export const ExpenseModule: React.FC = () => {
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(MOCK_EXPENSES);
+export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userRole }) => {
+  const { expenses, addExpense, updateExpenseStatus } = useData();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewReceiptModal, setViewReceiptModal] = useState<ExpenseRecord | null>(null);
+  
   const [newExpense, setNewExpense] = useState<Partial<ExpenseRecord>>({
       date: new Date().toISOString().split('T')[0],
       category: 'Travel',
@@ -27,15 +29,25 @@ export const ExpenseModule: React.FC = () => {
       }
       const record: ExpenseRecord = {
           id: `EXP-${Date.now()}`,
+          employeeName: currentUser,
           date: newExpense.date!,
           category: newExpense.category as any,
           amount: Number(newExpense.amount),
           description: newExpense.description!,
-          status: 'Pending'
+          status: 'Pending',
+          receiptUrl: 'dummy-receipt' // Placeholder to simulate attachment
       };
-      setExpenses([record, ...expenses]);
+      addExpense(record);
       setShowAddModal(false);
       setNewExpense({ date: new Date().toISOString().split('T')[0], category: 'Travel', amount: 0, description: '', status: 'Pending' });
+  };
+
+  const handleApprove = (id: string) => {
+      updateExpenseStatus(id, 'Approved');
+  };
+
+  const handleReject = (id: string) => {
+      updateExpenseStatus(id, 'Rejected');
   };
 
   const getStatusColor = (status: string) => {
@@ -46,9 +58,14 @@ export const ExpenseModule: React.FC = () => {
       }
   };
 
+  // Filter expenses based on role
+  const visibleExpenses = userRole === 'Admin' 
+    ? expenses 
+    : expenses.filter(e => e.employeeName === currentUser);
+
   // Stats
-  const totalClaimed = expenses.reduce((acc, curr) => acc + curr.amount, 0);
-  const pendingAmount = expenses.filter(e => e.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalClaimed = visibleExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const pendingAmount = visibleExpenses.filter(e => e.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
@@ -63,7 +80,9 @@ export const ExpenseModule: React.FC = () => {
                       <IndianRupee size={14} /> Total Claimed (Oct)
                   </p>
                   <h3 className="text-3xl font-black tracking-tight mt-1">₹{totalClaimed.toLocaleString()}</h3>
-                  <p className="text-xs text-indigo-100/60 mt-2 font-medium">3 Approved, 1 Pending</p>
+                  <p className="text-xs text-indigo-100/60 mt-2 font-medium">
+                      {visibleExpenses.filter(e => e.status === 'Approved').length} Approved, {visibleExpenses.filter(e => e.status === 'Pending').length} Pending
+                  </p>
               </div>
           </div>
           <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-6 rounded-3xl text-white shadow-lg shadow-orange-500/20 relative overflow-hidden">
@@ -84,7 +103,8 @@ export const ExpenseModule: React.FC = () => {
       <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[500px]">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                  <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Receipt size={20} /></div> Expense History
+                  <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg"><Receipt size={20} /></div> 
+                  {userRole === 'Admin' ? 'All Employee Expenses' : 'My Expense History'}
               </h2>
               <button 
                   onClick={() => setShowAddModal(true)}
@@ -98,16 +118,29 @@ export const ExpenseModule: React.FC = () => {
                   <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                       <tr>
                           <th className="px-6 py-4">Date</th>
+                          {userRole === 'Admin' && <th className="px-6 py-4">Employee</th>}
                           <th className="px-6 py-4">Category</th>
                           <th className="px-6 py-4">Description</th>
                           <th className="px-6 py-4 text-right">Amount</th>
+                          <th className="px-6 py-4 text-center">Receipt</th>
                           <th className="px-6 py-4 text-center">Status</th>
+                          {userRole === 'Admin' && <th className="px-6 py-4 text-center">Action</th>}
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                      {expenses.map(expense => (
+                      {visibleExpenses.map(expense => (
                           <tr key={expense.id} className="hover:bg-slate-50 transition-colors">
                               <td className="px-6 py-4 font-medium text-slate-500">{expense.date}</td>
+                              {userRole === 'Admin' && (
+                                  <td className="px-6 py-4">
+                                      <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                              {expense.employeeName.charAt(0)}
+                                          </div>
+                                          <span className="font-bold text-slate-700">{expense.employeeName}</span>
+                                      </div>
+                                  </td>
+                              )}
                               <td className="px-6 py-4">
                                   <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600">
                                       {expense.category}
@@ -116,6 +149,13 @@ export const ExpenseModule: React.FC = () => {
                               <td className="px-6 py-4 text-slate-700 font-medium">{expense.description}</td>
                               <td className="px-6 py-4 text-right font-black text-slate-800">₹{expense.amount.toLocaleString()}</td>
                               <td className="px-6 py-4 text-center">
+                                  <button 
+                                    onClick={() => setViewReceiptModal(expense)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="View Proof">
+                                    <Eye size={16} />
+                                  </button>
+                              </td>
+                              <td className="px-6 py-4 text-center">
                                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${getStatusColor(expense.status)}`}>
                                       {expense.status === 'Approved' && <CheckCircle2 size={12} />}
                                       {expense.status === 'Pending' && <Clock size={12} />}
@@ -123,6 +163,24 @@ export const ExpenseModule: React.FC = () => {
                                       {expense.status}
                                   </span>
                               </td>
+                              {userRole === 'Admin' && (
+                                  <td className="px-6 py-4 text-center">
+                                      {expense.status === 'Pending' && (
+                                          <div className="flex justify-center gap-2">
+                                              <button 
+                                                onClick={() => handleApprove(expense.id)}
+                                                className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 border border-green-200 transition-colors" title="Approve">
+                                                  <Check size={16} />
+                                              </button>
+                                              <button 
+                                                onClick={() => handleReject(expense.id)}
+                                                className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200 transition-colors" title="Reject">
+                                                  <X size={16} />
+                                              </button>
+                                          </div>
+                                      )}
+                                  </td>
+                              )}
                           </tr>
                       ))}
                   </tbody>
@@ -174,6 +232,34 @@ export const ExpenseModule: React.FC = () => {
                   <div className="p-6 border-t border-slate-100 flex gap-3">
                       <button onClick={() => setShowAddModal(false)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors">Cancel</button>
                       <button onClick={handleAddExpense} className="flex-1 bg-medical-600 text-white py-3 rounded-xl font-bold hover:bg-medical-700 transition-colors shadow-lg shadow-medical-500/20">Submit Claim</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Receipt View Modal */}
+      {viewReceiptModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                      <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Image size={18} /> Receipt Proof
+                      </h3>
+                      <button onClick={() => setViewReceiptModal(null)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+                  </div>
+                  <div className="p-8 bg-slate-100 flex items-center justify-center min-h-[300px]">
+                      {/* Placeholder for actual image */}
+                      <div className="text-center text-slate-400">
+                          <Image size={64} className="mx-auto mb-2 opacity-20" />
+                          <p className="text-sm font-medium">Receipt Image Placeholder</p>
+                          <p className="text-xs mt-1">For {viewReceiptModal.description}</p>
+                      </div>
+                  </div>
+                  <div className="p-4 border-t border-slate-100 bg-white">
+                      <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Amount:</span>
+                          <span className="font-bold text-slate-800">₹{viewReceiptModal.amount.toLocaleString()}</span>
+                      </div>
                   </div>
               </div>
           </div>

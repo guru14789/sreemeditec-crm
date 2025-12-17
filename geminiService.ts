@@ -16,13 +16,13 @@ const getFallbackEmail = (leadName: string, product: string) => {
 
 Dear ${leadName},
 
-Thank you for your interest in the ${product}. At MedEquip 360, we pride ourselves on providing top-tier medical solutions.
+Thank you for your interest in the ${product}. At Sree Meditec, we pride ourselves on providing top-tier medical solutions.
 
 This equipment features state-of-the-art diagnostics that align perfectly with your facility's requirements. I would love to schedule a brief 10-minute call to discuss how we can support your implementation.
 
 Best regards,
 [Your Name]
-MedEquip 360 Sales Team`;
+Sree Meditec Sales Team`;
 };
 
 const getFallbackAnalysis = (issue: string) => {

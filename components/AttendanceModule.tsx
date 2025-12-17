@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, MapPin, User, CheckCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare, Timer, PauseCircle } from 'lucide-react';
-import { Task } from '../types';
+import { Clock, MapPin, User, CheckCircle, Smartphone, Navigation, Building2, Home, AlertCircle, ExternalLink, LayoutGrid, List as ListIcon, Phone, Mail, CheckSquare, Timer, PauseCircle, ArrowRight } from 'lucide-react';
+import { Task, TabView } from '../types';
 import { useData } from './DataContext';
 
 interface Employee {
@@ -126,6 +126,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   const handleCheckInOut = () => {
     // If currently checked in, we are either "Pausing" (Break) or "Confirming" (Done)
     if (isCheckedIn) {
+        if (workMode === 'Field' && !canConfirmAttendance) {
+            alert("Attendance cannot be confirmed! You still have pending tasks. Please complete them or request an exception.");
+            return;
+        }
+
         // Calculate session time to add to total
         const currentSessionMs = currentTime.getTime() - (sessionStartTime?.getTime() || currentTime.getTime());
         setAccumulatedMs(prev => prev + currentSessionMs);
@@ -137,7 +142,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
         if (canConfirmAttendance) {
              alert(`Attendance Confirmed! Total Worked: ${formatDuration(accumulatedMs + currentSessionMs)}.`);
              // Here you would typically send the final log to the backend
-             // Reset for next day simulation if needed, or keep as "Done" state
         }
     } else {
       // Checking In (Starting/Resuming)
@@ -208,32 +212,44 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
     }
   };
 
-  const filteredEmployees = filterStatus === 'All' 
+  // Filter Employees Logic
+  // 1. Filter by status (Tab filter)
+  // 2. Filter by Role (Employee only sees themselves, Admin sees all)
+  const filteredEmployees = (filterStatus === 'All' 
     ? MOCK_EMPLOYEES 
-    : MOCK_EMPLOYEES.filter(e => e.status === filterStatus);
+    : MOCK_EMPLOYEES.filter(e => e.status === filterStatus)
+  ).filter(emp => userRole === 'Admin' || emp.name === currentUser);
 
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
       
       {/* Field Staff Progress Banner */}
       {workMode === 'Field' && isCheckedIn && (
-         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-3xl p-5 shrink-0 shadow-sm animate-in slide-in-from-top-2">
+         <div className={`border rounded-3xl p-5 shrink-0 shadow-sm animate-in slide-in-from-top-2 ${pendingTasks.length > 0 ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-100' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100'}`}>
             <div className="flex justify-between items-center mb-2">
-                <h4 className="font-bold text-indigo-900 flex items-center gap-2">
+                <h4 className={`font-bold flex items-center gap-2 ${pendingTasks.length > 0 ? 'text-amber-900' : 'text-indigo-900'}`}>
                     <CheckSquare size={18} /> Field Task Progress
                 </h4>
-                <span className="text-xs font-bold bg-white px-2 py-1 rounded-lg border border-blue-100 text-indigo-600">
+                <span className={`text-xs font-bold bg-white px-2 py-1 rounded-lg border ${pendingTasks.length > 0 ? 'border-amber-100 text-amber-600' : 'border-blue-100 text-indigo-600'}`}>
                     {completedTasks.length} / {myTasksToday.length} Completed
                 </span>
             </div>
-            <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-blue-100">
-                <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500" style={{ width: `${taskCompletionPercentage}%` }}></div>
+            <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-white/50">
+                <div className={`h-2 rounded-full transition-all duration-500 ${pendingTasks.length > 0 ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${taskCompletionPercentage}%` }}></div>
             </div>
-            <p className="text-xs text-indigo-700/70">
-                {pendingTasks.length > 0 
-                    ? `Complete ${pendingTasks.length} more tasks to confirm attendance.` 
-                    : "All tasks completed! You can now confirm your daily attendance."}
-            </p>
+            <div className="flex justify-between items-center">
+                <p className={`text-xs ${pendingTasks.length > 0 ? 'text-amber-700/80' : 'text-indigo-700/70'}`}>
+                    {pendingTasks.length > 0 
+                        ? `Complete ${pendingTasks.length} pending tasks to confirm attendance.` 
+                        : "All tasks completed! You can now confirm your daily attendance."}
+                </p>
+                {/* Link to resolve tasks if pending */}
+                {pendingTasks.length > 0 && (
+                    <button className="text-[10px] font-bold bg-white border border-amber-200 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-100 flex items-center gap-1 transition-colors">
+                        Go to Tasks <ArrowRight size={10} />
+                    </button>
+                )}
+            </div>
          </div>
       )}
 
@@ -262,45 +278,47 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
          </div>
       )}
       
-      {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-        <div className="bg-gradient-to-br from-white to-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
-            <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Staff</p>
-                <h3 className="text-2xl font-black text-slate-800 mt-1">24</h3>
+      {/* Top Stats Cards - ADMIN ONLY */}
+      {userRole === 'Admin' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+            <div className="bg-gradient-to-br from-white to-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Staff</p>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">24</h3>
+                </div>
+                <div className="bg-slate-100 p-3 rounded-2xl text-slate-600 shadow-sm">
+                    <User size={20} />
+                </div>
             </div>
-            <div className="bg-slate-100 p-3 rounded-2xl text-slate-600 shadow-sm">
-                <User size={20} />
+            <div className="bg-gradient-to-br from-white to-green-50 p-5 rounded-3xl border border-green-100 shadow-sm flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Present</p>
+                    <h3 className="text-2xl font-black text-green-600 mt-1">14</h3>
+                </div>
+                <div className="bg-green-100 p-3 rounded-2xl text-green-600 shadow-sm">
+                    <Building2 size={20} />
+                </div>
             </div>
-        </div>
-        <div className="bg-gradient-to-br from-white to-green-50 p-5 rounded-3xl border border-green-100 shadow-sm flex items-center justify-between">
-            <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Present</p>
-                <h3 className="text-2xl font-black text-green-600 mt-1">14</h3>
+            <div className="bg-gradient-to-br from-white to-blue-50 p-5 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">On Field</p>
+                    <h3 className="text-2xl font-black text-blue-600 mt-1">5</h3>
+                </div>
+                <div className="bg-blue-100 p-3 rounded-2xl text-blue-600 shadow-sm">
+                    <Navigation size={20} />
+                </div>
             </div>
-            <div className="bg-green-100 p-3 rounded-2xl text-green-600 shadow-sm">
-                <Building2 size={20} />
+            <div className="bg-gradient-to-br from-white to-purple-50 p-5 rounded-3xl border border-purple-100 shadow-sm flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Remote</p>
+                    <h3 className="text-2xl font-black text-purple-600 mt-1">4</h3>
+                </div>
+                <div className="bg-purple-100 p-3 rounded-2xl text-purple-600 shadow-sm">
+                    <Home size={20} />
+                </div>
             </div>
-        </div>
-        <div className="bg-gradient-to-br from-white to-blue-50 p-5 rounded-3xl border border-blue-100 shadow-sm flex items-center justify-between">
-            <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">On Field</p>
-                <h3 className="text-2xl font-black text-blue-600 mt-1">5</h3>
-            </div>
-            <div className="bg-blue-100 p-3 rounded-2xl text-blue-600 shadow-sm">
-                <Navigation size={20} />
-            </div>
-        </div>
-        <div className="bg-gradient-to-br from-white to-purple-50 p-5 rounded-3xl border border-purple-100 shadow-sm flex items-center justify-between">
-            <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Remote</p>
-                <h3 className="text-2xl font-black text-purple-600 mt-1">4</h3>
-            </div>
-            <div className="bg-purple-100 p-3 rounded-2xl text-purple-600 shadow-sm">
-                <Home size={20} />
-            </div>
-        </div>
-      </div>
+          </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-6 flex-1 lg:overflow-hidden lg:min-h-0">
         
@@ -484,7 +502,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
         <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col lg:overflow-hidden min-h-[400px]">
             <div className="p-5 border-b border-slate-100 flex flex-wrap gap-4 justify-between items-center bg-slate-50/30">
                 <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-lg text-slate-800">Team Status</h3>
+                    <h3 className="font-bold text-lg text-slate-800">
+                        {userRole === 'Admin' ? 'Team Status' : 'My Status'}
+                    </h3>
                     <div className="flex bg-slate-100 rounded-xl p-1">
                          <button 
                             onClick={() => setViewMode('list')}
@@ -500,21 +520,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                          </button>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    {['All', 'On Field', 'Present', 'Remote'].map(status => (
-                        <button 
-                            key={status}
-                            onClick={() => setFilterStatus(status)}
-                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
-                                filterStatus === status 
-                                ? 'bg-medical-50 text-medical-700 border border-medical-200' 
-                                : 'text-slate-500 hover:text-slate-700 bg-white border border-slate-200'
-                            }`}
-                        >
-                            {status}
-                        </button>
-                    ))}
-                </div>
+                {userRole === 'Admin' && (
+                    <div className="flex gap-2">
+                        {['All', 'On Field', 'Present', 'Remote'].map(status => (
+                            <button 
+                                key={status}
+                                onClick={() => setFilterStatus(status)}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                                    filterStatus === status 
+                                    ? 'bg-medical-50 text-medical-700 border border-medical-200' 
+                                    : 'text-slate-500 hover:text-slate-700 bg-white border border-slate-200'
+                                }`}
+                            >
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
             
             <div className="flex-1 overflow-auto bg-slate-50/50 custom-scrollbar">

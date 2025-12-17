@@ -169,10 +169,19 @@ export interface Task {
   coords?: { lat: number; lng: number }; // Target location coordinates
   locationName?: string; // Human readable location
   
-  // Exception Handling
+  // Exception Handling (Location)
   completionRequest?: {
     requested: boolean;
     note: string;
+    timestamp: string;
+  };
+
+  // Exception Handling (Failure to Complete - Move/Delete)
+  exceptionRequest?: {
+    type: 'Move' | 'Delete';
+    reason: string;
+    newDate?: string; // If moving
+    status: 'Pending' | 'Approved' | 'Rejected';
     timestamp: string;
   };
 }
@@ -267,6 +276,7 @@ export interface DeliveryChallan {
 // Expense Management
 export interface ExpenseRecord {
   id: string;
+  employeeName: string; // To track who submitted
   date: string;
   category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
   amount: number;

@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import { DeliveryChallan, ChallanItem } from '../types';
 import { Truck, Plus, FileText, Printer, Search, Filter, Trash2, Calendar, Building2, User, Package, MapPin, CheckCircle2, Box, ArrowRight, X } from 'lucide-react';
@@ -424,7 +421,7 @@ export const DeliveryChallanModule: React.FC = () => {
                           <div>
                               <div className="flex items-center gap-2 text-medical-600 mb-2">
                                   <Building2 size={24} />
-                                  <span className="text-2xl font-bold tracking-tight text-slate-900">MedEquip 360</span>
+                                  <span className="text-2xl font-bold tracking-tight text-slate-900">Sree Meditec</span>
                               </div>
                               <p className="text-sm text-slate-500">123, Healthcare Park, Industrial Area</p>
                               <p className="text-sm text-slate-500">Bangalore, Karnataka - 560001</p>
@@ -490,7 +487,7 @@ export const DeliveryChallanModule: React.FC = () => {
                               <p className="text-xs font-bold text-slate-500 uppercase">Receiver's Signature</p>
                           </div>
                           <div className="text-center">
-                              <p className="text-sm font-bold text-slate-800 mb-8">For MedEquip 360</p>
+                              <p className="text-sm font-bold text-slate-800 mb-8">For Sree Meditec</p>
                               <div className="border-t border-slate-300 w-48 mb-2"></div>
                               <p className="text-xs font-bold text-slate-500 uppercase">Authorized Signatory</p>
                           </div>

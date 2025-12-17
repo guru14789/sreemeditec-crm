@@ -29,13 +29,13 @@ export const PerformanceModule: React.FC = () => {
   });
 
   return (
-    <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
+    <div className="h-full flex flex-col gap-6 overflow-y-auto p-2 md:p-4">
       
-      {/* My Performance Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 shrink-0">
+      {/* My Performance Stats - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
           
           {/* Total Points Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[140px]">
                <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Zap size={20} /></div>
                   <span className="text-xs font-bold text-slate-400 uppercase">My Points</span>
@@ -46,14 +46,14 @@ export const PerformanceModule: React.FC = () => {
               </div>
               <button 
                 onClick={() => setShowRules(!showRules)}
-                className="absolute top-4 right-4 text-slate-300 hover:text-indigo-600 transition-colors"
+                className="absolute top-4 right-4 text-slate-300 hover:text-indigo-600 transition-colors z-10"
                 title="How points work">
                 <Info size={18} />
               </button>
           </div>
 
           {/* Tasks Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[140px]">
               <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Target size={20} /></div>
                   <span className="text-xs font-bold text-slate-400 uppercase">Tasks</span>
@@ -65,7 +65,7 @@ export const PerformanceModule: React.FC = () => {
           </div>
 
           {/* Attendance Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[140px]">
               <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><CheckCircle size={20} /></div>
                   <span className="text-xs font-bold text-slate-400 uppercase">Streak</span>
@@ -77,7 +77,7 @@ export const PerformanceModule: React.FC = () => {
           </div>
 
           {/* Prize Card */}
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-3xl text-white shadow-lg shadow-orange-500/20 flex flex-col justify-between relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-3xl text-white shadow-lg shadow-orange-500/20 flex flex-col justify-between relative overflow-hidden group min-h-[140px]">
               <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-110 transition-transform duration-500"><Trophy size={80} /></div>
               <div className="relative z-10">
                   <p className="text-xs font-bold text-amber-100 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -106,7 +106,7 @@ export const PerformanceModule: React.FC = () => {
                       <ChevronUp size={20} />
                   </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="bg-white p-3 rounded-xl border border-indigo-100">
                       <h5 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Task Completion</h5>
                       <ul className="space-y-1 text-slate-600 text-xs">
@@ -134,6 +134,7 @@ export const PerformanceModule: React.FC = () => {
           </div>
       )}
 
+      {/* Main Content Area - Responsive Flex */}
       <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[400px]">
           
           {/* Leaderboard Table */}
@@ -145,26 +146,26 @@ export const PerformanceModule: React.FC = () => {
                       </h2>
                       <p className="text-xs text-slate-500 font-medium mt-1">Real-time rankings</p>
                   </div>
-                  <div className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                  <div className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-lg border border-slate-200 hidden sm:block">
                       Live
                   </div>
               </div>
 
               <div className="flex-1 overflow-auto custom-scrollbar p-0">
-                  <table className="w-full text-left text-sm text-slate-600">
+                  <table className="w-full text-left text-sm text-slate-600 min-w-[350px]">
                       <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                           <tr>
-                              <th className="px-6 py-4 w-20 text-center">Rank</th>
-                              <th className="px-6 py-4">Employee</th>
-                              <th className="px-6 py-4 text-center">Tasks Done</th>
-                              <th className="px-6 py-4 text-center">Attendance</th>
-                              <th className="px-6 py-4 text-right">Total Points</th>
+                              <th className="px-4 sm:px-6 py-4 w-16 text-center">Rank</th>
+                              <th className="px-4 sm:px-6 py-4">Employee</th>
+                              <th className="px-4 sm:px-6 py-4 text-center hidden sm:table-cell">Tasks Done</th>
+                              <th className="px-4 sm:px-6 py-4 text-center hidden md:table-cell">Attendance</th>
+                              <th className="px-4 sm:px-6 py-4 text-right">Total Points</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                           {dynamicLeaderboard.map((user) => (
                               <tr key={user.rank} className={`hover:bg-slate-50 transition-colors ${user.rank === 1 ? 'bg-amber-50/30' : ''}`}>
-                                  <td className="px-6 py-4 text-center">
+                                  <td className="px-4 sm:px-6 py-4 text-center">
                                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm mx-auto ${
                                           user.rank === 1 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' : 
                                           'bg-slate-100 text-slate-500'
@@ -172,39 +173,39 @@ export const PerformanceModule: React.FC = () => {
                                           {user.rank}
                                       </div>
                                   </td>
-                                  <td className="px-6 py-4">
+                                  <td className="px-4 sm:px-6 py-4">
                                       <div className="flex items-center gap-3">
-                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm ${
+                                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm shrink-0 ${
                                               user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-300'
                                           }`}>
                                               {user.name.charAt(0)}
                                           </div>
-                                          <div>
-                                              <div className="font-bold text-slate-800 flex items-center gap-2">
+                                          <div className="min-w-0">
+                                              <div className="font-bold text-slate-800 flex items-center gap-2 truncate">
                                                   {user.name}
                                                   {user.rank === 1 && (
                                                     <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 animate-pulse">
-                                                        <Crown size={10} fill="currentColor"/> Winner
+                                                        <Crown size={10} fill="currentColor"/>
                                                     </span>
                                                   )}
                                               </div>
                                               {user.rank === 1 ? (
                                                   <div className="text-xs text-amber-600 font-bold mt-0.5">Prize: ₹1,500</div>
                                               ) : (
-                                                  <div className="text-xs text-slate-400 font-medium">Sales Team</div>
+                                                  <div className="text-xs text-slate-400 font-medium truncate">Sales Team</div>
                                               )}
                                           </div>
                                       </div>
                                   </td>
-                                  <td className="px-6 py-4 text-center font-bold text-slate-600">{user.tasks}</td>
-                                  <td className="px-6 py-4 text-center">
+                                  <td className="px-4 sm:px-6 py-4 text-center font-bold text-slate-600 hidden sm:table-cell">{user.tasks}</td>
+                                  <td className="px-4 sm:px-6 py-4 text-center hidden md:table-cell">
                                       <span className="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold border border-green-100">
                                           {user.attendance}
                                       </span>
                                   </td>
-                                  <td className="px-6 py-4 text-right">
+                                  <td className="px-4 sm:px-6 py-4 text-right">
                                       <span className="text-lg font-black text-indigo-600">{user.points}</span>
-                                      <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">Pts</span>
+                                      <span className="text-[10px] text-slate-400 font-bold uppercase ml-1 hidden sm:inline">Pts</span>
                                   </td>
                               </tr>
                           ))}
@@ -220,7 +221,7 @@ export const PerformanceModule: React.FC = () => {
                       <History size={18} className="text-slate-400" /> Recent Activity
                   </h3>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-[200px]">
                   {pointHistory.length > 0 ? (
                       pointHistory.map((item) => (
                           <div key={item.id} className="flex gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
