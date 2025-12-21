@@ -1,30 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Employee, PayrollRecord, LeaveRequest } from '../types';
-import { Users, IndianRupee, FileText, Plus, Search, Filter, CheckCircle, XCircle, Clock, CreditCard, ChevronRight, Download, MoreHorizontal, UserPlus, X, Calculator, TrendingUp, AlertCircle, Calendar } from 'lucide-react';
 
-const MOCK_EMPLOYEES: Employee[] = [
-  { id: 'EMP001', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@sreemeditec.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active' },
-  { id: 'EMP002', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@sreemeditec.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active' },
-  { id: 'EMP003', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@sreemeditec.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'On Leave' },
-  { id: 'EMP004', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@sreemeditec.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active' },
-];
+import React, { useState, useEffect, useMemo } from 'react';
+import { Employee, PayrollRecord, TabView } from '../types';
+import { 
+    Users, IndianRupee, Search, ShieldCheck, UserPlus, X, Briefcase, Mail, Phone, ChevronRight, ArrowLeft, CreditCard, Check, Save, Calendar, Trash2, UserMinus
+} from 'lucide-react';
+import { useData } from './DataContext';
 
-const MOCK_LEAVES: LeaveRequest[] = [
-  { id: 'L-101', employeeName: 'Priya Patel', type: 'Sick', startDate: '2023-10-25', endDate: '2023-10-27', reason: 'Viral Fever', status: 'Approved' }, 
-  { id: 'L-102', employeeName: 'Mike Ross', type: 'Casual', startDate: '2023-11-10', endDate: '2023-11-12', reason: 'Family Function', status: 'Pending' },
-];
-
-// Helper for Indian Number Formatting (K, L, Cr)
 const formatIndianNumber = (num: number) => {
-  if (num >= 10000000) {
-    return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
-  }
-  if (num >= 100000) {
-    return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
-  }
+  if (num >= 10000000) return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+  if (num >= 100000) return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+  if (num >= 1000) return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
   return num.toString();
 };
 
@@ -54,18 +39,40 @@ const calculatePayrollForEmployee = (emp: Employee, lopDays: number = 0): Payrol
   };
 };
 
+const MODULE_OPTIONS = [
+    { value: TabView.DASHBOARD, label: 'Dashboard' },
+    { value: TabView.LEADS, label: 'Leads' },
+    { value: TabView.QUOTES, label: 'Quotations' },
+    { value: TabView.PO_BUILDER, label: 'Purchase Orders' },
+    { value: TabView.INVENTORY, label: 'Inventory' },
+    { value: TabView.SERVICE_ORDERS, label: 'Service Orders' },
+    { value: TabView.CLIENTS, label: 'Clients' },
+    { value: TabView.DELIVERY, label: 'Delivery' },
+    { value: TabView.TASKS, label: 'Tasks' },
+    { value: TabView.ATTENDANCE, label: 'Attendance' },
+    { value: TabView.EXPENSES, label: 'Expenses' },
+    { value: TabView.BILLING, label: 'Billing' },
+    { value: TabView.REPORTS, label: 'Reports' },
+    { value: TabView.PERFORMANCE, label: 'Performance' },
+];
+
 export const HRModule: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'employees' | 'payroll' | 'leaves'>('employees');
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
-  const [leaves, setLeaves] = useState<LeaveRequest[]>(MOCK_LEAVES);
+  const { employees, updateEmployee, addEmployee, removeEmployee } = useData();
+  const [activeTab, setActiveTab] = useState<'employees' | 'payroll' | 'permissions'>('employees');
   const [payroll, setPayroll] = useState<PayrollRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   
-  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
-  const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({
+  // Modal State
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  
+  const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
     role: 'Sales Executive',
     department: 'Sales',
     status: 'Active',
-    baseSalary: 30000
+    baseSalary: 30000,
+    permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE]
   });
 
   useEffect(() => {
@@ -83,263 +90,271 @@ export const HRModule: React.FC = () => {
     ));
   };
 
-  const handleLeaveAction = (id: string, action: 'Approved' | 'Rejected') => {
-    setLeaves(prev => prev.map(leave => 
-      leave.id === id ? { ...leave, status: action } : leave
-    ));
+  const handleOpenAddModal = () => {
+    setIsEditing(false);
+    setSelectedEmployeeId(null);
+    setEmployeeFormData({
+        role: 'Sales Executive',
+        department: 'Sales',
+        status: 'Active',
+        baseSalary: 30000,
+        joinDate: new Date().toISOString().split('T')[0],
+        permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE]
+    });
+    setShowEmployeeModal(true);
   };
 
-  const handleAddEmployee = () => {
-    if(!newEmployee.name || !newEmployee.email || !newEmployee.baseSalary) {
-      alert("Please fill required fields");
+  const handleOpenEditModal = (emp: Employee) => {
+    setIsEditing(true);
+    setSelectedEmployeeId(emp.id);
+    setEmployeeFormData({ ...emp });
+    setShowEmployeeModal(true);
+  };
+
+  const handleDeleteEmployee = () => {
+    if (selectedEmployeeId && confirm(`Are you sure you want to remove ${employeeFormData.name}?`)) {
+      removeEmployee(selectedEmployeeId);
+      setShowEmployeeModal(false);
+    }
+  };
+
+  const handleSaveEmployee = () => {
+    if(!employeeFormData.name || !employeeFormData.email || !employeeFormData.baseSalary) {
+      alert("Please fill required fields (Name, Email, Salary)");
       return;
     }
-    const emp: Employee = {
-      id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
-      name: newEmployee.name!,
-      role: newEmployee.role || 'Staff',
-      department: newEmployee.department || 'General',
-      email: newEmployee.email!,
-      phone: newEmployee.phone || '',
-      joinDate: new Date().toISOString().split('T')[0],
-      baseSalary: Number(newEmployee.baseSalary),
-      status: 'Active'
-    };
+
+    if (isEditing && selectedEmployeeId) {
+        updateEmployee(selectedEmployeeId, employeeFormData);
+    } else {
+        const emp: Employee = {
+            id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+            name: employeeFormData.name!,
+            role: employeeFormData.role || 'Staff',
+            department: employeeFormData.department || 'General',
+            email: employeeFormData.email!,
+            phone: employeeFormData.phone || '',
+            joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
+            baseSalary: Number(employeeFormData.baseSalary),
+            status: employeeFormData.status || 'Active',
+            permissions: employeeFormData.permissions || []
+        };
+        addEmployee(emp);
+    }
     
-    setEmployees([...employees, emp]);
-    const newRecord = calculatePayrollForEmployee(emp, 0);
-    setPayroll(prev => [...prev, newRecord]);
-    setShowAddEmployeeModal(false);
-    setNewEmployee({ role: 'Sales Executive', department: 'Sales', status: 'Active', baseSalary: 30000 });
+    setShowEmployeeModal(false);
   };
 
+  const togglePermission = (empId: string, tab: TabView) => {
+      const emp = employees.find(e => e.id === empId);
+      if (!emp) return;
+
+      const currentPerms = emp.permissions || [];
+      const newPerms = currentPerms.includes(tab)
+          ? currentPerms.filter(t => t !== tab)
+          : [...currentPerms, tab];
+      
+      updateEmployee(empId, { permissions: newPerms });
+  };
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => 
+        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.department.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [employees, searchQuery]);
+
   const totalPayrollCost = payroll.reduce((acc, curr) => acc + curr.netPay, 0);
-  const pendingLeaves = leaves.filter(l => l.status === 'Pending').length;
 
   return (
-    <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
+    <div className="h-full flex flex-col gap-6 overflow-hidden p-2">
       
-      {/* Top Stats */}
+      {/* Top Header Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 shrink-0">
-        {/* Total Employees */}
-        <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-3xl shadow-lg shadow-blue-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Users size={100} />
-            </div>
-            <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className="bg-white/10 p-3 rounded-2xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform">
-                    <Users size={24} />
-                </div>
-                <span className="flex items-center gap-1 text-xs font-bold text-white/90 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm">
-                    <TrendingUp size={12} /> Active
-                </span>
-            </div>
+        <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-3xl shadow-lg text-white group overflow-hidden relative">
+            <Users className="absolute top-0 right-0 p-8 opacity-10" size={100} />
             <div className="relative z-10">
                 <p className="text-xs font-bold text-blue-200/80 uppercase tracking-wider">Total Headcount</p>
                 <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{employees.length}</h3>
-                <p className="text-xs text-blue-200/60 mt-1 font-medium">+2 New this month</p>
+                <p className="text-xs text-blue-200/60 mt-1 font-medium">Active Staff Members</p>
             </div>
         </div>
 
-        {/* Payroll Cost */}
-        <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl shadow-lg shadow-emerald-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <IndianRupee size={100} />
-            </div>
-            <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className="bg-white/10 p-3 rounded-2xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform">
-                    <IndianRupee size={24} />
-                </div>
-                <span className="flex items-center gap-1 text-xs font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm">
-                    Monthly
-                </span>
-            </div>
+        <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl shadow-lg text-white group overflow-hidden relative">
+            <IndianRupee className="absolute top-0 right-0 p-8 opacity-10" size={100} />
             <div className="relative z-10">
-                <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider">Est. Payroll Cost</p>
+                <p className="text-xs font-bold text-emerald-200/80 uppercase tracking-wider">Monthly Payroll</p>
                 <h3 className="text-3xl font-black text-white mt-1 tracking-tight">₹{formatIndianNumber(totalPayrollCost)}</h3>
-                <p className="text-xs text-emerald-200/60 mt-1 font-medium">Processing for Oct 2023</p>
+                <p className="text-xs text-emerald-200/60 mt-1 font-medium">Est. Disbursement</p>
             </div>
         </div>
 
-        {/* Pending Leaves */}
-        <div className="bg-gradient-to-br from-orange-700 to-amber-800 p-6 rounded-3xl shadow-lg shadow-orange-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Clock size={100} />
-            </div>
-            <div className="flex items-center justify-between mb-4 relative z-10">
-                <div className="bg-white/10 p-3 rounded-2xl text-orange-200 backdrop-blur-sm group-hover:scale-110 transition-transform">
-                    <Clock size={24} />
-                </div>
-                <span className="flex items-center gap-1 text-xs font-bold text-white/90 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm">
-                    <AlertCircle size={12} /> Action Needed
-                </span>
-            </div>
+        <div className="bg-gradient-to-br from-purple-700 to-violet-800 p-6 rounded-3xl shadow-lg text-white group overflow-hidden relative">
+            <ShieldCheck className="absolute top-0 right-0 p-8 opacity-10" size={100} />
             <div className="relative z-10">
-                <p className="text-xs font-bold text-orange-200/80 uppercase tracking-wider">Pending Leaves</p>
-                <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{pendingLeaves}</h3>
-                <p className="text-xs text-orange-200/60 mt-1 font-medium">Requires approval</p>
+                <p className="text-xs font-bold text-purple-200/80 uppercase tracking-wider">Security</p>
+                <h3 className="text-3xl font-black text-white mt-1 tracking-tight">RBAC</h3>
+                <p className="text-xs text-purple-200/60 mt-1 font-medium">Role Based Access Control</p>
             </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
+      {/* Main Container */}
+      <div className="flex-1 bg-white rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col overflow-hidden">
         
-        {/* Tab Navigation */}
-        <div className="border-b border-slate-100 flex justify-between items-center px-6 py-4">
-            <div className="flex bg-slate-100/50 p-1.5 rounded-2xl">
+        {/* Navigation Bar - REFINED LAYOUT */}
+        <div className="border-b border-slate-100 flex flex-col md:flex-row justify-between items-center px-4 md:px-8 py-5 gap-4 shrink-0">
+            <div className="flex bg-slate-100/80 p-1.5 rounded-2xl w-full md:w-auto">
                 <button 
                     onClick={() => setActiveTab('employees')}
-                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Employees
+                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Directory
                 </button>
                 <button 
                     onClick={() => setActiveTab('payroll')}
-                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'payroll' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Payroll Processing
+                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'payroll' ? 'bg-white text-medical-700 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Payroll
                 </button>
                 <button 
-                    onClick={() => setActiveTab('leaves')}
-                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'leaves' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                    Leave Requests
+                    onClick={() => setActiveTab('permissions')}
+                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-md' : 'text-slate-500 hover:text-slate-800'}`}>
+                    Permissions
                 </button>
             </div>
             
-            {activeTab === 'employees' && (
+            <div className="flex items-center gap-4 w-full md:w-auto md:justify-end">
+                {activeTab === 'employees' && (
+                    <div className="relative flex-1 md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Search staff..."
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                )}
                 <button 
-                    onClick={() => setShowAddEmployeeModal(true)}
-                    className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-medical-500/20 transition-all active:scale-95">
-                    <UserPlus size={16} /> Add Employee
+                    onClick={handleOpenAddModal}
+                    className="bg-medical-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-medical-500/20 active:scale-95 transition-all whitespace-nowrap">
+                    <UserPlus size={18} /> <span>Add Member</span>
                 </button>
-            )}
-            
-            {activeTab === 'payroll' && (
-                <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors">
-                    <Download size={16} /> Export CSV
-                </button>
-            )}
+            </div>
         </div>
 
-        {/* Tab Content */}
-        <div className="flex-1 overflow-auto bg-slate-50/50 p-6 custom-scrollbar">
+        {/* Content Section */}
+        <div className="flex-1 overflow-auto bg-slate-50/30 p-4 md:p-8 custom-scrollbar">
             
-            {/* EMPLOYEES TAB */}
             {activeTab === 'employees' && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
-                        <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500">
-                            <tr>
-                                <th className="px-6 py-4">Employee</th>
-                                <th className="px-6 py-4">Role & Dept</th>
-                                <th className="px-6 py-4">Contact</th>
-                                <th className="px-6 py-4">Join Date</th>
-                                <th className="px-6 py-4 text-right">Fixed Base Salary</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {employees.map(emp => (
-                                <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-800">{emp.name}</div>
-                                        <div className="text-xs text-slate-400 font-mono">{emp.id}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-slate-700 font-medium">{emp.role}</div>
-                                        <div className="text-[10px] text-slate-500 bg-slate-100 inline-block px-2 py-0.5 rounded-full mt-1 border border-slate-200">{emp.department}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-slate-700">{emp.email}</div>
-                                        <div className="text-xs text-slate-400 font-medium">{emp.phone}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500 font-medium">{emp.joinDate}</td>
-                                    <td className="px-6 py-4 text-right font-bold text-slate-800">₹{emp.baseSalary.toLocaleString()}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                                            emp.status === 'Active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                        }`}>
-                                            {emp.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button className="text-slate-400 hover:text-medical-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
-                                            <MoreHorizontal size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in duration-500">
+                    {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
+                        <div 
+                            key={emp.id} 
+                            onClick={() => handleOpenEditModal(emp)}
+                            className="bg-white p-6 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl hover:border-medical-200 transition-all group relative overflow-hidden cursor-pointer"
+                        >
+                             <div className="flex justify-between items-start mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-medical-50 to-emerald-100 flex items-center justify-center text-medical-700 font-black text-xl border border-medical-100 shadow-inner group-hover:scale-110 transition-transform">
+                                        {emp.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-slate-800 text-lg leading-tight">{emp.name}</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{emp.id}</p>
+                                    </div>
+                                </div>
+                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                    emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                                    emp.status === 'On Leave' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                    'bg-rose-50 text-rose-700 border-rose-100'
+                                }`}>
+                                    {emp.status}
+                                </span>
+                            </div>
+
+                            <div className="space-y-3 mb-6">
+                                <div className="flex items-center gap-3 text-slate-600">
+                                    <Briefcase size={16} className="text-slate-400" />
+                                    <span className="text-xs font-bold">{emp.role} <span className="text-slate-400 mx-1">•</span> {emp.department}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-slate-600">
+                                    <Mail size={16} className="text-slate-400" />
+                                    <span className="text-xs font-bold truncate">{emp.email}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-slate-600">
+                                    <Phone size={16} className="text-slate-400" />
+                                    <span className="text-xs font-bold">{emp.phone || 'No phone set'}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-5 border-t border-slate-50">
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Salary</p>
+                                    <p className="text-sm font-black text-slate-800">₹{emp.baseSalary.toLocaleString()}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                     <button 
+                                        onClick={(e) => { e.stopPropagation(); setActiveTab('permissions'); }}
+                                        className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all" title="Manage Permissions">
+                                        <ShieldCheck size={18} />
+                                     </button>
+                                     <button className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-medical-600 hover:bg-medical-50 transition-all" title="View Details">
+                                        <ChevronRight size={18} />
+                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="col-span-full py-20 text-center">
+                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                                <Search size={32} />
+                            </div>
+                            <h4 className="font-bold text-slate-500">No matching staff members found</h4>
+                            <p className="text-xs text-slate-400 mt-1">Try adjusting your search query.</p>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* PAYROLL TAB */}
             {activeTab === 'payroll' && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-3 bg-blue-50/50 text-blue-800 text-xs border-b border-blue-100 flex items-center gap-2 font-medium">
-                        <Calculator size={14} className="text-blue-600" /> 
-                        <span>Payroll is calculated based on 30 working days. Net Pay = (Earned Basic + Earned HRA) - (PF + Tax).</span>
-                    </div>
+                <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-x-auto animate-in slide-in-from-bottom-4">
                      <table className="w-full text-left text-sm text-slate-600 min-w-[1000px]">
-                        <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500">
+                        <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] uppercase font-black tracking-widest text-slate-500">
                             <tr>
-                                <th className="px-6 py-4">Employee</th>
-                                <th className="px-6 py-4 text-center">Attendance</th>
-                                <th className="px-6 py-4 text-right">Earned Base</th>
-                                <th className="px-6 py-4 text-right">Allowances</th>
-                                <th className="px-6 py-4 text-right">Deductions</th>
-                                <th className="px-6 py-4 text-right font-bold text-slate-800">Net Pay</th>
-                                <th className="px-6 py-4 text-center">Status</th>
-                                <th className="px-6 py-4 text-right">Action</th>
+                                <th className="px-8 py-5">Employee</th>
+                                <th className="px-8 py-5 text-center">Attendance</th>
+                                <th className="px-8 py-5 text-right">Allowances</th>
+                                <th className="px-8 py-5 text-right">Deductions</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-800">Net Pay</th>
+                                <th className="px-8 py-5 text-center">Status</th>
+                                <th className="px-8 py-5 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {payroll.map(record => (
                                 <tr key={record.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-800">{record.employeeName}</div>
-                                        <div className="text-xs text-slate-400 font-medium">{record.month}</div>
+                                    <td className="px-8 py-6">
+                                        <div className="font-black text-slate-800">{record.employeeName}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{record.month}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex flex-col items-center">
-                                            <span className="font-bold text-slate-700">{record.attendanceDays} Days</span>
-                                            {record.lopDays > 0 ? (
-                                                <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 mt-1 font-bold">
-                                                    -{record.lopDays} LOP
-                                                </span>
-                                            ) : (
-                                                <span className="text-[10px] text-green-600 mt-1 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100">Full Attendance</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-slate-600 font-medium">
-                                        ₹{(Math.round((record.baseSalary / 30) * record.attendanceDays)).toLocaleString()}
-                                        <div className="text-[10px] text-slate-400">of ₹{record.baseSalary.toLocaleString()}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-green-600 font-medium">+₹{record.allowances.toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-right text-red-500 font-medium">-₹{record.deductions.toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-right font-black text-slate-800">₹{record.netPay.toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                            record.status === 'Paid' 
-                                            ? 'bg-green-100 text-green-700' 
-                                            : 'bg-yellow-100 text-yellow-700'
-                                        }`}>
+                                    <td className="px-8 py-6 text-center font-bold">{record.attendanceDays} Days</td>
+                                    <td className="px-8 py-6 text-right text-emerald-600 font-black">+₹{record.allowances.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-right text-rose-500 font-black">-₹{record.deductions.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-right font-black text-slate-800 text-lg">₹{record.netPay.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${record.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                             {record.status}
                                         </span>
-                                        {record.paymentDate && <div className="text-[10px] text-slate-400 mt-1 font-mono">{record.paymentDate}</div>}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {record.status === 'Pending' ? (
+                                    <td className="px-8 py-6 text-right">
+                                        {record.status === 'Pending' && (
                                             <button 
                                                 onClick={() => handleProcessPayroll(record.id)}
-                                                className="bg-medical-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-medical-700 flex items-center gap-1 ml-auto shadow-sm shadow-medical-500/20">
-                                                <CreditCard size={14} /> Pay Now
-                                            </button>
-                                        ) : (
-                                            <button className="text-slate-400 hover:text-medical-600 flex items-center gap-1 ml-auto text-xs font-bold bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-white transition-colors">
-                                                <FileText size={14} /> Slip
+                                                className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-medical-700 flex items-center gap-2 ml-auto shadow-lg shadow-medical-500/20 active:scale-95 transition-all">
+                                                <CreditCard size={14} /> Release
                                             </button>
                                         )}
                                     </td>
@@ -350,158 +365,176 @@ export const HRModule: React.FC = () => {
                 </div>
             )}
 
-            {/* LEAVES TAB */}
-            {activeTab === 'leaves' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {leaves.map(leave => (
-                        <div key={leave.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-bold border border-white shadow-sm">
-                                        {leave.employeeName.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-800">{leave.employeeName}</h4>
-                                        <span className="text-[10px] text-slate-500 px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200 uppercase font-bold tracking-wide">{leave.type} Leave</span>
-                                    </div>
-                                </div>
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider ${
-                                    leave.status === 'Approved' ? 'bg-green-50 text-green-700 border border-green-100' :
-                                    leave.status === 'Rejected' ? 'bg-red-50 text-red-700 border border-red-100' :
-                                    'bg-yellow-50 text-yellow-700 border border-yellow-100'
-                                }`}>
-                                    {leave.status}
-                                </span>
-                            </div>
-                            
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-slate-400 text-xs font-bold uppercase">From</span>
-                                    <span className="font-semibold text-slate-700">{leave.startDate}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-slate-400 text-xs font-bold uppercase">To</span>
-                                    <span className="font-semibold text-slate-700">{leave.endDate}</span>
-                                </div>
-                                <div className="pt-2 border-t border-slate-200 mt-2">
-                                    <p className="text-slate-600 text-xs italic leading-relaxed">"{leave.reason}"</p>
-                                </div>
-                            </div>
+            {activeTab === 'permissions' && (
+                <div className="space-y-8 animate-in slide-in-from-right-4">
+                    <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-12 opacity-10"><ShieldCheck size={120}/></div>
+                        <div className="relative z-10">
+                            <h4 className="font-black text-2xl tracking-tight">Access Management Control</h4>
+                            <p className="text-indigo-100/60 mt-1 font-medium max-w-xl">
+                                Define the visibility and functional limits for each staff member. Admins maintain master override privileges. Changes are synced instantly to the workspace.
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => setActiveTab('employees')}
+                            className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all relative z-10">
+                            <ArrowLeft size={16} /> Exit Editor
+                        </button>
+                    </div>
 
-                            {leave.status === 'Pending' && (
-                                <div className="flex gap-2 mt-auto">
-                                    <button 
-                                        onClick={() => handleLeaveAction(leave.id, 'Approved')}
-                                        className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2.5 rounded-xl text-xs font-bold hover:bg-green-100 flex items-center justify-center gap-2 transition-colors">
-                                        <CheckCircle size={14} /> Approve
-                                    </button>
-                                    <button 
-                                        onClick={() => handleLeaveAction(leave.id, 'Rejected')}
-                                        className="flex-1 bg-red-50 text-red-700 border border-red-200 py-2.5 rounded-xl text-xs font-bold hover:bg-red-100 flex items-center justify-center gap-2 transition-colors">
-                                        <XCircle size={14} /> Reject
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    {leaves.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-slate-400">
-                            No leave requests found.
-                        </div>
-                    )}
+                    <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-sm overflow-hidden">
+                        <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="bg-slate-50/50 border-b border-slate-100">
+                                <tr>
+                                    <th className="px-10 py-6 font-black text-[10px] uppercase tracking-widest text-slate-500 w-72">Staff Member</th>
+                                    <th className="px-10 py-6 font-black text-[10px] uppercase tracking-widest text-slate-500">Module Access Configuration</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {employees.map(emp => (
+                                    <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-10 py-10 align-top">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 shadow-inner">
+                                                    {emp.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div className="font-black text-slate-800 leading-none">{emp.name}</div>
+                                                    <div className="text-[10px] text-slate-400 uppercase font-black tracking-tighter mt-1.5">{emp.role}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-10 py-10">
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                                                {MODULE_OPTIONS.map(mod => {
+                                                    const isChecked = emp.permissions?.includes(mod.value);
+                                                    return (
+                                                        <label 
+                                                            key={mod.value}
+                                                            className={`flex items-center gap-2 px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-tight transition-all cursor-pointer select-none ${
+                                                                isChecked 
+                                                                    ? 'bg-medical-50 text-medical-800 border-medical-200 shadow-md shadow-medical-500/5 ring-1 ring-medical-100' 
+                                                                    : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300'
+                                                            }`}
+                                                        >
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="hidden" 
+                                                                checked={isChecked} 
+                                                                onChange={() => togglePermission(emp.id, mod.value)} 
+                                                            />
+                                                            <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${isChecked ? 'bg-medical-600 border-medical-600 text-white' : 'bg-slate-50 border-slate-200 text-transparent'}`}>
+                                                                <Check size={10} strokeWidth={4} />
+                                                            </div>
+                                                            <span className="truncate">{mod.label}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
       </div>
 
-      {/* Add Employee Modal */}
-      {showAddEmployeeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-                     <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <UserPlus className="text-medical-600" size={24} /> Add New Employee
+      {/* Employee Modal (Add & Edit) - FULL DETAILS FORM */}
+      {showEmployeeModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                        <div className="p-2 bg-medical-50 text-medical-600 rounded-xl">
+                            {isEditing ? <Users size={24} /> : <UserPlus size={24} />}
+                        </div> 
+                        {isEditing ? 'Staff Profile Details' : 'Register New Staff'}
                     </h3>
-                    <button onClick={() => setShowAddEmployeeModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors">
-                        <X size={24} />
-                    </button>
+                    <button onClick={() => setShowEmployeeModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors"><X size={28} /></button>
                 </div>
-                <div className="p-6 overflow-y-auto space-y-5">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Full Name *</label>
-                        <input 
-                            type="text" 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                            placeholder="e.g. John Doe"
-                            value={newEmployee.name || ''}
-                            onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Role</label>
-                            <input 
-                                type="text"
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                                placeholder="e.g. Manager"
-                                value={newEmployee.role || ''}
-                                onChange={(e) => setNewEmployee({...newEmployee, role: e.target.value})}
-                            />
+                
+                <div className="p-8 overflow-y-auto space-y-6 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name *</label>
+                            <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all" placeholder="e.g. John Doe"
+                                value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, name: e.target.value})} />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Department</label>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Employee Status</label>
                             <select 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none appearance-none"
-                                value={newEmployee.department || 'General'}
-                                onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all appearance-none"
+                                value={employeeFormData.status}
+                                onChange={(e) => setEmployeeFormData({...employeeFormData, status: e.target.value as any})}
                             >
-                                <option value="Sales">Sales</option>
-                                <option value="Service">Service</option>
-                                <option value="HR">HR</option>
-                                <option value="Logistics">Logistics</option>
+                                <option value="Active">Active</option>
+                                <option value="On Leave">On Leave</option>
+                                <option value="Terminated">Terminated</option>
                             </select>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email Address *</label>
-                        <input 
-                            type="email" 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                            placeholder="john@company.com"
-                            value={newEmployee.email || ''}
-                            onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Role</label>
+                            <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all" placeholder="Manager"
+                                value={employeeFormData.role || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, role: e.target.value})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</label>
+                            <select 
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all appearance-none"
+                                value={employeeFormData.department}
+                                onChange={(e) => setEmployeeFormData({...employeeFormData, department: e.target.value})}
+                            >
+                                <option>Sales</option>
+                                <option>Service</option>
+                                <option>Administration</option>
+                                <option>Logistics</option>
+                                <option>HR</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Phone Number</label>
-                        <input 
-                            type="tel" 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                            placeholder="9876543210"
-                            value={newEmployee.phone || ''}
-                            onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})}
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address *</label>
+                            <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all" placeholder="john@sreemeditec.com"
+                                value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Phone</label>
+                            <input type="tel" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all" placeholder="+91 00000 00000"
+                                value={employeeFormData.phone || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, phone: e.target.value})} />
+                        </div>
                     </div>
-                    <div>
-                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Base Salary (Monthly ₹) *</label>
-                         <input 
-                            type="number" 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 outline-none transition-all"
-                            value={newEmployee.baseSalary || 0}
-                            onChange={(e) => setNewEmployee({...newEmployee, baseSalary: Number(e.target.value)})}
-                         />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
+                            <input type="number" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
+                                value={employeeFormData.baseSalary || 0} onChange={(e) => setEmployeeFormData({...employeeFormData, baseSalary: Number(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Join Date</label>
+                            <input type="date" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
+                                value={employeeFormData.joinDate} onChange={(e) => setEmployeeFormData({...employeeFormData, joinDate: e.target.value})} />
+                        </div>
                     </div>
                 </div>
-                <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50 rounded-b-3xl">
-                    <button 
-                        onClick={() => setShowAddEmployeeModal(false)}
-                        className="px-5 py-2.5 text-slate-600 font-bold hover:bg-slate-200/50 rounded-xl transition-colors">
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleAddEmployee}
-                        className="px-6 py-2.5 bg-medical-600 text-white font-bold rounded-xl hover:bg-medical-700 shadow-lg shadow-medical-500/30 flex items-center gap-2 transition-all active:scale-95">
-                        <UserPlus size={18} /> Add Employee
+
+                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
+                    {isEditing && (
+                      <button onClick={handleDeleteEmployee} className="px-6 py-4 text-rose-600 font-black uppercase tracking-widest hover:bg-rose-50 transition-colors rounded-2xl text-xs flex items-center gap-2 border border-rose-100">
+                        <UserMinus size={18} /> Delete
+                      </button>
+                    )}
+                    <button onClick={() => setShowEmployeeModal(false)} className="px-5 py-4 text-slate-600 font-black uppercase tracking-widest hover:bg-slate-200 transition-colors rounded-2xl text-xs flex-1">Cancel</button>
+                    <button onClick={handleSaveEmployee} className="flex-[2] px-5 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-medical-500/30 hover:bg-medical-700 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
+                        <Save size={18} /> {isEditing ? 'Update Profile' : 'Register Staff'}
                     </button>
                 </div>
              </div>

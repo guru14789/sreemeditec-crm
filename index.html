@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sree Meditec CRM</title>
-    <!-- Keeping Tailwind CDN for ease of migration with existing custom config, 
-         in a full production app you might migrate this to postcss.config.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -19,6 +17,14 @@
                 600: '#059669',
                 700: '#047857',
                 900: '#064e3b',
+              },
+              mint: {
+                50: '#f0fafa',
+                100: '#dff5f4',
+                200: '#81D7D3',
+                300: '#6ac9c4',
+                400: '#4fb6b0',
+                500: '#34a39b',
               }
             }
           }
@@ -26,31 +32,16 @@
       }
     </script>
     <style>
-      /* Global Scrollbar Settings */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+      body { font-family: 'Inter', sans-serif; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
+      *:hover::-webkit-scrollbar-thumb { background-color: #cbd5e1; }
+      ::-webkit-scrollbar-thumb:hover { background-color: #059669 !important; }
       
-      /* Track is always transparent */
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      
-      /* Thumb is transparent (hidden) by default */
-      ::-webkit-scrollbar-thumb {
-        background: transparent;
-        border-radius: 10px;
-      }
-      
-      /* Thumb becomes visible ONLY when hovering over the scrollable element */
-      *:hover::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1; /* Slate-300 */
-      }
-      
-      /* Thumb becomes darker (Brand Color) when grabbing/hovering the scrollbar itself */
-      ::-webkit-scrollbar-thumb:hover {
-        background-color: #059669 !important; /* Brand Emerald */
+      @media print {
+        .no-print { display: none !important; }
       }
     </style>
   <script type="importmap">
@@ -64,7 +55,9 @@
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
     "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2"
   }
 }
 </script>

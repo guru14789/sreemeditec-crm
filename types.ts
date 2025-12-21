@@ -66,22 +66,23 @@ export interface Product {
   price: number;
   minLevel: number;
   location: string;
-  // Enhanced fields for Billing auto-fill
   hsn?: string;
-  taxRate?: number; // GST %
+  taxRate?: number;
   model?: string;
-  description?: string; // Features
+  description?: string;
+  supplier?: string;
+  lastRestocked?: string;
 }
 
 export interface StockMovement {
   id: string;
   productId: string;
   productName: string;
-  type: 'In' | 'Out'; // In = Restock, Out = Sold/Used
+  type: 'In' | 'Out';
   quantity: number;
   date: string;
-  reference: string; // Invoice # or PO #
-  purpose?: 'Sale' | 'Demo' | 'Restock' | 'Service' | 'Return'; // Context for the movement
+  reference: string;
+  purpose?: 'Sale' | 'Demo' | 'Restock' | 'Service' | 'Return';
 }
 
 export interface ServiceTicket {
@@ -96,16 +97,52 @@ export interface ServiceTicket {
   type: 'Breakdown' | 'AMC' | 'Installation';
 }
 
+export interface SupportMessage {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: string;
+  isAdmin: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  customerName: string;
+  customerEmail: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+  category: 'Billing' | 'Technical' | 'Sales' | 'General';
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+}
+
+export interface ServiceReportItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
 export interface ServiceReport {
   id: string;
+  reportNumber: string;
   date: string;
   customerName: string;
+  customerHospital?: string;
+  customerAddress?: string;
   equipmentName: string;
+  modelNumber?: string;
   serialNumber?: string;
   problemReported: string;
   actionTaken: string;
   engineerName: string;
   status: 'Completed' | 'Pending Spares' | 'Observation';
+  itemsUsed?: ServiceReportItem[];
+  customerRemarks?: string;
+  documentType?: 'ServiceOrder' | 'ServiceReport';
 }
 
 export interface AMCReminder {
@@ -116,7 +153,28 @@ export interface AMCReminder {
   status: 'Active' | 'Expiring Soon' | 'Expired';
 }
 
-// HR & Payroll Types
+export enum TabView {
+  DASHBOARD = 'dashboard',
+  LEADS = 'leads',
+  QUOTES = 'quotes',
+  PO_BUILDER = 'customer_po',
+  SUPPLIER_PO = 'supplier_po',
+  INVENTORY = 'inventory',
+  SERVICE = 'service',
+  SERVICE_ORDERS = 'service_orders',
+  HR = 'hr',
+  ATTENDANCE = 'attendance',
+  TASKS = 'tasks',
+  BILLING = 'billing',
+  DELIVERY = 'delivery',
+  SUPPORT = 'support',
+  REPORTS = 'reports',
+  PROFILE = 'profile',
+  CLIENTS = 'clients',
+  EXPENSES = 'expenses',
+  PERFORMANCE = 'performance',
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -127,6 +185,7 @@ export interface Employee {
   joinDate: string;
   baseSalary: number;
   status: 'Active' | 'On Leave' | 'Terminated';
+  permissions?: TabView[];
 }
 
 export interface PayrollRecord {
@@ -135,10 +194,10 @@ export interface PayrollRecord {
   employeeName: string;
   month: string;
   baseSalary: number;
-  attendanceDays: number; // Days worked + Paid Leave
-  lopDays: number; // Loss of Pay (Absent)
-  allowances: number; // HRA, Transport
-  deductions: number; // PF, Tax
+  attendanceDays: number;
+  lopDays: number;
+  allowances: number;
+  deductions: number;
   netPay: number;
   status: 'Paid' | 'Pending' | 'Processing';
   paymentDate?: string;
@@ -154,39 +213,31 @@ export interface LeaveRequest {
   status: 'Approved' | 'Rejected' | 'Pending';
 }
 
-// Task Management
 export interface Task {
   id: string;
   title: string;
   description: string;
-  assignedTo: string; // Employee Name
+  assignedTo: string;
   priority: 'High' | 'Medium' | 'Low';
   status: 'To Do' | 'In Progress' | 'Review' | 'Done';
   dueDate: string;
-  relatedTo?: string; // e.g., Lead Name or Ticket ID
-  
-  // New Fields for Geo-Fencing
-  coords?: { lat: number; lng: number }; // Target location coordinates
-  locationName?: string; // Human readable location
-  
-  // Exception Handling (Location)
+  relatedTo?: string;
+  coords?: { lat: number; lng: number };
+  locationName?: string;
   completionRequest?: {
     requested: boolean;
     note: string;
     timestamp: string;
   };
-
-  // Exception Handling (Failure to Complete - Move/Delete)
   exceptionRequest?: {
     type: 'Move' | 'Delete';
     reason: string;
-    newDate?: string; // If moving
+    newDate?: string;
     status: 'Pending' | 'Approved' | 'Rejected';
     timestamp: string;
   };
 }
 
-// Billing & Invoicing
 export interface PaymentRecord {
   id: string;
   date: string;
@@ -197,21 +248,23 @@ export interface PaymentRecord {
 
 export interface InvoiceItem {
   id: string;
-  description: string; // Product Name
+  description: string;
   model?: string;
   features?: string;
   hsn: string;
   quantity: number;
   unit?: string;
   unitPrice: number;
-  taxRate: number; // GST %
-  amount: number; // Qty * UnitPrice
+  taxRate: number;
+  amount: number;
+  gstValue: number;
+  priceWithGst: number;
 }
 
 export interface Invoice {
   id: string;
-  invoiceNumber: string; // Used as SMCPO NO in template
-  documentType?: 'Quotation' | 'PO'; // Distinguish between Quotes and Orders
+  invoiceNumber: string;
+  documentType?: 'Quotation' | 'PO' | 'SupplierPO' | 'ServiceOrder';
   date: string;
   dueDate: string;
   customerName: string;
@@ -222,10 +275,9 @@ export interface Invoice {
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial' | 'Draft';
-  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI';
-  
-  // New Fields for PO Format
+  // Fix: Added 'Completed' to Invoice status union to support technical service orders
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial' | 'Draft' | 'Converted' | 'Completed';
+  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI' | 'NEFT';
   smcpoNumber?: string;
   cpoNumber?: string;
   cpoDate?: string;
@@ -237,27 +289,27 @@ export interface Invoice {
   bankDetails?: string;
   deliveryTime?: string;
   specialNote?: string;
-  
-  // New Fields for Quotation Generator UI
   subject?: string;
   freightAmount?: number;
   freightTaxRate?: number;
   paymentTerms?: string;
   warrantyTerms?: string;
-  deliveryTerms?: string; // Expanded terms
-  
-  // Payment Tracking
+  deliveryTerms?: string;
   payments?: PaymentRecord[];
   totalPaid?: number;
   balanceDue?: number;
+  signatureImage?: string;
+  sealImage?: string;
+  relatedQuotationId?: string;
+  bankAndBranch?: string;
+  accountNo?: string;
 }
 
-// Delivery Challan
 export interface ChallanItem {
   id: string;
   description: string;
   quantity: number;
-  unit?: string; // e.g., Box, Pcs
+  unit?: string;
   remarks?: string;
 }
 
@@ -273,19 +325,17 @@ export interface DeliveryChallan {
   referenceOrder?: string;
 }
 
-// Expense Management
 export interface ExpenseRecord {
   id: string;
-  employeeName: string; // To track who submitted
+  employeeName: string;
   date: string;
   category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
   amount: number;
   description: string;
   status: 'Pending' | 'Approved' | 'Rejected';
-  receiptUrl?: string; // Placeholder for file
+  receiptUrl?: string;
 }
 
-// Performance & Gamification
 export interface PointHistory {
   id: string;
   date: string;
@@ -301,7 +351,6 @@ export interface UserStats {
   salesRevenue: number;
 }
 
-// User Profile
 export interface UserProfile {
   name: string;
   email: string;
@@ -317,7 +366,6 @@ export interface UserProfile {
   };
 }
 
-// Global Notifications
 export interface AppNotification {
   id: string;
   title: string;
@@ -325,23 +373,4 @@ export interface AppNotification {
   time: string;
   type: 'info' | 'alert' | 'warning' | 'success';
   read: boolean;
-}
-
-export enum TabView {
-  DASHBOARD = 'dashboard',
-  LEADS = 'leads',
-  QUOTES = 'quotes',
-  INVENTORY = 'inventory',
-  SERVICE = 'service',
-  HR = 'hr',
-  ATTENDANCE = 'attendance',
-  TASKS = 'tasks',
-  BILLING = 'billing',
-  DELIVERY = 'delivery',
-  SUPPORT = 'support',
-  REPORTS = 'reports',
-  PROFILE = 'profile',
-  CLIENTS = 'clients',
-  EXPENSES = 'expenses',
-  PERFORMANCE = 'performance',
 }

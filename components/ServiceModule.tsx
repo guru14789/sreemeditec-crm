@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { ServiceTicket, AMCReminder, ServiceReport } from '../types';
 import { Wrench, Calendar, MapPin, Clock, AlertTriangle, FileText, Plus, X, Search, CheckCircle } from 'lucide-react';
@@ -37,18 +35,20 @@ export const ServiceModule: React.FC = () => {
       if (!existingClient) {
           addClient({
               id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
-              name: newReport.customerName,
+              name: newReport.customerName!,
               hospital: '', 
               address: '',
               gstin: ''
           });
       }
 
+      // Fix: Added missing required property reportNumber to conform to ServiceReport interface
       const report: ServiceReport = {
           id: `SR-${Date.now()}`,
+          reportNumber: `SRN-${Date.now().toString().slice(-6)}`,
           date: newReport.date!,
-          customerName: newReport.customerName,
-          equipmentName: newReport.equipmentName,
+          customerName: newReport.customerName!,
+          equipmentName: newReport.equipmentName!,
           problemReported: newReport.problemReported || '',
           actionTaken: newReport.actionTaken || '',
           engineerName: newReport.engineerName || 'Current User',
