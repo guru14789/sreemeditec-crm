@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Lead, LeadStatus, FollowUp } from '../types';
 import { Mail, Phone, MoreVertical, Plus, Wand2, RefreshCw, ShoppingBag, Globe, DownloadCloud, Box, CreditCard, MapPin, Printer, ArrowUpRight, User, Calendar, CheckSquare, MessageSquare, Clock, X, Save, UserPlus } from 'lucide-react';
 import { generateEmailDraft } from '../geminiService';
+import { useData } from './DataContext';
 
 const MOCK_LEADS: Lead[] = [
   { 
@@ -57,6 +58,7 @@ const MOCK_LEADS: Lead[] = [
 ];
 
 export const LeadsModule: React.FC = () => {
+  const { addNotification } = useData();
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [emailDraft, setEmailDraft] = useState<string>('');
@@ -134,22 +136,10 @@ export const LeadsModule: React.FC = () => {
                     items: [ { name: 'Omron BP Monitor', quantity: 2, price: 600 } ],
                     platformFee: 60
                 }
-            },
-            {
-                id: `L-IM-${Date.now()+2}`,
-                name: 'Dr. Anjali Gupta',
-                hospital: 'Gupta Nursing Home',
-                source: 'IndiaMART',
-                status: LeadStatus.NEW, 
-                value: 350000, 
-                lastContact: '10 mins ago', 
-                productInterest: 'X-Ray Machine 300mA', 
-                phone: '+91 99009 90099', 
-                email: 'dr.anjali@guptanursing.com', 
-                address: '15, Civil Lines, Jaipur, RJ, 302006' 
             }
         ];
         setLeads(prev => [...newIncomingLeads, ...prev]);
+        addNotification('Sync Complete', `Successfully imported 2 new orders from Amazon & Flipkart.`, 'success');
         setIsSyncing(false);
     }, 1500);
   };
@@ -187,6 +177,7 @@ export const LeadsModule: React.FC = () => {
     setSelectedLead(updatedLeads.find(l => l.id === selectedLead.id) || null);
     setShowAddFollowUp(false);
     setNewFollowUp({ type: 'Call', date: new Date().toISOString().split('T')[0], notes: '' });
+    addNotification('Task Created', `New follow-up scheduled for ${selectedLead.name}.`, 'info');
   };
 
   const toggleFollowUpStatus = (leadId: string, followUpId: string) => {
@@ -198,7 +189,12 @@ export const LeadsModule: React.FC = () => {
       });
       setLeads(updatedLeads);
       if (selectedLead && selectedLead.id === leadId) {
-          setSelectedLead(updatedLeads.find(l => l.id === leadId) || null);
+          const lead = updatedLeads.find(l => l.id === leadId);
+          setSelectedLead(lead || null);
+          const fu = lead?.followUps?.find(f => f.id === followUpId);
+          if (fu?.status === 'Completed') {
+            addNotification('Task Finished', `Follow-up with ${lead?.name} marked as complete.`, 'success');
+          }
       }
   };
 
@@ -225,6 +221,7 @@ export const LeadsModule: React.FC = () => {
 
       setLeads([leadToAdd, ...leads]);
       setShowAddModal(false);
+      addNotification('New Lead', `${leadToAdd.name} added from ${leadToAdd.source}.`, 'success');
       setNewLead({ source: 'Website', status: LeadStatus.NEW, value: 0 });
       setSelectedLead(leadToAdd);
   };
@@ -274,7 +271,7 @@ export const LeadsModule: React.FC = () => {
                 <span>Sources:</span>
                 <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-50 text-orange-600 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>Amazon</span>
                 <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 text-blue-600 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Flipkart</span>
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Website</span>
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Website</span>
             </div>
           </div>
           <button 
@@ -528,7 +525,7 @@ export const LeadsModule: React.FC = () => {
                                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-lg text-sm space-y-3 animate-in slide-in-from-top-4 relative z-10">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Type</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Type</label>
                                             <select 
                                                 className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-medical-500/20"
                                                 value={newFollowUp.type}
@@ -542,7 +539,7 @@ export const LeadsModule: React.FC = () => {
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Date</label>
                                             <input 
                                                 type="date"
                                                 className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-medical-500/20"
@@ -552,7 +549,7 @@ export const LeadsModule: React.FC = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Notes</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Notes</label>
                                         <textarea 
                                             className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-medical-500/20 resize-none"
                                             rows={2}

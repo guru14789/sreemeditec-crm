@@ -46,6 +46,7 @@ const MODULE_OPTIONS = [
     { value: TabView.PO_BUILDER, label: 'Purchase Orders' },
     { value: TabView.INVENTORY, label: 'Inventory' },
     { value: TabView.SERVICE_ORDERS, label: 'Service Orders' },
+    { value: TabView.SERVICE_REPORTS, label: 'Service Reports' },
     { value: TabView.CLIENTS, label: 'Clients' },
     { value: TabView.DELIVERY, label: 'Delivery' },
     { value: TabView.TASKS, label: 'Tasks' },

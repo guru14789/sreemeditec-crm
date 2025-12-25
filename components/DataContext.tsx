@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Client, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory } from '../types';
+import { Client, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification } from '../types';
 
 export interface DataContextType {
   clients: Client[];
@@ -9,6 +9,7 @@ export interface DataContextType {
   stockMovements: StockMovement[];
   expenses: ExpenseRecord[];
   employees: Employee[];
+  notifications: AppNotification[];
   
   // Performance & Points
   userStats: UserStats;
@@ -32,6 +33,11 @@ export interface DataContextType {
   addEmployee: (emp: Employee) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   removeEmployee: (id: string) => void;
+
+  // Notification Actions
+  addNotification: (title: string, message: string, type: AppNotification['type']) => void;
+  markNotificationRead: (id: string) => void;
+  clearAllNotifications: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -85,6 +91,10 @@ const INITIAL_HISTORY: PointHistory[] = [
     { id: 'PH-3', date: '2023-10-26', points: 15, category: 'Task', description: 'Task Done (On Time)' },
 ];
 
+const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  { id: 'N1', title: 'System Active', message: 'Welcome back to Sree Meditec CRM.', time: 'Just now', type: 'info', read: false }
+];
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -92,6 +102,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
   
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>(INITIAL_HISTORY);
@@ -111,6 +122,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateEmployee = (id: string, updates: Partial<Employee>) => setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
   const removeEmployee = (id: string) => setEmployees(prev => prev.filter(e => e.id !== id));
 
+  const addNotification = (title: string, message: string, type: AppNotification['type']) => {
+    const newNotif: AppNotification = {
+      id: `NOTIF-${Date.now()}`,
+      title,
+      message,
+      time: 'Just now',
+      type,
+      read: false,
+      isNewToast: true
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  const markNotificationRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true, isNewToast: false } : n));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
   const addPoints = (amount: number, category: PointHistory['category'], description: string) => {
       const newHistory: PointHistory = {
           id: `PH-${Date.now()}`,
@@ -129,11 +161,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{ 
-        clients, products, invoices, stockMovements, expenses, employees,
+        clients, products, invoices, stockMovements, expenses, employees, notifications,
         addClient, updateClient, addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
-        userStats, pointHistory, addPoints
+        userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications
     }}>
       {children}
     </DataContext.Provider>

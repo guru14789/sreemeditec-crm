@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -33,7 +35,7 @@
     </script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-      body { font-family: 'Inter', sans-serif; }
+      body { font-family: 'Inter', sans-serif; transition: background-color 0.3s ease; }
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: transparent; border-radius: 10px; }
@@ -43,6 +45,10 @@
       @media print {
         .no-print { display: none !important; }
       }
+
+      /* Dark mode scrollbar tweaks */
+      .dark ::-webkit-scrollbar-thumb { background-color: #334155; }
+      .dark *:hover::-webkit-scrollbar-thumb { background-color: #475569; }
     </style>
   <script type="importmap">
 {
@@ -62,7 +68,7 @@
 }
 </script>
 </head>
-  <body class="bg-emerald-50/30 text-slate-800 antialiased overflow-hidden">
+  <body class="bg-emerald-50/30 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

@@ -142,7 +142,7 @@ export interface ServiceReport {
   status: 'Completed' | 'Pending Spares' | 'Observation';
   itemsUsed?: ServiceReportItem[];
   customerRemarks?: string;
-  documentType?: 'ServiceOrder' | 'ServiceReport';
+  documentType?: 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
 }
 
 export interface AMCReminder {
@@ -162,6 +162,8 @@ export enum TabView {
   INVENTORY = 'inventory',
   SERVICE = 'service',
   SERVICE_ORDERS = 'service_orders',
+  SERVICE_REPORTS = 'service_reports',
+  INSTALLATION_REPORTS = 'installation_reports',
   HR = 'hr',
   ATTENDANCE = 'attendance',
   TASKS = 'tasks',
@@ -271,11 +273,12 @@ export interface Invoice {
   customerHospital: string;
   customerAddress: string;
   customerGstin?: string;
+  phone?: string;
+  email?: string;
   items: InvoiceItem[];
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  // Fix: Added 'Completed' to Invoice status union to support technical service orders
   status: 'Paid' | 'Pending' | 'Overdue' | 'Partial' | 'Draft' | 'Converted' | 'Completed';
   paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI' | 'NEFT';
   smcpoNumber?: string;
@@ -373,4 +376,5 @@ export interface AppNotification {
   time: string;
   type: 'info' | 'alert' | 'warning' | 'success';
   read: boolean;
+  isNewToast?: boolean;
 }

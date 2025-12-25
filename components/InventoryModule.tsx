@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, StockMovement } from '../types';
 import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle, Trash2, Building2 } from 'lucide-react';
@@ -18,7 +19,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const InventoryModule: React.FC = () => {
-  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient } = useData();
+  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification } = useData();
   const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
@@ -57,6 +58,8 @@ export const InventoryModule: React.FC = () => {
     setLowStockItems(low);
     if (low.length > 0) {
         setShowNotification(true);
+        // Only trigger notif if we haven't warned about these specifically yet
+        // In a real app, you'd track if the warning was already sent
     }
   }, [products]);
 
@@ -95,6 +98,7 @@ export const InventoryModule: React.FC = () => {
         });
         
         setShowNotification(false);
+        addNotification('Inventory Updated', `Successfully replenished ${lowStockItems.length} low-stock items.`, 'success');
         alert("Purchase Orders generated! Stock has been replenished.");
     }, 1500);
   };
@@ -137,12 +141,14 @@ export const InventoryModule: React.FC = () => {
     }
 
     setShowAddProductModal(false);
+    addNotification('Product Indexed', `"${productToAdd.name}" successfully added to registry.`, 'success');
     setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
   };
 
   const handleDeleteProduct = (id: string, name: string) => {
       if (confirm(`Are you sure you want to delete "${name}" from inventory? This action cannot be undone.`)) {
           removeProduct(id);
+          addNotification('Registry Updated', `"${name}" removed from catalog.`, 'warning');
       }
   };
 
@@ -188,6 +194,7 @@ export const InventoryModule: React.FC = () => {
       });
 
       setShowDemoModal(false);
+      addNotification('Demo Dispatch', `"${product.name}" units sent to ${demoData.clientName}.`, 'info');
       setDemoData({ productId: '', quantity: 1, clientName: '', date: new Date().toISOString().split('T')[0], location: '' });
       setActiveTab('history'); // Switch to history to show the action
   };
@@ -239,6 +246,7 @@ export const InventoryModule: React.FC = () => {
       });
 
       handleResetScan();
+      addNotification('Stock Updated', `${quickStockAmount} units of ${scannedProduct.name} ${scanOperation === 'In' ? 'received' : 'dispatched'}.`, 'success');
       alert(`Successfully ${scanOperation === 'In' ? 'Added' : 'Removed'} ${quickStockAmount} units.`);
   };
 
