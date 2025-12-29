@@ -215,6 +215,19 @@ export interface LeaveRequest {
   status: 'Approved' | 'Rejected' | 'Pending';
 }
 
+export interface SubTask {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface TaskLog {
+  id: string;
+  user: string;
+  action: string;
+  timestamp: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -226,6 +239,8 @@ export interface Task {
   relatedTo?: string;
   coords?: { lat: number; lng: number };
   locationName?: string;
+  subTasks?: SubTask[];
+  logs?: TaskLog[];
   completionRequest?: {
     requested: boolean;
     note: string;

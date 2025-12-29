@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { ServiceReport, ServiceReportItem } from '../types';
 import { 
@@ -93,8 +92,8 @@ export const ServiceReportModule: React.FC = () => {
     const handleDownloadPDF = (data: DetailedServiceReport) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
-        const colWidth = (pageWidth - 20) / 2;
 
         // Header
         doc.setFont('helvetica', 'bold');
@@ -194,8 +193,15 @@ export const ServiceReportModule: React.FC = () => {
         });
 
         // Bottom section: Signatures & Financials
-        const currentY = (doc as any).lastAutoTable.finalY;
+        let currentY = (doc as any).lastAutoTable.finalY;
         const boxHeight = 70;
+        
+        // Check for page break
+        if (currentY + boxHeight > pageHeight - 10) {
+            doc.addPage();
+            currentY = margin;
+        }
+
         doc.rect(margin, currentY, pageWidth - 20, boxHeight);
         doc.line(pageWidth * 0.5, currentY, pageWidth * 0.5, currentY + boxHeight); // Vertical split
 
@@ -226,15 +232,15 @@ export const ServiceReportModule: React.FC = () => {
 
         // Left Side: Signature and Remarks
         doc.setFontSize(8);
-        doc.text('Signature of the customer', margin + 15, currentY + 30);
+        doc.text('Signature of the customer', margin + 15, currentY + 15);
         doc.setFontSize(7);
-        doc.text('(Please affix Stamp)', margin + 19, currentY + 34);
+        doc.text('(Please affix Stamp)', margin + 19, currentY + 19);
 
-        doc.line(margin, currentY + 42, finX, currentY + 42); // split for remarks
+        doc.line(margin, currentY + 30, finX, currentY + 30); // split for remarks
         doc.setFont('helvetica', 'bold');
-        doc.text("Engineer's queries/ remarks/ follow up Action etc. If any:", margin + 2, currentY + 46);
+        doc.text("Engineer's queries/ remarks/ follow up Action etc. If any:", margin + 2, currentY + 34);
         doc.setFont('helvetica', 'normal');
-        doc.text(data.queriesRemarks || '', margin + 2, currentY + 54, { maxWidth: finX - margin - 4 });
+        doc.text(data.queriesRemarks || '', margin + 2, currentY + 40, { maxWidth: finX - margin - 4 });
 
         doc.setFont('helvetica', 'bold');
         doc.text('Signature of the Engineer', margin + 15, currentY + boxHeight - 4);

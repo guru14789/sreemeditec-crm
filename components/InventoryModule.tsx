@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, StockMovement } from '../types';
 import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle, Trash2, Building2 } from 'lucide-react';
 import { useData } from './DataContext';
@@ -25,6 +24,7 @@ export const InventoryModule: React.FC = () => {
   const [showNotification, setShowNotification] = useState(true);
   const [showPOModal, setShowPOModal] = useState(false);
   const [processingOrder, setProcessingOrder] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -58,15 +58,23 @@ export const InventoryModule: React.FC = () => {
     setLowStockItems(low);
     if (low.length > 0) {
         setShowNotification(true);
-        // Only trigger notif if we haven't warned about these specifically yet
-        // In a real app, you'd track if the warning was already sent
     }
   }, [products]);
+
+  // Filtered Products for Search
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.supplier && p.supplier.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [products, searchQuery]);
 
   // Auto-focus input when scan modal opens and is in idle state
   useEffect(() => {
       if (showScanModal && scanStatus === 'idle' && scanInputRef.current) {
-          // Small timeout to ensure modal render
           setTimeout(() => {
               scanInputRef.current?.focus();
           }, 100);
@@ -79,7 +87,6 @@ export const InventoryModule: React.FC = () => {
         setProcessingOrder(false);
         setShowPOModal(false);
         
-        // Update stock levels in central store and record movement
         products.forEach(p => {
              if (p.stock < p.minLevel) {
                  const qtyToAdd = 10;
@@ -99,7 +106,6 @@ export const InventoryModule: React.FC = () => {
         
         setShowNotification(false);
         addNotification('Inventory Updated', `Successfully replenished ${lowStockItems.length} low-stock items.`, 'success');
-        alert("Purchase Orders generated! Stock has been replenished.");
     }, 1500);
   };
 
@@ -122,11 +128,10 @@ export const InventoryModule: React.FC = () => {
         model: newProduct.model || '',
         description: newProduct.description || '',
         supplier: newProduct.supplier || '',
-        lastRestocked: newProduct.stock && newProduct.stock > 0 ? new Date().toISOString().split('T')[0] : ''
+        lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
     };
     addProduct(productToAdd);
     
-    // Record initial stock as movement
     if ((newProduct.stock || 0) > 0) {
         recordStockMovement({
              id: `MOV-INIT-${Date.now()}`,
@@ -145,10 +150,10 @@ export const InventoryModule: React.FC = () => {
     setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
   };
 
-  const handleDeleteProduct = (id: string, name: string) => {
-      if (confirm(`Are you sure you want to delete "${name}" from inventory? This action cannot be undone.`)) {
-          removeProduct(id);
-          addNotification('Registry Updated', `"${name}" removed from catalog.`, 'warning');
+  const handleDeleteProduct = (productId: string, productName: string) => {
+      if (confirm(`Are you sure you want to delete "${productName}" from the master inventory? This action is permanent.`)) {
+          removeProduct(productId);
+          addNotification('Registry Updated', `"${productName}" has been removed.`, 'warning');
       }
   };
 
@@ -166,7 +171,6 @@ export const InventoryModule: React.FC = () => {
           return;
       }
 
-      // Check for new client
       const existingClient = clients.find(c => c.name === demoData.clientName);
       if (!existingClient) {
           addClient({
@@ -178,10 +182,8 @@ export const InventoryModule: React.FC = () => {
           });
       }
 
-      // 1. Deduct Stock
       updateProduct(product.id, { stock: product.stock - demoData.quantity });
 
-      // 2. Record Movement
       recordStockMovement({
           id: `MOV-DEMO-${Date.now()}`,
           productId: product.id,
@@ -196,7 +198,7 @@ export const InventoryModule: React.FC = () => {
       setShowDemoModal(false);
       addNotification('Demo Dispatch', `"${product.name}" units sent to ${demoData.clientName}.`, 'info');
       setDemoData({ productId: '', quantity: 1, clientName: '', date: new Date().toISOString().split('T')[0], location: '' });
-      setActiveTab('history'); // Switch to history to show the action
+      setActiveTab('history');
   };
 
   const handleScanSubmit = (e: React.FormEvent) => {
@@ -208,7 +210,7 @@ export const InventoryModule: React.FC = () => {
       if (foundProduct) {
           setScannedProduct(foundProduct);
           setScanStatus('found');
-          setScanOperation('In'); // Default to adding stock
+          setScanOperation('In');
           setQuickStockAmount(1);
       } else {
           setScanStatus('not-found');
@@ -247,7 +249,6 @@ export const InventoryModule: React.FC = () => {
 
       handleResetScan();
       addNotification('Stock Updated', `${quickStockAmount} units of ${scannedProduct.name} ${scanOperation === 'In' ? 'received' : 'dispatched'}.`, 'success');
-      alert(`Successfully ${scanOperation === 'In' ? 'Added' : 'Removed'} ${quickStockAmount} units.`);
   };
 
   const handleCreateFromScan = () => {
@@ -279,15 +280,13 @@ export const InventoryModule: React.FC = () => {
   };
 
   const poTotalCost = lowStockItems.reduce((acc, item) => {
-      const quantityNeeded = item.minLevel + 10 - item.stock;
+      const quantityNeeded = Math.max(0, item.minLevel + 10 - item.stock);
       return acc + (quantityNeeded * item.price);
   }, 0);
 
-  // Calculate Stats
   const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.price), 0);
   const equipmentValue = products.filter(p => p.category === 'Equipment').reduce((acc, p) => acc + (p.stock * p.price), 0);
   const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + (p.stock * p.price), 0);
-  const totalStockCount = products.reduce((acc, product) => acc + product.stock, 0);
 
   return (
     <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
@@ -394,12 +393,16 @@ export const InventoryModule: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-3">
                 {activeTab === 'stock' && (
                     <>
-                        <div className="relative hidden lg:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="text-slate-400 group-focus-within:text-medical-600 transition-colors" size={16} />
+                            </div>
                             <input 
                                 type="text" 
                                 placeholder="Search inventory..." 
-                                className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-medical-500/5 w-full sm:w-64 transition-all"
+                                className="block w-full pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
                         <button 
@@ -423,38 +426,38 @@ export const InventoryModule: React.FC = () => {
         </div>
 
         {/* Table Content */}
-        <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
             {activeTab === 'stock' ? (
-                <table className="w-full text-left text-sm text-slate-600 min-w-[1000px]">
-                    <thead className="bg-slate-50/50 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 border-b border-slate-100">
+                <table className="w-full text-left text-sm text-slate-600 min-w-[1100px] table-fixed">
+                    <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-100 shadow-[0_1px_0_0_#f1f5f9]">
                         <tr>
-                            <th className="px-6 py-5">Product Master</th>
-                            <th className="px-6 py-5">Category & SKU</th>
-                            <th className="px-6 py-5">Supplier</th>
-                            <th className="px-6 py-5 text-right">Available Stock</th>
-                            <th className="px-6 py-5 text-right">Unit Price</th>
-                            <th className="px-6 py-5">Warehouse</th>
-                            <th className="px-6 py-5">Status</th>
-                            <th className="px-6 py-5 text-right">Action</th>
+                            <th className="px-6 py-5 w-[22%] bg-[#fcfdfd]">Product Master</th>
+                            <th className="px-6 py-5 w-[15%] bg-[#fcfdfd]">Category & SKU</th>
+                            <th className="px-6 py-5 w-[15%] bg-[#fcfdfd]">Supplier</th>
+                            <th className="px-6 py-5 text-right w-[12%] bg-[#fcfdfd]">Available Stock</th>
+                            <th className="px-6 py-5 text-right w-[12%] bg-[#fcfdfd]">Unit Price</th>
+                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Warehouse</th>
+                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Status</th>
+                            <th className="px-6 py-5 text-right w-[80px] bg-[#fcfdfd]">Action</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {products.map((product) => {
+                    <tbody className="divide-y divide-slate-100 relative z-10">
+                        {filteredProducts.map((product) => {
                             const isLowStock = product.stock < product.minLevel;
                             return (
                                 <tr key={product.id} className={`hover:bg-slate-50 transition-colors ${isLowStock ? 'bg-red-50/20' : ''}`}>
                                     <td className="px-6 py-5">
-                                        <div className="font-black text-slate-800">{product.name}</div>
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{product.model || 'Standard Model'}</div>
+                                        <div className="font-black text-slate-800 truncate" title={product.name}>{product.name}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 truncate">{product.model || 'Standard Model'}</div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="text-xs font-black text-indigo-600 uppercase">{product.category}</div>
-                                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">{product.sku}</div>
+                                        <div className="text-xs font-black text-indigo-600 uppercase truncate">{product.category}</div>
+                                        <div className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{product.sku}</div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="flex items-center gap-2 text-slate-600 font-bold">
-                                            <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center"><Building2 size={12}/></div>
-                                            {product.supplier || 'Not set'}
+                                        <div className="flex items-center gap-2 text-slate-600 font-bold truncate">
+                                            <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center shrink-0"><Building2 size={12}/></div>
+                                            <span className="truncate">{product.supplier || 'Not set'}</span>
                                         </div>
                                     </td>
                                     <td className={`px-6 py-5 text-right font-black ${isLowStock ? 'text-red-600' : 'text-slate-800'}`}>
@@ -463,47 +466,58 @@ export const InventoryModule: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-5 text-right font-black text-teal-700">₹{product.price.toLocaleString()}</td>
                                     <td className="px-6 py-5">
-                                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400">
-                                            <MapPin size={12} /> {product.location}
+                                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 truncate">
+                                            <MapPin size={12} className="shrink-0" /> <span className="truncate">{product.location}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
                                         {isLowStock ? (
-                                            <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-black uppercase bg-red-50 px-2 py-1 rounded-lg border border-red-100 animate-pulse">
-                                                <AlertTriangle size={12} /> Low Stock
+                                            <div className="flex items-center gap-1.5 text-red-600 text-[10px] font-black uppercase bg-red-50 px-2 py-1 rounded-lg border border-red-100 animate-pulse w-fit">
+                                                <AlertTriangle size={12} className="shrink-0" /> <span>Low Stock</span>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
-                                                <CheckCircle size={12} /> Optimal
+                                            <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 w-fit">
+                                                <CheckCircle size={12} className="shrink-0" /> <span>Optimal</span>
                                             </div>
                                         )}
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <button 
+                                            type="button"
                                             onClick={() => handleDeleteProduct(product.id, product.name)}
-                                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                            title="Archive Product"
+                                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95 group/btn"
+                                            title="Remove from Inventory"
                                         >
-                                            <Trash2 size={18} />
+                                            <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
                                         </button>
                                     </td>
                                 </tr>
                             );
                         })}
+                        {filteredProducts.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="py-24 text-center">
+                                    <div className="flex flex-col items-center gap-2 opacity-30">
+                                        <Search size={48} className="text-slate-400" />
+                                        <p className="text-xs font-black uppercase tracking-widest">No matching products found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             ) : (
                 <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
-                    <thead className="bg-slate-50/50 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 border-b border-slate-100">
+                    <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-100 shadow-[0_1px_0_0_#f1f5f9]">
                         <tr>
-                            <th className="px-6 py-5">Transaction Date</th>
-                            <th className="px-6 py-5">Nature of Movement</th>
-                            <th className="px-6 py-5">Product Master</th>
-                            <th className="px-6 py-5 text-right">Quantity</th>
-                            <th className="px-6 py-5">Reference / Notes</th>
+                            <th className="px-6 py-5 bg-[#fcfdfd]">Transaction Date</th>
+                            <th className="px-6 py-5 bg-[#fcfdfd]">Nature of Movement</th>
+                            <th className="px-6 py-5 bg-[#fcfdfd]">Product Master</th>
+                            <th className="px-6 py-5 text-right bg-[#fcfdfd]">Quantity</th>
+                            <th className="px-6 py-5 bg-[#fcfdfd]">Reference / Notes</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 relative z-10">
                         {stockMovements.length > 0 ? (
                             stockMovements.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((movement) => (
                                 <tr key={movement.id} className="hover:bg-slate-50 transition-colors">
@@ -702,7 +716,7 @@ export const InventoryModule: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {lowStockItems.map(item => {
-                                const qty = item.minLevel + 10 - item.stock;
+                                const qty = Math.max(0, item.minLevel + 10 - item.stock);
                                 return (
                                     <tr key={item.id}>
                                         <td className="px-5 py-5 font-black text-slate-700">{item.name}</td>
@@ -747,7 +761,7 @@ export const InventoryModule: React.FC = () => {
                      <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
                         <Plus className="text-medical-600" size={28} /> New Registration
                     </h3>
-                    <button onClick={() => setShowAddProductModal(false)} className="text-slate-400 hover:text-slate-600 p-2 transition-colors">
+                    <button onClick={() => setShowAddProductModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors">
                         <X size={28} />
                     </button>
                 </div>
@@ -786,6 +800,7 @@ export const InventoryModule: React.FC = () => {
                                     onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
                                 />
                                 <button 
+                                    type="button"
                                     onClick={triggerScanForAddProduct}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-medical-600 transition-colors"
                                     title="Scan Hardware">
@@ -862,14 +877,97 @@ export const InventoryModule: React.FC = () => {
                 </div>
                 <div className="p-8 border-t border-slate-100 flex justify-end gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
                     <button 
+                        type="button"
                         onClick={() => setShowAddProductModal(false)}
                         className="px-8 py-4 text-slate-500 font-black uppercase tracking-widest hover:bg-slate-200 rounded-2xl text-xs transition-colors">
                         Cancel
                     </button>
                     <button 
+                        type="button"
                         onClick={handleSaveProduct}
                         className="px-10 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-medical-500/30 hover:bg-medical-700 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
                         <Save size={20} /> Register Item
+                    </button>
+                </div>
+             </div>
+        </div>
+      )}
+
+      {/* Send for Demo Modal */}
+      {showDemoModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+             <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-xl w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                        <Send className="text-indigo-600" size={24} /> Dispatch for Demo
+                    </h3>
+                    <button onClick={() => setShowDemoModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors"><X size={28} /></button>
+                </div>
+                <div className="p-8 space-y-6">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Product</label>
+                        <select 
+                            className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
+                            value={demoData.productId}
+                            onChange={(e) => setDemoData({...demoData, productId: e.target.value})}
+                        >
+                            <option value="">Choose item from registry...</option>
+                            {products.filter(p => p.stock > 0).map(p => (
+                                <option key={p.id} value={p.id}>{p.name} ({p.stock} available)</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client Name</label>
+                            <input 
+                                type="text" 
+                                list="demo-clients"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all"
+                                placeholder="e.g. Dr. John Doe"
+                                value={demoData.clientName}
+                                onChange={(e) => setDemoData({...demoData, clientName: e.target.value})}
+                            />
+                            <datalist id="demo-clients">
+                                {clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}
+                            </datalist>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Demo Date</label>
+                            <input 
+                                type="date"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none"
+                                value={demoData.date}
+                                onChange={(e) => setDemoData({...demoData, date: e.target.value})}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                         <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
+                            <input 
+                                type="number"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none"
+                                value={demoData.quantity}
+                                onChange={(e) => setDemoData({...demoData, quantity: parseInt(e.target.value) || 1})}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Demo Location</label>
+                            <input 
+                                type="text"
+                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none"
+                                placeholder="Hospital/Clinic name"
+                                value={demoData.location}
+                                onChange={(e) => setDemoData({...demoData, location: e.target.value})}
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
+                    <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 text-slate-500 font-black uppercase tracking-widest hover:bg-slate-200 transition-colors rounded-2xl text-xs">Cancel</button>
+                    <button onClick={handleSendForDemo} className="flex-[2] py-4 bg-indigo-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
+                        <Send size={18} /> Confirm Dispatch
                     </button>
                 </div>
              </div>

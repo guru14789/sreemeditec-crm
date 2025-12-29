@@ -1,249 +1,401 @@
-
 import React, { useState } from 'react';
-import { Trophy, Star, TrendingUp, Target, Award, Users, CheckCircle, Zap, Crown, Gift, Info, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Trophy, Star, TrendingUp, Target, Award, Users, CheckCircle, Zap, Crown, Gift, Info, History, Medal, HelpCircle, Edit2, Check, X } from 'lucide-react';
 import { useData } from './DataContext';
 
+interface PerformanceModuleProps {
+    userRole?: 'Admin' | 'Employee';
+}
+
 const LEADERBOARD_DATA = [
-  { rank: 1, name: 'Rahul Sharma', points: 0, tasks: 45, attendance: '98%', badge: 'gold' }, // Will be overwritten by context
-  { rank: 2, name: 'Priya Patel', points: 2100, tasks: 38, attendance: '95%', badge: 'none' },
-  { rank: 3, name: 'Mike Ross', points: 1950, tasks: 42, attendance: '92%', badge: 'none' },
-  { rank: 4, name: 'Sarah Jenkins', points: 1800, tasks: 35, attendance: '90%', badge: 'none' },
-  { rank: 5, name: 'David Kim', points: 1650, tasks: 30, attendance: '88%', badge: 'none' },
+    { rank: 1, name: 'Rahul Sharma', points: 0, tasks: 45, attendance: '98%', badge: 'gold' },
+    { rank: 2, name: 'Priya Patel', points: 2100, tasks: 38, attendance: '95%', badge: 'none' },
+    { rank: 3, name: 'Mike Ross', points: 1950, tasks: 42, attendance: '92%', badge: 'none' },
+    { rank: 4, name: 'Sarah Jenkins', points: 1800, tasks: 35, attendance: '90%', badge: 'none' },
+    { rank: 5, name: 'David Kim', points: 1650, tasks: 30, attendance: '88%', badge: 'none' },
 ];
 
-export const PerformanceModule: React.FC = () => {
-  const { userStats, pointHistory } = useData();
+export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole = 'Employee' }) => {
+  const { userStats, pointHistory, prizePool, updatePrizePool } = useData();
   const [showRules, setShowRules] = useState(false);
+  const [isEditingPrize, setIsEditingPrize] = useState(false);
+  const [tempPrize, setTempPrize] = useState(prizePool.toString());
+
+  const isAdmin = userRole === 'Admin';
 
   // Sync current user (Rahul) with live context stats
   const dynamicLeaderboard = LEADERBOARD_DATA.map(user => {
-      if (user.rank === 1) {
+      if (user.name === 'Rahul Sharma') {
           return { ...user, points: userStats.points, tasks: userStats.tasksCompleted };
       }
       return user;
-  }).sort((a, b) => b.points - a.points); // Re-sort based on dynamic points
+  }).sort((a, b) => b.points - a.points);
 
   // Re-assign ranks after sort
   dynamicLeaderboard.forEach((user, index) => {
       user.rank = index + 1;
   });
 
+  const top3 = dynamicLeaderboard.slice(0, 3);
+
+  const getRankStyle = (rank: number) => {
+    switch(rank) {
+        case 1: return { bg: 'bg-amber-100 text-amber-600 border-amber-200', icon: <Trophy size={14} className="fill-current"/>, label: 'Champion', card: 'border-amber-400/50 bg-amber-50/10' };
+        case 2: return { bg: 'bg-slate-100 text-slate-500 border-slate-200', icon: <Medal size={14} />, label: 'Runner Up', card: 'border-slate-300/50 bg-slate-50/10' };
+        case 3: return { bg: 'bg-orange-100 text-orange-600 border-orange-200', icon: <Award size={14} />, label: 'Top 3', card: 'border-orange-300/50 bg-orange-50/10' };
+        default: return { bg: 'bg-slate-50 text-slate-400 border-slate-100', icon: null, label: `#${rank}`, card: 'border-slate-100 bg-white dark:bg-slate-800' };
+    }
+  };
+
+  const handleUpdatePrize = () => {
+      const amount = parseInt(tempPrize);
+      if (!isNaN(amount) && amount >= 0) {
+          updatePrizePool(amount);
+      }
+      setIsEditingPrize(false);
+  };
+
   return (
-    <div className="h-full flex flex-col gap-6 overflow-y-auto p-2 md:p-4">
+    <div className="h-full flex flex-col gap-5 overflow-y-auto custom-scrollbar p-2">
       
-      {/* My Performance Stats - Responsive Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-          
-          {/* Total Points Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between relative overflow-hidden group min-h-[140px]">
-               <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Zap size={20} /></div>
-                  <span className="text-xs font-bold text-slate-400 uppercase">My Points</span>
+      {/* Top Header - Mini Stats Optimized for Mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+               <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg"><Zap size={14} /></div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">My Points</span>
               </div>
-              <div>
-                  <h3 className="text-3xl font-black text-slate-800 tracking-tighter">{userStats.points}</h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Leading the chart</p>
-              </div>
-              <button 
-                onClick={() => setShowRules(!showRules)}
-                className="absolute top-4 right-4 text-slate-300 hover:text-indigo-600 transition-colors z-10"
-                title="How points work">
-                <Info size={18} />
-              </button>
-          </div>
-
-          {/* Tasks Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[140px]">
-              <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Target size={20} /></div>
-                  <span className="text-xs font-bold text-slate-400 uppercase">Tasks</span>
-              </div>
-              <div>
-                  <h3 className="text-2xl font-black text-slate-800">{userStats.tasksCompleted}</h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Completed total</p>
+              <div className="flex justify-between items-end">
+                  <h3 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{userStats.points}</h3>
+                  <button onClick={() => setShowRules(true)} className="text-slate-300 hover:text-indigo-600 transition-colors"><Info size={16} /></button>
               </div>
           </div>
 
-          {/* Attendance Card */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-[140px]">
-              <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><CheckCircle size={20} /></div>
-                  <span className="text-xs font-bold text-slate-400 uppercase">Streak</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><Target size={14} /></div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tasks Done</span>
               </div>
-              <div>
-                  <h3 className="text-2xl font-black text-slate-800">{userStats.attendanceStreak} Days</h3>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Perfect attendance</p>
-              </div>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">{userStats.tasksCompleted}</h3>
           </div>
 
-          {/* Prize Card */}
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-3xl text-white shadow-lg shadow-orange-500/20 flex flex-col justify-between relative overflow-hidden group min-h-[140px]">
-              <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-110 transition-transform duration-500"><Trophy size={80} /></div>
-              <div className="relative z-10">
-                  <p className="text-xs font-bold text-amber-100 uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Gift size={14} /> Monthly Reward
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black">₹1,500</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg"><CheckCircle size={14} /></div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Streak</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">{userStats.attendanceStreak}D</h3>
+          </div>
+
+          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-[1.5rem] text-white shadow-lg shadow-orange-500/20 flex flex-col justify-between relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2 opacity-20"><Trophy size={48} /></div>
+              <div className="flex justify-between items-start mb-1 relative z-10">
+                  <p className="text-[9px] font-black text-amber-100 uppercase tracking-widest">Monthly Prize Pool</p>
+                  {isAdmin && !isEditingPrize && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsEditingPrize(true); setTempPrize(prizePool.toString()); }} 
+                        className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white shadow-sm"
+                        title="Edit Prize Pool"
+                      >
+                          <Edit2 size={12} />
+                      </button>
+                  )}
+              </div>
+              
+              {isEditingPrize ? (
+                  <div className="flex items-center gap-2 animate-in slide-in-from-right-2 relative z-10">
+                      <span className="text-xl font-black">₹</span>
+                      <input 
+                        autoFocus
+                        type="number" 
+                        className="bg-white/10 border-b-2 border-white/40 text-xl font-black outline-none w-full max-w-[100px] text-white placeholder:text-white/50"
+                        value={tempPrize}
+                        onChange={(e) => setTempPrize(e.target.value)}
+                        onBlur={() => !tempPrize && setIsEditingPrize(false)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdatePrize();
+                            if (e.key === 'Escape') setIsEditingPrize(false);
+                        }}
+                      />
+                      <div className="flex gap-1">
+                          <button onClick={handleUpdatePrize} className="p-1 bg-emerald-500 rounded-md shadow-lg hover:bg-emerald-600 transition-colors"><Check size={12}/></button>
+                          <button onClick={() => setIsEditingPrize(false)} className="p-1 bg-rose-500 rounded-md shadow-lg hover:bg-rose-600 transition-colors"><X size={12}/></button>
+                      </div>
                   </div>
-                  <div className="mt-3 bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm inline-block">
-                      <span className="text-[10px] font-bold text-white uppercase tracking-wide flex items-center gap-1">
-                        <Crown size={12} fill="currentColor" /> Only 1 Winner
-                      </span>
-                  </div>
-              </div>
+              ) : (
+                  <h3 className="text-2xl font-black tracking-tight leading-none relative z-10">₹{prizePool.toLocaleString()}</h3>
+              )}
           </div>
       </div>
 
-      {/* Rules Accordion / Modal */}
-      {showRules && (
-          <div className="bg-indigo-50 border border-indigo-100 rounded-3xl p-5 shrink-0 animate-in slide-in-from-top-2">
-              <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-bold text-indigo-900 flex items-center gap-2">
-                      <Info size={18} /> Point System Breakdown
-                  </h4>
-                  <button onClick={() => setShowRules(false)} className="text-indigo-400 hover:text-indigo-700">
-                      <ChevronUp size={20} />
-                  </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100">
-                      <h5 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Task Completion</h5>
-                      <ul className="space-y-1 text-slate-600 text-xs">
-                          <li className="flex justify-between"><span>Base Reward</span> <span className="font-bold text-green-600">+10 pts</span></li>
-                          <li className="flex justify-between"><span>On-Time Bonus</span> <span className="font-bold text-green-600">+5 pts</span></li>
-                          <li className="flex justify-between"><span>High Priority</span> <span className="font-bold text-green-600">+10 pts</span></li>
-                      </ul>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100">
-                      <h5 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Attendance</h5>
-                      <ul className="space-y-1 text-slate-600 text-xs">
-                          <li className="flex justify-between"><span>Early Check-in</span> <span className="font-bold text-green-600">+10 pts</span></li>
-                          <li className="flex justify-between"><span>Late Check-in</span> <span className="font-bold text-red-500">-10 pts</span></li>
-                          <li className="flex justify-between"><span>Perfect Week</span> <span className="font-bold text-amber-500">+100 pts</span></li>
-                      </ul>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-indigo-100">
-                      <h5 className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Sales & Billing</h5>
-                      <ul className="space-y-1 text-slate-600 text-xs">
-                          <li className="flex justify-between"><span>Revenue Gen</span> <span className="font-bold text-green-600">2pts / ₹1k</span></li>
-                          <li className="flex justify-between"><span>Lead Won</span> <span className="font-bold text-green-600">+50 pts</span></li>
-                      </ul>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* Main Content Area - Responsive Flex */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-[400px]">
+      {/* Main Content Area */}
+      <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
           
-          {/* Leaderboard Table */}
-          <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
-              <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                  <div>
-                      <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                          <Award className="text-amber-500" size={20} /> Company Leaderboard
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium mt-1">Real-time rankings</p>
+          {/* Leaderboard Section */}
+          <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
+              <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
+                  <div className="flex items-center gap-2">
+                      <Award className="text-amber-500" size={18} />
+                      <h2 className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100 uppercase tracking-widest">Team Rankings</h2>
                   </div>
-                  <div className="text-xs font-bold text-slate-400 bg-white px-3 py-1.5 rounded-lg border border-slate-200 hidden sm:block">
-                      Live
+                  <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Live Updates</span>
                   </div>
               </div>
 
-              <div className="flex-1 overflow-auto custom-scrollbar p-0">
-                  <table className="w-full text-left text-sm text-slate-600 min-w-[350px]">
-                      <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                          <tr>
-                              <th className="px-4 sm:px-6 py-4 w-16 text-center">Rank</th>
-                              <th className="px-4 sm:px-6 py-4">Employee</th>
-                              <th className="px-4 sm:px-6 py-4 text-center hidden sm:table-cell">Tasks Done</th>
-                              <th className="px-4 sm:px-6 py-4 text-center hidden md:table-cell">Attendance</th>
-                              <th className="px-4 sm:px-6 py-4 text-right">Total Points</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                          {dynamicLeaderboard.map((user) => (
-                              <tr key={user.rank} className={`hover:bg-slate-50 transition-colors ${user.rank === 1 ? 'bg-amber-50/30' : ''}`}>
-                                  <td className="px-4 sm:px-6 py-4 text-center">
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm mx-auto ${
-                                          user.rank === 1 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' : 
-                                          'bg-slate-100 text-slate-500'
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+                  {/* MOBILE VIEW: Cards and Podium */}
+                  <div className="lg:hidden space-y-4">
+                      {/* Top 3 Podium */}
+                      <div className="flex items-end justify-center gap-2 px-2 pt-12 pb-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-2 shadow-inner">
+                          {/* 2nd Place */}
+                          <div className="flex flex-col items-center flex-1">
+                              <div className="relative mb-2">
+                                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-xl text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
+                                      {top3[1]?.name.charAt(0)}
+                                  </div>
+                                  <div className="absolute -top-1 -right-1 bg-slate-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">2</div>
+                              </div>
+                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[1]?.name.split(' ')[0]}</p>
+                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[1]?.points}</p>
+                          </div>
+                          
+                          {/* 1st Place - The Champion */}
+                          <div className="flex flex-col items-center flex-1 transform scale-110 pb-1">
+                              <div className="relative mb-2">
+                                  <div className="absolute -top-9 left-1/2 -translate-x-1/2 text-amber-500">
+                                      <Crown size={28} fill="currentColor" className="drop-shadow-[0_2px_4px_rgba(245,158,11,0.4)] animate-pulse" />
+                                  </div>
+                                  <div className="w-16 h-16 rounded-[1.2rem] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-black text-2xl text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
+                                      {top3[0]?.name.charAt(0)}
+                                  </div>
+                                  <div className="absolute -top-2 -right-2 bg-amber-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border-2 border-white shadow-sm z-20">1</div>
+                              </div>
+                              <p className="text-[11px] font-black text-slate-900 dark:text-white truncate w-full text-center">{top3[0]?.name.split(' ')[0]}</p>
+                              <p className="text-[11px] font-black text-orange-600 dark:text-orange-400 mt-0.5">{top3[0]?.points}</p>
+                          </div>
+
+                          {/* 3rd Place */}
+                          <div className="flex flex-col items-center flex-1">
+                              <div className="relative mb-2">
+                                  <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-black text-xl text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
+                                      {top3[2]?.name.charAt(0)}
+                                  </div>
+                                  <div className="absolute -top-1 -right-1 bg-orange-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">3</div>
+                              </div>
+                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[2]?.name.split(' ')[0]}</p>
+                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[2]?.points}</p>
+                          </div>
+                      </div>
+
+                      {/* Full List Rendering */}
+                      <div className="space-y-2.5 pb-4">
+                          {dynamicLeaderboard.map((user) => {
+                              const isCurrentUser = user.name === 'Rahul Sharma';
+                              return (
+                                  <div key={user.name} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm'}`}>
+                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                                          user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
+                                          user.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                                          user.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                                          'bg-slate-50 text-slate-400'
                                       }`}>
                                           {user.rank}
                                       </div>
-                                  </td>
-                                  <td className="px-4 sm:px-6 py-4">
-                                      <div className="flex items-center gap-3">
-                                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm shrink-0 ${
-                                              user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-300'
-                                          }`}>
-                                              {user.name.charAt(0)}
+                                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0 uppercase">
+                                          {user.name.charAt(0)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5">
+                                              <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">{user.name}</p>
+                                              {isCurrentUser && <span className="text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">You</span>}
                                           </div>
-                                          <div className="min-w-0">
-                                              <div className="font-bold text-slate-800 flex items-center gap-2 truncate">
-                                                  {user.name}
-                                                  {user.rank === 1 && (
-                                                    <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 animate-pulse">
-                                                        <Crown size={10} fill="currentColor"/>
-                                                    </span>
-                                                  )}
-                                              </div>
-                                              {user.rank === 1 ? (
-                                                  <div className="text-xs text-amber-600 font-bold mt-0.5">Prize: ₹1,500</div>
-                                              ) : (
-                                                  <div className="text-xs text-slate-400 font-medium truncate">Sales Team</div>
-                                              )}
+                                          <div className="flex items-center gap-2 mt-0.5">
+                                              <span className="text-[9px] font-bold text-slate-400 uppercase">{user.tasks} Tasks</span>
+                                              <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                              <span className="text-[9px] font-bold text-emerald-500 uppercase">{user.attendance} Attnd.</span>
                                           </div>
                                       </div>
-                                  </td>
-                                  <td className="px-4 sm:px-6 py-4 text-center font-bold text-slate-600 hidden sm:table-cell">{user.tasks}</td>
-                                  <td className="px-4 sm:px-6 py-4 text-center hidden md:table-cell">
-                                      <span className="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-bold border border-green-100">
-                                          {user.attendance}
-                                      </span>
-                                  </td>
-                                  <td className="px-4 sm:px-6 py-4 text-right">
-                                      <span className="text-lg font-black text-indigo-600">{user.points}</span>
-                                      <span className="text-[10px] text-slate-400 font-bold uppercase ml-1 hidden sm:inline">Pts</span>
-                                  </td>
-                              </tr>
-                          ))}
+                                      <div className="text-right">
+                                          <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none">{user.points}</p>
+                                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">Points</p>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </div>
+
+                  {/* DESKTOP VIEW: Detailed Table */}
+                  <table className="hidden lg:table w-full text-left text-sm text-slate-600">
+                      <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 backdrop-blur-md">
+                          <tr>
+                              <th className="px-8 py-5 w-24 text-center">Rank</th>
+                              <th className="px-8 py-5">Staff Member</th>
+                              <th className="px-8 py-5 text-center">Tasks Done</th>
+                              <th className="px-8 py-5 text-center">Attendance</th>
+                              <th className="px-8 py-5 text-right pr-12">Performance Points</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {dynamicLeaderboard.map((user) => {
+                              const rankStyle = getRankStyle(user.rank);
+                              const isCurrentUser = user.name === 'Rahul Sharma';
+                              
+                              return (
+                                  <tr key={user.name} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isCurrentUser ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''}`}>
+                                      <td className="px-8 py-6 text-center">
+                                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-base mx-auto border-2 ${
+                                              user.rank === 1 ? 'bg-amber-500 text-white border-white shadow-lg shadow-amber-500/20' : 
+                                              user.rank === 2 ? 'bg-slate-300 text-white border-white shadow-lg shadow-slate-300/20' :
+                                              user.rank === 3 ? 'bg-orange-400 text-white border-white shadow-lg shadow-orange-400/20' :
+                                              'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                                          }`}>
+                                              {user.rank}
+                                          </div>
+                                      </td>
+                                      <td className="px-8 py-6">
+                                          <div className="flex items-center gap-4">
+                                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-inner uppercase ${
+                                                  user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                              }`}>
+                                                  {user.name.charAt(0)}
+                                              </div>
+                                              <div>
+                                                  <div className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                      {user.name}
+                                                      {user.rank === 1 && <span className="text-amber-500"><Crown size={14} fill="currentColor"/></span>}
+                                                      {isCurrentUser && <span className="text-[9px] font-black bg-indigo-600 text-white px-2 py-0.5 rounded uppercase tracking-tighter">You</span>}
+                                                  </div>
+                                                  <div className={`mt-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border inline-flex items-center gap-1.5 ${rankStyle.bg}`}>
+                                                      {rankStyle.icon} {rankStyle.label}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="px-8 py-6 text-center font-black text-slate-600 dark:text-slate-400">{user.tasks}</td>
+                                      <td className="px-8 py-6 text-center">
+                                          <span className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-xl text-[10px] font-black border border-emerald-100 dark:border-emerald-800">
+                                              {user.attendance}
+                                          </span>
+                                      </td>
+                                      <td className="px-8 py-6 text-right pr-12">
+                                          <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{user.points}</span>
+                                          <span className="text-[10px] text-slate-400 font-black uppercase ml-2 tracking-tighter">Pts</span>
+                                      </td>
+                                  </tr>
+                              );
+                          })}
                       </tbody>
                   </table>
               </div>
           </div>
 
-          {/* Point History Log */}
-          <div className="w-full lg:w-80 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden shrink-0">
-              <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <History size={18} className="text-slate-400" /> Recent Activity
-                  </h3>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-[200px]">
-                  {pointHistory.length > 0 ? (
-                      pointHistory.map((item) => (
-                          <div key={item.id} className="flex gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
-                              <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${item.points > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                              <div>
-                                  <p className="text-xs font-bold text-slate-700">{item.description}</p>
-                                  <div className="flex justify-between items-center mt-1 w-full gap-4">
-                                      <span className="text-[10px] text-slate-400">{item.date}</span>
-                                      <span className={`text-xs font-bold ${item.points > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                          {item.points > 0 ? '+' : ''}{item.points} pts
-                                      </span>
+          {/* Side Panels Column */}
+          <div className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
+              
+              {/* Performance Log Card */}
+              <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden h-[350px] lg:h-auto lg:flex-1">
+                  <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 shrink-0">
+                      <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase text-[10px] tracking-widest">
+                          <History size={16} className="text-slate-400" /> Performance Log
+                      </h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                      {pointHistory.length > 0 ? (
+                          pointHistory.map((item) => (
+                              <div key={item.id} className="p-4 rounded-2xl border border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all">
+                                  <div className="flex gap-3">
+                                      <div className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${item.points > 0 ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-rose-500'}`}></div>
+                                      <div className="flex-1 min-w-0">
+                                          <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 leading-tight uppercase tracking-tight line-clamp-2">{item.description}</p>
+                                          <div className="flex justify-between items-center mt-2.5">
+                                              <span className="text-[8px] font-bold text-slate-400 uppercase">{item.date}</span>
+                                              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg ${item.points > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`}>
+                                                  {item.points > 0 ? '+' : ''}{item.points} PTS
+                                              </span>
+                                          </div>
+                                      </div>
                                   </div>
                               </div>
+                          ))
+                      ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-30">
+                              <History size={40} className="mb-2 text-slate-200" />
+                              <p className="text-[10px] font-black uppercase tracking-widest">Registry is Empty</p>
                           </div>
-                      ))
-                  ) : (
-                      <div className="text-center text-slate-400 py-8 text-xs">No recent activity.</div>
-                  )}
+                      )}
+                  </div>
+              </div>
+
+              {/* Point Calculation Guide - Placed Under Performance Log */}
+              <div className="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden shrink-0">
+                   <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                        <HelpCircle size={100} />
+                   </div>
+                   <h3 className="font-black text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 text-indigo-100">
+                        <Star size={14} className="fill-current" /> Scoring System Guide
+                   </h3>
+                   <div className="space-y-4 relative z-10">
+                        <div className="flex items-start gap-3">
+                            <div className="p-1.5 bg-white/10 rounded-lg text-indigo-100 shrink-0 mt-0.5"><Target size={14}/></div>
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-tight">Workflows & Tasks</p>
+                                <p className="text-[10px] text-indigo-100/70 font-bold leading-tight mt-0.5">+10 Base Completion<br/>+5 On-Time Bonus<br/>+10 High Priority</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="p-1.5 bg-white/10 rounded-lg text-indigo-100 shrink-0 mt-0.5"><CheckCircle size={14}/></div>
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-tight">Attendance Sync</p>
+                                <p className="text-[10px] text-indigo-100/70 font-bold leading-tight mt-0.5">+10 Early Check-in<br/>-10 Late Check-in<br/>+100 Perfect 7D Streak</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="p-1.5 bg-white/10 rounded-lg text-indigo-100 shrink-0 mt-0.5"><TrendingUp size={14}/></div>
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-tight">Sales & Revenue</p>
+                                <p className="text-[10px] text-indigo-100/70 font-bold leading-tight mt-0.5">2 PTS per ₹1k Revenue<br/>+50 Lead Converted</p>
+                            </div>
+                        </div>
+                   </div>
               </div>
           </div>
-
       </div>
+
+      {/* Rules Modal Overlay */}
+      {showRules && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col overflow-hidden max-h-[85vh] animate-in zoom-in-95">
+                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                      <h4 className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest text-xs flex items-center gap-2">
+                          <Info size={16} className="text-indigo-500" /> Point Criteria
+                      </h4>
+                      <button onClick={() => setShowRules(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                          <X size={24} />
+                      </button>
+                  </div>
+                  <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-[2rem] border border-indigo-100 dark:border-indigo-900/30">
+                          <h5 className="font-black text-indigo-900 dark:text-indigo-300 text-[10px] uppercase mb-4 tracking-widest border-b border-indigo-100 dark:border-indigo-800 pb-2">Workflow & Tasks</h5>
+                          <ul className="space-y-3 text-xs">
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Task Milestone</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">High Priority Bonus</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Early Completion</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+5 pts</span></li>
+                          </ul>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/30">
+                          <h5 className="font-black text-emerald-900 dark:text-emerald-300 text-[10px] uppercase mb-4 tracking-widest border-b border-emerald-100 dark:border-emerald-800 pb-2">Attendance Sync</h5>
+                          <ul className="space-y-3 text-xs">
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">On-time Check-in</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Late Check-in</span> <span className="text-rose-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">-10 pts</span></li>
+                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Perfect 7-Day Streak</span> <span className="text-amber-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+100 pts</span></li>
+                          </ul>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

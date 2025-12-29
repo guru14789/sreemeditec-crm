@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Client, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification } from '../types';
 
@@ -14,7 +13,9 @@ export interface DataContextType {
   // Performance & Points
   userStats: UserStats;
   pointHistory: PointHistory[];
+  prizePool: number;
   addPoints: (amount: number, category: PointHistory['category'], description: string) => void;
+  updatePrizePool: (amount: number) => void;
 
   addClient: (client: Client) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
@@ -106,6 +107,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>(INITIAL_HISTORY);
+  const [prizePool, setPrizePool] = useState<number>(1500);
 
   const addClient = (client: Client) => setClients(prev => [...prev, client]);
   const updateClient = (id: string, client: Partial<Client>) => setClients(prev => prev.map(c => c.id === id ? { ...c, ...client } : c));
@@ -159,13 +161,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }));
   };
 
+  const updatePrizePool = (amount: number) => setPrizePool(amount);
+
   return (
     <DataContext.Provider value={{ 
         clients, products, invoices, stockMovements, expenses, employees, notifications,
         addClient, updateClient, addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
-        userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications
+        userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
+        prizePool, updatePrizePool
     }}>
       {children}
     </DataContext.Provider>

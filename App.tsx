@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Users, FileText, Package, Wrench, 
@@ -84,6 +83,7 @@ export const App: React.FC = () => {
     if (userRole === 'Admin') return true;
     const currentEmp = employees.find(e => e.name === currentUser);
     if (!currentEmp) {
+        // Fix: Corrected property access from TabView.ATTANCE to TabView.ATTENDANCE
         const employeeAllowedTabs = [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE];
         return employeeAllowedTabs.includes(tab);
     }
@@ -129,7 +129,7 @@ export const App: React.FC = () => {
     }
   ];
 
-  const NavItem = ({ tab, icon: Icon, label }: { tab: TabView, icon: React.ElementType, label: string }) => {
+  const NavItem = ({ tab, icon: Icon, label }: { tab: TabView, icon: any, label: string, key?: React.Key }) => {
     const isActive = activeTab === tab;
     return (
         <button 
@@ -150,7 +150,7 @@ export const App: React.FC = () => {
     );
   };
 
-  const SectionHeading = ({ children }: { children: React.ReactNode }) => {
+  const SectionHeading = ({ children }: { children?: React.ReactNode }) => {
     if (!isSidebarOpen) return <div className="h-px bg-white/5 my-6 mx-4" />;
     return (
       <div className="px-5 mb-4 mt-8 text-[10px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-3">
@@ -191,7 +191,7 @@ export const App: React.FC = () => {
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUser} />;
-      case TabView.PERFORMANCE: return <PerformanceModule />;
+      case TabView.PERFORMANCE: return <PerformanceModule userRole={userRole} />;
       default: return <Dashboard />;
     }
   };
@@ -207,7 +207,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden relative">
-      {/* Toast Overlays */}
       <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
         {toasts.map((toast) => (
           <div key={toast.id} className="w-80 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 flex gap-4 animate-in slide-in-from-right pointer-events-auto transform transition-all hover:scale-105">
@@ -229,19 +228,16 @@ export const App: React.FC = () => {
         ))}
       </div>
 
-      {/* Mobile Overlay */}
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
       )}
       
-      {/* Sidebar */}
       <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 
         ${isSidebarOpen 
           ? 'w-72 translate-x-0' 
           : 'w-24 -translate-x-full lg:translate-x-0'} 
         fixed lg:relative h-full shadow-2xl overflow-hidden`}>
         
-        {/* Branding Area with Toggle */}
         <div className={`p-6 h-24 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
             {isSidebarOpen ? (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
@@ -258,7 +254,6 @@ export const App: React.FC = () => {
             </button>
         </div>
 
-        {/* Navigation Items */}
         <div className={`flex-1 overflow-y-auto py-6 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
           {sidebarSections.map((section, sectionIdx) => {
             const accessibleItems = section.items.filter(item => hasAccess(item.tab));
@@ -282,7 +277,6 @@ export const App: React.FC = () => {
           <div className="h-10 shrink-0"></div>
         </div>
 
-        {/* Sidebar Footer */}
         <div className="p-4 border-t border-white/5 bg-black/20 shrink-0">
           <button 
             onClick={() => { if(confirm('Sign out from Sree Meditec?')) window.location.reload(); }}
@@ -294,11 +288,9 @@ export const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-3 flex items-center shrink-0 h-20 md:h-24 z-50 sticky top-0 shadow-sm transition-colors duration-300">
-            {/* Left Column: Menu Button (Mobile) or Placeholder (Desktop) */}
-            <div className="w-12 md:hidden">
+            <div className="w-12 lg:hidden">
               {!isSidebarOpen && (
                 <button 
                   onClick={() => setIsSidebarOpen(true)} 
@@ -309,7 +301,6 @@ export const App: React.FC = () => {
               )}
             </div>
 
-            {/* Center Column: Title and Status */}
             <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left min-w-0 px-2">
               <h2 className="text-lg md:text-[24px] font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
                 {activeTab.replace(/_/g, ' ')}
@@ -320,9 +311,7 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Column: Actions and Profile */}
             <div className="flex items-center gap-1 md:gap-3">
-              {/* Notification Button */}
               <div className="relative">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -337,7 +326,6 @@ export const App: React.FC = () => {
                   )}
                 </button>
                 
-                {/* Notifications Dropdown */}
                 {showNotifications && (
                   <div className="absolute top-full right-0 mt-4 w-72 sm:w-96 bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[100] animate-in slide-in-from-top-4">
                     <div className="p-5 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
@@ -378,7 +366,6 @@ export const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Profile Avatar (Mini on Mobile) */}
               <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group">
                 <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 text-slate-700 dark:text-slate-100 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-black shadow-sm group-hover:bg-medical-600 group-hover:text-white group-hover:border-medical-700 transition-all transform active:scale-95">
                   {currentUser.charAt(0)}
