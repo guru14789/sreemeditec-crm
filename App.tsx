@@ -213,10 +213,15 @@ export const App: React.FC = () => {
   };
 
   const handleSignOut = (e: React.MouseEvent) => {
+    // Explicitly prevent any standard browser behavior and stop event bubbling
     e.preventDefault();
     e.stopPropagation();
-    // Immediate execution of logout
+    
+    // Call the data context's logout function to clear auth state
     logout();
+    
+    // Optional: reset the active tab so when the next user logs in, they see the dashboard
+    setActiveTab(TabView.DASHBOARD);
   };
 
   return (
@@ -275,15 +280,15 @@ export const App: React.FC = () => {
         </div>
 
         {/* Dedicated Sidebar Footer (Session Controls) */}
-        <div className={`p-4 border-t border-white/5 shrink-0 bg-black/10 relative z-[80] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
+        <div className={`p-4 border-t border-white/5 shrink-0 bg-black/10 relative z-[100] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
             <button 
                 onClick={handleSignOut}
                 type="button"
-                className={`group w-full flex items-center transition-all text-rose-300 hover:text-white hover:bg-rose-500/10 cursor-pointer pointer-events-auto relative ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-4' : 'justify-center p-3 rounded-2xl w-14 h-14'}`}
+                className={`group w-full flex items-center transition-all text-rose-300 hover:text-white hover:bg-rose-500/10 cursor-pointer pointer-events-auto relative active:scale-95 ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-4' : 'justify-center p-3 rounded-2xl w-14 h-14'}`}
             >
                 <LogOut size={isSidebarOpen ? 20 : 26} className="shrink-0 transition-transform group-hover:scale-110" />
                 {isSidebarOpen && (
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 pointer-events-none">
                         <span className="block truncate text-left font-black tracking-widest text-[10px] uppercase opacity-40 leading-none mb-1">Session Control</span>
                         <span className="block truncate text-left font-bold tracking-tight text-sm">Sign Out</span>
                     </div>
