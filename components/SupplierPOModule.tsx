@@ -271,7 +271,7 @@ export const SupplierPOModule: React.FC = () => {
         });
     };
 
-    const handleSave = () => {
+    const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!order.customerName || !order.items?.length) {
             alert("Fill vendor details and items.");
             return;
@@ -284,13 +284,14 @@ export const SupplierPOModule: React.FC = () => {
             subtotal: totals.subTotal,
             taxTotal: totals.taxTotal,
             grandTotal: totals.grandTotal,
+            status: status === 'Draft' ? 'Draft' : 'Pending',
             documentType: 'SupplierPO'
         };
         if (editingId) updateInvoice(editingId, finalData);
         else addInvoice(finalData);
         setViewState('history');
         setEditingId(null);
-        addNotification('Procurement Finalized', `Order ${finalData.invoiceNumber} recorded.`, 'success');
+        addNotification('Registry Updated', `Supplier PO ${finalData.invoiceNumber} saved as ${status}.`, 'success');
     };
 
     const totals = useMemo(() => calculateDetailedTotals(order), [order]);
@@ -403,7 +404,7 @@ export const SupplierPOModule: React.FC = () => {
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td>
-                                        <td className="px-6 py-4 text-center"><span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700">{inv.status}</span></td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit size={18}/></button>
@@ -497,9 +498,14 @@ export const SupplierPOModule: React.FC = () => {
                                     <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment / Contract Terms</label><textarea rows={2} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.paymentTerms} onChange={e => setOrder({...order, paymentTerms: e.target.value})} placeholder="e.g. 100% against delivery" /></div>
                                     <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Special Packing/Shipping Notes</label><textarea rows={3} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Any specific vendor requirements..." /></div>
                                 </section>
-                                <div className="flex flex-col sm:flex-row gap-4 pt-10 sticky bottom-0 bg-white pb-6 border-t border-slate-50 z-30"><button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button><button onClick={() => { handleSave(); handleDownloadPDF(order); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95"><Save size={18} /> Commit & Download</button></div>
+                                <div className="flex flex-col sm:flex-row gap-4 pt-10 sticky bottom-0 bg-white pb-6 border-t border-slate-50 z-30">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95"><Save size={18} /> Finalize & Download</button>
+                                </div>
                             </div>
                         )}
+                        {/* ... preview and spares tabs remain unchanged ... */}
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50"><div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.55] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>{renderPOTemplate(order, totals)}</div></div>
                         )}

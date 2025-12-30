@@ -1,6 +1,5 @@
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification } from '../types';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task } from '../types';
 
 export interface DataContextType {
   clients: Client[];
@@ -11,7 +10,14 @@ export interface DataContextType {
   expenses: ExpenseRecord[];
   employees: Employee[];
   notifications: AppNotification[];
+  tasks: Task[];
   
+  // Auth State
+  currentUser: Employee | null;
+  isAuthenticated: boolean;
+  login: (email: string, password?: string, isGoogle?: boolean) => Promise<boolean>;
+  logout: () => void;
+
   // Performance & Points
   userStats: UserStats;
   pointHistory: PointHistory[];
@@ -31,6 +37,9 @@ export interface DataContextType {
   updateInvoice: (id: string, invoice: Invoice) => void;
   recordStockMovement: (movement: StockMovement) => void;
   
+  // Task Actions
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+
   // Expense Actions
   addExpense: (expense: ExpenseRecord) => void;
   updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => void;
@@ -54,16 +63,24 @@ const INITIAL_CLIENTS: Client[] = [
   { id: 'CLI-003', name: 'Sree Meditec Demo', hospital: 'Sree Meditec HQ', address: 'No: 18, Bajanai Koil Street, Chennai - 600 073', gstin: '33APGPS4675G2ZL', phone: '9884818398' },
 ];
 
+const INITIAL_TASKS: Task[] = [
+  { id: 'T-1', title: 'Site Visit: Apollo Clinic', description: 'Perform routine maintenance check on MRI machine.', assignedTo: 'Rahul Sharma', priority: 'High', status: 'To Do', dueDate: '2023-10-28', relatedTo: 'Apollo Clinic', locationName: 'Apollo Clinic, Indiranagar', coords: { lat: 12.9716, lng: 77.5946 } },
+  { id: 'T-2', title: 'Deliver Consumables', description: 'Deliver 50 boxes of syringes to Westview Clinic.', assignedTo: 'Rahul Sharma', priority: 'Medium', status: 'In Progress', dueDate: '2023-10-27', relatedTo: 'Westview Clinic', locationName: 'Westview Clinic, Koramangala', coords: { lat: 12.9352, lng: 77.6245 } },
+  { id: 'T-3', title: 'Demo: ECG Machine', description: 'Portable ECG demo at City Hospital.', assignedTo: 'Demo Employee', priority: 'Medium', status: 'To Do', dueDate: new Date().toISOString().split('T')[0], relatedTo: 'City General', locationName: 'Bangalore' },
+];
+
 const INITIAL_VENDORS: Vendor[] = [
   { id: 'VEN-001', name: 'Philips Global India', contactPerson: 'Arun V.', address: 'Phase 1, Hinjewadi, Pune - 411057', gstin: '27AADCP3525F1ZK', email: 'service@philips.co.in', phone: '18002581234' },
   { id: 'VEN-002', name: 'MediGel Solutions', contactPerson: 'Sanjay Gupta', address: 'GIDC Industrial Area, Ahmedabad - 380001', gstin: '24BBXPP1234Q1Z2', email: 'sales@medigel.in', phone: '9122334455' },
 ];
 
 const INITIAL_EMPLOYEES: Employee[] = [
-  { id: 'EMP001', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@sreemeditec.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE] },
-  { id: 'EMP002', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@sreemeditec.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS] },
-  { id: 'EMP003', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@sreemeditec.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'On Leave', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE] },
-  { id: 'EMP004', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@sreemeditec.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.PROFILE] },
+  { id: 'EMP000', name: 'Demo Admin', role: 'System Administrator', department: 'Administration', email: 'admin@demo.com', phone: '9999999999', joinDate: '2023-01-01', baseSalary: 200000, status: 'Active', permissions: Object.values(TabView), password: 'admin', isLoginEnabled: true },
+  { id: 'EMP001', name: 'Demo Employee', role: 'Sales Executive', department: 'Sales', email: 'employee@demo.com', phone: '8888888888', joinDate: '2023-06-01', baseSalary: 50000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'pass', isLoginEnabled: true },
+  { id: 'EMP002', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@sreemeditec.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'rahul', isLoginEnabled: true },
+  { id: 'EMP003', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@sreemeditec.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.DASHBOARD], password: 'mike', isLoginEnabled: true },
+  { id: 'EMP004', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@sreemeditec.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'priya', isLoginEnabled: true },
+  { id: 'EMP005', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@sreemeditec.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.PROFILE, TabView.DASHBOARD], password: 'sarah', isLoginEnabled: true },
 ];
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -115,10 +132,131 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
   const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   
   const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>(INITIAL_HISTORY);
   const [prizePool, setPrizePool] = useState<number>(1500);
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Smart Notification Background Scanner
+  const scannerInterval = useRef<any | null>(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('sreemeditec_auth_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        const employee = INITIAL_EMPLOYEES.find(e => e.email === parsed.email);
+        if (employee && employee.isLoginEnabled) {
+          setCurrentUser(employee);
+          setIsAuthenticated(true);
+        }
+      } catch (e) {
+        localStorage.removeItem('sreemeditec_auth_user');
+      }
+    }
+  }, []);
+
+  // Smart Scanner Effect
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      runSmartScan();
+      scannerInterval.current = setInterval(runSmartScan, 5 * 60 * 1000);
+    }
+    return () => {
+      if (scannerInterval.current) clearInterval(scannerInterval.current);
+    };
+  }, [isAuthenticated, currentUser, products, invoices, expenses, tasks]);
+
+  const runSmartScan = () => {
+    const isAdmin = currentUser?.department === 'Administration';
+    const isSales = currentUser?.department === 'Sales';
+    const isService = currentUser?.department === 'Service';
+
+    // 1. Check Inventory (Admin or Service Engineers who need parts)
+    if (isAdmin || isService) {
+        const lowStock = products.filter(p => p.stock < p.minLevel);
+        if (lowStock.length > 0) {
+          const alreadyNotified = notifications.some(n => n.title === 'Inventory Alert' && !n.read);
+          if (!alreadyNotified) {
+            addNotification('Inventory Alert', `${lowStock.length} critical components are running low. Action required for site readiness.`, 'warning');
+          }
+        }
+    }
+
+    // 2. Check Pending Expenses (Admin only)
+    if (isAdmin) {
+      const pendingExpenses = expenses.filter(e => e.status === 'Pending');
+      if (pendingExpenses.length > 0) {
+        const alreadyNotified = notifications.some(n => n.title === 'Voucher Review' && !n.read);
+        if (!alreadyNotified) {
+          addNotification('Voucher Review', `There are ${pendingExpenses.length} pending expense claims awaiting your verification.`, 'info');
+        }
+      }
+    }
+
+    // 3. Check Overdue Invoices (Admin or Sales who handle payments)
+    if (isAdmin || isSales) {
+      const today = new Date();
+      const overdueInvoices = invoices.filter(inv => inv.status !== 'Paid' && inv.status !== 'Draft' && new Date(inv.dueDate) < today);
+      if (overdueInvoices.length > 0) {
+        const alreadyNotified = notifications.some(n => n.title === 'Payment Overdue' && !n.read);
+        if (!alreadyNotified) {
+          addNotification('Payment Overdue', `${overdueInvoices.length} outstanding client invoices have breached their credit cycle.`, 'alert');
+        }
+      }
+    }
+
+    // 4. Personalized Task Alerts (For all employees)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const myPendingTasks = tasks.filter(t => t.assignedTo === currentUser?.name && t.status !== 'Done' && t.dueDate === todayStr);
+    if (myPendingTasks.length > 0) {
+        const alreadyNotified = notifications.some(n => n.title === 'Today\'s Agenda' && !n.read);
+        if (!alreadyNotified) {
+            addNotification('Today\'s Agenda', `You have ${myPendingTasks.length} missions assigned for today. Synchronize your checklist.`, 'info');
+        }
+    }
+  };
+
+  const login = async (email: string, password?: string, isGoogle: boolean = false) => {
+    const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
+    
+    if (!employee) {
+        throw new Error("Employee not found in registry. Please contact admin.");
+    }
+
+    if (!employee.isLoginEnabled) {
+        throw new Error("Your account login is disabled. Contact admin.");
+    }
+
+    if (isGoogle) {
+        setCurrentUser(employee);
+        setIsAuthenticated(true);
+        localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
+        addNotification('Identity Verified', 'Successfully authenticated via Google Workspace.', 'success');
+        return true;
+    } else {
+        if (employee.password === password) {
+            setCurrentUser(employee);
+            setIsAuthenticated(true);
+            localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
+            addNotification('Terminal Access', `Session started for ${employee.name}.`, 'success');
+            return true;
+        } else {
+            throw new Error("Invalid password credentials.");
+        }
+    }
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('sreemeditec_auth_user');
+  };
 
   const addClient = (client: Client) => setClients(prev => [...prev, client]);
   const updateClient = (id: string, client: Partial<Client>) => setClients(prev => prev.map(c => c.id === id ? { ...c, ...client } : c));
@@ -145,7 +283,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: `NOTIF-${Date.now()}`,
       title,
       message,
-      time: 'Just now',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type,
       read: false,
       isNewToast: true
@@ -181,11 +319,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{ 
-        clients, vendors, products, invoices, stockMovements, expenses, employees, notifications,
+        clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks,
+        currentUser, isAuthenticated, login, logout,
         addClient, updateClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
+        setTasks,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
         prizePool, updatePrizePool
     }}>

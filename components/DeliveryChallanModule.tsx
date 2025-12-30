@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { DeliveryChallan, ChallanItem } from '../types';
 import { 
@@ -12,7 +11,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
     const parts = dateStr.split('-');
     if (parts.length !== 3) return dateStr;
     const [year, month, day] = parts;
-    return `${day}.${month}.${year}`;
+    return `${day}-${month}-${year}`;
 };
 
 interface ExtendedChallan extends Partial<DeliveryChallan> {
@@ -20,7 +19,7 @@ interface ExtendedChallan extends Partial<DeliveryChallan> {
 }
 
 export const DeliveryChallanModule: React.FC = () => {
-    const { clients, products } = useData();
+    const { clients, products, addNotification } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [challans, setChallans] = useState<ExtendedChallan[]>([]);
@@ -52,7 +51,6 @@ export const DeliveryChallanModule: React.FC = () => {
         const margin = 20;
         const printableWidth = pageWidth - (margin * 2);
 
-        // Header - SREE MEDITEC
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(26);
         doc.text('SREE MEDITEC', pageWidth / 2, 30, { align: 'center' });
@@ -61,18 +59,15 @@ export const DeliveryChallanModule: React.FC = () => {
         doc.setFont('helvetica', 'normal');
         doc.text('New No: 18, Old No: 2, Bajanai Koil Street, RajaKilpakkam, Chennai 600 073.', pageWidth / 2, 38, { align: 'center' });
 
-        // Document Title
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.text('DELIVERY CHALLAN', pageWidth / 2, 55, { align: 'center' });
 
-        // DC No & Date line
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(`DC No: ${data.challanNumber || ''}`, margin, 70);
         doc.text(`Date: ${formatDateDDMMYYYY(data.date)}.`, pageWidth - margin - 40, 70);
 
-        // Recipient Information
         doc.text('To,', margin, 85);
         doc.setFont('helvetica', 'bold');
         doc.text(data.customerName || '', margin, 92);
@@ -80,7 +75,6 @@ export const DeliveryChallanModule: React.FC = () => {
         const addrLines = doc.splitTextToSize(data.customerAddress || '', 100);
         doc.text(addrLines, margin, 98);
 
-        // Subject Block - Left Aligned and Bold
         const subTop = 98 + (addrLines.length * 6) + 15;
         doc.setFont('helvetica', 'bold');
         const itemsList = (data.items || []).map(it => `${it.description} ${it.quantity} ${it.unit || 'no'}`).join(' and ');
@@ -88,12 +82,10 @@ export const DeliveryChallanModule: React.FC = () => {
         const subLines = doc.splitTextToSize(`Sub: ${subjectText}`, printableWidth);
         doc.text(subLines, margin, subTop, { align: 'left' });
 
-        // Salutation
         const bodyTop = subTop + (subLines.length * 6) + 15;
         doc.setFont('helvetica', 'normal');
         doc.text('Dear Sir,', margin, bodyTop);
 
-        // Body Text - Standard Left Alignment (No Justify to prevent weird spacing)
         const itemDetails = (data.items || []).map(it => `${it.description} -${it.quantity} ${it.unit || 'no'}`).join(' and ');
         const bodyContent = `This is with reference to the discussion we had with you and verbal confirmation of the order for ${itemDetails}. We are herewith sending you the same. Kindly receive the same and do acknowledge.`;
         
@@ -102,7 +94,6 @@ export const DeliveryChallanModule: React.FC = () => {
 
         doc.text('Thanking you,', margin, bodyTop + 10 + (bodyLines.length * 6) + 20);
 
-        // Sign-off
         const signTop = bodyTop + 10 + (bodyLines.length * 6) + 45;
         doc.setFont('helvetica', 'normal');
         doc.text('With regards,', margin, signTop);
@@ -128,24 +119,25 @@ export const DeliveryChallanModule: React.FC = () => {
         if (builderTab === 'catalog') setBuilderTab('form');
     };
 
-    const handleSave = () => {
+    const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!challan.customerName || !challan.items?.length) {
             alert("Please fill customer details and add items.");
             return;
         }
         const finalData: ExtendedChallan = {
             ...challan,
-            id: editingId || `DC-${Date.now()}`
+            id: editingId || `DC-${Date.now()}`,
+            status: status === 'Draft' ? 'Draft' : 'Dispatched'
         };
         if (editingId) setChallans(prev => prev.map(c => c.id === editingId ? finalData : c));
         else setChallans(prev => [finalData, ...prev]);
         setViewState('history');
         setEditingId(null);
+        addNotification('Registry Updated', `Delivery Challan ${finalData.challanNumber} saved as ${status}.`, 'success');
     };
 
     const renderChallanTemplate = (data: ExtendedChallan) => (
         <div className="bg-white p-[20mm] text-black w-full min-h-[297mm] flex flex-col shadow-2xl mx-auto overflow-hidden border border-slate-300 select-none" style={{ fontFamily: 'Arial, sans-serif' }}>
-            {/* Header */}
             <div className="text-center mb-10">
                 <h1 className="text-5xl font-bold uppercase mb-2 text-black">SREE MEDITEC</h1>
                 <p className="text-[12px] text-slate-700">New No: 18, Old No: 2, Bajanai Koil Street, RajaKilpakkam, Chennai 600 073.</p>
@@ -155,13 +147,11 @@ export const DeliveryChallanModule: React.FC = () => {
                 <h2 className="text-xl font-bold uppercase tracking-widest border-b-2 border-black inline-block pb-1">DELIVERY CHALLAN</h2>
             </div>
 
-            {/* DC No & Date line */}
             <div className="flex justify-between font-bold text-lg mb-10 px-2">
                 <div>DC No: {data.challanNumber || '---'}</div>
                 <div>Date: {formatDateDDMMYYYY(data.date)}.</div>
             </div>
 
-            {/* To Section */}
             <div className="mb-10 px-2">
                 <p className="font-bold text-lg mb-1">To,</p>
                 <div className="ml-0 text-lg">
@@ -170,7 +160,6 @@ export const DeliveryChallanModule: React.FC = () => {
                 </div>
             </div>
 
-            {/* Subject Line - Left Aligned */}
             <div className="mb-10 px-2 text-left">
                 <span className="font-bold text-lg leading-relaxed">
                     Sub: Reg. Delivery of {data.items && data.items.length > 0 
@@ -179,7 +168,6 @@ export const DeliveryChallanModule: React.FC = () => {
                 </span>
             </div>
 
-            {/* Salutation & Body - Left Aligned */}
             <div className="mb-10 px-2">
                 <p className="text-lg mb-6">Dear Sir,</p>
                 <p className="text-lg leading-[1.8] text-left">
@@ -196,7 +184,6 @@ export const DeliveryChallanModule: React.FC = () => {
 
             <p className="text-lg mb-16 px-2">Thanking you,</p>
 
-            {/* Sign-off */}
             <div className="mt-auto px-2 space-y-1">
                 <p className="text-lg">With regards,</p>
                 <p className="text-lg">For Sree Meditec,</p>
@@ -237,6 +224,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                     <th className="px-6 py-4">DC #</th>
                                     <th className="px-6 py-4">Customer</th>
                                     <th className="px-6 py-4 text-center">Date</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -246,6 +234,13 @@ export const DeliveryChallanModule: React.FC = () => {
                                         <td className="px-6 py-4 font-black text-medical-600">{c.challanNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{c.customerName}</td>
                                         <td className="px-6 py-4 text-center text-slate-500 font-medium">{formatDateDDMMYYYY(c.date)}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${
+                                                c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                c.status === 'Draft' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                'bg-blue-50 text-blue-700 border-blue-100'
+                                            }`}>{c.status}</span>
+                                        </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => { setChallan(c); setEditingId(c.id!); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-all"><Edit size={18}/></button>
@@ -255,7 +250,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={4} className="py-24 text-center">
+                                        <td colSpan={5} className="py-24 text-center">
                                             <div className="flex flex-col items-center gap-2 opacity-20">
                                                 <FileText size={48} className="text-slate-400" />
                                                 <p className="text-xs font-black uppercase tracking-widest">No challans found</p>
@@ -269,10 +264,10 @@ export const DeliveryChallanModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
-                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Spares</button>
+                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
+                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Spares</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
@@ -324,30 +319,33 @@ export const DeliveryChallanModule: React.FC = () => {
                                                         <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 block mb-1">Item Description</label>
                                                         <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black" placeholder="Item Name" value={item.description} onChange={e => { const updated = (challan.items || []).map(i => i.id === item.id ? {...i, description: e.target.value} : i); setChallan({...challan, items: updated}); }} />
                                                     </div>
-                                                    <div className="col-span-6 md:col-span-2">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-center">Qty</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-center" value={item.quantity} onChange={e => { const updated = (challan.items || []).map(i => i.id === item.id ? {...i, quantity: Number(e.target.value)} : i); setChallan({...challan, items: updated}); }} />
-                                                    </div>
-                                                    <div className="col-span-6 md:col-span-2">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-center">Unit</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-center uppercase" placeholder="NOS" value={item.unit} onChange={e => { const updated = (challan.items || []).map(i => i.id === item.id ? {...i, unit: e.target.value} : i); setChallan({...challan, items: updated}); }} />
+                                                    <div className="grid grid-cols-3 md:col-span-4 gap-2">
+                                                        <div className="col-span-1">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-center">Qty</label>
+                                                            <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-center" value={item.quantity} onChange={e => { const updated = (challan.items || []).map(i => i.id === item.id ? {...i, quantity: Number(e.target.value)} : i); setChallan({...challan, items: updated}); }} />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <label className="text-[9px] font-bold text-slate-400 uppercase ml-1 block mb-1 text-center">Unit</label>
+                                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-center uppercase" placeholder="NOS" value={item.unit} onChange={e => { const updated = (challan.items || []).map(i => i.id === item.id ? {...i, unit: e.target.value} : i); setChallan({...challan, items: updated}); }} />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                         {challan.items?.length === 0 && (
-                                            <div className="py-12 border-2 border-dashed border-slate-100 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                            <div className="py-12 border-2 border-dashed border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
                                                 <Truck size={40} className="mb-2 opacity-20" />
-                                                <p className="text-xs font-black uppercase tracking-widest">The manifest is empty</p>
+                                                <p className="text-xs font-black uppercase tracking-widest text-center px-4">The manifest is empty</p>
                                             </div>
                                         )}
                                     </div>
                                 </section>
 
-                                <div className="flex gap-4 pt-10 sticky bottom-0 bg-white pb-6 border-t border-slate-50 z-30">
-                                    <button onClick={() => setViewState('history')} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200">Cancel</button>
-                                    <button onClick={() => { handleSave(); handleDownloadPDF(challan); }} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
-                                        <Save size={18} /> Save & Download PDF
+                                <div className="flex flex-col sm:flex-row gap-4 pt-10 sticky bottom-0 bg-white pb-6 border-t border-slate-50 z-30">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-200">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(challan); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
+                                        <Save size={18} /> Finalize & Download
                                     </button>
                                 </div>
                             </div>
@@ -375,7 +373,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {products.map(prod => (
-                                        <div key={prod.id} className="p-6 bg-slate-50/50 border border-slate-200 rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => handleAddItem(prod)}>
+                                        <div key={prod.id} className="p-6 bg-slate-50/50 border border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => handleAddItem(prod)}>
                                             <div>
                                                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{prod.sku}</span>
                                                 <h4 className="font-black text-slate-800 text-base leading-tight mt-1 group-hover:text-medical-700 transition-colors">{prod.name}</h4>

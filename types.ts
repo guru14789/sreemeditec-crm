@@ -149,7 +149,7 @@ export interface ServiceReport {
   problemReported: string;
   actionTaken: string;
   engineerName: string;
-  status: 'Completed' | 'Pending Spares' | 'Observation';
+  status: 'Completed' | 'Pending Spares' | 'Observation' | 'Draft';
   itemsUsed?: ServiceReportItem[];
   customerRemarks?: string;
   documentType?: 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
@@ -199,6 +199,8 @@ export interface Employee {
   baseSalary: number;
   status: 'Active' | 'On Leave' | 'Terminated';
   permissions?: TabView[];
+  password?: string;
+  isLoginEnabled?: boolean;
 }
 
 export interface PayrollRecord {
@@ -350,7 +352,7 @@ export interface DeliveryChallan {
   customerAddress: string;
   vehicleNumber?: string;
   items: ChallanItem[];
-  status: 'Dispatched' | 'Delivered' | 'Returned';
+  status: 'Dispatched' | 'Delivered' | 'Returned' | 'Draft';
   referenceOrder?: string;
 }
 

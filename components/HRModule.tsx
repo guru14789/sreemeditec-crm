@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Employee, PayrollRecord, TabView } from '../types';
 import { 
-    Users, IndianRupee, Search, ShieldCheck, UserPlus, X, Briefcase, Mail, Phone, ChevronRight, ArrowLeft, CreditCard, Check, Save, Calendar, Trash2, UserMinus, Plus
+    Users, IndianRupee, Search, ShieldCheck, UserPlus, X, Briefcase, Mail, Phone, ChevronRight, ArrowLeft, CreditCard, Check, Save, Calendar, Trash2, UserMinus, Plus, Key, Lock, Power
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -72,7 +73,9 @@ export const HRModule: React.FC = () => {
     department: 'Sales',
     status: 'Active',
     baseSalary: 30000,
-    permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE]
+    permissions: [TabView.DASHBOARD, TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE],
+    isLoginEnabled: true,
+    password: ''
   });
 
   useEffect(() => {
@@ -99,7 +102,9 @@ export const HRModule: React.FC = () => {
         status: 'Active',
         baseSalary: 30000,
         joinDate: new Date().toISOString().split('T')[0],
-        permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE]
+        permissions: [TabView.DASHBOARD, TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE],
+        isLoginEnabled: true,
+        password: Math.random().toString(36).slice(-8)
     });
     setShowEmployeeModal(true);
   };
@@ -137,7 +142,9 @@ export const HRModule: React.FC = () => {
             joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
             baseSalary: Number(employeeFormData.baseSalary),
             status: employeeFormData.status || 'Active',
-            permissions: employeeFormData.permissions || []
+            permissions: employeeFormData.permissions || [],
+            password: employeeFormData.password || Math.random().toString(36).slice(-8),
+            isLoginEnabled: !!employeeFormData.isLoginEnabled
         };
         addEmployee(emp);
     }
@@ -244,9 +251,12 @@ export const HRModule: React.FC = () => {
                                         <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase mt-0.5">{emp.id}</p>
                                     </div>
                                 </div>
-                                <span className={`px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black uppercase border ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                                    {emp.status}
-                                </span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className={`px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-black uppercase border ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                                        {emp.status}
+                                    </span>
+                                    {emp.isLoginEnabled && <span className="flex items-center gap-1 text-[8px] font-black text-emerald-600 uppercase"><ShieldCheck size={10} /> Login Enabled</span>}
+                                </div>
                             </div>
                             <div className="space-y-2 mb-4">
                                 <div className="flex items-center gap-3 text-slate-600"><Briefcase size={14} className="text-slate-400" /><span className="text-[10px] sm:text-xs font-bold truncate">{emp.role} • {emp.department}</span></div>
@@ -346,10 +356,10 @@ export const HRModule: React.FC = () => {
       {/* Modal: Add & Edit Member */}
       {showEmployeeModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white rounded-[2rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                        <div className="p-2 bg-medical-50 text-medical-600 rounded-xl">
+             <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 overflow-hidden">
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+                     <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight flex items-center gap-3">
+                        <div className="p-2 bg-medical-50 dark:bg-medical-900/20 text-medical-600 dark:text-medical-400 rounded-xl">
                             {isEditing ? <Users size={24} /> : <UserPlus size={24} />}
                         </div> 
                         {isEditing ? 'Profile Details' : 'Register Staff'}
@@ -361,23 +371,52 @@ export const HRModule: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name *</label>
-                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, name: e.target.value})} />
+                            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all dark:text-white" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, name: e.target.value})} />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
-                            <select className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none appearance-none" value={employeeFormData.status} onChange={(e) => setEmployeeFormData({...employeeFormData, status: e.target.value as any})}>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Status</label>
+                            <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none appearance-none dark:text-white" value={employeeFormData.status} onChange={(e) => setEmployeeFormData({...employeeFormData, status: e.target.value as any})}>
                                 <option value="Active">Active</option><option value="On Leave">On Leave</option><option value="Terminated">Terminated</option>
                             </select>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/20">
+                         <div className="space-y-1">
+                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <ShieldCheck size={12}/> Login Authentication
+                            </label>
+                            <div className="flex items-center gap-3 mt-2">
+                                <button 
+                                    onClick={() => setEmployeeFormData({...employeeFormData, isLoginEnabled: !employeeFormData.isLoginEnabled})}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${employeeFormData.isLoginEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}
+                                >
+                                    <Power size={14}/> {employeeFormData.isLoginEnabled ? 'Login Enabled' : 'Login Disabled'}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                             <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                <Lock size={12}/> Security Key
+                             </label>
+                             <input 
+                                type="text" 
+                                placeholder="Auto-generated if empty"
+                                className="w-full border border-indigo-100 dark:border-indigo-900/30 bg-white dark:bg-slate-800 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all dark:text-white"
+                                value={employeeFormData.password || ''} 
+                                onChange={(e) => setEmployeeFormData({...employeeFormData, password: e.target.value})} 
+                             />
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Role</label>
-                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.role || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, role: e.target.value})} />
+                            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all dark:text-white" value={employeeFormData.role || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, role: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</label>
-                            <select className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({...employeeFormData, department: e.target.value})}>
+                            <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none appearance-none dark:text-white" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({...employeeFormData, department: e.target.value})}>
                                 <option>Sales</option><option>Service</option><option>Administration</option><option>HR</option>
                             </select>
                         </div>
@@ -385,30 +424,20 @@ export const HRModule: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address *</label>
-                            <input type="email" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
+                            <input type="email" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all dark:text-white" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Phone</label>
-                            <input type="tel" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.phone || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, phone: e.target.value})} />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
-                            <input type="number" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.baseSalary || 0} onChange={(e) => setEmployeeFormData({...employeeFormData, baseSalary: Number(e.target.value)})} />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Join Date</label>
-                            <input type="date" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={employeeFormData.joinDate} onChange={(e) => setEmployeeFormData({...employeeFormData, joinDate: e.target.value})} />
+                            <input type="tel" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all dark:text-white" value={employeeFormData.phone || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, phone: e.target.value})} />
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-slate-100 flex gap-4 bg-slate-50/50 shrink-0">
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
                     {isEditing && (
                       <button onClick={handleDeleteEmployee} className="px-4 py-3 text-rose-600 font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl text-[10px] flex items-center gap-2 border border-rose-100"><UserMinus size={18} /> Delete</button>
                     )}
-                    <button onClick={() => setShowEmployeeModal(false)} className="px-5 py-3 text-slate-600 font-black uppercase tracking-widest hover:bg-slate-200 rounded-xl text-[10px] flex-1">Cancel</button>
+                    <button onClick={() => setShowEmployeeModal(false)} className="px-5 py-3 text-slate-600 dark:text-slate-400 font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-[10px] flex-1">Cancel</button>
                     <button onClick={handleSaveEmployee} className="flex-[2] py-3 bg-medical-600 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-medical-500/30 hover:bg-medical-700 transition-all active:scale-95 text-[10px] flex items-center justify-center gap-2"><Save size={18} /> {isEditing ? 'Update Profile' : 'Register Staff'}</button>
                 </div>
              </div>

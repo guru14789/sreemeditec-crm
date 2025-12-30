@@ -6,6 +6,7 @@ import {
   Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, PieChart, ShieldCheck, ShoppingBag, ClipboardList, Briefcase, UserCheck, ShieldAlert, ChevronRight, HelpCircle, Search, Bell, Settings, X, Info, AlertTriangle, CheckCircle2, Trash2
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
+import { EmployeeDashboard } from './components/EmployeeDashboard';
 import { LeadsModule } from './components/LeadsModule';
 import { InventoryModule } from './components/InventoryModule';
 import { AttendanceModule } from './components/AttendanceModule';
@@ -25,27 +26,21 @@ import { ClientModule } from './components/ClientModule';
 import { VendorModule } from './components/VendorModule';
 import { ExpenseModule } from './components/ExpenseModule';
 import { PerformanceModule } from './components/PerformanceModule';
+import { Login } from './components/Login';
 import { TabView, Task, AppNotification } from './types';
 import { useData } from './components/DataContext';
-
-const INITIAL_TASKS: Task[] = [
-  { id: 'T-1', title: 'Site Visit: Apollo Clinic', description: 'Perform routine maintenance check on MRI machine.', assignedTo: 'Rahul Sharma', priority: 'High', status: 'To Do', dueDate: '2023-10-28', relatedTo: 'Apollo Clinic', locationName: 'Apollo Clinic, Indiranagar', coords: { lat: 12.9716, lng: 77.5946 } },
-  { id: 'T-2', title: 'Deliver Consumables', description: 'Deliver 50 boxes of syringes to Westview Clinic.', assignedTo: 'Rahul Sharma', priority: 'Medium', status: 'In Progress', dueDate: '2023-10-27', relatedTo: 'Westview Clinic', locationName: 'Westview Clinic, Koramangala', coords: { lat: 12.9352, lng: 77.6245 } },
-];
 
 const NOTIF_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export const App: React.FC = () => {
-  const { employees, notifications, markNotificationRead, clearAllNotifications } = useData();
+  const { employees, notifications, markNotificationRead, clearAllNotifications, isAuthenticated, currentUser, logout, tasks, setTasks } = useData();
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [userRole, setUserRole] = useState<'Admin' | 'Employee'>('Admin');
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [showNotifications, setShowNotifications] = useState(false);
   const [toasts, setToasts] = useState<AppNotification[]>([]);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const currentUser = userRole === 'Admin' ? 'Admin User' : 'Rahul Sharma';
+  const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
@@ -57,6 +52,18 @@ export const App: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showNotifications]);
 
   useEffect(() => {
     const latestNotif = notifications[0];
@@ -74,14 +81,19 @@ export const App: React.FC = () => {
     }
   }, [notifications]);
 
+  // AUTH GUARD: If not logged in, show Login screen
+  // This effectively "routes" the user to login when isAuthenticated is false
+  if (!isAuthenticated || !currentUser) {
+      return <Login />;
+  }
+
+  const userRole = currentUser.department === 'Administration' ? 'Admin' : 'Employee';
+  const currentUserName = currentUser.name;
+
   const hasAccess = (tab: TabView) => {
     if (userRole === 'Admin') return true;
-    const currentEmp = employees.find(e => e.name === currentUser);
-    if (!currentEmp) {
-        const employeeAllowedTabs = [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE];
-        return employeeAllowedTabs.includes(tab);
-    }
-    return currentEmp.permissions?.includes(tab) || tab === TabView.PROFILE;
+    if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
+    return currentUser.permissions?.includes(tab);
   };
 
   const sidebarSections = [
@@ -132,13 +144,13 @@ export const App: React.FC = () => {
               setActiveTab(tab);
               if (window.innerWidth < 1024) setIsSidebarOpen(false);
           }}
-          className={`group w-full flex items-center transition-all relative mb-2 ${
+          className={`group w-full flex items-center transition-all relative mb-1.5 ${
               isActive 
               ? 'bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-950/20' 
               : 'text-emerald-50/50 hover:text-white hover:bg-white/5'
-          } ${isSidebarOpen ? 'px-5 py-3 rounded-2xl gap-4' : 'justify-center p-3 rounded-2xl w-14 h-14 mx-auto'}`}
+          } ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-3.5' : 'justify-center p-3 rounded-2xl w-14 h-14 mx-auto'}`}
         >
-          <Icon size={isSidebarOpen ? 20 : 26} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+          <Icon size={isSidebarOpen ? 18 : 24} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
           {isSidebarOpen && <span className="truncate flex-1 text-left font-bold tracking-tight text-sm">{label}</span>}
         </button>
     );
@@ -147,7 +159,7 @@ export const App: React.FC = () => {
   const SectionHeading = ({ children }: { children?: React.ReactNode }) => {
     if (!isSidebarOpen) return <div className="h-px bg-white/5 my-6 mx-4" />;
     return (
-      <div className="px-5 mb-4 mt-8 text-[10px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-3">
+      <div className="px-5 mb-3 mt-6 text-[10px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-3">
         <span className="shrink-0">{children}</span>
         <div className="h-[1px] bg-white/5 flex-1"></div>
       </div>
@@ -167,7 +179,8 @@ export const App: React.FC = () => {
     );
 
     switch (activeTab) {
-      case TabView.DASHBOARD: return <Dashboard />;
+      case TabView.DASHBOARD: 
+        return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
       case TabView.LEADS: return <LeadsModule />;
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
@@ -176,17 +189,17 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser} userRole={userRole} />;
-      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUser} isAdmin={userRole === 'Admin'} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUserName} userRole={userRole} />;
+      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUserName} isAdmin={userRole === 'Admin'} />;
       case TabView.HR: return <HRModule />;
-      case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={setUserRole} currentUser={currentUser} />;
+      case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => {}} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
-      case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUser} />;
+      case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule userRole={userRole} />;
-      default: return <Dashboard />;
+      default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };
 
@@ -199,8 +212,16 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSignOut = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Immediate execution of logout
+    logout();
+  };
+
   return (
     <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden relative">
+      {/* Toast Layer */}
       <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
         {toasts.map((toast) => (
           <div key={toast.id} className="w-80 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 flex gap-4 animate-in slide-in-from-right pointer-events-auto">
@@ -226,6 +247,7 @@ export const App: React.FC = () => {
           : 'w-24 -translate-x-full lg:translate-x-0'} 
         fixed lg:relative h-full shadow-2xl overflow-hidden`}>
         
+        {/* Branding Header */}
         <div className={`p-6 h-24 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
             {isSidebarOpen ? (
               <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
@@ -236,7 +258,8 @@ export const App: React.FC = () => {
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-white/10 rounded-2xl text-white transition-all transform active:scale-90"><Menu size={28} /></button>
         </div>
 
-        <div className={`flex-1 overflow-y-auto py-6 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
+        {/* Scrollable Navigation Area */}
+        <div className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
           {sidebarSections.map((section, idx) => {
             const accessibleItems = section.items.filter(item => hasAccess(item.tab));
             if (accessibleItems.length === 0) return null;
@@ -250,6 +273,23 @@ export const App: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Dedicated Sidebar Footer (Session Controls) */}
+        <div className={`p-4 border-t border-white/5 shrink-0 bg-black/10 relative z-[80] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
+            <button 
+                onClick={handleSignOut}
+                type="button"
+                className={`group w-full flex items-center transition-all text-rose-300 hover:text-white hover:bg-rose-500/10 cursor-pointer pointer-events-auto relative ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-4' : 'justify-center p-3 rounded-2xl w-14 h-14'}`}
+            >
+                <LogOut size={isSidebarOpen ? 20 : 26} className="shrink-0 transition-transform group-hover:scale-110" />
+                {isSidebarOpen && (
+                    <div className="flex-1 min-w-0">
+                        <span className="block truncate text-left font-black tracking-widest text-[10px] uppercase opacity-40 leading-none mb-1">Session Control</span>
+                        <span className="block truncate text-left font-bold tracking-tight text-sm">Sign Out</span>
+                    </div>
+                )}
+            </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
@@ -262,13 +302,83 @@ export const App: React.FC = () => {
                 {activeTab.replace(/_/g, ' ')}
               </h2>
               <div className="flex items-center gap-1.5 md:mt-1">
-                 <div className="w-2 h-2 rounded-full bg-medical-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
                  <span className="text-[10px] md:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none whitespace-nowrap">Live Workspace</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 md:gap-3">
-              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2.5 rounded-xl text-slate-400 hover:text-emerald-600 transition-all relative"><Bell size={22} />{unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full ring-2 ring-white">!</span>}</button>
-              <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black">{currentUser.charAt(0)}</div></div>
+            
+            <div className="flex items-center gap-1 md:gap-3 relative">
+              {/* Notification Bell */}
+              <div className="relative" ref={notifRef}>
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)} 
+                  className={`p-2.5 rounded-xl transition-all relative ${showNotifications ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-emerald-600'}`}>
+                  <Bell size={22} />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900 animate-in zoom-in">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Smart Notification Popover */}
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-3 w-[320px] sm:w-[420px] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="p-5 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                       <h3 className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-100">System Alerts</h3>
+                       <div className="flex gap-3">
+                         <button onClick={clearAllNotifications} className="text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-tighter">Clear All</button>
+                       </div>
+                    </div>
+                    <div className="max-h-[480px] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800">
+                      {notifications.length > 0 ? (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                          {notifications.map((notif) => (
+                            <div 
+                              key={notif.id} 
+                              onClick={() => markNotificationRead(notif.id)}
+                              className={`px-5 py-6 flex items-start gap-5 transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 ${notif.read ? 'opacity-60' : 'bg-emerald-50/10 dark:bg-emerald-500/5'}`}
+                            >
+                              <div className={`p-3 rounded-2xl shrink-0 ${
+                                notif.type === 'alert' ? 'bg-rose-100 text-rose-600' : 
+                                notif.type === 'warning' ? 'bg-amber-100 text-amber-600' : 
+                                notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 
+                                'bg-blue-100 text-blue-600'
+                              }`}>
+                                {getNotifIcon(notif.type)}
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col">
+                                <div className="flex justify-between items-center mb-1">
+                                  <p className="font-black text-slate-800 dark:text-slate-100 text-[12px] leading-none uppercase tracking-tight">{notif.title}</p>
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0 whitespace-nowrap ml-4">{notif.time}</span>
+                                </div>
+                                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{notif.message}</p>
+                                {!notif.read && (
+                                  <div className="mt-3 flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"></div>
+                                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">New Update</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-16 flex flex-col items-center justify-center opacity-30 text-center px-10">
+                           <Bell size={48} className="mb-4 text-slate-300" />
+                           <p className="text-[11px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">No Active Notifications</p>
+                           <p className="text-[10px] font-medium mt-1 text-slate-500 dark:text-slate-400">Smart scanner is monitoring system health</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 border-t border-slate-50 dark:border-slate-700 text-center bg-slate-50/20 dark:bg-slate-900/50">
+                       <button onClick={() => setShowNotifications(false)} className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] hover:underline">Close Terminal</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black">{currentUserName.charAt(0)}</div></div>
             </div>
         </header>
 

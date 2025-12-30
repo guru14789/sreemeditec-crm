@@ -30,7 +30,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const PurchaseOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, addNotification } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -285,7 +285,7 @@ export const PurchaseOrderModule: React.FC = () => {
         });
     };
 
-    const handleSave = () => {
+    const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!order.customerName || !order.items?.length) {
             alert("Fill customer details and items.");
             return;
@@ -297,12 +297,14 @@ export const PurchaseOrderModule: React.FC = () => {
             subtotal: totals.subTotal,
             taxTotal: totals.taxTotal,
             grandTotal: totals.grandTotal,
+            status: status === 'Draft' ? 'Draft' : 'Pending',
             documentType: 'PO'
         };
         if (editingId) updateInvoice(editingId, finalData);
         else addInvoice(finalData);
         setViewState('history');
         setEditingId(null);
+        addNotification('Registry Updated', `Purchase Order ${finalData.invoiceNumber} saved as ${status}.`, 'success');
     };
 
     const totals = useMemo(() => calculateDetailedTotals(order), [order]);
@@ -455,7 +457,7 @@ export const PurchaseOrderModule: React.FC = () => {
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[10px] text-slate-500 border-b">
                                 <tr><th className="px-6 py-4">PO #</th><th className="px-6 py-4">Consignee</th><th className="px-6 py-4 text-right">Total</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">{invoices.filter(i => i.documentType === 'PO').map(inv => (<tr key={inv.id} className="hover:bg-slate-50 transition-colors group"><td className="px-6 py-4 font-black">{inv.invoiceNumber}</td><td className="px-6 py-4 font-bold text-slate-700">{inv.customerName}</td><td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td><td className="px-6 py-4 text-center"><span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700">{inv.status}</span></td><td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Edit size={18}/></button><button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-emerald-500"><Download size={18}/></button></div></td></tr>))}</tbody>
+                            <tbody className="divide-y divide-slate-100">{invoices.filter(i => i.documentType === 'PO').map(inv => (<tr key={inv.id} className="hover:bg-slate-50 transition-colors group"><td className="px-6 py-4 font-black">{inv.invoiceNumber}</td><td className="px-6 py-4 font-bold text-slate-700">{inv.customerName}</td><td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td><td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td><td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Edit size={18}/></button><button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-emerald-500"><Download size={18}/></button></div></td></tr>))}</tbody>
                         </table>
                     </div>
                 </div>
@@ -572,12 +574,14 @@ export const PurchaseOrderModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                <div className="flex gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50">
-                                    <button onClick={() => setViewState('history')} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
-                                    <button onClick={() => { handleSave(); handleDownloadPDF(order); }} className="flex-[2] py-3 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-lg active:scale-95 transition-all">Finalize & Download</button>
+                                <div className="flex flex-col sm:flex-row gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-3 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="w-full sm:flex-[2] py-3 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-lg active:scale-95 transition-all">Finalize & Download</button>
                                 </div>
                             </div>
                         )}
+                        {/* ... preview and catalog tabs remain unchanged ... */}
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50">
                                 <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.55] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>

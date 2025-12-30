@@ -35,7 +35,7 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
 }
 
 export const ServiceReportModule: React.FC = () => {
-    const { clients, products, invoices, addClient } = useData();
+    const { clients, products, invoices, addClient, addNotification } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [reports, setReports] = useState<DetailedServiceReport[]>([]);
@@ -95,7 +95,6 @@ export const ServiceReportModule: React.FC = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
 
-        // Header
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
         doc.text('SREE MEDITEC', pageWidth / 2, 15, { align: 'center' });
@@ -108,7 +107,6 @@ export const ServiceReportModule: React.FC = () => {
         doc.setFontSize(10);
         doc.text('SERVICE REPORT', pageWidth / 2, 30, { align: 'center' });
 
-        // Information Grid
         autoTable(doc, {
             startY: 33,
             margin: { left: margin, right: margin },
@@ -120,7 +118,6 @@ export const ServiceReportModule: React.FC = () => {
             columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 35 }, 2: { cellWidth: 50 }, 3: { cellWidth: 40 }, 4: { cellWidth: 30 } }
         });
 
-        // Customer & Machine
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
             margin: { left: margin, right: margin },
@@ -132,7 +129,6 @@ export const ServiceReportModule: React.FC = () => {
             columnStyles: { 0: { cellWidth: (pageWidth - 20) * 0.5 }, 1: { cellWidth: (pageWidth - 20) * 0.5 } }
         });
 
-        // Address, Status, Software Version
         const statusBox = (isChecked: boolean) => isChecked ? '[ X ]' : '[   ]';
         const statusText = `Machine Status: (Tick Correct Option)\n\n${statusBox(data.machineStatus === 'Warranty')} Warranty  ${statusBox(data.machineStatus === 'Out Of Warranty')} Out Of Warranty  ${statusBox(data.machineStatus === 'AMC')} AMC`;
 
@@ -151,7 +147,6 @@ export const ServiceReportModule: React.FC = () => {
             columnStyles: { 0: { cellWidth: (pageWidth - 20) * 0.5 }, 1: { cellWidth: (pageWidth - 20) * 0.5 } }
         });
 
-        // Complaints & Remarks
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
             margin: { left: margin, right: margin },
@@ -163,7 +158,6 @@ export const ServiceReportModule: React.FC = () => {
             columnStyles: { 0: { cellWidth: (pageWidth - 20) * 0.5 }, 1: { cellWidth: (pageWidth - 20) * 0.5 } }
         });
 
-        // PO Number
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
             margin: { left: margin, right: margin },
@@ -172,13 +166,11 @@ export const ServiceReportModule: React.FC = () => {
             body: [[`PO/WO No: received from the customer: ${data.poWoNumber || ''}`]]
         });
 
-        // Action taken header
         doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 6);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.text('Action taken by Engineer (Give Specific information)', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4, { align: 'center' });
 
-        // Action sections
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY + 6,
             margin: { left: margin, right: margin },
@@ -192,20 +184,17 @@ export const ServiceReportModule: React.FC = () => {
             columnStyles: { 0: { cellWidth: 30, fontStyle: 'bold' } }
         });
 
-        // Bottom section: Signatures & Financials
         let currentY = (doc as any).lastAutoTable.finalY;
         const boxHeight = 70;
         
-        // Check for page break
         if (currentY + boxHeight > pageHeight - 10) {
             doc.addPage();
             currentY = margin;
         }
 
         doc.rect(margin, currentY, pageWidth - 20, boxHeight);
-        doc.line(pageWidth * 0.5, currentY, pageWidth * 0.5, currentY + boxHeight); // Vertical split
+        doc.line(pageWidth * 0.5, currentY, pageWidth * 0.5, currentY + boxHeight);
 
-        // Financial rows (Right side)
         const finX = pageWidth * 0.5;
         const rowH = boxHeight / 7;
 
@@ -222,7 +211,7 @@ export const ServiceReportModule: React.FC = () => {
         settlement.forEach((row, i) => {
             const y = currentY + (i * rowH);
             doc.line(finX, y + rowH, pageWidth - margin, y + rowH);
-            doc.line(pageWidth - 40, y, pageWidth - 40, y + rowH); // Split value column
+            doc.line(pageWidth - 40, y, pageWidth - 40, y + rowH);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7.5);
             doc.text(row[0], finX + 2, y + (rowH / 2) + 1.5);
@@ -230,13 +219,12 @@ export const ServiceReportModule: React.FC = () => {
             doc.text(row[1], pageWidth - margin - 2, y + (rowH / 2) + 1.5, { align: 'right' });
         });
 
-        // Left Side: Signature and Remarks
         doc.setFontSize(8);
         doc.text('Signature of the customer', margin + 15, currentY + 15);
         doc.setFontSize(7);
         doc.text('(Please affix Stamp)', margin + 19, currentY + 19);
 
-        doc.line(margin, currentY + 30, finX, currentY + 30); // split for remarks
+        doc.line(margin, currentY + 30, finX, currentY + 30);
         doc.setFont('helvetica', 'bold');
         doc.text("Engineer's queries/ remarks/ follow up Action etc. If any:", margin + 2, currentY + 34);
         doc.setFont('helvetica', 'normal');
@@ -291,7 +279,7 @@ export const ServiceReportModule: React.FC = () => {
         });
     };
 
-    const handleSave = () => {
+    const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!report.customerName || !report.equipmentName) {
             alert("Please fill customer name and machine details.");
             return;
@@ -299,17 +287,18 @@ export const ServiceReportModule: React.FC = () => {
         const finalData: DetailedServiceReport = {
             ...report,
             id: editingId || `SR-${Date.now()}`,
+            status: status === 'Draft' ? 'Draft' : 'Completed',
             documentType: 'ServiceReport'
         };
         if (editingId) setReports(prev => prev.map(r => r.id === editingId ? finalData : r));
         else setReports(prev => [finalData, ...prev]);
         setViewState('history');
         setEditingId(null);
+        addNotification('Registry Updated', `Service Report ${finalData.reportNumber} saved as ${status}.`, 'success');
     };
 
     const renderReportTemplate = (data: DetailedServiceReport, fin: any) => (
         <div className="bg-white p-[8mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 shadow-xl mx-auto overflow-hidden text-black select-none" style={{ fontFamily: 'Arial, sans-serif' }}>
-            {/* Header */}
             <div className="text-center mb-4">
                 <h1 className="text-4xl font-bold uppercase tracking-tight leading-none mb-1">SREE MEDITEC</h1>
                 <p className="text-[10px] font-semibold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai 600 073.</p>
@@ -318,7 +307,6 @@ export const ServiceReportModule: React.FC = () => {
             
             <div className="text-center py-1 font-bold text-sm uppercase tracking-widest border-y border-black mb-2">SERVICE REPORT</div>
 
-            {/* Info Table */}
             <div className="grid grid-cols-5 border border-black text-[9px] mb-[-1px] font-bold">
                 <div className="border-r border-black p-1.5 flex gap-1"><span>Sr No:</span><span className="font-normal">{data.reportNumber || '000'}</span></div>
                 <div className="border-r border-black p-1.5 flex gap-1"><span>Office:</span><span className="font-normal">{data.office}</span></div>
@@ -327,13 +315,11 @@ export const ServiceReportModule: React.FC = () => {
                 <div className="p-1.5 flex gap-1"><span>Time:</span><span className="font-normal">{data.time}</span></div>
             </div>
 
-            {/* Customer/Machine */}
             <div className="grid grid-cols-2 border border-black text-[10px] mb-[-1px] font-bold">
                 <div className="border-r border-black p-1.5 flex gap-2"><span>Customer Name:</span><span className="font-normal uppercase">{data.customerName}</span></div>
                 <div className="p-1.5 flex gap-2"><span>Machine Name:</span><span className="font-normal">{data.equipmentName}</span></div>
             </div>
 
-            {/* Address/Status */}
             <div className="grid grid-cols-2 border border-black text-[10px] mb-[-1px]">
                 <div className="border-r border-black p-2 min-h-[60px] row-span-2">
                     <p className="font-bold underline mb-1">Address:</p>
@@ -368,7 +354,6 @@ export const ServiceReportModule: React.FC = () => {
                 </div>
             </div>
 
-            {/* Observations */}
             <div className="grid grid-cols-2 border border-black text-[10px] mb-[-1px] min-h-[90px]">
                 <div className="border-r border-black p-2">
                     <p className="font-bold mb-1 underline">Complaint as received from the customer:</p>
@@ -380,17 +365,14 @@ export const ServiceReportModule: React.FC = () => {
                 </div>
             </div>
 
-            {/* PO Info */}
             <div className="border border-black text-[10px] p-2 font-bold mb-[-1px]">
                 PO/WO No: received from the customer: <span className="font-normal ml-2">{data.poWoNumber}</span>
             </div>
 
-            {/* Action taken header */}
             <div className="border-x border-black bg-slate-50 text-center py-1 font-bold text-[10px] uppercase tracking-wide">
                 Action taken by Engineer (Give Specific information)
             </div>
 
-            {/* Action breakdown */}
             <div className="border border-black text-[10px] mb-[-1px]">
                 <div className="grid grid-cols-[130px_1fr] border-b border-black min-h-[50px]">
                     <div className="p-2 border-r border-black font-bold flex items-center">Hardware / Consumables:</div>
@@ -406,27 +388,22 @@ export const ServiceReportModule: React.FC = () => {
                 </div>
             </div>
 
-            {/* Footer split */}
             <div className="grid grid-cols-2 border border-black text-[10px] flex-1">
                 <div className="border-r border-black flex flex-col h-full">
-                    {/* Customer Signature Box */}
                     <div className="h-[40%] p-6 flex flex-col justify-center items-center text-center">
                         <div className="h-12 border-b border-dotted border-black w-3/4 mb-1 opacity-20"></div>
                         <p className="font-bold">Signature of the customer</p>
                         <p className="text-[8px] italic">(Please affix Stamp)</p>
                     </div>
-                    {/* Remarks Block */}
                     <div className="border-y border-black p-3 flex-1 min-h-[120px]">
                         <p className="font-bold underline mb-1">Engineer’s queries/ remarks/ follow up Action etc. If any:</p>
                         <p className="italic text-slate-700 leading-relaxed">{data.queriesRemarks}</p>
                     </div>
-                    {/* Engineer Signature Box */}
                     <div className="p-6 flex flex-col items-center text-center mt-auto">
                          <div className="h-10 border-b border-dotted border-black w-3/4 mb-1 opacity-20"></div>
                          <p className="font-bold">Signature of the Engineer</p>
                     </div>
                 </div>
-                {/* Financial Table */}
                 <div className="flex flex-col bg-white">
                     {[
                         { l: 'Past balance (A):', v: data.pastBalance, isBold: false },
@@ -444,7 +421,6 @@ export const ServiceReportModule: React.FC = () => {
                             </div>
                         </div>
                     ))}
-                    {/* Remaining space in the right column */}
                     <div className="flex-1 bg-white"></div>
                 </div>
             </div>
@@ -484,7 +460,9 @@ export const ServiceReportModule: React.FC = () => {
                                         <td className="px-6 py-4 text-center text-xs font-bold text-slate-500">{formatDateDDMMYYYY(r.date)}</td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${
-                                                r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                                                r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                                                r.status === 'Draft' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                'bg-amber-50 text-amber-700 border-amber-100'
                                             }`}>{r.status}</span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
@@ -505,10 +483,10 @@ export const ServiceReportModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Form</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Preview</button>
-                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Spares</button>
+                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Form</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
+                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Spares</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
@@ -599,9 +577,10 @@ export const ServiceReportModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                <div className="flex gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50">
-                                    <button onClick={() => setViewState('history')} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest">Cancel</button>
-                                    <button onClick={() => { handleSave(); handleDownloadPDF(report); }} className="flex-[2] py-3 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-lg active:scale-95 transition-all">Generate PDF & Finalize</button>
+                                <div className="flex flex-col sm:flex-row gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-3 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(report); }} className="w-full sm:flex-[2] py-3 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-lg active:scale-95 transition-all">Finalize & Download</button>
                                 </div>
                             </div>
                         )}
