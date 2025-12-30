@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Mail, Lock, LogIn, ShieldCheck, Chrome, AlertCircle, RefreshCw, Info } from 'lucide-react';
 import { useData } from './DataContext';
@@ -89,6 +90,7 @@ export const Login: React.FC = () => {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail Address</label>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <input type="checkbox" className="hidden" readOnly />
                             <Mail size={18} className="text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
                         </div>
                         <input 
@@ -160,8 +162,14 @@ export const Login: React.FC = () => {
                 <Info size={14} /> Simulation Registry
             </div>
             <div className="space-y-1 font-bold text-emerald-700 dark:text-emerald-400">
-                <div className="flex justify-between"><span>Admin Hub:</span> <span>admin@demo.com</span></div>
-                <div className="flex justify-between"><span>Personnel:</span> <span>employee@demo.com</span></div>
+                <div className="flex justify-between border-b border-emerald-100/30 pb-1 mb-1">
+                    <span>Admin Hub:</span> 
+                    <span className="text-right">admin@demo.com / <span className="font-black underline">admin</span></span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Personnel:</span> 
+                    <span className="text-right">employee@demo.com / <span className="font-black underline">pass</span></span>
+                </div>
             </div>
         </div>
 
