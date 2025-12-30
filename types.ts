@@ -18,6 +18,16 @@ export interface Client {
   phone?: string;
 }
 
+export interface Vendor {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  address: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface OrderItem {
   name: string;
   quantity: number;
@@ -173,6 +183,7 @@ export enum TabView {
   REPORTS = 'reports',
   PROFILE = 'profile',
   CLIENTS = 'clients',
+  VENDORS = 'vendors',
   EXPENSES = 'expenses',
   PERFORMANCE = 'performance',
 }

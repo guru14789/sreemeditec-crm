@@ -56,6 +56,10 @@ export const QuotationModule: React.FC = () => {
     const [logo, setLogo] = useState<string | null>(null);
     const [signature, setSignature] = useState<string | null>(null);
     const [seal, setSeal] = useState<string | null>(null);
+    
+    // Editable Representative Details
+    const [repName, setRepName] = useState('S. Suresh Kumar.');
+    const [repPhone, setRepPhone] = useState('9884818398');
 
     const [quote, setQuote] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -71,9 +75,9 @@ export const QuotationModule: React.FC = () => {
         discount: 0,
         freightAmount: 0,
         freightTaxRate: 18,
-        paymentTerms: '50% advance with purchase order payable in the name of Sreemeditec and balance 50% on delivery of Machine.',
-        deliveryTerms: 'Within 10 days from the date of the receipt of your purchase order.',
-        warrantyTerms: 'Warranty against manufacturing defects for a period of one year from the date of delivery.',
+        paymentTerms: '100% advance before delivery.',
+        deliveryTerms: 'Ex-stock, subject to prior sale.',
+        warrantyTerms: 'Standard 1 year warranty.',
         bankAndBranch: 'ICICI Bank, Branch: Selaiyur',
         accountNo: '603705016939'
     });
@@ -147,6 +151,7 @@ export const QuotationModule: React.FC = () => {
         }
 
         // Sub & Greeting
+        currentY += 8;
         doc.setFont('helvetica', 'bold');
         doc.text(`Sub: Reg. Price Quotation for ${data.subject || '---'}.`, 15, currentY);
         doc.setFont('helvetica', 'normal');
@@ -184,13 +189,11 @@ export const QuotationModule: React.FC = () => {
 
         let finalY = (doc as any).lastAutoTable.finalY;
 
-        // Space checking for Summary Block (requires ~40mm)
         if (finalY + 45 > pageHeight - margin) {
             doc.addPage();
             finalY = 20;
         }
 
-        // Summary Block
         const summaryX = pageWidth - 80;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
@@ -210,14 +213,12 @@ export const QuotationModule: React.FC = () => {
 
         finalY += 35;
 
-        // Space checking for Terms (requires ~40mm)
-        if (finalY + 40 > pageHeight - margin) {
+        if (finalY + 45 > pageHeight - margin) {
             doc.addPage();
             finalY = 20;
         }
 
-        // Terms and condition
-        doc.setFontSize(9);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text('Terms and condition:', 15, finalY);
         doc.setFont('helvetica', 'normal');
@@ -235,20 +236,19 @@ export const QuotationModule: React.FC = () => {
             startY: finalY + 2,
             margin: { left: 15 },
             theme: 'plain',
-            styles: { fontSize: 7.5, cellPadding: 0.8 },
+            styles: { fontSize: 10.5, cellPadding: 1 },
             columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 150 } },
             body: termsList
         });
 
-        let signOffY = (doc as any).lastAutoTable.finalY + 8;
+        let signOffY = (doc as any).lastAutoTable.finalY + 10;
 
-        // Space checking for Sign-off (requires ~40mm)
-        if (signOffY + 45 > pageHeight - margin) {
+        if (signOffY + 50 > pageHeight - margin) {
             doc.addPage();
             signOffY = 20;
         }
 
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text('Thanking you and looking forward for your order.', 15, signOffY);
         doc.text('With Regards,', 15, signOffY + 8);
@@ -262,9 +262,9 @@ export const QuotationModule: React.FC = () => {
             doc.addImage(seal, 'PNG', 70, signOffY + 14, 22, 22);
         }
 
-        doc.text('S. Suresh Kumar.', 15, signOffY + 36);
+        doc.text(repName, 15, signOffY + 36);
         doc.setFont('helvetica', 'normal');
-        doc.text('9884818398', 15, signOffY + 41);
+        doc.text(repPhone, 15, signOffY + 41);
 
         doc.save(`${data.invoiceNumber || 'Quotation'}.pdf`);
     };
@@ -350,7 +350,6 @@ export const QuotationModule: React.FC = () => {
 
     const totals = useMemo(() => calculateDetailedTotals(quote), [quote]);
 
-    // Added filtered catalog for the new Catalog Tab
     const filteredCatalog = useMemo(() => {
         return products.filter(p => 
             p.name.toLowerCase().includes(catalogSearch.toLowerCase()) || 
@@ -381,17 +380,15 @@ export const QuotationModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Form</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
-                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Catalog</button>
+                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Form</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
+                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Catalog</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
                             <div className="h-full overflow-y-auto p-4 md:p-8 space-y-12 custom-scrollbar bg-white">
-                                
-                                {/* Section 1: Quotation Details */}
                                 <section className="space-y-6">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><FileText size={14}/> Quotation Details</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -406,7 +403,6 @@ export const QuotationModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* Section 2: Client Details */}
                                 <section className="space-y-6">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><User size={14}/> Client Details</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -427,7 +423,6 @@ export const QuotationModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* Section 3: Subject */}
                                 <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2">Subject</h3>
                                     <div className="space-y-1.5">
@@ -436,18 +431,17 @@ export const QuotationModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* Section 4: Product Details */}
                                 <section className="space-y-6">
-                                    <div className="flex justify-between items-center border-b pb-2">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
                                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle size={14}/> Product Details</h3>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setBuilderTab('catalog')} className="text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add From Catalog</button>
-                                            <button onClick={() => handleAddItem()} className="text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Add Empty Row</button>
+                                        <div className="flex gap-2 w-full sm:w-auto">
+                                            <button onClick={() => setBuilderTab('catalog')} className="flex-1 sm:flex-none text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Catalog</button>
+                                            <button onClick={() => handleAddItem()} className="flex-1 sm:flex-none text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1.5 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Row</button>
                                         </div>
                                     </div>
                                     <div className="space-y-4">
                                         {quote.items?.map((item) => (
-                                            <div key={item.id} className="p-5 bg-slate-50 border border-slate-200 rounded-[2rem] relative group hover:bg-white hover:border-medical-200 transition-all">
+                                            <div key={item.id} className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] relative group hover:bg-white hover:border-medical-200 transition-all">
                                                 <button onClick={() => setQuote({...quote, items: quote.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                                                     <div className="md:col-span-6 space-y-1">
@@ -458,30 +452,32 @@ export const QuotationModule: React.FC = () => {
                                                         <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label>
                                                         <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold" value={item.model} onChange={e => updateItem(item.id, 'model', e.target.value)} />
                                                     </div>
-                                                    <div className="md:col-span-2 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Quantity</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
-                                                    </div>
-                                                    <div className="md:col-span-2 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty Type</label>
-                                                        <select className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
-                                                            <option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option>
-                                                        </select>
+                                                    <div className="grid grid-cols-2 md:col-span-4 gap-4">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label>
+                                                            <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label>
+                                                            <select className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
+                                                                <option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
                                                     <div className="md:col-span-3 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate (List Price)</label>
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label>
                                                         <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
                                                     </div>
                                                     <div className="md:col-span-2 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST Rate (%)</label>
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label>
                                                         <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
                                                     </div>
                                                     <div className="md:col-span-3 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Row Total (Inc GST)</label>
-                                                        <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-right text-medical-700">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString()}</div>
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label>
+                                                        <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString()}</div>
                                                     </div>
                                                     <div className="md:col-span-12 space-y-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features / Technical Brief</label>
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label>
                                                         <textarea className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features} onChange={e => updateItem(item.id, 'features', e.target.value)} />
                                                     </div>
                                                 </div>
@@ -490,12 +486,11 @@ export const QuotationModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* Section 5: Charges & Discounts */}
                                 <section className="space-y-6">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Total Discount Amount (₹)</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label>
                                             <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" />
                                         </div>
                                         <div className="space-y-1.5">
@@ -503,13 +498,12 @@ export const QuotationModule: React.FC = () => {
                                             <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST Rate (%)</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label>
                                             <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" />
                                         </div>
                                     </div>
                                 </section>
 
-                                {/* Section 6: Terms & Conditions */}
                                 <section className="space-y-6">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -528,45 +522,56 @@ export const QuotationModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                {/* Section 7: Assets */}
                                 <section className="space-y-6">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="p-6 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label>
+                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label>
+                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                        <div className="p-4 sm:p-6 border-2 border-dashed border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
                                             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} />
-                                            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
-                                                {logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={24}/>}
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
+                                                {logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}
                                             </div>
-                                            <p className="text-[10px] font-black uppercase text-slate-400">Company Logo</p>
+                                            <p className="text-[9px] font-black uppercase text-slate-400">Logo</p>
                                         </div>
-                                        <div className="p-6 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
+                                        <div className="p-4 sm:p-6 border-2 border-dashed border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
                                             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} />
-                                            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
-                                                {signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={24}/>}
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
+                                                {signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}
                                             </div>
-                                            <p className="text-[10px] font-black uppercase text-slate-400">Representative Signature</p>
+                                            <p className="text-[9px] font-black uppercase text-slate-400">Signature</p>
                                         </div>
-                                        <div className="p-6 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
+                                        <div className="p-4 sm:p-6 border-2 border-dashed border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group">
                                             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} />
-                                            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
-                                                {seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={24}/>}
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">
+                                                {seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}
                                             </div>
-                                            <p className="text-[10px] font-black uppercase text-slate-400">Official Stamp</p>
+                                            <p className="text-[9px] font-black uppercase text-slate-400">Stamp</p>
                                         </div>
                                     </div>
                                 </section>
 
-                                <div className="flex gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50">
-                                    <button onClick={() => setViewState('history')} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard Changes</button>
-                                    <button onClick={() => handleSave('Draft')} className="flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50">Save as Draft</button>
-                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(quote); }} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/20 active:scale-95 transition-all">Export PDF & Finalize</button>
+                                <div className="flex flex-col sm:flex-row gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(quote); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/20 active:scale-95 transition-all">Finalize & PDF</button>
                                 </div>
                             </div>
                         )}
 
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50">
-                                <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.55] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
+                                <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.5] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
                                     <div className="bg-white p-[15mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 shadow-2xl mx-auto" style={{ fontFamily: 'Calibri, sans-serif' }}>
                                         {/* Header */}
                                         <div className="text-center mb-4">
@@ -591,7 +596,7 @@ export const QuotationModule: React.FC = () => {
                                             {quote.customerGstin && <p className="text-sm font-bold">GST: {quote.customerGstin}</p>}
                                         </div>
 
-                                        <div className="mb-4 text-sm font-bold italic">Sub: Reg. Price Quotation for {quote.subject || 'Medical Equipment'}.</div>
+                                        <div className="mt-6 mb-4 text-sm font-bold italic">Sub: Reg. Price Quotation for {quote.subject || 'Medical Equipment'}.</div>
                                         
                                         <div className="mb-6 text-sm">Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.</div>
 
@@ -638,9 +643,9 @@ export const QuotationModule: React.FC = () => {
                                             <div className="w-[250px] flex justify-between pt-3 text-lg border-t-2 border-black"><span>Grand Total:</span><span>Rs.{totals.grandTotal.toFixed(2)}</span></div>
                                         </div>
 
-                                        <div className="text-[10px] space-y-2 mb-10">
-                                            <h4 className="font-bold underline text-sm">Terms and condition:</h4>
-                                            <div className="grid grid-cols-[120px_1fr] gap-x-2 gap-y-1">
+                                        <div className="text-sm space-y-2 mb-10">
+                                            <h4 className="font-bold underline text-base">Terms and condition:</h4>
+                                            <div className="grid grid-cols-[120px_1fr] gap-x-2 gap-y-1 text-xs">
                                                 <span className="font-bold">Validity:</span><span>: The above price is valid up to 30 days from the date of submission of the Quotation.</span>
                                                 <span className="font-bold">Taxes:</span><span>: GST is applicable to the price mentioned as per item-wise rates.</span>
                                                 <span className="font-bold">Payment:</span><span>: {quote.paymentTerms}</span>
@@ -656,18 +661,18 @@ export const QuotationModule: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        <div className="text-sm mb-12">Thanking you and looking forward for your order.</div>
+                                        <div className="text-base mb-12">Thanking you and looking forward for your order.</div>
 
                                         <div className="flex justify-between items-end pb-6">
                                             <div className="flex flex-col items-start">
-                                                <p className="text-sm">With Regards,</p>
-                                                <p className="text-sm font-bold">For SREE MEDITEC,</p>
+                                                <p className="text-base">With Regards,</p>
+                                                <p className="text-base font-bold">For SREE MEDITEC,</p>
                                                 <div className="h-12 flex items-center gap-4">
                                                     {signature && <img src={signature} className="h-10 object-contain" />}
                                                     {seal && <img src={seal} className="h-16 w-16 object-contain opacity-80" />}
                                                 </div>
-                                                <p className="text-sm font-bold mt-2">S. Suresh Kumar.</p>
-                                                <p className="text-sm">9884818398</p>
+                                                <p className="text-base font-bold mt-2">{repName}</p>
+                                                <p className="text-base">{repPhone}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -676,33 +681,33 @@ export const QuotationModule: React.FC = () => {
                         )}
                         
                         {builderTab === 'catalog' && (
-                            <div className="h-full bg-white flex flex-col p-6 overflow-hidden animate-in fade-in">
-                                <div className="flex justify-between items-center mb-6">
+                            <div className="h-full bg-white flex flex-col p-4 sm:p-8 overflow-hidden animate-in fade-in">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
                                     <div>
                                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-lg">Product Registry</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select items to populate quote lines</p>
                                     </div>
-                                    <div className="relative">
+                                    <div className="relative w-full sm:w-64">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                         <input 
                                             type="text" 
                                             placeholder="Filter index..." 
-                                            className="pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none w-64 focus:ring-4 focus:ring-medical-500/5 transition-all" 
+                                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" 
                                             value={catalogSearch} 
                                             onChange={e => setCatalogSearch(e.target.value)} 
                                         />
                                     </div>
                                 </div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                     {filteredCatalog.map(prod => (
-                                        <div key={prod.id} className="p-6 bg-slate-50 border border-slate-200 rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
+                                        <div key={prod.id} className="p-5 sm:p-6 bg-slate-50 border border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
                                             <div className="flex-1">
                                                 <h4 className="font-black text-slate-800 text-base group-hover:text-medical-700 transition-colors leading-tight">{prod.name}</h4>
                                                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{prod.price.toLocaleString()} • {prod.sku}</p>
                                             </div>
                                             <div className="mt-4 flex justify-end">
-                                                <div className="p-1.5 bg-white rounded-lg border border-slate-100 group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm">
-                                                    <Plus size={16} />
+                                                <div className="p-2 bg-white rounded-xl border border-slate-100 group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm">
+                                                    <Plus size={18} />
                                                 </div>
                                             </div>
                                         </div>

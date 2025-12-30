@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ServiceReport } from '../types';
 import { 
@@ -13,7 +12,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
     const parts = dateStr.split('-');
     if (parts.length !== 3) return dateStr;
     const [year, month, day] = parts;
-    return `${day}.${month}.${year}`;
+    return `${day}-${month}-${year}`;
 };
 
 interface SimpleInstallationReport extends Partial<ServiceReport> {
@@ -93,11 +92,11 @@ export const InstallationReportModule: React.FC = () => {
             },
             body: [
                 [{ content: `Installation Report Of: ${data.installationOf || ''}`, colSpan: 3, styles: { fontStyle: 'bold' } }],
-                ['1', 'Name of the Customer\n(As Per Invoice)', data.customerName || ''],
-                ['2', 'Name of the Hospital/Clinic/Diagnostic\nCentre', data.customerHospital || ''],
+                ['1', 'Name of the Customer (As Per Invoice)', data.customerName || ''],
+                ['2', 'Name of the Hospital/Clinic/Diagnostic Centre', data.customerHospital || ''],
                 ['3', 'Address of the site of Installation', data.customerAddress || ''],
                 ['4', 'Date of Installation', formatDateDDMMYYYY(data.date)],
-                ['5', 'Name of the Persons trained to use and\noperate the above said machine', data.trainedPersons || ''],
+                ['5', 'Name of the Persons trained to use and operate the above said machine', data.trainedPersons || ''],
                 ['6', 'Serial No of Machine', data.serialNumber || '']
             ]
         });
@@ -175,16 +174,16 @@ export const InstallationReportModule: React.FC = () => {
 
                 {/* Data Rows */}
                 {[
-                    { id: '1', label: 'Name of the Customer\n(As Per Invoice)', value: data.customerName },
-                    { id: '2', label: 'Name of the Hospital/Clinic/Diagnostic\nCentre', value: data.customerHospital },
+                    { id: '1', label: 'Name of the Customer (As Per Invoice)', value: data.customerName },
+                    { id: '2', label: 'Name of the Hospital/Clinic/Diagnostic Centre', value: data.customerHospital },
                     { id: '3', label: 'Address of the site of Installation', value: data.customerAddress },
                     { id: '4', label: 'Date of Installation', value: formatDateDDMMYYYY(data.date) },
-                    { id: '5', label: 'Name of the Persons trained to use and\noperate the above said machine', value: data.trainedPersons },
+                    { id: '5', label: 'Name of the Persons trained to use and operate the above said machine', value: data.trainedPersons },
                     { id: '6', label: 'Serial No of Machine', value: data.serialNumber }
                 ].map((row, idx) => (
                     <div key={idx} className="flex border-b last:border-b-0 border-black min-h-[50px]">
                         <div className="w-10 border-r border-black flex items-center justify-center font-bold text-sm bg-slate-50/30">{row.id}</div>
-                        <div className="w-[280px] border-r border-black p-3 font-bold text-[11px] leading-tight flex items-center">{row.label.split('\n').map((l, i) => <div key={i}>{l}</div>)}</div>
+                        <div className="w-[280px] border-r border-black p-3 font-bold text-[11px] leading-tight flex items-center uppercase">{row.label}</div>
                         <div className="flex-1 p-3 text-[12px] flex items-center uppercase">{row.value}</div>
                     </div>
                 ))}
@@ -279,7 +278,7 @@ export const InstallationReportModule: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">SMIR No.</label>
-                                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.smirNo} onChange={e => setReport({...report, smirNo: e.target.value})} />
+                                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.smirNo} onChange={e => setReport({...report, smirNo: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Date</label>

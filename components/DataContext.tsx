@@ -1,8 +1,10 @@
+
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Client, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification } from '../types';
 
 export interface DataContextType {
   clients: Client[];
+  vendors: Vendor[];
   products: Product[];
   invoices: Invoice[];
   stockMovements: StockMovement[];
@@ -19,6 +21,9 @@ export interface DataContextType {
 
   addClient: (client: Client) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
+  addVendor: (vendor: Vendor) => void;
+  updateVendor: (id: string, vendor: Partial<Vendor>) => void;
+  removeVendor: (id: string) => void;
   addProduct: (product: Product) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
   removeProduct: (id: string) => void;
@@ -47,6 +52,11 @@ const INITIAL_CLIENTS: Client[] = [
   { id: 'CLI-001', name: 'Dr. Sarah Smith', hospital: 'City General Hospital', address: '45 Medical Park Rd, Bangalore\nKarnataka - 560038', gstin: '29ABCDE1234F1Z5', phone: '9876543210', email: 'sarah.s@citygeneral.com' },
   { id: 'CLI-002', name: 'Mr. Rajesh Kumar', hospital: 'Apollo Clinic', address: 'Plot 12, Sector 5, Rohini, New Delhi - 110085', gstin: '07XXXYY1234A1Z9', phone: '9988776655', email: 'rajesh.k@apollo.com' },
   { id: 'CLI-003', name: 'Sree Meditec Demo', hospital: 'Sree Meditec HQ', address: 'No: 18, Bajanai Koil Street, Chennai - 600 073', gstin: '33APGPS4675G2ZL', phone: '9884818398' },
+];
+
+const INITIAL_VENDORS: Vendor[] = [
+  { id: 'VEN-001', name: 'Philips Global India', contactPerson: 'Arun V.', address: 'Phase 1, Hinjewadi, Pune - 411057', gstin: '27AADCP3525F1ZK', email: 'service@philips.co.in', phone: '18002581234' },
+  { id: 'VEN-002', name: 'MediGel Solutions', contactPerson: 'Sanjay Gupta', address: 'GIDC Industrial Area, Ahmedabad - 380001', gstin: '24BBXPP1234Q1Z2', email: 'sales@medigel.in', phone: '9122334455' },
 ];
 
 const INITIAL_EMPLOYEES: Employee[] = [
@@ -98,6 +108,7 @@ const INITIAL_NOTIFICATIONS: AppNotification[] = [
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
+  const [vendors, setVendors] = useState<Vendor[]>(INITIAL_VENDORS);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
@@ -111,6 +122,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addClient = (client: Client) => setClients(prev => [...prev, client]);
   const updateClient = (id: string, client: Partial<Client>) => setClients(prev => prev.map(c => c.id === id ? { ...c, ...client } : c));
+  
+  const addVendor = (vendor: Vendor) => setVendors(prev => [...prev, vendor]);
+  const updateVendor = (id: string, vendor: Partial<Vendor>) => setVendors(prev => prev.map(v => v.id === id ? { ...v, ...vendor } : v));
+  const removeVendor = (id: string) => setVendors(prev => prev.filter(v => v.id !== id));
+
   const addProduct = (product: Product) => setProducts(prev => [...prev, product]);
   const updateProduct = (id: string, updates: Partial<Product>) => setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   const removeProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
@@ -165,8 +181,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{ 
-        clients, products, invoices, stockMovements, expenses, employees, notifications,
-        addClient, updateClient, addProduct, updateProduct, removeProduct,
+        clients, vendors, products, invoices, stockMovements, expenses, employees, notifications,
+        addClient, updateClient, addVendor, updateVendor, removeVendor,
+        addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
