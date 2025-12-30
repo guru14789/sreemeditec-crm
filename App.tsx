@@ -82,7 +82,6 @@ export const App: React.FC = () => {
   }, [notifications]);
 
   // AUTH GUARD: If not logged in, show Login screen
-  // This effectively "routes" the user to login when isAuthenticated is false
   if (!isAuthenticated || !currentUser) {
       return <Login />;
   }
@@ -136,7 +135,6 @@ export const App: React.FC = () => {
     }
   ];
 
-  // Fix: Used React.FC to properly type NavItem and avoid the 'key' prop assignability error
   const NavItem: React.FC<{ tab: TabView; icon: any; label: string }> = ({ tab, icon: Icon, label }) => {
     const isActive = activeTab === tab;
     return (
@@ -214,14 +212,9 @@ export const App: React.FC = () => {
   };
 
   const handleSignOut = (e: React.MouseEvent) => {
-    // Explicitly prevent any standard browser behavior and stop event bubbling
     e.preventDefault();
     e.stopPropagation();
-    
-    // Call the data context's logout function to clear auth state
     logout();
-    
-    // Optional: reset the active tab so when the next user logs in, they see the dashboard
     setActiveTab(TabView.DASHBOARD);
   };
 
@@ -280,7 +273,7 @@ export const App: React.FC = () => {
           })}
         </div>
 
-        {/* Dedicated Sidebar Footer (Session Controls) */}
+        {/* Session Controls */}
         <div className={`p-4 border-t border-white/5 shrink-0 bg-black/10 relative z-[100] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
             <button 
                 onClick={handleSignOut}
@@ -327,7 +320,6 @@ export const App: React.FC = () => {
                   )}
                 </button>
 
-                {/* Smart Notification Popover */}
                 {showNotifications && (
                   <div className="absolute top-full right-0 mt-3 w-[320px] sm:w-[420px] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="p-5 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">

@@ -14,7 +14,8 @@ import {
   serverTimestamp,
   writeBatch
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { signInWithPopup, signOut } from 'firebase/auth';
+import { db, auth, googleProvider } from '../firebase';
 import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, LeadStatus } from '../types';
 
 export interface DataContextType {
@@ -33,7 +34,8 @@ export interface DataContextType {
   // Auth State
   currentUser: Employee | null;
   isAuthenticated: boolean;
-  login: (email: string, password?: string, isGoogle?: boolean) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<boolean>;
+  loginWithGoogle: () => Promise<boolean>;
   logout: () => void;
   dbError: string | null;
 
@@ -160,12 +162,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addNotification('System Ready', 'Cloud registry has been initialized with baseline data.', 'success');
   };
 
-  const login = async (email: string, password?: string, isGoogle: boolean = false) => {
+  const login = async (email: string, password?: string) => {
     const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
     if (!employee) throw new Error("Staff ID not recognized. Run Workspace Initialization if this is a fresh setup.");
     if (!employee.isLoginEnabled) throw new Error("Account locked by HR.");
 
-    if (isGoogle || employee.password === password) {
+    if (employee.password === password) {
         setCurrentUser(employee);
         setIsAuthenticated(true);
         localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
@@ -175,7 +177,37 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
+  const loginWithGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const email = result.user.email;
+      
+      if (!email) throw new Error("Google account has no email associated.");
+      
+      const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
+      
+      if (!employee) {
+        await signOut(auth);
+        throw new Error(`Unauthorized access: The account ${email} is not in the Sree Meditec employee registry. Contact Administration.`);
+      }
+      
+      if (!employee.isLoginEnabled) {
+        await signOut(auth);
+        throw new Error("Your account has been restricted by HR.");
+      }
+
+      setCurrentUser(employee);
+      setIsAuthenticated(true);
+      localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
+      return true;
+    } catch (err: any) {
+      console.error("Google Auth Error Detail:", err);
+      throw err; // Propagate for specific error handling in Login component
+    }
+  };
+
+  const logout = async () => {
+    await signOut(auth);
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('sreemeditec_auth_user');
@@ -223,7 +255,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <DataContext.Provider value={{ 
         clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets,
-        currentUser, isAuthenticated, login, logout, dbError, seedDatabase,
+        currentUser, isAuthenticated, login, loginWithGoogle, logout, dbError, seedDatabase,
         addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
