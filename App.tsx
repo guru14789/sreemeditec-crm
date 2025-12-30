@@ -136,7 +136,8 @@ export const App: React.FC = () => {
     }
   ];
 
-  const NavItem = ({ tab, icon: Icon, label }: { tab: TabView, icon: any, label: string }) => {
+  // Fix: Used React.FC to properly type NavItem and avoid the 'key' prop assignability error
+  const NavItem: React.FC<{ tab: TabView; icon: any; label: string }> = ({ tab, icon: Icon, label }) => {
     const isActive = activeTab === tab;
     return (
         <button 

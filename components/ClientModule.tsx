@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Client, Invoice } from '../types';
-import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting
@@ -12,9 +13,13 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const ClientModule: React.FC = () => {
-  const { clients, invoices } = useData();
+  const { clients, invoices, addClient, removeClient, addNotification } = useData();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newClientData, setNewClientData] = useState<Partial<Client>>({});
 
   // Security State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -36,6 +41,36 @@ export const ClientModule: React.FC = () => {
       } else {
           alert("Incorrect OTP. Please try again.");
           setEnteredOtp('');
+      }
+  };
+
+  const handleSaveClient = () => {
+      if (!newClientData.name || !newClientData.address) {
+          alert("Client Name and Address are required.");
+          return;
+      }
+
+      const client: Client = {
+          id: `CLI-${String(clients.length + 1).padStart(3, '0')}-${Date.now().toString().slice(-4)}`,
+          name: newClientData.name,
+          hospital: newClientData.hospital,
+          address: newClientData.address,
+          gstin: newClientData.gstin,
+          email: newClientData.email,
+          phone: newClientData.phone
+      };
+
+      addClient(client);
+      setShowAddModal(false);
+      setNewClientData({});
+      addNotification('Registry Updated', `Client "${client.name}" successfully indexed.`, 'success');
+  };
+
+  const handleDeleteClient = (id: string, name: string) => {
+      if (confirm(`Are you sure you want to permanently delete client "${name}"? This will remove them from the master database.`)) {
+          removeClient(id);
+          if (selectedClient?.id === id) setSelectedClient(null);
+          addNotification('Registry Updated', `Client record for "${name}" has been removed.`, 'warning');
       }
   };
 
@@ -121,15 +156,23 @@ export const ClientModule: React.FC = () => {
               </div>
           </div>
           
-          <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                  type="text" 
-                  placeholder="Search Clients..." 
-                  className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full sm:w-64 transition-all"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="flex gap-3">
+              <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                      type="text" 
+                      placeholder="Search Clients..." 
+                      className="pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full sm:w-64 transition-all"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+              </div>
+              <button 
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-medical-500/30 flex items-center gap-2 hover:bg-medical-700 transition-all active:scale-95"
+              >
+                  <Plus size={18} /> Add New Client
+              </button>
           </div>
       </div>
 
@@ -167,9 +210,17 @@ export const ClientModule: React.FC = () => {
                                       </span>
                                   </td>
                                   <td className="px-6 py-4 text-right">
-                                      <button className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors">
-                                          <ArrowUpRight size={18} />
-                                      </button>
+                                      <div className="flex justify-end gap-2">
+                                          <button 
+                                              onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id, client.name); }}
+                                              className="text-slate-300 hover:text-rose-500 p-2 rounded-full hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                                          >
+                                              <Trash2 size={18} />
+                                          </button>
+                                          <button className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors">
+                                              <ArrowUpRight size={18} />
+                                          </button>
+                                      </div>
                                   </td>
                               </tr>
                           );
@@ -178,6 +229,88 @@ export const ClientModule: React.FC = () => {
               </table>
           </div>
       </div>
+
+      {/* Add Client Modal */}
+      {showAddModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Manual Client Intake</h3>
+                      <button onClick={() => setShowAddModal(false)}><X size={24} className="text-slate-400" /></button>
+                  </div>
+                  <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name *</label>
+                          <input 
+                              type="text" 
+                              className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                              placeholder="e.g. Dr. John Doe"
+                              value={newClientData.name || ''}
+                              onChange={(e) => setNewClientData({...newClientData, name: e.target.value})}
+                          />
+                      </div>
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Clinic Name</label>
+                          <input 
+                              type="text" 
+                              className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                              placeholder="Facility Name"
+                              value={newClientData.hospital || ''}
+                              onChange={(e) => setNewClientData({...newClientData, hospital: e.target.value})}
+                          />
+                      </div>
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GST Number (Optional)</label>
+                          <input 
+                              type="text" 
+                              className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-mono font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
+                              placeholder="33XXXXX..."
+                              value={newClientData.gstin || ''}
+                              onChange={(e) => setNewClientData({...newClientData, gstin: e.target.value})}
+                          />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Primary Phone</label>
+                              <input 
+                                  type="tel" 
+                                  className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                                  placeholder="+91..."
+                                  value={newClientData.phone || ''}
+                                  onChange={(e) => setNewClientData({...newClientData, phone: e.target.value})}
+                              />
+                          </div>
+                          <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                              <input 
+                                  type="email" 
+                                  className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                                  placeholder="mail@site.com"
+                                  value={newClientData.email || ''}
+                                  onChange={(e) => setNewClientData({...newClientData, email: e.target.value})}
+                              />
+                          </div>
+                      </div>
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site Address *</label>
+                          <textarea 
+                              rows={3}
+                              className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none"
+                              placeholder="Full address for billing & service"
+                              value={newClientData.address || ''}
+                              onChange={(e) => setNewClientData({...newClientData, address: e.target.value})}
+                          />
+                      </div>
+                  </div>
+                  <div className="p-6 border-t border-slate-100 flex gap-3 bg-slate-50/50">
+                      <button onClick={() => setShowAddModal(false)} className="flex-1 bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-colors">Discard</button>
+                      <button onClick={handleSaveClient} className="flex-1 bg-medical-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 transition-all shadow-lg shadow-medical-500/30 flex items-center justify-center gap-2">
+                          <Save size={16} /> Save Record
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Client Detail Modal */}
       {selectedClient && (
@@ -193,12 +326,21 @@ export const ClientModule: React.FC = () => {
                               <p className="text-sm font-medium text-slate-500">{selectedClient.id}</p>
                           </div>
                       </div>
-                      <button onClick={() => setSelectedClient(null)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors">
-                          <X size={24} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => handleDeleteClient(selectedClient.id, selectedClient.name)}
+                            className="text-rose-600 bg-rose-50 hover:bg-rose-100 p-2.5 rounded-xl border border-rose-100 transition-all active:scale-90"
+                            title="Delete Client"
+                        >
+                            <Trash2 size={20} />
+                        </button>
+                        <button onClick={() => setSelectedClient(null)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors">
+                            <X size={24} />
+                        </button>
+                      </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-6">
+                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                           {/* Profile Card */}
                           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4 h-full">
@@ -231,6 +373,13 @@ export const ClientModule: React.FC = () => {
                                       <div>
                                           <p className="text-xs font-bold text-slate-400 uppercase">Phone</p>
                                           <p className="text-sm font-medium text-slate-700">{selectedClient.phone || 'N/A'}</p>
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-3">
+                                      <Mail size={16} className="text-slate-400 shrink-0 mt-0.5" />
+                                      <div>
+                                          <p className="text-xs font-bold text-slate-400 uppercase">Email</p>
+                                          <p className="text-sm font-medium text-slate-700">{selectedClient.email || 'N/A'}</p>
                                       </div>
                                   </div>
                               </div>

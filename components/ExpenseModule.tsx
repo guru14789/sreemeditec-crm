@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { ExpenseRecord } from '../types';
 import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search, User, Check, X, Eye, Image as ImageIcon, RefreshCw, Upload } from 'lucide-react';
@@ -12,6 +13,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
   const { expenses, addExpense, updateExpenseStatus } = useData();
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewReceiptModal, setViewReceiptModal] = useState<ExpenseRecord | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -23,18 +25,62 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
       status: 'Pending'
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200;
+                const MAX_HEIGHT = 1200;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject('Could not get canvas context');
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Export as JPEG with 0.6 quality to ensure it stays well under 1MB
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                resolve(dataUrl);
+            };
+            img.onerror = () => reject('Error loading image');
+        };
+        reader.onerror = () => reject('Error reading file');
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-        if (file.size > 2 * 1024 * 1024) {
-            alert("File too large. Please select an image under 2MB.");
-            return;
+        setIsCompressing(true);
+        try {
+            const compressed = await compressImage(file);
+            setReceiptPreview(compressed);
+        } catch (err) {
+            console.error("Compression failed:", err);
+            alert("Failed to process image. Please try a different one.");
+        } finally {
+            setIsCompressing(false);
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setReceiptPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
     }
   };
 
@@ -255,10 +301,15 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                       />
                       
                       <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`p-4 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${receiptPreview ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                        onClick={() => !isCompressing && fileInputRef.current?.click()}
+                        className={`p-4 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${isCompressing ? 'opacity-50 cursor-wait' : ''} ${receiptPreview ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-400 hover:bg-slate-50'}`}
                       >
-                          {receiptPreview ? (
+                          {isCompressing ? (
+                              <div className="flex items-center justify-center gap-2">
+                                  <RefreshCw size={18} className="animate-spin" />
+                                  <span className="text-xs font-bold uppercase">Processing...</span>
+                              </div>
+                          ) : receiptPreview ? (
                               <div className="flex items-center justify-center gap-3">
                                   <div className="w-12 h-12 rounded-lg bg-white border border-emerald-100 overflow-hidden shrink-0 shadow-sm">
                                       <img src={receiptPreview} alt="Preview" className="w-full h-full object-cover" />
@@ -271,14 +322,14 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                           ) : (
                               <>
                                 <Upload size={20} className="mx-auto mb-2" />
-                                <span className="text-xs font-bold uppercase">Upload Receipt (Optional)</span>
+                                <span className="text-xs font-bold uppercase">Upload Receipt (Auto-Compressed)</span>
                               </>
                           )}
                       </div>
                   </div>
                   <div className="p-6 border-t border-slate-100 flex gap-3">
                       <button onClick={() => { setShowAddModal(false); setReceiptPreview(null); }} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-200 transition-colors">Cancel</button>
-                      <button onClick={handleAddExpense} className="flex-1 bg-medical-600 text-white py-3 rounded-xl font-bold hover:bg-medical-700 transition-colors shadow-lg shadow-medical-500/20">Submit Claim</button>
+                      <button onClick={handleAddExpense} disabled={isCompressing} className="flex-1 bg-medical-600 text-white py-3 rounded-xl font-bold hover:bg-medical-700 transition-colors shadow-lg shadow-medical-500/20 disabled:opacity-50">Submit Claim</button>
                   </div>
               </div>
           </div>
