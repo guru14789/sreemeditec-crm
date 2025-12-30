@@ -1,4 +1,21 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  orderBy, 
+  limit, 
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  writeBatch
+} from 'firebase/firestore';
+import { db } from '../firebase';
 import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task } from '../types';
 
 export interface DataContextType {
@@ -17,6 +34,7 @@ export interface DataContextType {
   isAuthenticated: boolean;
   login: (email: string, password?: string, isGoogle?: boolean) => Promise<boolean>;
   logout: () => void;
+  dbError: string | null;
 
   // Performance & Points
   userStats: UserStats;
@@ -25,6 +43,8 @@ export interface DataContextType {
   addPoints: (amount: number, category: PointHistory['category'], description: string) => void;
   updatePrizePool: (amount: number) => void;
 
+  // Database Actions
+  seedDatabase: () => Promise<void>;
   addClient: (client: Client) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
   addVendor: (vendor: Vendor) => void;
@@ -36,20 +56,13 @@ export interface DataContextType {
   addInvoice: (invoice: Invoice) => void;
   updateInvoice: (id: string, invoice: Invoice) => void;
   recordStockMovement: (movement: StockMovement) => void;
-  
-  // Task Actions
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-
-  // Expense Actions
+  updateTaskRemote: (id: string, updates: Partial<Task>) => void;
   addExpense: (expense: ExpenseRecord) => void;
   updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => void;
-
-  // HR & Employees
   addEmployee: (emp: Employee) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   removeEmployee: (id: string) => void;
-
-  // Notification Actions
   addNotification: (title: string, message: string, type: AppNotification['type']) => void;
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
@@ -57,198 +70,108 @@ export interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const INITIAL_CLIENTS: Client[] = [
-  { id: 'CLI-001', name: 'Dr. Sarah Smith', hospital: 'City General Hospital', address: '45 Medical Park Rd, Bangalore\nKarnataka - 560038', gstin: '29ABCDE1234F1Z5', phone: '9876543210', email: 'sarah.s@citygeneral.com' },
-  { id: 'CLI-002', name: 'Mr. Rajesh Kumar', hospital: 'Apollo Clinic', address: 'Plot 12, Sector 5, Rohini, New Delhi - 110085', gstin: '07XXXYY1234A1Z9', phone: '9988776655', email: 'rajesh.k@apollo.com' },
-  { id: 'CLI-003', name: 'Sree Meditec Demo', hospital: 'Sree Meditec HQ', address: 'No: 18, Bajanai Koil Street, Chennai - 600 073', gstin: '33APGPS4675G2ZL', phone: '9884818398' },
-];
-
-const INITIAL_TASKS: Task[] = [
-  { id: 'T-1', title: 'Site Visit: Apollo Clinic', description: 'Perform routine maintenance check on MRI machine.', assignedTo: 'Rahul Sharma', priority: 'High', status: 'To Do', dueDate: '2023-10-28', relatedTo: 'Apollo Clinic', locationName: 'Apollo Clinic, Indiranagar', coords: { lat: 12.9716, lng: 77.5946 } },
-  { id: 'T-2', title: 'Deliver Consumables', description: 'Deliver 50 boxes of syringes to Westview Clinic.', assignedTo: 'Rahul Sharma', priority: 'Medium', status: 'In Progress', dueDate: '2023-10-27', relatedTo: 'Westview Clinic', locationName: 'Westview Clinic, Koramangala', coords: { lat: 12.9352, lng: 77.6245 } },
-  { id: 'T-3', title: 'Demo: ECG Machine', description: 'Portable ECG demo at City Hospital.', assignedTo: 'Demo Employee', priority: 'Medium', status: 'To Do', dueDate: new Date().toISOString().split('T')[0], relatedTo: 'City General', locationName: 'Bangalore' },
-];
-
-const INITIAL_VENDORS: Vendor[] = [
-  { id: 'VEN-001', name: 'Philips Global India', contactPerson: 'Arun V.', address: 'Phase 1, Hinjewadi, Pune - 411057', gstin: '27AADCP3525F1ZK', email: 'service@philips.co.in', phone: '18002581234' },
-  { id: 'VEN-002', name: 'MediGel Solutions', contactPerson: 'Sanjay Gupta', address: 'GIDC Industrial Area, Ahmedabad - 380001', gstin: '24BBXPP1234Q1Z2', email: 'sales@medigel.in', phone: '9122334455' },
-];
-
-const INITIAL_EMPLOYEES: Employee[] = [
-  { id: 'EMP000', name: 'Demo Admin', role: 'System Administrator', department: 'Administration', email: 'admin@demo.com', phone: '9999999999', joinDate: '2023-01-01', baseSalary: 200000, status: 'Active', permissions: Object.values(TabView), password: 'admin', isLoginEnabled: true },
-  { id: 'EMP001', name: 'Demo Employee', role: 'Sales Executive', department: 'Sales', email: 'employee@demo.com', phone: '8888888888', joinDate: '2023-06-01', baseSalary: 50000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'pass', isLoginEnabled: true },
-  { id: 'EMP002', name: 'Rahul Sharma', role: 'Sales Manager', department: 'Sales', email: 'rahul@sreemeditec.com', phone: '9876543210', joinDate: '2022-03-15', baseSalary: 85000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.EXPENSES, TabView.PERFORMANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'rahul', isLoginEnabled: true },
-  { id: 'EMP003', name: 'Mike Ross', role: 'Sr. Technician', department: 'Service', email: 'mike@sreemeditec.com', phone: '9876543211', joinDate: '2022-05-20', baseSalary: 65000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.DASHBOARD], password: 'mike', isLoginEnabled: true },
-  { id: 'EMP004', name: 'Priya Patel', role: 'HR Executive', department: 'HR', email: 'priya@sreemeditec.com', phone: '9876543212', joinDate: '2023-01-10', baseSalary: 45000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE, TabView.DASHBOARD], password: 'priya', isLoginEnabled: true },
-  { id: 'EMP005', name: 'Sarah Jenkins', role: 'Service Engineer', department: 'Service', email: 'sarah@sreemeditec.com', phone: '9876543213', joinDate: '2023-06-01', baseSalary: 55000, status: 'Active', permissions: [TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.PROFILE, TabView.DASHBOARD], password: 'sarah', isLoginEnabled: true },
-];
-
-const INITIAL_PRODUCTS: Product[] = [
-  { id: 'P-1', name: 'MRI Coil (Head)', category: 'Spare Part', sku: 'MRI-H-001', stock: 2, price: 15000, minLevel: 3, location: 'Shelf A1', model: 'Philips Achieva 1.5T', hsn: '9018', taxRate: 12, description: 'High signal-to-noise ratio\nCompatible with 1.5T systems', supplier: 'Philips Global' },
-  { id: 'P-2', name: 'Ultrasound Gel (5L)', category: 'Consumable', sku: 'USG-GEL-5L', stock: 150, price: 25, minLevel: 50, location: 'Warehouse B', model: 'EchoMax Standard', hsn: '3006', taxRate: 12, description: 'Hypoallergenic\nWater soluble\nNon-staining', supplier: 'MediGel India' },
-  { id: 'P-3', name: 'Patient Monitor X12', category: 'Equipment', sku: 'PM-X12', stock: 8, price: 1200, minLevel: 5, location: 'Showroom', model: 'PM-X12 Pro', hsn: '9018', taxRate: 18, description: '12-inch Touchscreen\nECG, SpO2, NIBP, Resp, Temp', supplier: 'CareTech Solutions' },
-  { id: 'P-4', name: 'X-Ray Tube Housing', category: 'Spare Part', sku: 'XR-TB-99', stock: 1, price: 4500, minLevel: 2, location: 'Shelf C4', model: 'Varian Compatible', hsn: '9022', taxRate: 18, description: 'Heavy duty anode\n150kVp rated', supplier: 'Global X-Ray Parts' }
-];
-
-const INITIAL_INVOICES: Invoice[] = [
-  { id: 'INV-001', invoiceNumber: 'SMCPO-001', documentType: 'PO', date: '2023-10-20', dueDate: '2023-11-20', customerName: 'Dr. Sarah Smith', customerHospital: 'City General Hospital', customerAddress: '45 Medical Park Rd, Bangalore', customerGstin: '29ABCDE1234F1Z5', items: [{ id: '1', description: 'Philips MRI Coil (Head)', hsn: '9018', quantity: 1, unitPrice: 15000, taxRate: 12, amount: 15000, gstValue: 1800, priceWithGst: 16800 }], subtotal: 15000, taxTotal: 1800, grandTotal: 16800, status: 'Partial', paymentMethod: 'Bank Transfer', smcpoNumber: 'SMCPO-001', cpoNumber: 'CPO-9981', cpoDate: '2023-10-18', deliveryAddress: 'City General Hospital, Main Block', advanceAmount: 5000, advanceDate: '2023-10-20', advanceMode: 'NEFT', bankDetails: 'HDFC Bank, Adyar Branch', deliveryTime: '2 Weeks', specialNote: 'Warranty valid for 1 year from installation.', payments: [{ id: 'PAY-1', date: '2023-10-20', amount: 5000, mode: 'NEFT', reference: 'REF123' }], totalPaid: 5000, balanceDue: 11800 },
-  { id: 'Q-001', invoiceNumber: 'QT-2023-001', documentType: 'Quotation', date: '2023-10-25', dueDate: '2023-11-25', customerName: 'Mr. Rajesh Kumar', customerHospital: 'Apollo Clinic', customerAddress: 'Plot 12, Sector 5, Rohini, New Delhi', customerGstin: '07XXXYY1234A1Z9', items: [{ id: '1', description: 'Patient Monitor X12', hsn: '9018', quantity: 2, unitPrice: 1200, taxRate: 18, amount: 2400, gstValue: 432, priceWithGst: 2832 }], subtotal: 2400, taxTotal: 432, grandTotal: 2832, status: 'Pending', smcpoNumber: 'QT-2023-001', subject: 'Quotation for Patient Monitors', paymentTerms: '100% advance before delivery.', deliveryTerms: 'Ex-stock, subject to prior sale.', warrantyTerms: 'Standard 1 year warranty.', totalPaid: 0, balanceDue: 2832 }
-];
-
-const INITIAL_MOVEMENTS: StockMovement[] = [
-  { id: 'MOV-001', productId: 'P-1', productName: 'Philips MRI Coil (Head)', type: 'Out', quantity: 1, date: '2023-10-20', reference: 'SMCPO-001', purpose: 'Sale' }
-];
-
-const INITIAL_EXPENSES: ExpenseRecord[] = [
-  { id: 'EXP-001', employeeName: 'Rahul Sharma', date: '2023-10-25', category: 'Travel', amount: 450, description: 'Auto fare to Apollo Hospital', status: 'Approved' },
-  { id: 'EXP-002', employeeName: 'Rahul Sharma', date: '2023-10-26', category: 'Food', amount: 120, description: 'Lunch during client visit', status: 'Pending' },
-  { id: 'EXP-003', employeeName: 'Admin User', date: '2023-10-24', category: 'Supplies', amount: 2500, description: 'Office stationery', status: 'Approved' },
-  { id: 'EXP-004', employeeName: 'Mike Ross', date: '2023-10-27', category: 'Travel', amount: 1500, description: 'Train ticket for Service Call', status: 'Pending' },
-];
-
-const INITIAL_STATS: UserStats = {
-    points: 2450,
-    tasksCompleted: 45,
-    attendanceStreak: 12,
-    salesRevenue: 450000
-};
-
-const INITIAL_HISTORY: PointHistory[] = [
-    { id: 'PH-1', date: '2023-10-25', points: 50, category: 'Sales', description: 'Lead Converted: Dr. Smith' },
-    { id: 'PH-2', date: '2023-10-26', points: 10, category: 'Attendance', description: 'On-time Check-in' },
-    { id: 'PH-3', date: '2023-10-26', points: 15, category: 'Task', description: 'Task Done (On Time)' },
-];
-
-const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  { id: 'N1', title: 'System Active', message: 'Welcome back to Sree Meditec CRM.', time: 'Just now', type: 'info', read: false }
-];
-
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
-  const [vendors, setVendors] = useState<Vendor[]>(INITIAL_VENDORS);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>(INITIAL_MOVEMENTS);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(INITIAL_EXPENSES);
-  const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  
-  const [userStats, setUserStats] = useState<UserStats>(INITIAL_STATS);
-  const [pointHistory, setPointHistory] = useState<PointHistory[]>(INITIAL_HISTORY);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
   const [prizePool, setPrizePool] = useState<number>(1500);
+  const [dbError, setDbError] = useState<string | null>(null);
 
-  // Authentication State
+  const [userStats, setUserStats] = useState<UserStats>({
+      points: 0,
+      tasksCompleted: 0,
+      attendanceStreak: 0,
+      salesRevenue: 0
+  });
+
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Smart Notification Background Scanner
-  const scannerInterval = useRef<any | null>(null);
-
+  // Real-time Listeners with Error Handling
   useEffect(() => {
-    const savedUser = localStorage.getItem('sreemeditec_auth_user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        const employee = INITIAL_EMPLOYEES.find(e => e.email === parsed.email);
-        if (employee && employee.isLoginEnabled) {
-          setCurrentUser(employee);
-          setIsAuthenticated(true);
+    const handleError = (err: any) => {
+        console.error("Firestore Sync Error:", err);
+        if (err.code === 'permission-denied') {
+            setDbError("Access Denied: Please check your Firestore Security Rules in the Firebase Console.");
         }
-      } catch (e) {
-        localStorage.removeItem('sreemeditec_auth_user');
-      }
-    }
+    };
+
+    const unsubscribes = [
+      onSnapshot(collection(db, "clients"), (s) => setClients(s.docs.map(d => ({ ...d.data(), id: d.id } as Client))), handleError),
+      onSnapshot(collection(db, "vendors"), (s) => setVendors(s.docs.map(d => ({ ...d.data(), id: d.id } as Vendor))), handleError),
+      onSnapshot(collection(db, "products"), (s) => setProducts(s.docs.map(d => ({ ...d.data(), id: d.id } as Product))), handleError),
+      onSnapshot(query(collection(db, "invoices"), orderBy("date", "desc")), (s) => setInvoices(s.docs.map(d => ({ ...d.data(), id: d.id } as Invoice))), handleError),
+      onSnapshot(query(collection(db, "stockMovements"), orderBy("date", "desc"), limit(50)), (s) => setStockMovements(s.docs.map(d => ({ ...d.data(), id: d.id } as StockMovement))), handleError),
+      onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (s) => setExpenses(s.docs.map(d => ({ ...d.data(), id: d.id } as ExpenseRecord))), handleError),
+      onSnapshot(collection(db, "employees"), (s) => setEmployees(s.docs.map(d => ({ ...d.data(), id: d.id } as Employee))), handleError),
+      onSnapshot(query(collection(db, "tasks"), orderBy("dueDate", "asc")), (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id } as Task))), handleError),
+      onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(s.docs.map(d => ({ ...d.data(), id: d.id } as AppNotification))), handleError),
+      onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(s.docs.map(d => ({ ...d.data(), id: d.id } as PointHistory))), handleError)
+    ];
+
+    return () => unsubscribes.forEach(u => u());
   }, []);
 
-  // Smart Scanner Effect
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      runSmartScan();
-      scannerInterval.current = setInterval(runSmartScan, 5 * 60 * 1000);
+    if (currentUser) {
+        const myPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((acc, curr) => acc + curr.points, 0);
+        const myTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
+        setUserStats({
+            points: myPoints,
+            tasksCompleted: myTasks,
+            attendanceStreak: 12,
+            salesRevenue: invoices.filter(i => i.customerName === currentUser.name && i.status === 'Paid').reduce((acc, i) => acc + i.grandTotal, 0)
+        });
     }
-    return () => {
-      if (scannerInterval.current) clearInterval(scannerInterval.current);
-    };
-  }, [isAuthenticated, currentUser, products, invoices, expenses, tasks]);
+  }, [pointHistory, tasks, currentUser, invoices]);
 
-  const runSmartScan = () => {
-    const isAdmin = currentUser?.department === 'Administration';
-    const isSales = currentUser?.department === 'Sales';
-    const isService = currentUser?.department === 'Service';
+  const seedDatabase = async () => {
+      const batch = writeBatch(db);
+      
+      const initialEmployees: Employee[] = [
+          { id: 'EMP001', name: 'Admin Hub', role: 'System Admin', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
+          { id: 'EMP002', name: 'Rahul Sharma', role: 'Senior Technician', department: 'Service', email: 'rahul@sreemeditec.com', phone: '7200021788', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'rahul', permissions: [TabView.DASHBOARD, TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.PROFILE] },
+          { id: 'EMP003', name: 'Employee User', role: 'Staff', department: 'Sales', email: 'employee@demo.com', phone: '111', joinDate: '2023-10-01', baseSalary: 30000, status: 'Active', isLoginEnabled: true, password: 'pass', permissions: [TabView.DASHBOARD, TabView.LEADS, TabView.QUOTES, TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE] }
+      ];
 
-    // 1. Check Inventory (Admin or Service Engineers who need parts)
-    if (isAdmin || isService) {
-        const lowStock = products.filter(p => p.stock < p.minLevel);
-        if (lowStock.length > 0) {
-          const alreadyNotified = notifications.some(n => n.title === 'Inventory Alert' && !n.read);
-          if (!alreadyNotified) {
-            addNotification('Inventory Alert', `${lowStock.length} critical components are running low. Action required for site readiness.`, 'warning');
-          }
-        }
-    }
+      initialEmployees.forEach(emp => {
+          const ref = doc(db, "employees", emp.id);
+          batch.set(ref, emp);
+      });
 
-    // 2. Check Pending Expenses (Admin only)
-    if (isAdmin) {
-      const pendingExpenses = expenses.filter(e => e.status === 'Pending');
-      if (pendingExpenses.length > 0) {
-        const alreadyNotified = notifications.some(n => n.title === 'Voucher Review' && !n.read);
-        if (!alreadyNotified) {
-          addNotification('Voucher Review', `There are ${pendingExpenses.length} pending expense claims awaiting your verification.`, 'info');
-        }
-      }
-    }
+      const initialProducts: Product[] = [
+          { id: 'P001', name: 'Ultrasound Probe C5-2', category: 'Equipment', sku: 'PROBE-001', stock: 12, price: 45000, minLevel: 5, location: 'Shelf A1', hsn: '9018', taxRate: 18, supplier: 'Philips Medical' },
+          { id: 'P002', name: 'ECG Thermal Paper', category: 'Consumable', sku: 'PAPER-ECG', stock: 50, price: 450, minLevel: 20, location: 'Shelf B2', hsn: '4811', taxRate: 12, supplier: 'Local Supplies' }
+      ];
 
-    // 3. Check Overdue Invoices (Admin or Sales who handle payments)
-    if (isAdmin || isSales) {
-      const today = new Date();
-      const overdueInvoices = invoices.filter(inv => inv.status !== 'Paid' && inv.status !== 'Draft' && new Date(inv.dueDate) < today);
-      if (overdueInvoices.length > 0) {
-        const alreadyNotified = notifications.some(n => n.title === 'Payment Overdue' && !n.read);
-        if (!alreadyNotified) {
-          addNotification('Payment Overdue', `${overdueInvoices.length} outstanding client invoices have breached their credit cycle.`, 'alert');
-        }
-      }
-    }
+      initialProducts.forEach(prod => {
+          const ref = doc(db, "products", prod.id);
+          batch.set(ref, prod);
+      });
 
-    // 4. Personalized Task Alerts (For all employees)
-    const todayStr = new Date().toISOString().split('T')[0];
-    const myPendingTasks = tasks.filter(t => t.assignedTo === currentUser?.name && t.status !== 'Done' && t.dueDate === todayStr);
-    if (myPendingTasks.length > 0) {
-        const alreadyNotified = notifications.some(n => n.title === 'Today\'s Agenda' && !n.read);
-        if (!alreadyNotified) {
-            addNotification('Today\'s Agenda', `You have ${myPendingTasks.length} missions assigned for today. Synchronize your checklist.`, 'info');
-        }
-    }
+      await batch.commit();
+      addNotification('System Initialized', 'Database has been seeded with default accounts and inventory.', 'success');
   };
 
   const login = async (email: string, password?: string, isGoogle: boolean = false) => {
     const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-    
-    if (!employee) {
-        throw new Error("Employee not found in registry. Please contact admin.");
-    }
+    if (!employee) throw new Error("Employee not found. Please initialize the database if this is your first run.");
+    if (!employee.isLoginEnabled) throw new Error("Account disabled.");
 
-    if (!employee.isLoginEnabled) {
-        throw new Error("Your account login is disabled. Contact admin.");
-    }
-
-    if (isGoogle) {
+    if (isGoogle || employee.password === password) {
         setCurrentUser(employee);
         setIsAuthenticated(true);
         localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
-        addNotification('Identity Verified', 'Successfully authenticated via Google Workspace.', 'success');
         return true;
     } else {
-        if (employee.password === password) {
-            setCurrentUser(employee);
-            setIsAuthenticated(true);
-            localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
-            addNotification('Terminal Access', `Session started for ${employee.name}.`, 'success');
-            return true;
-        } else {
-            throw new Error("Invalid password credentials.");
-        }
+        throw new Error("Invalid credentials.");
     }
   };
 
@@ -258,61 +181,51 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('sreemeditec_auth_user');
   };
 
-  const addClient = (client: Client) => setClients(prev => [...prev, client]);
-  const updateClient = (id: string, client: Partial<Client>) => setClients(prev => prev.map(c => c.id === id ? { ...c, ...client } : c));
-  
-  const addVendor = (vendor: Vendor) => setVendors(prev => [...prev, vendor]);
-  const updateVendor = (id: string, vendor: Partial<Vendor>) => setVendors(prev => prev.map(v => v.id === id ? { ...v, ...vendor } : v));
-  const removeVendor = (id: string) => setVendors(prev => prev.filter(v => v.id !== id));
+  const addClient = async (client: Client) => await setDoc(doc(db, "clients", client.id), client);
+  const updateClient = async (id: string, client: Partial<Client>) => await updateDoc(doc(db, "clients", id), client);
+  const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
+  const updateVendor = async (id: string, vendor: Partial<Vendor>) => await updateDoc(doc(db, "vendors", id), vendor);
+  const removeVendor = async (id: string) => await deleteDoc(doc(db, "vendors", id));
+  const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
+  const updateProduct = async (id: string, updates: Partial<Product>) => await updateDoc(doc(db, "products", id), updates);
+  const removeProduct = async (id: string) => await deleteDoc(doc(db, "products", id));
+  const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
+  const updateInvoice = async (id: string, updatedInvoice: Invoice) => await setDoc(doc(db, "invoices", id), updatedInvoice);
+  const recordStockMovement = async (movement: StockMovement) => await addDoc(collection(db, "stockMovements"), movement);
+  const addExpense = async (expense: ExpenseRecord) => await setDoc(doc(db, "expenses", expense.id), expense);
+  const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => await updateDoc(doc(db, "expenses", id), { status });
+  const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => await updateDoc(doc(db, "employees", id), updates);
+  const removeEmployee = async (id: string) => await deleteDoc(doc(db, "employees", id));
+  const updateTaskRemote = async (id: string, updates: Partial<Task>) => await updateDoc(doc(db, "tasks", id), updates);
 
-  const addProduct = (product: Product) => setProducts(prev => [...prev, product]);
-  const updateProduct = (id: string, updates: Partial<Product>) => setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-  const removeProduct = (id: string) => setProducts(prev => prev.filter(p => p.id !== id));
-  const addInvoice = (invoice: Invoice) => setInvoices(prev => [invoice, ...prev]);
-  const updateInvoice = (id: string, updatedInvoice: Invoice) => setInvoices(prev => prev.map(inv => inv.id === id ? updatedInvoice : inv));
-  const recordStockMovement = (movement: StockMovement) => setStockMovements(prev => [movement, ...prev]);
-  const addExpense = (expense: ExpenseRecord) => setExpenses(prev => [expense, ...prev]);
-  const updateExpenseStatus = (id: string, status: ExpenseRecord['status']) => setExpenses(prev => prev.map(e => e.id === id ? { ...e, status } : e));
-  
-  const addEmployee = (emp: Employee) => setEmployees(prev => [...prev, emp]);
-  const updateEmployee = (id: string, updates: Partial<Employee>) => setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-  const removeEmployee = (id: string) => setEmployees(prev => prev.filter(e => e.id !== id));
-
-  const addNotification = (title: string, message: string, type: AppNotification['type']) => {
-    const newNotif: AppNotification = {
-      id: `NOTIF-${Date.now()}`,
+  const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
+    const newNotif = {
       title,
       message,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString(),
       type,
       read: false,
-      isNewToast: true
+      isNewToast: true,
+      createdAt: serverTimestamp()
     };
-    setNotifications(prev => [newNotif, ...prev]);
+    await addDoc(collection(db, "notifications"), newNotif);
   };
 
-  const markNotificationRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true, isNewToast: false } : n));
-  };
+  const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
+  const clearAllNotifications = async () => notifications.forEach(n => markNotificationRead(n.id));
 
-  const clearAllNotifications = () => {
-    setNotifications([]);
-  };
-
-  const addPoints = (amount: number, category: PointHistory['category'], description: string) => {
-      const newHistory: PointHistory = {
-          id: `PH-${Date.now()}`,
+  const addPoints = async (amount: number, category: PointHistory['category'], description: string) => {
+      if (!currentUser) return;
+      const newHistory = {
           date: new Date().toISOString().split('T')[0],
           points: amount,
           category,
-          description
+          description,
+          userId: currentUser.id,
+          createdAt: serverTimestamp()
       };
-      setPointHistory(prev => [newHistory, ...prev]);
-      setUserStats(prev => ({
-          ...prev,
-          points: prev.points + amount,
-          tasksCompleted: category === 'Task' ? prev.tasksCompleted + 1 : prev.tasksCompleted
-      }));
+      await addDoc(collection(db, "pointHistory"), newHistory);
   };
 
   const updatePrizePool = (amount: number) => setPrizePool(amount);
@@ -320,12 +233,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <DataContext.Provider value={{ 
         clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks,
-        currentUser, isAuthenticated, login, logout,
+        currentUser, isAuthenticated, login, logout, dbError, seedDatabase,
         addClient, updateClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
-        setTasks,
+        setTasks, updateTaskRemote,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
         prizePool, updatePrizePool
     }}>

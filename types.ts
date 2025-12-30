@@ -373,6 +373,8 @@ export interface PointHistory {
   points: number;
   category: 'Task' | 'Attendance' | 'Sales' | 'Bonus';
   description: string;
+  // userId is required for filtering by user in DataContext
+  userId: string;
 }
 
 export interface UserStats {
