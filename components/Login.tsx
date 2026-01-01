@@ -188,9 +188,6 @@ export const Login: React.FC = () => {
                 >
                     <ExternalLink size={14} /> Open Firebase Settings
                 </a>
-                <p className="mt-3 text-[9px] text-center text-blue-400 font-bold uppercase tracking-widest">
-                    Settings > Authorized Domains > Add Domain
-                </p>
             </div>
         )}
 
