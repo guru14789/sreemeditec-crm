@@ -109,6 +109,7 @@ export const App: React.FC = () => {
     {
       title: 'Doc Maker',
       items: [
+        { tab: TabView.BILLING, icon: Receipt, label: 'Invoice Maker' },
         { tab: TabView.QUOTES, icon: FileText, label: 'Quotation Maker' },
         { tab: TabView.PO_BUILDER, icon: ShoppingCart, label: 'Customer PO Maker' },
         { tab: TabView.SUPPLIER_PO, icon: ShoppingBag, label: 'Supplier PO Maker' },
@@ -198,6 +199,7 @@ export const App: React.FC = () => {
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule userRole={userRole} />;
+      case TabView.BILLING: return <BillingModule variant="billing" />;
       default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };

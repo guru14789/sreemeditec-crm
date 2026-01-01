@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Mail, Lock, LogIn, ShieldCheck, Chrome, AlertCircle, RefreshCw, Database, ShieldAlert, Plus, ExternalLink, Copy } from 'lucide-react';
+import { Mail, Lock, LogIn, ShieldCheck, Chrome, AlertCircle, RefreshCw, Database, ShieldAlert, Plus, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
 import { useData } from './DataContext';
 
 export const Login: React.FC = () => {
-  const { login, loginWithGoogle, dbError, employees, seedDatabase, addNotification } = useData();
+  const { login, loginWithGoogle, dbError, employees, seedDatabase } = useData();
   const [activeTab, setActiveTab] = useState<'email' | 'google'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,17 +12,31 @@ export const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [copied, setCopied] = useState(false);
 
+  // FIX: Robustly extract string from error to prevent circular structure serialization errors
   const handleAuthError = (err: any) => {
-    // Robust detection of unauthorized domain error
-    const errorCode = err.code || '';
-    const errorMessage = err.message || '';
+    console.error("Authentication Exception Trace:", err);
     
-    if (errorCode === 'auth/unauthorized-domain' || errorMessage.includes('unauthorized-domain')) {
+    const errorCode = err?.code || "";
+    // Ensure we only use string messages
+    let errorMessage = "An unexpected authentication error occurred.";
+    
+    if (typeof err === 'string') {
+        errorMessage = err;
+    } else if (err?.message) {
+        errorMessage = err.message;
+    }
+
+    if (errorCode === 'auth/unauthorized-domain') {
         setUnauthorizedDomain(window.location.hostname);
-        setError("Firebase Domain Restriction: This domain is not authorized to use Google Authentication.");
+        setError("Security Restriction: This domain is not whitelisted in the Cloud Auth console.");
+    } else if (errorMessage.includes("not in the Sree Meditec staff registry")) {
+        setError(errorMessage + " Please check if you used the correct work email.");
+    } else if (errorMessage.includes("is empty")) {
+        setError("System Error: No staff records found. Initialize the database below.");
     } else {
-        setError(err.message || "Failed to authenticate. Please check your credentials.");
+        setError(errorMessage);
     }
   };
 
@@ -52,12 +66,11 @@ export const Login: React.FC = () => {
 
   const handleSeed = async () => {
       setIsSeeding(true);
+      setError(null);
       try {
           await seedDatabase();
-          setError(null);
-          addNotification('System Ready', 'Baseline data generated.', 'success');
       } catch (err: any) {
-          setError("Seed failed: " + err.message);
+          handleAuthError(err);
       } finally {
           setIsSeeding(false);
       }
@@ -76,8 +89,16 @@ export const Login: React.FC = () => {
     }
   };
 
+  const handleCopyDomain = () => {
+    if (!unauthorizedDomain) return;
+    navigator.clipboard.writeText(unauthorizedDomain);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      {/* Background Decor */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-20 dark:opacity-10">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-400 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400 rounded-full blur-[120px]"></div>
@@ -85,7 +106,7 @@ export const Login: React.FC = () => {
 
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 md:p-10 relative z-10 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm ring-4 ring-emerald-500/5">
+          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm ring-4 ring-emerald-500/5 transition-transform hover:scale-105">
              <ShieldCheck size={40} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase leading-none">SREE MEDITEC</h1>
@@ -98,26 +119,26 @@ export const Login: React.FC = () => {
                 <div className="space-y-1">
                     <p className="text-xs font-black text-amber-800 dark:text-amber-200 uppercase tracking-widest">Database Restricted</p>
                     <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 leading-relaxed">
-                        Firestore Security Rules are blocking access. Go to Firebase Console &gt; Firestore &gt; Rules and set them to public read/write for testing.
+                        Firestore Security Rules are blocking access. Go to Firebase Console > Firestore > Rules and set them to public read/write.
                     </p>
                 </div>
             </div>
         )}
 
-        {employees.length === 0 && !dbError && (
-             <div className="mb-8 p-6 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-[2rem] text-center space-y-4 animate-in zoom-in duration-500">
+        {(employees.length === 0 || error?.includes("registry is empty")) && !dbError && (
+             <div className="mb-8 p-6 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-[2rem] text-center space-y-4 animate-in zoom-in duration-500 shadow-sm">
                 <Database size={32} className="mx-auto text-indigo-600" />
                 <div>
-                    <h3 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest">Fresh Instance Detected</h3>
+                    <h3 className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-widest">Workspace Fresh</h3>
                     <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase mt-1 leading-relaxed">
-                        Your Cloud Registry is empty. Click below to initialize demo data and admin accounts.
+                        The employee registry is empty. Initialize the master admin records to begin.
                     </p>
                 </div>
                 <button 
                     onClick={handleSeed}
                     disabled={isSeeding}
-                    className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
-                    {isSeeding ? <RefreshCw size={14} className="animate-spin" /> : <><Plus size={14} /> Initialize Workspace</>}
+                    className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95">
+                    {isSeeding ? <RefreshCw size={14} className="animate-spin" /> : <><Plus size={14} strokeWidth={4} /> Initialize Workspace</>}
                 </button>
              </div>
         )}
@@ -136,57 +157,56 @@ export const Login: React.FC = () => {
         </div>
 
         {error && (
-            <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2">
+            <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2 shadow-sm">
                 <AlertCircle size={18} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <p className="text-xs font-bold text-rose-700 dark:text-rose-300 leading-relaxed">{error}</p>
             </div>
         )}
 
         {unauthorizedDomain && (
-            <div className="mb-6 p-5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-[1.5rem] animate-in zoom-in-95">
-                <h4 className="text-[10px] font-black text-indigo-800 dark:text-indigo-200 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <ShieldAlert size={14} className="text-indigo-600" /> Whitelisting Required
+            <div className="mb-6 p-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-[1.5rem] animate-in zoom-in-95">
+                <h4 className="text-[10px] font-black text-blue-800 dark:text-blue-200 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <ShieldAlert size={14} className="text-blue-600" /> Whitelisting Required
                 </h4>
-                <p className="text-[10px] font-medium text-indigo-700 dark:text-indigo-300 leading-relaxed">
-                    Google Authentication requires this domain to be authorized in your Firebase project.
+                <p className="text-[10px] font-medium text-blue-700 dark:text-blue-300 leading-relaxed">
+                    This domain needs to be authorized in your Firebase Project settings to use Google Auth.
                 </p>
-                <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between">
-                    <code className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">{unauthorizedDomain}</code>
+                <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
+                    <code className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">{unauthorizedDomain}</code>
                     <button 
-                        onClick={() => {
-                            navigator.clipboard.writeText(unauthorizedDomain);
-                            addNotification('Copied', 'Domain hostname copied to clipboard.', 'info');
-                        }}
-                        className="p-1 hover:bg-indigo-50 rounded text-indigo-400"
+                        onClick={handleCopyDomain}
+                        className={`p-1.5 rounded-lg transition-all ${copied ? 'text-emerald-500 bg-emerald-50' : 'text-blue-400 hover:bg-blue-50'}`}
                     >
-                        <Copy size={12} />
+                        {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                     </button>
                 </div>
                 <a 
                     href="https://console.firebase.google.com/project/sreemeditec-app/authentication/settings" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="mt-4 w-full bg-indigo-600 text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20"
+                    className="mt-4 w-full bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
                 >
                     <ExternalLink size={14} /> Open Firebase Settings
                 </a>
-                
+                <p className="mt-3 text-[9px] text-center text-blue-400 font-bold uppercase tracking-widest">
+                    Settings > Authorized Domains > Add Domain
+                </p>
             </div>
         )}
 
         {activeTab === 'email' ? (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gmail Address</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Email</label>
                 <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Mail size={18} className="text-slate-300 group-focus-within:text-medical-500 transition-colors" />
+                        <Mail size={18} className="text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
                     </div>
                     <input 
                         type="email"
                         required
                         placeholder="your.name@gmail.com"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all dark:text-white"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all dark:text-white"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                     />
@@ -197,13 +217,13 @@ export const Login: React.FC = () => {
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
                 <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Lock size={18} className="text-slate-300 group-focus-within:text-medical-500 transition-colors" />
+                        <Lock size={18} className="text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
                     </div>
                     <input 
                         type="password"
                         required
                         placeholder="••••••••"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all dark:text-white"
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all dark:text-white"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                     />
@@ -233,8 +253,8 @@ export const Login: React.FC = () => {
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div>
                 <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-white dark:bg-slate-900 px-4 text-slate-300">Enterprise Policy</span></div>
             </div>
-            <p className="text-[10px] text-center text-slate-400 font-medium leading-relaxed italic">
-                Authorized staff members only. Your identity is verified against the Sree Meditec employee registry.
+            <p className="text-[10px] text-center text-slate-400 font-medium leading-relaxed italic px-4">
+                Staff identity verified against the Sree Meditec employee registry. Use your registered work Gmail account.
             </p>
           </div>
         )}

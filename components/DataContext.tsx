@@ -61,6 +61,8 @@ export interface DataContextType {
   updateInvoice: (id: string, invoice: Invoice) => void;
   recordStockMovement: (movement: StockMovement) => void;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  addTask: (task: Task) => Promise<void>;
+  removeTask: (id: string) => Promise<void>;
   updateTaskRemote: (id: string, updates: Partial<Task>) => void;
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
@@ -107,7 +109,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const handleError = (err: any) => {
         if (err.code === 'permission-denied') {
-            setDbError("Firestore Access Denied: Please set Security Rules to public read/write in Firebase Console.");
+            setDbError("Firestore Access Denied: Security Rules restricted.");
         }
     };
 
@@ -122,12 +124,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (s) => setExpenses(s.docs.map(d => ({ ...d.data(), id: d.id } as ExpenseRecord))), handleError),
       onSnapshot(collection(db, "employees"), (s) => setEmployees(s.docs.map(d => ({ ...d.data(), id: d.id } as Employee))), handleError),
       onSnapshot(query(collection(db, "tasks"), orderBy("dueDate", "asc")), (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id } as Task))), handleError),
-      onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(s.docs.map(d => ({ ...d.data(), id: d.id } as AppNotification))), handleError),
+      onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(s.docs.map(d => {
+          const data = d.data();
+          return { ...data, id: d.id, createdAt: data.createdAt?.toDate?.()?.toISOString() } as AppNotification;
+      })), handleError),
       onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(s.docs.map(d => ({ ...d.data(), id: d.id } as PointHistory))), handleError)
     ];
 
     return () => unsubscribes.forEach(u => u());
   }, []);
+
+  // Restore session on load
+  useEffect(() => {
+    const saved = localStorage.getItem('sreemeditec_auth_user');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            // Search in the live employees array to get the full permissions etc.
+            const fullEmp = employees.find(e => e.id === parsed.id);
+            if (fullEmp) {
+                setCurrentUser(fullEmp);
+                setIsAuthenticated(true);
+            }
+        } catch (e) {
+            console.error("Failed to restore session", e);
+            localStorage.removeItem('sreemeditec_auth_user');
+        }
+    }
+  }, [employees]);
 
   useEffect(() => {
     if (currentUser) {
@@ -159,21 +183,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       initialLeads.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
 
       await batch.commit();
-      addNotification('System Ready', 'Cloud registry has been initialized with baseline data.', 'success');
+      addNotification('System Ready', 'Workspace registry initialized.', 'success');
+  };
+
+  const setAuthSession = (employee: Employee) => {
+    // CRITICAL FIX: Only store plain primitive fields to prevent circular JSON errors.
+    // Avoid storing the whole 'employee' object which may contain internal Firebase pointers.
+    const sessionData = {
+        id: String(employee.id),
+        name: String(employee.name),
+        email: String(employee.email),
+        role: String(employee.role),
+        department: String(employee.department)
+    };
+    
+    setCurrentUser({ ...employee }); // Shallow clone for state
+    setIsAuthenticated(true);
+    localStorage.setItem('sreemeditec_auth_user', JSON.stringify(sessionData));
   };
 
   const login = async (email: string, password?: string) => {
+    if (employees.length === 0) {
+        throw new Error("Local registry is empty. Please click 'Initialize Workspace' first.");
+    }
+    
     const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-    if (!employee) throw new Error("Staff ID not recognized. Run Workspace Initialization if this is a fresh setup.");
-    if (!employee.isLoginEnabled) throw new Error("Account locked by HR.");
+    if (!employee) {
+        throw new Error(`Auth Error: '${email}' is not registered in the Sree Meditec database.`);
+    }
+    
+    if (!employee.isLoginEnabled) {
+        throw new Error("Account Locked: Please contact the system administrator.");
+    }
 
     if (employee.password === password) {
-        setCurrentUser(employee);
-        setIsAuthenticated(true);
-        localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
+        setAuthSession(employee);
         return true;
     } else {
-        throw new Error("Authentication failed: Invalid key.");
+        throw new Error("Security Key Incorrect: Please verify your credentials.");
     }
   };
 
@@ -182,32 +229,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
       
-      if (!email) throw new Error("Google account has no email associated.");
+      if (!email) throw new Error("Google profile missing email access.");
       
+      if (employees.length === 0) {
+        await signOut(auth);
+        throw new Error("Local registry is empty. Please 'Initialize Workspace' before using Google login.");
+      }
+
       const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
       
       if (!employee) {
         await signOut(auth);
-        throw new Error(`Unauthorized access: The account ${email} is not in the Sree Meditec employee registry. Contact Administration.`);
+        throw new Error(`Unauthorized: '${email}' is not in the Sree Meditec staff registry.`);
       }
       
       if (!employee.isLoginEnabled) {
         await signOut(auth);
-        throw new Error("Your account has been restricted by HR.");
+        throw new Error("Account restricted by HR policy.");
       }
 
-      setCurrentUser(employee);
-      setIsAuthenticated(true);
-      localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ email: employee.email }));
+      setAuthSession(employee);
       return true;
     } catch (err: any) {
-      console.error("Google Auth Error Detail:", err);
-      throw err; // Propagate for specific error handling in Login component
+      console.error("Google Auth Procedure Failed:", err);
+      // Clean up the error to prevent circular structure issues in the UI
+      const cleanError = new Error(err?.message || "Google authentication failed.");
+      throw cleanError;
     }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+        await signOut(auth);
+    } catch (e) {}
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('sreemeditec_auth_user');
@@ -234,11 +288,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
   const updateEmployee = async (id: string, updates: Partial<Employee>) => await updateDoc(doc(db, "employees", id), updates);
   const removeEmployee = async (id: string) => await deleteDoc(doc(db, "employees", id));
+  
+  const addTask = async (task: Task) => await setDoc(doc(db, "tasks", task.id), task);
+  const removeTask = async (id: string) => await deleteDoc(doc(db, "tasks", id));
   const updateTaskRemote = async (id: string, updates: Partial<Task>) => await updateDoc(doc(db, "tasks", id), updates);
 
   const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
-    const newNotif = { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() };
-    await addDoc(collection(db, "notifications"), newNotif);
+    const notifPayload = { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() };
+    await addDoc(collection(db, "notifications"), notifPayload);
   };
 
   const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
@@ -246,8 +303,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addPoints = async (amount: number, category: PointHistory['category'], description: string) => {
       if (!currentUser) return;
-      const newHistory = { date: new Date().toISOString().split('T')[0], points: amount, category, description, userId: currentUser.id, createdAt: serverTimestamp() };
-      await addDoc(collection(db, "pointHistory"), newHistory);
+      const pointPayload = { date: new Date().toISOString().split('T')[0], points: amount, category, description, userId: currentUser.id, createdAt: serverTimestamp() };
+      await addDoc(collection(db, "pointHistory"), pointPayload);
   };
 
   const updatePrizePool = (amount: number) => setPrizePool(amount);
@@ -260,7 +317,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
         addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
-        setTasks, updateTaskRemote,
+        setTasks, addTask, removeTask, updateTaskRemote,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
         prizePool, updatePrizePool
     }}>
