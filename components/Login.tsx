@@ -118,9 +118,7 @@ export const Login: React.FC = () => {
                 <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                     <p className="text-xs font-black text-amber-800 dark:text-amber-200 uppercase tracking-widest">Database Restricted</p>
-                    <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300 leading-relaxed">
-                        Firestore Security Rules are blocking access. Go to Firebase Console > Firestore > Rules and set them to public read/write.
-                    </p>
+                    
                 </div>
             </div>
         )}
