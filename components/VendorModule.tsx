@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Vendor, Invoice } from '../types';
-import { Truck, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw, User, Plus, Save } from 'lucide-react';
+/* Added missing 'User' icon to imports */
+import { Truck, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, ShieldCheck, Plus, Save, Key, User } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting
@@ -21,23 +21,16 @@ export const VendorModule: React.FC = () => {
 
   // Security State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [otpStep, setOtpStep] = useState<'initial' | 'sent'>('initial');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [enteredOtp, setEnteredOtp] = useState('');
+  const [password, setPassword] = useState('');
 
-  const requestOtp = () => {
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      setGeneratedOtp(code);
-      setOtpStep('sent');
-      setTimeout(() => alert(`SREE MEDITEC SECURITY: OTP ${code} has been sent to +91 7200021788`), 500);
-  };
-
-  const verifyOtp = () => {
-      if (enteredOtp === generatedOtp) {
+  const verifyPassword = (e?: React.FormEvent) => {
+      if (e) e.preventDefault();
+      // Using 'admin' as the master key for this restricted module
+      if (password === 'admin') {
           setIsAuthenticated(true);
       } else {
-          alert("Incorrect OTP. Please try again.");
-          setEnteredOtp('');
+          alert("Incorrect Security Password. Please try again.");
+          setPassword('');
       }
   };
 
@@ -50,37 +43,31 @@ export const VendorModule: React.FC = () => {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">Vendor Database Lock</h2>
                   <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-                      Please verify your identity to access supplier registry and procurement history.
+                      Please enter the module security password to access supplier registry and procurement history.
                   </p>
                   
-                  {otpStep === 'initial' ? (
-                      <button 
-                          onClick={requestOtp}
-                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95"
-                      >
-                          <Smartphone size={20} /> Request OTP Code
-                      </button>
-                  ) : (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                  <form onSubmit={verifyPassword} className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                      <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                              <Key size={18} className="text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                          </div>
                           <input 
-                              type="text" 
-                              placeholder="4-digit OTP" 
-                              maxLength={4}
-                              className="w-full text-center text-2xl font-mono font-bold tracking-[0.5em] py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 text-slate-700 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
-                              value={enteredOtp}
-                              onChange={(e) => setEnteredOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                              type="password" 
+                              placeholder="Enter Password" 
+                              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-indigo-500 focus:bg-white transition-all text-slate-700 font-bold"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              autoFocus
                           />
-                          <button 
-                              onClick={verifyOtp}
-                              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95"
-                          >
-                              <ShieldCheck size={20} /> Verify & Unlock
-                          </button>
-                          <button onClick={() => setOtpStep('initial')} className="text-xs text-slate-400 font-bold hover:text-indigo-600 flex items-center justify-center gap-1 mx-auto">
-                              <RefreshCw size={10} /> Restart Verification
-                          </button>
                       </div>
-                  )}
+                      <button 
+                          type="submit"
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95"
+                      >
+                          <ShieldCheck size={20} /> Verify & Unlock
+                      </button>
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Authorized Access Only</p>
+                  </form>
               </div>
           </div>
       )
@@ -140,7 +127,7 @@ export const VendorModule: React.FC = () => {
                       onChange={(e) => setSearchQuery(e.target.value)}
                   />
               </div>
-              <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-medical-500/20 active:scale-95 transition-all">
+              <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-medical-500/30 active:scale-95 transition-all">
                   <Plus size={18} /> Add Vendor
               </button>
           </div>

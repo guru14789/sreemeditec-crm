@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Client, Invoice } from '../types';
-import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Smartphone, ShieldCheck, RefreshCw, Plus, Trash2, Save } from 'lucide-react';
+import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, ShieldCheck, Plus, Trash2, Save, Key } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting
@@ -23,26 +23,72 @@ export const ClientModule: React.FC = () => {
 
   // Security State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [otpStep, setOtpStep] = useState<'initial' | 'sent'>('initial');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [enteredOtp, setEnteredOtp] = useState('');
+  const [password, setPassword] = useState('');
 
-  const requestOtp = () => {
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      setGeneratedOtp(code);
-      setOtpStep('sent');
-      // Simulate SMS delay to specific number
-      setTimeout(() => alert(`SREE MEDITEC SECURITY: OTP ${code} has been sent to +91 7200021788`), 500);
-  };
-
-  const verifyOtp = () => {
-      if (enteredOtp === generatedOtp) {
+  const verifyPassword = (e?: React.FormEvent) => {
+      if (e) e.preventDefault();
+      // Using 'admin' as the master key for this restricted module
+      if (password === 'admin') {
           setIsAuthenticated(true);
       } else {
-          alert("Incorrect OTP. Please try again.");
-          setEnteredOtp('');
+          alert("Incorrect Security Password. Please try again.");
+          setPassword('');
       }
   };
+
+  // Lock Screen Render
+  if (!isAuthenticated) {
+      return (
+          <div className="h-full flex items-center justify-center bg-slate-50 p-4">
+              <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center animate-in fade-in zoom-in-95 duration-300">
+                  <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
+                      <Lock size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Restricted Access</h2>
+                  <p className="text-slate-500 mb-8 text-sm leading-relaxed">
+                      The Client Database contains sensitive information. 
+                      Please enter the module security password to proceed.
+                  </p>
+                  
+                  <form onSubmit={verifyPassword} className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                      <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                              <Key size={18} className="text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                          </div>
+                          <input 
+                              type="password" 
+                              placeholder="Security Password" 
+                              className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500 focus:bg-white transition-all text-slate-700 font-bold"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              autoFocus
+                          />
+                      </div>
+                      <button 
+                          type="submit"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 active:scale-95"
+                      >
+                          <ShieldCheck size={20} /> Verify & Access
+                      </button>
+                      <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Master Clearance Required</p>
+                  </form>
+              </div>
+          </div>
+      )
+  }
+
+  // Calculate total order value for each client
+  const getClientTotalRevenue = (clientName: string) => {
+    return invoices
+      .filter(inv => inv.customerName === clientName)
+      .reduce((sum, inv) => sum + inv.grandTotal, 0);
+  };
+
+  const filteredClients = clients.filter(c => 
+    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (c.hospital && c.hospital.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    c.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSaveClient = () => {
       if (!newClientData.name || !newClientData.address) {
@@ -73,73 +119,6 @@ export const ClientModule: React.FC = () => {
           addNotification('Registry Updated', `Client record for "${name}" has been removed.`, 'warning');
       }
   };
-
-  // Lock Screen Render
-  if (!isAuthenticated) {
-      return (
-          <div className="h-full flex items-center justify-center bg-slate-50 p-4">
-              <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center animate-in fade-in zoom-in-95 duration-300">
-                  <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
-                      <Lock size={40} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-800 mb-2">Restricted Access</h2>
-                  <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-                      The Client Database contains sensitive information. 
-                      {otpStep === 'sent' 
-                        ? <span className="block mt-1 font-bold text-slate-700">Enter the OTP sent to +91 7200021788</span>
-                        : "Please verify your identity via OTP sent to your registered number."}
-                  </p>
-                  
-                  {otpStep === 'initial' ? (
-                      <button 
-                          onClick={requestOtp}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 active:scale-95"
-                      >
-                          <Smartphone size={20} /> Send OTP to +91 7200021788
-                      </button>
-                  ) : (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                          <div className="relative">
-                              <input 
-                                  type="text" 
-                                  placeholder="Enter 4-digit OTP" 
-                                  maxLength={4}
-                                  className="w-full text-center text-2xl font-mono font-bold tracking-[0.5em] py-3 border-2 border-slate-200 rounded-xl outline-none focus:border-blue-500 transition-colors text-slate-700 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
-                                  value={enteredOtp}
-                                  onChange={(e) => setEnteredOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                              />
-                          </div>
-                          <button 
-                              onClick={verifyOtp}
-                              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95"
-                          >
-                              <ShieldCheck size={20} /> Verify & Access
-                          </button>
-                          <button 
-                              onClick={() => { setOtpStep('initial'); setEnteredOtp(''); }}
-                              className="text-xs text-slate-400 font-bold hover:text-blue-600 underline transition-colors flex items-center justify-center gap-1 mx-auto"
-                          >
-                              <RefreshCw size={10} /> Resend OTP
-                          </button>
-                      </div>
-                  )}
-              </div>
-          </div>
-      )
-  }
-
-  // Calculate total order value for each client
-  const getClientTotalRevenue = (clientName: string) => {
-    return invoices
-      .filter(inv => inv.customerName === clientName)
-      .reduce((sum, inv) => sum + inv.grandTotal, 0);
-  };
-
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.hospital && c.hospital.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    c.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">

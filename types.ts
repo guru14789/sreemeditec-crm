@@ -153,6 +153,7 @@ export interface ServiceReport {
   itemsUsed?: ServiceReportItem[];
   customerRemarks?: string;
   documentType?: 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
+  createdBy?: string;
 }
 
 export interface AMCReminder {
@@ -334,6 +335,7 @@ export interface Invoice {
   relatedQuotationId?: string;
   bankAndBranch?: string;
   accountNo?: string;
+  createdBy?: string;
 }
 
 export interface ChallanItem {
@@ -354,6 +356,7 @@ export interface DeliveryChallan {
   items: ChallanItem[];
   status: 'Dispatched' | 'Delivered' | 'Returned' | 'Draft';
   referenceOrder?: string;
+  createdBy?: string;
 }
 
 export interface ExpenseRecord {

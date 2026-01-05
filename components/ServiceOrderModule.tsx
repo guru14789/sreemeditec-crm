@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem } from '../types';
 import { 
@@ -30,7 +31,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const ServiceOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, addNotification } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -305,7 +306,8 @@ export const ServiceOrderModule: React.FC = () => {
             taxTotal: totals.taxTotal,
             grandTotal: totals.grandTotal,
             status: status === 'Draft' ? 'Draft' : 'Pending',
-            documentType: 'ServiceOrder'
+            documentType: 'ServiceOrder',
+            createdBy: currentUser?.name || 'System'
         };
         if (editingId) updateInvoice(editingId, finalData);
         else addInvoice(finalData);
@@ -470,9 +472,37 @@ export const ServiceOrderModule: React.FC = () => {
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[10px] text-slate-500 border-b">
-                                <tr><th className="px-6 py-4">Order #</th><th className="px-6 py-4">Customer</th><th className="px-6 py-4 text-right">Grand Total</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
+                                <tr>
+                                    <th className="px-6 py-4">Order #</th>
+                                    <th className="px-6 py-4">Customer</th>
+                                    <th className="px-6 py-4">Author</th>
+                                    <th className="px-6 py-4 text-right">Grand Total</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 text-right">Action</th>
+                                </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">{invoices.filter(i => i.documentType === 'ServiceOrder').map(inv => (<tr key={inv.id} className="hover:bg-slate-50 transition-colors group"><td className="px-6 py-4 font-black">{inv.invoiceNumber}</td><td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td><td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td><td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td><td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Edit size={18}/></button><button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-emerald-500"><Download size={18}/></button></div></td></tr>))}</tbody>
+                            <tbody className="divide-y divide-slate-100">
+                                {invoices.filter(i => i.documentType === 'ServiceOrder').map(inv => (
+                                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
+                                        <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black uppercase text-slate-500">{inv.createdBy?.charAt(0) || 'S'}</div>
+                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px]">{inv.createdBy || 'System'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Edit size={18}/></button>
+                                                <button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-emerald-500"><Download size={18}/></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -512,119 +542,4 @@ export const ServiceOrderModule: React.FC = () => {
 
                                 <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Customer Details</h3>
-                                    <input type="text" list="client-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5" value={order.customerName || ''} onChange={e => handleClientSelect(e.target.value)} placeholder="Customer Name *" />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Billing Address" />
-                                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Delivery Address" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold" placeholder="Customer GSTIN" value={order.customerGstin} onChange={e => setOrder({...order, customerGstin: e.target.value})} />
-                                        <input type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold" placeholder="Our GSTIN" value={order.bankDetails} onChange={e => setOrder({...order, bankDetails: e.target.value})} />
-                                    </div>
-                                </section>
-
-                                <section className="space-y-4">
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Order Details</h3><div className="flex gap-2"><button onClick={() => handleAddItem()} className="text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Manual Row</button><button onClick={() => setBuilderTab('catalog')} className="text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add Catalog</button></div></div>
-                                    <div className="space-y-4">{order.items?.map((item) => (
-                                        <div key={item.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl relative group">
-                                            <button onClick={() => setOrder({...order, items: order.items?.filter(i => i.id !== item.id)})} className="absolute top-2 right-2 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
-                                            <div className="grid grid-cols-12 gap-3">
-                                                <div className="col-span-12 md:col-span-8"><input type="text" list="prod-list" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold" placeholder="Description" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} /></div>
-                                                <div className="col-span-4 md:col-span-1"><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-center" placeholder="Qty" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
-                                                <div className="col-span-4 md:col-span-2"><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-right" placeholder="Rate" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
-                                                <div className="col-span-4 md:col-span-1"><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-center" placeholder="GST %" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
-                                            </div>
-                                        </div>
-                                    ))}</div>
-                                </section>
-
-                                <section className="space-y-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
-                                    <h3 className="text-xs font-black text-medical-600 uppercase tracking-widest flex items-center gap-2">
-                                        <CreditCard size={16} /> Financial & Payment Details
-                                    </h3>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bank and Branch Name</label>
-                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.bankAndBranch} onChange={e => setOrder({...order, bankAndBranch: e.target.value})} placeholder="e.g. ICICI Bank, Branch..." />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mode of Payment</label>
-                                            <select className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none" value={order.paymentMethod} onChange={e => setOrder({...order, paymentMethod: e.target.value as any})}>
-                                                <option value="Bank Transfer">Bank Transfer</option>
-                                                <option value="NEFT">NEFT</option>
-                                                <option value="RTGS">RTGS</option>
-                                                <option value="Cheque">Cheque</option>
-                                                <option value="Cash">Cash</option>
-                                                <option value="UPI">UPI</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Advance Amount (₹)</label>
-                                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.advanceAmount} onChange={e => setOrder({...order, advanceAmount: Number(e.target.value)})} placeholder="0.00" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment Date</label>
-                                            <input type="date" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.advanceDate} onChange={e => setOrder({...order, advanceDate: e.target.value})} />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-200">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Discount / Buyback (₹)</label>
-                                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.discount} onChange={e => setOrder({...order, discount: Number(e.target.value)})} placeholder="0.00" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Delivery Time</label>
-                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.deliveryTime} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. As per schedule" />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Special Notes / Terms</label>
-                                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Service and payment terms details..." />
-                                    </div>
-                                </section>
-
-                                <div className="flex flex-col sm:flex-row gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30">
-                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button>
-                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-3 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
-                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="w-full sm:flex-[2] py-3 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-lg active:scale-95 transition-all">Finalize & Download</button>
-                                </div>
-                            </div>
-                        )}
-                        {/* ... preview and catalog remain unchanged ... */}
-                        {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50">
-                                <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.55] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
-                                    {renderSOTemplate(order, totals)}
-                                </div>
-                            </div>
-                        )}
-                        {builderTab === 'catalog' && (
-                            <div className="h-full bg-white flex flex-col p-6 overflow-hidden animate-in fade-in">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-black text-slate-800 uppercase tracking-tight">Select Spares</h3>
-                                    <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filter..." className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none w-48" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} /></div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {filteredProducts.map(prod => (
-                                        <div key={prod.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group" onClick={() => handleAddItem(prod)}>
-                                            <div className="flex-1"><h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{prod.price.toLocaleString()} • {prod.sku}</p></div>
-                                            <div className="ml-4 p-1.5 bg-white rounded-lg border border-slate-100 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-sm"><Plus size={16} /></div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-            <datalist id="client-list">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
-            <datalist id="prod-list">{products.filter(p => p.category !== 'Equipment').map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
-        </div>
-    );
-};
+                                    <input type="text"

@@ -108,27 +108,59 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const handleError = (err: any) => {
-        if (err.code === 'permission-denied') {
+        const msg = typeof err === 'string' ? err : (err?.message || "Database connection issue");
+        console.warn("Firestore Listener Warning:", msg);
+        if (err?.code === 'permission-denied') {
             setDbError("Firestore Access Denied: Security Rules restricted.");
         }
     };
 
+    /**
+     * Sanitizes Firestore document data to ensure it's a plain serializable object.
+     * This prevents circular structure errors when components try to stringify state.
+     */
+    const sanitizeData = (data: any): any => {
+      if (data === null || typeof data !== 'object') return data;
+      
+      // Handle Firebase Timestamp
+      if (data.seconds !== undefined && data.nanoseconds !== undefined) {
+        return new Date(data.seconds * 1000).toISOString();
+      }
+
+      // Handle Arrays
+      if (Array.isArray(data)) {
+        return data.map(sanitizeData);
+      }
+
+      // Handle Objects (exclude non-POJO classes)
+      const plain: any = {};
+      Object.keys(data).forEach(key => {
+        const value = data[key];
+        // Skip common internal fields or specific complex objects if necessary
+        if (typeof value === 'function') return;
+        plain[key] = sanitizeData(value);
+      });
+      return plain;
+    };
+
+    const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => ({
+        id: d.id,
+        ...sanitizeData(d.data())
+    }));
+
     const unsubscribes = [
-      onSnapshot(collection(db, "clients"), (s) => setClients(s.docs.map(d => ({ ...d.data(), id: d.id } as Client))), handleError),
-      onSnapshot(collection(db, "vendors"), (s) => setVendors(s.docs.map(d => ({ ...d.data(), id: d.id } as Vendor))), handleError),
-      onSnapshot(collection(db, "products"), (s) => setProducts(s.docs.map(d => ({ ...d.data(), id: d.id } as Product))), handleError),
-      onSnapshot(collection(db, "leads"), (s) => setLeads(s.docs.map(d => ({ ...d.data(), id: d.id } as Lead))), handleError),
-      onSnapshot(collection(db, "serviceTickets"), (s) => setServiceTickets(s.docs.map(d => ({ ...d.data(), id: d.id } as ServiceTicket))), handleError),
-      onSnapshot(query(collection(db, "invoices"), orderBy("date", "desc")), (s) => setInvoices(s.docs.map(d => ({ ...d.data(), id: d.id } as Invoice))), handleError),
-      onSnapshot(query(collection(db, "stockMovements"), orderBy("date", "desc"), limit(50)), (s) => setStockMovements(s.docs.map(d => ({ ...d.data(), id: d.id } as StockMovement))), handleError),
-      onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (s) => setExpenses(s.docs.map(d => ({ ...d.data(), id: d.id } as ExpenseRecord))), handleError),
-      onSnapshot(collection(db, "employees"), (s) => setEmployees(s.docs.map(d => ({ ...d.data(), id: d.id } as Employee))), handleError),
-      onSnapshot(query(collection(db, "tasks"), orderBy("dueDate", "asc")), (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id } as Task))), handleError),
-      onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(s.docs.map(d => {
-          const data = d.data();
-          return { ...data, id: d.id, createdAt: data.createdAt?.toDate?.()?.toISOString() } as AppNotification;
-      })), handleError),
-      onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(s.docs.map(d => ({ ...d.data(), id: d.id } as PointHistory))), handleError)
+      onSnapshot(collection(db, "clients"), (s) => setClients(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "vendors"), (s) => setVendors(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "products"), (s) => setProducts(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "leads"), (s) => setLeads(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "serviceTickets"), (s) => setServiceTickets(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "invoices"), orderBy("date", "desc")), (s) => setInvoices(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "stockMovements"), orderBy("date", "desc"), limit(50)), (s) => setStockMovements(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "expenses"), orderBy("date", "desc")), (s) => setExpenses(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "employees"), (s) => setEmployees(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "tasks"), orderBy("dueDate", "asc")), (s) => setTasks(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(mapDocs(s)), handleError),
+      onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(mapDocs(s)), handleError)
     ];
 
     return () => unsubscribes.forEach(u => u());
@@ -140,14 +172,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Search in the live employees array to get the full permissions etc.
             const fullEmp = employees.find(e => e.id === parsed.id);
             if (fullEmp) {
                 setCurrentUser(fullEmp);
                 setIsAuthenticated(true);
             }
         } catch (e) {
-            console.error("Failed to restore session", e);
             localStorage.removeItem('sreemeditec_auth_user');
         }
     }
@@ -187,17 +217,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const setAuthSession = (employee: Employee) => {
-    // CRITICAL FIX: Only store plain primitive fields to prevent circular JSON errors.
-    // Avoid storing the whole 'employee' object which may contain internal Firebase pointers.
     const sessionData = {
-        id: String(employee.id),
-        name: String(employee.name),
-        email: String(employee.email),
-        role: String(employee.role),
-        department: String(employee.department)
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role,
+        department: employee.department
     };
-    
-    setCurrentUser({ ...employee }); // Shallow clone for state
+    setCurrentUser(employee);
     setIsAuthenticated(true);
     localStorage.setItem('sreemeditec_auth_user', JSON.stringify(sessionData));
   };
@@ -228,33 +255,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
-      
       if (!email) throw new Error("Google profile missing email access.");
-      
       if (employees.length === 0) {
         await signOut(auth);
         throw new Error("Local registry is empty. Please 'Initialize Workspace' before using Google login.");
       }
-
       const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-      
       if (!employee) {
         await signOut(auth);
         throw new Error(`Unauthorized: '${email}' is not in the Sree Meditec staff registry.`);
       }
-      
       if (!employee.isLoginEnabled) {
         await signOut(auth);
         throw new Error("Account restricted by HR policy.");
       }
-
       setAuthSession(employee);
       return true;
     } catch (err: any) {
-      console.error("Google Auth Procedure Failed:", err);
-      // Clean up the error to prevent circular structure issues in the UI
-      const cleanError = new Error(err?.message || "Google authentication failed.");
-      throw cleanError;
+      const cleanMsg = err?.message || "Google authentication failed.";
+      throw new Error(cleanMsg);
     }
   };
 

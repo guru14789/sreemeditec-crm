@@ -16,17 +16,18 @@ export const Login: React.FC = () => {
 
   // FIX: Robustly extract string from error to prevent circular structure serialization errors
   const handleAuthError = (err: any) => {
-    console.error("Authentication Exception Trace:", err);
-    
-    const errorCode = err?.code || "";
-    // Ensure we only use string messages
+    // Ensure we only use string messages for state
     let errorMessage = "An unexpected authentication error occurred.";
     
     if (typeof err === 'string') {
         errorMessage = err;
     } else if (err?.message) {
-        errorMessage = err.message;
+        errorMessage = String(err.message);
+    } else if (err?.code) {
+        errorMessage = `Error Code: ${err.code}`;
     }
+
+    const errorCode = err?.code || "";
 
     if (errorCode === 'auth/unauthorized-domain') {
         setUnauthorizedDomain(window.location.hostname);
@@ -38,6 +39,8 @@ export const Login: React.FC = () => {
     } else {
         setError(errorMessage);
     }
+    
+    console.warn("Authentication Exception:", errorMessage);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,7 +121,7 @@ export const Login: React.FC = () => {
                 <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                     <p className="text-xs font-black text-amber-800 dark:text-amber-200 uppercase tracking-widest">Database Restricted</p>
-                    
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase">Backend connection warning. Syncing in offline mode.</p>
                 </div>
             </div>
         )}

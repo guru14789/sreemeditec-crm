@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, Product } from '../types';
 import { 
@@ -32,7 +33,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const SupplierPOModule: React.FC = () => {
-    const { vendors, products, invoices, addInvoice, updateInvoice, addVendor, addNotification } = useData();
+    const { vendors, products, invoices, addInvoice, updateInvoice, addVendor, addNotification, currentUser } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,7 +72,6 @@ export const SupplierPOModule: React.FC = () => {
         }
     }, [viewState, editingId, invoices]);
 
-    // Intelligent Spares Filtering: Prioritize items from the selected vendor
     const filteredSpares = useMemo(() => {
         const query = catalogSearch.toLowerCase();
         let list = products.filter(p => 
@@ -285,7 +285,8 @@ export const SupplierPOModule: React.FC = () => {
             taxTotal: totals.taxTotal,
             grandTotal: totals.grandTotal,
             status: status === 'Draft' ? 'Draft' : 'Pending',
-            documentType: 'SupplierPO'
+            documentType: 'SupplierPO',
+            createdBy: currentUser?.name || 'System'
         };
         if (editingId) updateInvoice(editingId, finalData);
         else addInvoice(finalData);
@@ -396,13 +397,26 @@ export const SupplierPOModule: React.FC = () => {
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[10px] text-slate-500 border-b">
-                                <tr><th className="px-6 py-4">PO #</th><th className="px-6 py-4">Vendor</th><th className="px-6 py-4 text-right">Value</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
+                                <tr>
+                                    <th className="px-6 py-4">PO #</th>
+                                    <th className="px-6 py-4">Vendor</th>
+                                    <th className="px-6 py-4">Author</th>
+                                    <th className="px-6 py-4 text-right">Value</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 text-right">Action</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {invoices.filter(i => i.documentType === 'SupplierPO').map(inv => (
                                     <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black uppercase text-slate-500">{inv.createdBy?.charAt(0) || 'S'}</div>
+                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px]">{inv.createdBy || 'System'}</span>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
@@ -419,7 +433,7 @@ export const SupplierPOModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
                         <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Details</button>
                         <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
                         <button onClick={() => setBuilderTab('spares')} className={`flex-1 min-w-[120px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'spares' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Spares Store</button>
@@ -505,7 +519,6 @@ export const SupplierPOModule: React.FC = () => {
                                 </div>
                             </div>
                         )}
-                        {/* ... preview and spares tabs remain unchanged ... */}
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50"><div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.55] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>{renderPOTemplate(order, totals)}</div></div>
                         )}
