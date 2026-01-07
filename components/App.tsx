@@ -87,13 +87,13 @@ export const App: React.FC = () => {
   }
 
   // --- TWO-ROLE PERMISSION ENGINE ---
-  // 1. SYSTEM_ADMIN: Full bypass for everything
-  // 2. SYSTEM_STAFF: Strictly restricted to permissions array
-  const isGlobalAdmin = currentUser.role === 'SYSTEM_ADMIN';
-  const isAdminView = currentUser.department === 'Administration';
+  // 1. SYSTEM_ADMIN: Full access bypass
+  // 2. SYSTEM_STAFF: Restricted to permissions array
+  const isAdmin = currentUser.role === 'SYSTEM_ADMIN';
+  const userRoleString = isAdmin ? 'Admin' : 'Employee';
 
   const hasAccess = (tab: TabView) => {
-    if (isGlobalAdmin) return true;
+    if (isAdmin) return true;
     return currentUser.permissions?.includes(tab) || false;
   };
 
@@ -164,7 +164,7 @@ export const App: React.FC = () => {
 
     switch (activeTab) {
       case TabView.DASHBOARD: 
-        return isAdminView ? <Dashboard /> : <EmployeeDashboard currentUser={currentUser.name} tasks={tasks} />;
+        return isAdmin ? <Dashboard /> : <EmployeeDashboard currentUser={currentUser.name} tasks={tasks} />;
       case TabView.LEADS: return <LeadsModule />;
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
@@ -173,18 +173,18 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser.name} userRole={isAdminView ? 'Admin' : 'Employee'} />;
-      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUser.name} isAdmin={isAdminView} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser.name} userRole={userRoleString} />;
+      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUser.name} isAdmin={isAdmin} />;
       case TabView.HR: return <HRModule />;
-      case TabView.PROFILE: return <ProfileModule userRole={isAdminView ? 'Admin' : 'Employee'} setUserRole={() => {}} currentUser={currentUser.name} />;
+      case TabView.PROFILE: return <ProfileModule userRole={userRoleString} setUserRole={() => {}} currentUser={currentUser.name} />;
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
-      case TabView.EXPENSES: return <ExpenseModule userRole={isAdminView ? 'Admin' : 'Employee'} currentUser={currentUser.name} />;
-      case TabView.PERFORMANCE: return <PerformanceModule userRole={isAdminView ? 'Admin' : 'Employee'} />;
+      case TabView.EXPENSES: return <ExpenseModule userRole={userRoleString} currentUser={currentUser.name} />;
+      case TabView.PERFORMANCE: return <PerformanceModule userRole={userRoleString} />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
-      default: return isAdminView ? <Dashboard /> : <EmployeeDashboard currentUser={currentUser.name} tasks={tasks} />;
+      default: return isAdmin ? <Dashboard /> : <EmployeeDashboard currentUser={currentUser.name} tasks={tasks} />;
     }
   };
 
