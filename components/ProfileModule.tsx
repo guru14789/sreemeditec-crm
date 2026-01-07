@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, Employee } from '../types';
 import { 
   User, Mail, Phone, MapPin, Shield, Bell, Save, Camera, Edit,
   Building2, Globe, Moon, Sun, Monitor, Database, Download, 
@@ -84,51 +84,63 @@ const sanitizeForExport = (obj: any): any => {
     }
 };
 
-export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserRole, currentUser }) => {
-    const { addNotification, clients, products, invoices, stockMovements, expenses, employees, pointHistory } = useData();
+export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserRole }) => {
+    const { 
+        currentUser: authUser, 
+        updateEmployee, 
+        addNotification, 
+        clients, 
+        products, 
+        invoices, 
+        stockMovements, 
+        expenses, 
+        employees, 
+        pointHistory 
+    } = useData();
     
     const [activeTab, setActiveTab] = useState<'general' | 'security' | 'preferences' | 'organization' | 'data'>('general');
     const [isEditing, setIsEditing] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
 
-    const getInitialProfile = useMemo((): UserProfile => ({
-        name: currentUser,
-        role: userRole === 'Admin' ? 'General Manager' : 'Senior Technician',
-        email: userRole === 'Admin' ? 'admin@sreemeditec.com' : 'rahul.s@sreemeditec.com',
-        phone: '+91 98765 43210',
-        department: userRole === 'Admin' ? 'Administration' : 'Field Operations',
-        location: 'Chennai, India',
-        bio: 'Specialist in medical diagnostics.',
+    // Map registry employee to user profile interface
+    const mapEmployeeToProfile = (emp: Employee | null): UserProfile => ({
+        name: emp?.name || 'Guest User',
+        role: emp?.role.replace('_', ' ') || 'Unassigned',
+        email: emp?.email || '',
+        phone: emp?.phone || '',
+        department: emp?.department || 'General',
+        location: 'Not Specified', // These aren't in the Employee registry yet
+        bio: 'Team Member at Sree Meditec.',
         notifications: { email: true, sms: true, push: false }
-    }), [currentUser, userRole]);
+    });
 
-    const [baseProfile, setBaseProfile] = useState<UserProfile>(getInitialProfile);
-    const [basePrefs, setBasePrefs] = useState({
+    const [profile, setProfile] = useState<UserProfile>(mapEmployeeToProfile(authUser));
+    const [appPrefs, setAppPrefs] = useState({
         theme: localStorage.getItem('crm-theme') || 'light',
         language: 'English',
         timezone: '(GMT+05:30) Chennai'
     });
-    const [baseMfa, setBaseMfa] = useState(false);
-
-    const [profile, setProfile] = useState<UserProfile>(baseProfile);
-    const [appPrefs, setAppPrefs] = useState(basePrefs);
-    const [mfaEnabled, setMfaEnabled] = useState(baseMfa);
+    const [mfaEnabled, setMfaEnabled] = useState(false);
     const [passwordData, setPasswordData] = useState({ current: '', next: '', confirm: '' });
 
+    // Sync profile state when registry data changes (e.g., after login or update)
+    useEffect(() => {
+        if (authUser) {
+            setProfile(mapEmployeeToProfile(authUser));
+        }
+    }, [authUser]);
+
     const [sessions, setSessions] = useState<ActiveSession[]>([
-        { id: '1', device: 'MacBook Pro', browser: 'Chrome', location: 'Chennai', ip: '103.22.41.88', lastActive: 'Now', isCurrent: true, type: 'desktop' },
-        { id: '2', device: 'iPhone 15', browser: 'Safari', location: 'Bangalore', ip: '42.106.191.12', lastActive: '2h ago', isCurrent: false, type: 'mobile' }
+        { id: '1', device: 'Workstation Terminal', browser: 'Chrome Enterprise', location: 'Office', ip: '10.0.4.12', lastActive: 'Now', isCurrent: true, type: 'desktop' },
+        { id: '2', device: 'Mobile Handset', browser: 'Registry App', location: 'On Field', ip: '172.16.0.45', lastActive: '2h ago', isCurrent: false, type: 'mobile' }
     ]);
 
     const hasUnsavedChanges = useMemo(() => {
-        // Simple property check instead of deep JSON compare to avoid circularity crashes
-        return profile.name !== baseProfile.name ||
-               profile.bio !== baseProfile.bio ||
-               profile.phone !== baseProfile.phone ||
-               appPrefs.theme !== basePrefs.theme ||
-               mfaEnabled !== baseMfa ||
-               passwordData.current !== '';
-    }, [profile, baseProfile, appPrefs, basePrefs, mfaEnabled, baseMfa, passwordData]);
+        if (!authUser) return false;
+        return profile.name !== authUser.name ||
+               profile.phone !== authUser.phone ||
+               profile.email !== authUser.email;
+    }, [profile, authUser]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -137,21 +149,29 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
         if (isDark) root.classList.add('dark'); else root.classList.remove('dark');
     }, [appPrefs.theme]);
 
-    const handleSave = () => {
-        setBaseProfile(profile);
-        setBasePrefs(appPrefs);
-        setBaseMfa(mfaEnabled);
-        setPasswordData({ current: '', next: '', confirm: '' });
-        localStorage.setItem('crm-theme', appPrefs.theme);
-        setIsEditing(false);
-        addNotification('Preferences Synced', 'System settings committed.', 'success');
+    const handleSave = async () => {
+        if (!authUser) return;
+        
+        try {
+            // Persist the changes back to the Employee Registry in Firestore
+            await updateEmployee(authUser.id, {
+                name: profile.name,
+                email: profile.email,
+                phone: profile.phone
+            });
+
+            localStorage.setItem('crm-theme', appPrefs.theme);
+            setIsEditing(false);
+            addNotification('Profile Synced', 'Registry records updated successfully.', 'success');
+        } catch (err) {
+            addNotification('Update Failed', 'Could not commit changes to registry.', 'alert');
+        }
     };
 
     const handleDiscard = () => {
-        setProfile(baseProfile);
-        setAppPrefs(basePrefs);
-        setMfaEnabled(baseMfa);
-        setPasswordData({ current: '', next: '', confirm: '' });
+        if (authUser) {
+            setProfile(mapEmployeeToProfile(authUser));
+        }
         setIsEditing(false);
     };
 
@@ -223,7 +243,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     </div>
                 </div>
                 <button 
-                    onClick={() => { if (isEditing && hasUnsavedChanges) { if (confirm("Discard changes?")) handleDiscard(); } else setIsEditing(!isEditing); }}
+                    onClick={() => { if (isEditing && hasUnsavedChanges) { if (confirm("Discard unsaved registry changes?")) handleDiscard(); } else setIsEditing(!isEditing); }}
                     className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${isEditing ? 'bg-rose-500 text-white' : 'bg-white text-[#01261d] hover:bg-emerald-50'}`}
                 >
                     {isEditing ? <X size={14} /> : <Edit size={14} />}
@@ -244,12 +264,16 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                         <div className="max-w-3xl mx-auto">
                             {activeTab === 'general' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="mb-6"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Personal Information</h3></div>
+                                    <div className="mb-6 flex justify-between items-center">
+                                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Registry Information</h3>
+                                        <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase tracking-widest">ID: {authUser?.id}</span>
+                                    </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        <FormRow label="Full Name"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
-                                        <FormRow label="Designation"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none" value={profile.role} onChange={e => setProfile({...profile, role: e.target.value})} /></FormRow>
-                                        <FormRow label="Email"><input type="email" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
-                                        <FormRow label="Phone"><input type="tel" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
+                                        <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
+                                        <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
+                                        <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
+                                        <FormRow label="Contact Phone"><input type="tel" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
+                                        <FormRow label="Department" fullWidth><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.department} /></FormRow>
                                     </div>
                                 </div>
                             )}
@@ -266,7 +290,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-100 dark:border-slate-800">
                                         <div className="space-y-4">
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Lock size={14}/> Session History</h4>
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Lock size={14}/> Active Connections</h4>
                                             <div className="space-y-3">
                                                 {sessions.map(s => (
                                                     <div key={s.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
@@ -287,7 +311,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-12">
                                     <div className="mb-8"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Preferences</h3></div>
                                     <div className={!isEditing ? 'opacity-60' : ''}>
-                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Monitor size={14}/> Global Theme</h4>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Monitor size={14}/> UI Theme</h4>
                                         <div className="grid grid-cols-3 gap-4">
                                             {['light', 'dark', 'system'].map(t => (
                                                 <button key={t} onClick={() => isEditing && setAppPrefs({...appPrefs, theme: t as any})} className={`p-5 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all ${appPrefs.theme === t ? 'border-medical-500 bg-medical-50 dark:bg-medical-900/10' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50'}`}>
@@ -306,17 +330,17 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                     <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${!isEditing ? 'opacity-60' : ''}`}>
                                         <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800 rounded-[2rem]">
                                             <Download className="text-emerald-600 mb-4" size={24} />
-                                            <h4 className="text-sm font-black text-emerald-900 dark:text-emerald-100 uppercase">Export Registry</h4>
-                                            <p className="text-[10px] text-emerald-700/60 dark:text-emerald-400 font-bold mt-1">Download sanitized backup snapshot</p>
+                                            <h4 className="text-sm font-black text-emerald-900 dark:text-emerald-100 uppercase">Export Snapshot</h4>
+                                            <p className="text-[10px] text-emerald-700/60 dark:text-emerald-400 font-bold mt-1">Download sanitized registry backup</p>
                                             <button disabled={!isEditing || isExporting} onClick={handleExportData} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all">
-                                                {isExporting ? <RefreshCw className="animate-spin mx-auto" size={14}/> : 'Download Backup'}
+                                                {isExporting ? <RefreshCw className="animate-spin mx-auto" size={14}/> : 'Generate Backup'}
                                             </button>
                                         </div>
                                         <div className="p-6 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-800 rounded-[2rem]">
                                             <AlertTriangle className="text-rose-600 mb-4" size={24} />
-                                            <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 uppercase">Wipe Registry</h4>
-                                            <p className="text-[10px] text-rose-700/60 dark:text-rose-400 font-bold mt-1">Purge all local session cache</p>
-                                            <button disabled={!isEditing} onClick={handleFactoryReset} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 rounded-xl text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Factory Reset</button>
+                                            <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 uppercase">Wipe Cache</h4>
+                                            <p className="text-[10px] text-rose-700/60 dark:text-rose-400 font-bold mt-1">Purge all local session records</p>
+                                            <button disabled={!isEditing} onClick={handleFactoryReset} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 rounded-xl text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Purge Locally</button>
                                         </div>
                                     </div>
                                 </div>
@@ -327,11 +351,13 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     {isEditing && (
                         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center gap-3">
                             <div className="flex items-center gap-2">
-                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">{hasUnsavedChanges ? 'Pending sync...' : 'Registry in sync'}</p>
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${hasUnsavedChanges ? 'text-amber-600 animate-pulse' : 'text-slate-400'}`}>
+                                    {hasUnsavedChanges ? 'Registry mismatch detected' : 'In sync with registry'}
+                                </p>
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={handleDiscard} className="px-6 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-500 rounded-2xl text-[10px] font-black uppercase">Discard</button>
-                                <button onClick={handleSave} className="px-10 py-3 bg-medical-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-medical-500/20">Commit Changes</button>
+                                <button onClick={handleSave} className="px-10 py-3 bg-medical-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-medical-500/20">Commit to Registry</button>
                             </div>
                         </div>
                     )}

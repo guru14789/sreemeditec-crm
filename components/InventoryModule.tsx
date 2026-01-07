@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, StockMovement } from '../types';
-import { Package, AlertTriangle, Search, Filter, BellRing, X, ShoppingCart, CheckCircle, FileText, ArrowRight, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, Calendar, Briefcase, ScanBarcode, Zap, PackagePlus, MinusCircle, PlusCircle, Trash2, Building2 } from 'lucide-react';
+import { Package, AlertTriangle, Search, BellRing, X, ShoppingCart, CheckCircle, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, ScanBarcode, Trash2, Building2, RefreshCw } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -25,6 +26,8 @@ export const InventoryModule: React.FC = () => {
   const [showPOModal, setShowPOModal] = useState(false);
   const [processingOrder, setProcessingOrder] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{id: string, name: string} | null>(null);
 
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -109,13 +112,14 @@ export const InventoryModule: React.FC = () => {
     }, 1500);
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.sku || !newProduct.price) {
         alert("Please fill Name, SKU and Price.");
         return;
     }
+    const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
     const productToAdd: Product = {
-        id: `P-${Date.now()}`, 
+        id: `P-${Date.now()}-${shortId}`, 
         name: newProduct.name!,
         category: newProduct.category as 'Equipment' | 'Consumable' | 'Spare Part' || 'Equipment',
         sku: newProduct.sku!,
@@ -130,10 +134,10 @@ export const InventoryModule: React.FC = () => {
         supplier: newProduct.supplier || '',
         lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
     };
-    addProduct(productToAdd);
+    await addProduct(productToAdd);
     
     if ((newProduct.stock || 0) > 0) {
-        recordStockMovement({
+        await recordStockMovement({
              id: `MOV-INIT-${Date.now()}`,
              productId: productToAdd.id,
              productName: productToAdd.name,
@@ -150,11 +154,19 @@ export const InventoryModule: React.FC = () => {
     setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
   };
 
-  const handleDeleteProduct = (productId: string, productName: string) => {
-      if (confirm(`Are you sure you want to delete "${productName}" from the master inventory? This action is permanent.`)) {
-          removeProduct(productId);
-          addNotification('Registry Updated', `"${productName}" has been removed.`, 'warning');
-      }
+  const performDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+        await removeProduct(pendingDelete.id);
+        addNotification('Registry Updated', `"${pendingDelete.name}" has been removed from cloud.`, 'warning');
+        setPendingDelete(null);
+    } catch (err) {
+        console.error("Delete product error:", err);
+        addNotification('Database Error', 'Could not remove item.', 'alert');
+    } finally {
+        setIsDeleting(false);
+    }
   };
 
   const handleSendForDemo = () => {
@@ -174,7 +186,7 @@ export const InventoryModule: React.FC = () => {
       const existingClient = clients.find(c => c.name === demoData.clientName);
       if (!existingClient) {
           addClient({
-              id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+              id: `CLI-${Date.now()}`,
               name: demoData.clientName,
               hospital: demoData.location || '',
               address: demoData.location || '',
@@ -251,19 +263,6 @@ export const InventoryModule: React.FC = () => {
       addNotification('Stock Updated', `${quickStockAmount} units of ${scannedProduct.name} ${scanOperation === 'In' ? 'received' : 'dispatched'}.`, 'success');
   };
 
-  const handleCreateFromScan = () => {
-      setShowScanModal(false);
-      setNewProduct(prev => ({ 
-          ...prev, 
-          sku: scanQuery,
-          stock: 0,
-          category: 'Equipment',
-          location: 'Warehouse A'
-      }));
-      setShowAddProductModal(true);
-      handleResetScan();
-  };
-
   const handleResetScan = () => {
       setScannedProduct(null);
       setScanStatus('idle');
@@ -273,16 +272,6 @@ export const InventoryModule: React.FC = () => {
           if (scanInputRef.current) scanInputRef.current.focus();
       }, 50);
   };
-
-  const triggerScanForAddProduct = () => {
-      setShowAddProductModal(false);
-      setShowScanModal(true);
-  };
-
-  const poTotalCost = lowStockItems.reduce((acc, item) => {
-      const quantityNeeded = Math.max(0, item.minLevel + 10 - item.stock);
-      return acc + (quantityNeeded * item.price);
-  }, 0);
 
   const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.price), 0);
   const equipmentValue = products.filter(p => p.category === 'Equipment').reduce((acc, p) => acc + (p.stock * p.price), 0);
@@ -357,11 +346,13 @@ export const InventoryModule: React.FC = () => {
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
                  <button 
+                    type="button"
                     onClick={() => setShowPOModal(true)}
                     className="flex-1 sm:flex-none whitespace-nowrap bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
                     <ShoppingCart size={16} /> Bulk Restock
                 </button>
                 <button 
+                    type="button"
                     onClick={() => setShowNotification(false)}
                     className="p-2 text-red-400 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors">
                     <X size={20} />
@@ -378,11 +369,13 @@ export const InventoryModule: React.FC = () => {
             <div className="flex flex-col gap-3">
                 <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
                     <button 
+                        type="button"
                         onClick={() => setActiveTab('stock')}
                         className={`px-6 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'stock' ? 'bg-white shadow-md text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
                         <Package size={14} /> Stock Registry
                     </button>
                      <button 
+                        type="button"
                         onClick={() => setActiveTab('history')}
                         className={`px-6 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white shadow-md text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
                         <History size={14} /> Movement Logs
@@ -406,16 +399,19 @@ export const InventoryModule: React.FC = () => {
                             />
                         </div>
                         <button 
+                            type="button"
                             onClick={() => { setShowScanModal(true); handleResetScan(); }}
                             className="bg-slate-800 text-white hover:bg-slate-900 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
                             <ScanBarcode size={16} /> Scan
                         </button>
                         <button 
+                            type="button"
                             onClick={() => setShowDemoModal(true)}
                             className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
                             <Send size={16} /> Demo
                         </button>
                         <button 
+                            type="button"
                             onClick={() => setShowAddProductModal(true)}
                             className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
                             <Plus size={16} /> Register Item
@@ -484,7 +480,7 @@ export const InventoryModule: React.FC = () => {
                                     <td className="px-6 py-5 text-right">
                                         <button 
                                             type="button"
-                                            onClick={() => handleDeleteProduct(product.id, product.name)}
+                                            onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
                                             className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95 group/btn"
                                             title="Remove from Inventory"
                                         >
@@ -494,16 +490,6 @@ export const InventoryModule: React.FC = () => {
                                 </tr>
                             );
                         })}
-                        {filteredProducts.length === 0 && (
-                            <tr>
-                                <td colSpan={8} className="py-24 text-center">
-                                    <div className="flex flex-col items-center gap-2 opacity-30">
-                                        <Search size={48} className="text-slate-400" />
-                                        <p className="text-xs font-black uppercase tracking-widest">No matching products found</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
             ) : (
@@ -554,425 +540,27 @@ export const InventoryModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Barcode Scanner Modal */}
-      {showScanModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-              <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                  <div className={`p-8 text-white text-center relative transition-colors duration-300 ${scanStatus === 'not-found' ? 'bg-orange-600' : scanStatus === 'found' ? 'bg-emerald-700' : 'bg-[#022c22]'}`}>
-                      <button onClick={() => { setShowScanModal(false); handleResetScan(); }} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors">
-                          <X size={28} />
-                      </button>
-                      <div className="bg-white/10 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-4 ring-white/10">
-                          {scanStatus === 'not-found' ? <PackagePlus size={40} /> : scanStatus === 'found' ? <CheckCircle size={40} /> : <ScanBarcode size={40} className="animate-pulse" />}
-                      </div>
-                      <h3 className="text-2xl font-black uppercase tracking-tight">
-                          {scanStatus === 'idle' && 'Registry Scan'}
-                          {scanStatus === 'found' && 'Inventory Match'}
-                          {scanStatus === 'not-found' && 'Unknown Product'}
-                      </h3>
-                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest mt-2">
-                          {scanStatus === 'idle' && 'Waiting for hardware input...'}
-                          {scanStatus === 'found' && 'Item confirmed in local database'}
-                          {scanStatus === 'not-found' && 'This SKU is not currently indexed'}
-                      </p>
+      {/* Confirmation Modal */}
+      {pendingDelete && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 text-center animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                      <AlertTriangle size={32} />
                   </div>
-                  
-                  <div className="p-8">
-                      {scanStatus === 'idle' && (
-                          <form onSubmit={handleScanSubmit} className="space-y-6">
-                              <div className="relative">
-                                <input 
-                                    ref={scanInputRef}
-                                    type="text" 
-                                    className="w-full text-center text-3xl font-mono font-black py-6 border-b-4 border-slate-100 outline-none focus:border-medical-500 bg-transparent placeholder-slate-200 transition-all uppercase"
-                                    placeholder="Enter SKU..."
-                                    value={scanQuery}
-                                    onChange={(e) => setScanQuery(e.target.value)}
-                                    autoFocus
-                                />
-                                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-4 h-12 bg-medical-500/10 rounded-full animate-pulse"></div>
-                                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-4 h-12 bg-medical-500/10 rounded-full animate-pulse"></div>
-                              </div>
-                              <p className="text-[10px] text-center text-slate-400 font-black uppercase tracking-widest">
-                                  Registry auto-detect active
-                              </p>
-                          </form>
-                      )}
-
-                      {scanStatus === 'found' && scannedProduct && (
-                          <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                              <div className="text-center">
-                                  <h4 className="text-2xl font-black text-slate-800 tracking-tight">{scannedProduct.name}</h4>
-                                  <p className="text-indigo-600 font-black text-xs uppercase tracking-widest mt-1">{scannedProduct.sku}</p>
-                              </div>
-                              
-                              <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-2 gap-8 text-center shadow-inner">
-                                  <div>
-                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Registry</p>
-                                      <p className="text-2xl font-black text-slate-800 mt-1">{scannedProduct.stock}</p>
-                                  </div>
-                                  <div>
-                                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Master Price</p>
-                                      <p className="text-2xl font-black text-slate-800 mt-1">₹{scannedProduct.price}</p>
-                                  </div>
-                              </div>
-
-                              <div className="flex bg-slate-100 p-2 rounded-2xl">
-                                  <button 
-                                      onClick={() => setScanOperation('In')}
-                                      className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all ${scanOperation === 'In' ? 'bg-emerald-600 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-200'}`}>
-                                      <PlusCircle size={16} /> Receipt
-                                  </button>
-                                  <button 
-                                      onClick={() => setScanOperation('Out')}
-                                      className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all ${scanOperation === 'Out' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-200'}`}>
-                                      <MinusCircle size={16} /> Dispatch
-                                  </button>
-                              </div>
-
-                              <div className="space-y-4">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">
-                                      Registry Adjustment Units
-                                  </label>
-                                  <div className="flex items-center justify-center gap-6">
-                                      <button onClick={() => setQuickStockAmount(Math.max(1, quickStockAmount - 1))} className="w-12 h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-black text-xl text-slate-600 shadow-sm border border-slate-200">-</button>
-                                      <input 
-                                          type="number" 
-                                          className="w-24 text-center font-black text-4xl border-none outline-none bg-transparent text-slate-800"
-                                          value={quickStockAmount}
-                                          onChange={(e) => setQuickStockAmount(parseInt(e.target.value) || 0)}
-                                      />
-                                      <button onClick={() => setQuickStockAmount(quickStockAmount + 1)} className="w-12 h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-black text-xl text-slate-600 shadow-sm border border-slate-200">+</button>
-                                  </div>
-                              </div>
-
-                              <div className="flex gap-4 pt-4">
-                                  <button 
-                                      onClick={handleResetScan}
-                                      className="flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all border border-slate-200">
-                                      New Scan
-                                  </button>
-                                  <button 
-                                      onClick={handleStockUpdate}
-                                      className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-white rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                                          scanOperation === 'In' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-500/30'
-                                      }`}>
-                                      <Zap size={18} /> Update Log
-                                  </button>
-                              </div>
-                          </div>
-                      )}
-
-                      {scanStatus === 'not-found' && (
-                          <div className="text-center animate-in slide-in-from-bottom-4">
-                              <p className="text-slate-600 mb-8 text-sm font-bold">
-                                  SKU <span className="font-mono font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-lg mx-1 border border-orange-100">{scanQuery}</span> is not found.
-                              </p>
-                              
-                              <div className="flex flex-col gap-4">
-                                   <button 
-                                      onClick={handleCreateFromScan}
-                                      className="w-full py-5 text-white font-black uppercase tracking-widest bg-orange-600 rounded-[2rem] hover:bg-orange-700 shadow-xl shadow-orange-500/30 flex items-center justify-center gap-3 transition-all active:scale-95 text-xs">
-                                      <PackagePlus size={20} /> New Registration
-                                   </button>
-                                   <button 
-                                      onClick={handleResetScan}
-                                      className="w-full py-4 text-slate-500 font-black uppercase tracking-widest bg-slate-50 rounded-[2rem] hover:bg-slate-100 transition-all border border-slate-200 text-[10px]">
-                                      Try Another SKU
-                                   </button>
-                              </div>
-                          </div>
-                      )}
+                  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Purge Item?</h3>
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                      Permanently remove <b>{pendingDelete.name}</b> from master inventory? This will impact all stock reports.
+                  </p>
+                  <div className="flex gap-3 mt-8">
+                      <button onClick={() => setPendingDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest">Cancel</button>
+                      <button onClick={performDelete} disabled={isDeleting} className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2">
+                          {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Delete Item"}
+                      </button>
                   </div>
               </div>
           </div>
       )}
 
-      {/* Purchase Order Modal */}
-      {showPOModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-                    <div>
-                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                            <ShoppingCart className="text-medical-600" size={28} /> Procurement Order
-                        </h3>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Automated Stock Replenishment</p>
-                    </div>
-                    <button onClick={() => setShowPOModal(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full transition-colors">
-                        <X size={28} />
-                    </button>
-                </div>
-                
-                <div className="p-8 overflow-y-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 rounded-2xl text-[10px] uppercase text-slate-500 font-black tracking-widest">
-                            <tr>
-                                <th className="px-5 py-4 rounded-l-2xl">Item Master</th>
-                                <th className="px-5 py-4 text-right">Registry</th>
-                                <th className="px-5 py-4 text-right">Order Qty</th>
-                                <th className="px-5 py-4 text-right rounded-r-2xl">Est. Value</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {lowStockItems.map(item => {
-                                const qty = Math.max(0, item.minLevel + 10 - item.stock);
-                                return (
-                                    <tr key={item.id}>
-                                        <td className="px-5 py-5 font-black text-slate-700">{item.name}</td>
-                                        <td className="px-5 py-5 text-right text-red-600 font-black">{item.stock}</td>
-                                        <td className="px-5 py-5 text-right font-black text-lg text-slate-800">{qty}</td>
-                                        <td className="px-5 py-5 text-right font-black text-teal-700">₹{(qty * item.price).toLocaleString()}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                        <tfoot className="border-t-2 border-slate-200 bg-slate-50/50">
-                            <tr>
-                                <td colSpan={3} className="px-5 py-6 text-right font-black text-slate-400 uppercase tracking-widest">Total Procurement Value:</td>
-                                <td className="px-5 py-6 text-right text-emerald-800 font-black text-2xl">₹{formatIndianNumber(poTotalCost)}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                <div className="p-8 border-t border-slate-100 flex justify-end gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
-                    <button 
-                        onClick={() => setShowPOModal(false)}
-                        className="px-8 py-4 text-slate-500 font-black uppercase tracking-widest hover:bg-slate-200 rounded-2xl text-xs transition-colors">
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={handleGeneratePO}
-                        disabled={processingOrder}
-                        className="px-10 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center gap-3 transition-all active:scale-95 text-xs">
-                        {processingOrder ? 'Syncing...' : <><ShoppingCart size={18} /> Confirm Procurement</>}
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* Add Product Modal */}
-      {showAddProductModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-                     <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                        <Plus className="text-medical-600" size={28} /> New Registration
-                    </h3>
-                    <button onClick={() => setShowAddProductModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors">
-                        <X size={28} />
-                    </button>
-                </div>
-                <div className="p-8 overflow-y-auto space-y-6 custom-scrollbar">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Description *</label>
-                        <input 
-                            type="text" 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                            placeholder="e.g. ECG Machine Lead"
-                            value={newProduct.name || ''}
-                            onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Item Category</label>
-                            <select 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all appearance-none"
-                                value={newProduct.category}
-                                onChange={(e) => setNewProduct({...newProduct, category: e.target.value as any})}
-                            >
-                                <option value="Equipment">Equipment</option>
-                                <option value="Consumable">Consumable</option>
-                                <option value="Spare Part">Spare Part</option>
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Registry No *</label>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 pr-12 text-sm font-mono font-black focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 outline-none transition-all uppercase"
-                                    placeholder="EQ-001"
-                                    value={newProduct.sku || ''}
-                                    onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
-                                />
-                                <button 
-                                    type="button"
-                                    onClick={triggerScanForAddProduct}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-medical-600 transition-colors"
-                                    title="Scan Hardware">
-                                    <ScanBarcode size={20} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Manufacturer Model</label>
-                             <input 
-                                type="text" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                placeholder="Model Name"
-                                value={newProduct.model || ''}
-                                onChange={(e) => setNewProduct({...newProduct, model: e.target.value})}
-                             />
-                        </div>
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Authorized Supplier</label>
-                             <input 
-                                type="text" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                placeholder="Company Name"
-                                value={newProduct.supplier || ''}
-                                onChange={(e) => setNewProduct({...newProduct, supplier: e.target.value})}
-                             />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Master Rate (₹) *</label>
-                             <input 
-                                type="number" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                value={newProduct.price || 0}
-                                onChange={(e) => setNewProduct({...newProduct, price: parseFloat(e.target.value)})}
-                             />
-                        </div>
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Warehouse Location</label>
-                             <input 
-                                type="text" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                placeholder="e.g. Shelf A1"
-                                value={newProduct.location || ''}
-                                onChange={(e) => setNewProduct({...newProduct, location: e.target.value})}
-                             />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Opening Registry Units</label>
-                             <input 
-                                type="number" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                value={newProduct.stock || 0}
-                                onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value)})}
-                             />
-                        </div>
-                        <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Safe Level</label>
-                             <input 
-                                type="number" 
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                                value={newProduct.minLevel || 0}
-                                onChange={(e) => setNewProduct({...newProduct, minLevel: parseInt(e.target.value)})}
-                             />
-                        </div>
-                    </div>
-                </div>
-                <div className="p-8 border-t border-slate-100 flex justify-end gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
-                    <button 
-                        type="button"
-                        onClick={() => setShowAddProductModal(false)}
-                        className="px-8 py-4 text-slate-500 font-black uppercase tracking-widest hover:bg-slate-200 rounded-2xl text-xs transition-colors">
-                        Cancel
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={handleSaveProduct}
-                        className="px-10 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-medical-500/30 hover:bg-medical-700 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
-                        <Save size={20} /> Register Item
-                    </button>
-                </div>
-             </div>
-        </div>
-      )}
-
-      {/* Send for Demo Modal */}
-      {showDemoModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-xl w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
-                     <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                        <Send className="text-indigo-600" size={24} /> Dispatch for Demo
-                    </h3>
-                    <button onClick={() => setShowDemoModal(false)} className="text-slate-400 hover:text-slate-800 transition-colors"><X size={28} /></button>
-                </div>
-                <div className="p-8 space-y-6">
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Product</label>
-                        <select 
-                            className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 focus:border-medical-500 transition-all"
-                            value={demoData.productId}
-                            onChange={(e) => setDemoData({...demoData, productId: e.target.value})}
-                        >
-                            <option value="">Choose item from registry...</option>
-                            {products.filter(p => p.stock > 0).map(p => (
-                                <option key={p.id} value={p.id}>{p.name} ({p.stock} available)</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Client Name</label>
-                            <input 
-                                type="text" 
-                                list="demo-clients"
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all"
-                                placeholder="e.g. Dr. John Doe"
-                                value={demoData.clientName}
-                                onChange={(e) => setDemoData({...demoData, clientName: e.target.value})}
-                            />
-                            <datalist id="demo-clients">
-                                {clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}
-                            </datalist>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Demo Date</label>
-                            <input 
-                                type="date"
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none"
-                                value={demoData.date}
-                                onChange={(e) => setDemoData({...demoData, date: e.target.value})}
-                            />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
-                            <input 
-                                type="number"
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none"
-                                value={demoData.quantity}
-                                onChange={(e) => setDemoData({...demoData, quantity: parseInt(e.target.value) || 1})}
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Demo Location</label>
-                            <input 
-                                type="text"
-                                className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none"
-                                placeholder="Hospital/Clinic name"
-                                value={demoData.location}
-                                onChange={(e) => setDemoData({...demoData, location: e.target.value})}
-                            />
-                        </div>
-                    </div>
-                </div>
-                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
-                    <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 text-slate-500 font-black uppercase tracking-widest hover:bg-slate-200 transition-colors rounded-2xl text-xs">Cancel</button>
-                    <button onClick={handleSendForDemo} className="flex-[2] py-4 bg-indigo-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95 text-xs flex items-center justify-center gap-2">
-                        <Send size={18} /> Confirm Dispatch
-                    </button>
-                </div>
-             </div>
-        </div>
-      )}
     </div>
   );
 };

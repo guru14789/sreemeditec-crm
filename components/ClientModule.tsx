@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Client, Invoice } from '../types';
-import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, ShieldCheck, Plus, Trash2, Save, Key } from 'lucide-react';
+import { Client } from '../types';
+import { Users, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useData } from './DataContext';
 
 const formatIndianNumber = (num: number) => {
@@ -19,6 +19,8 @@ export const ClientModule: React.FC = () => {
   const [newClientData, setNewClientData] = useState<Partial<Client>>({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{id: string, name: string} | null>(null);
 
   const verifyPassword = (e?: React.FormEvent) => {
       if (e) e.preventDefault();
@@ -50,10 +52,12 @@ export const ClientModule: React.FC = () => {
 
   const filteredClients = clients.filter(c => normalize(c.name).includes(normalize(searchQuery)) || normalize(c.id).includes(normalize(searchQuery)));
 
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
       if (!newClientData.name) { alert("Name is required."); return; }
+      const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const timestamp = Date.now().toString().slice(-4);
       const client: Client = {
-          id: `CLI-${String(clients.length + 1).padStart(3, '0')}`,
+          id: `CLI-${timestamp}-${shortId}`,
           name: newClientData.name,
           hospital: newClientData.hospital,
           address: newClientData.address || '',
@@ -61,10 +65,26 @@ export const ClientModule: React.FC = () => {
           email: newClientData.email,
           phone: newClientData.phone
       };
-      addClient(client);
+      await addClient(client);
       setShowAddModal(false);
       setNewClientData({});
       addNotification('Registry Updated', `Client "${client.name}" successfully indexed.`, 'success');
+  };
+
+  const performDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+        await removeClient(pendingDelete.id);
+        addNotification('Record Purged', `${pendingDelete.name} has been removed from cloud database.`, 'warning');
+        if (selectedClient?.id === pendingDelete.id) setSelectedClient(null);
+        setPendingDelete(null);
+    } catch (err) {
+        console.error("Client deletion error:", err);
+        addNotification('Database Error', 'Could not delete record.', 'alert');
+    } finally {
+        setIsDeleting(false);
+    }
   };
 
   return (
@@ -75,7 +95,7 @@ export const ClientModule: React.FC = () => {
               <div><h2 className="text-xl font-bold text-slate-800">Client Database</h2><p className="text-xs text-slate-500 font-medium">{clients.length} Active Clients</p></div>
           </div>
           <div className="flex gap-3">
-              <input type="text" placeholder="Search..." className="pl-4 pr-4 py-2.5 border rounded-xl text-sm font-medium w-64" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <input type="text" placeholder="Search..." className="pl-4 pr-4 py-2.5 border rounded-xl text-sm font-medium w-64 outline-none focus:border-blue-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-medical-700 transition-all">+ Add Client</button>
           </div>
       </div>
@@ -83,23 +103,76 @@ export const ClientModule: React.FC = () => {
       <div className="flex-1 bg-white rounded-3xl border overflow-hidden flex flex-col shadow-sm">
           <div className="flex-1 overflow-auto custom-scrollbar">
               <table className="w-full text-left text-sm text-slate-600">
-                  <thead className="bg-slate-50 border-b text-[10px] uppercase font-bold text-slate-500 sticky top-0">
-                      <tr><th className="px-6 py-4">ID</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Hospital</th><th className="px-6 py-4 text-right">Revenue</th><th className="px-6 py-4 text-right">Action</th></tr>
+                  <thead className="bg-slate-50 border-b text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-4">ID</th>
+                        <th className="px-6 py-4">Name</th>
+                        <th className="px-6 py-4">Hospital</th>
+                        <th className="px-6 py-4 text-right">Revenue</th>
+                        <th className="px-6 py-4 text-right">Action</th>
+                      </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-slate-100">
                       {filteredClients.map(client => (
                           <tr key={client.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setSelectedClient(client)}>
-                              <td className="px-6 py-4 font-mono text-xs text-slate-500">{client.id}</td>
-                              <td className="px-6 py-4 font-bold text-slate-800">{client.name}</td>
-                              <td className="px-6 py-4 font-medium text-slate-600">{client.hospital || '-'}</td>
+                              <td className="px-6 py-4 font-mono text-[10px] text-slate-400">{client.id}</td>
+                              <td className="px-6 py-4 font-bold text-slate-800 uppercase tracking-tight">{client.name}</td>
+                              <td className="px-6 py-4 font-medium text-slate-600 truncate max-w-[200px]">{client.hospital || '-'}</td>
                               <td className="px-6 py-4 text-right font-black text-emerald-700">₹{formatIndianNumber(getClientTotalRevenue(client.name))}</td>
-                              <td className="px-6 py-4 text-right"><ArrowUpRight size={18} className="text-slate-300 group-hover:text-blue-600 ml-auto"/></td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end items-center gap-1">
+                                    <button 
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setPendingDelete({id: client.id, name: client.name}); }}
+                                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                        title="Delete Client"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <div className="p-2 text-slate-300 group-hover:text-blue-600 transition-colors">
+                                        <ArrowUpRight size={18} />
+                                    </div>
+                                </div>
+                              </td>
                           </tr>
                       ))}
+                      {filteredClients.length === 0 && (
+                        <tr><td colSpan={5} className="py-20 text-center text-slate-300 font-bold uppercase tracking-widest opacity-30 italic">No Clients Found</td></tr>
+                      )}
                   </tbody>
               </table>
           </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {pendingDelete && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 text-center animate-in zoom-in-95">
+                  <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                      <AlertTriangle size={32} />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Confirm Deletion</h3>
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                      Permanently remove <b>{pendingDelete.name}</b> from the cloud database? This action is irreversible.
+                  </p>
+                  <div className="flex gap-3 mt-8">
+                      <button 
+                        onClick={() => setPendingDelete(null)}
+                        className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest"
+                      >
+                          Cancel
+                      </button>
+                      <button 
+                        onClick={performDelete}
+                        disabled={isDeleting}
+                        className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                      >
+                          {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Purge Record"}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {showAddModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
@@ -109,9 +182,9 @@ export const ClientModule: React.FC = () => {
                     <button onClick={() => setShowAddModal(false)}><X size={24} className="text-slate-400"/></button>
                 </div>
                 <div className="p-6 space-y-4">
-                    <input type="text" className="w-full border rounded-xl px-4 py-3 text-sm font-bold" placeholder="Client Name *" value={newClientData.name || ''} onChange={e => setNewClientData({...newClientData, name: e.target.value})} />
-                    <input type="text" className="w-full border rounded-xl px-4 py-3 text-sm font-bold" placeholder="Hospital / Facility" value={newClientData.hospital || ''} onChange={e => setNewClientData({...newClientData, hospital: e.target.value})} />
-                    <textarea className="w-full border rounded-xl px-4 py-3 text-sm font-bold resize-none" rows={3} placeholder="Address *" value={newClientData.address || ''} onChange={e => setNewClientData({...newClientData, address: e.target.value})} />
+                    <input type="text" className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500" placeholder="Client Name *" value={newClientData.name || ''} onChange={e => setNewClientData({...newClientData, name: e.target.value})} />
+                    <input type="text" className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500" placeholder="Hospital / Facility" value={newClientData.hospital || ''} onChange={e => setNewClientData({...newClientData, hospital: e.target.value})} />
+                    <textarea className="w-full border rounded-xl px-4 py-3 text-sm font-bold resize-none outline-none focus:border-medical-500" rows={3} placeholder="Address *" value={newClientData.address || ''} onChange={e => setNewClientData({...newClientData, address: e.target.value})} />
                     <button onClick={handleSaveClient} className="w-full bg-medical-600 text-white py-3 rounded-xl font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Save Client</button>
                 </div>
             </div>
@@ -123,28 +196,43 @@ export const ClientModule: React.FC = () => {
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
                   <div className="p-6 border-b flex justify-between items-center bg-slate-50 rounded-t-3xl shrink-0">
                       <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg border-2 border-white shadow-sm">{selectedClient.name.charAt(0)}</div>
-                          <div><h3 className="text-xl font-bold text-slate-800">{selectedClient.name}</h3><p className="text-sm font-medium text-slate-500">{selectedClient.id}</p></div>
+                          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg border-2 border-white shadow-sm uppercase">{selectedClient.name.charAt(0)}</div>
+                          <div><h3 className="text-xl font-bold text-slate-800 uppercase tracking-tight">{selectedClient.name}</h3><p className="text-xs font-black text-slate-400 uppercase tracking-widest">{selectedClient.id}</p></div>
                       </div>
                       <button onClick={() => setSelectedClient(null)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full transition-colors"><X size={24} /></button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-1">Client Profile</h4>
-                              <div className="space-y-3 text-sm text-slate-600">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-1">Client Profile</h4>
+                              <div className="space-y-4 text-sm text-slate-600 font-medium">
                                   <div className="flex items-start gap-2"><MapPin size={16} className="text-blue-500 shrink-0 mt-0.5" /> <span className="whitespace-pre-wrap">{selectedClient.address}</span></div>
-                                  <div className="flex items-center gap-2"><Building2 size={16} className="text-blue-500 shrink-0" /> <span>{selectedClient.hospital || 'Private Clinic'}</span></div>
+                                  <div className="flex items-center gap-2"><Building2 size={16} className="text-blue-500 shrink-0" /> <span className="uppercase">{selectedClient.hospital || 'Private Clinic'}</span></div>
                                   <div className="flex items-center gap-2"><Phone size={16} className="text-blue-500 shrink-0" /> <span>{selectedClient.phone || 'N/A'}</span></div>
+                                  <div className="flex items-center gap-2"><Mail size={16} className="text-blue-500 shrink-0" /> <span>{selectedClient.email || 'N/A'}</span></div>
+                                  <div className="flex items-center gap-2"><FileText size={16} className="text-blue-500 shrink-0" /> <span className="font-bold">GST: {selectedClient.gstin || 'N/A'}</span></div>
                               </div>
                           </div>
-                          <div className="md:col-span-2 bg-white rounded-3xl border p-4 shadow-inner min-h-[300px] flex flex-col">
-                               <h4 className="font-bold text-slate-700 border-b pb-2 mb-4">Linked Ledger Entries</h4>
-                               <div className="flex-1 flex flex-col items-center justify-center opacity-30 italic text-sm text-slate-400"><FileText size={48} className="mb-2"/>No recent activity found</div>
+                          <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 shadow-inner min-h-[300px] flex flex-col">
+                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 mb-4">Financial Ledger Summary</h4>
+                               <div className="flex-1 flex flex-col items-center justify-center opacity-20 italic text-sm text-slate-400">
+                                   <Wallet size={48} className="mb-4 text-slate-300"/>
+                                   <p className="font-bold uppercase tracking-widest">No active transactions indexed</p>
+                               </div>
                           </div>
                       </div>
                   </div>
-                  <div className="p-6 border-t bg-slate-50 flex justify-end"><button onClick={() => setSelectedClient(null)} className="px-8 py-2 bg-white border text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-colors">Close Profile</button></div>
+                  <div className="p-6 border-t bg-slate-50 flex justify-end gap-3 shrink-0">
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setPendingDelete({id: selectedClient.id, name: selectedClient.name}); }}
+                        className="px-8 py-3 bg-white border border-rose-200 text-rose-500 font-bold rounded-xl hover:bg-rose-50 transition-colors uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-sm"
+                    >
+                        <Trash2 size={14} />
+                        Delete Record
+                    </button>
+                    <button onClick={() => setSelectedClient(null)} className="px-8 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-black transition-colors uppercase text-[10px] tracking-widest shadow-lg">Close Terminal</button>
+                  </div>
               </div>
           </div>
       )}

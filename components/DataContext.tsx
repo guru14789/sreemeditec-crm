@@ -48,70 +48,51 @@ export interface DataContextType {
 
   // Database Actions
   seedDatabase: () => Promise<void>;
-  addClient: (client: Client) => void;
-  updateClient: (id: string, client: Partial<Client>) => void;
-  removeClient: (id: string) => void;
-  addVendor: (vendor: Vendor) => void;
-  updateVendor: (id: string, vendor: Partial<Vendor>) => void;
-  removeVendor: (id: string) => void;
-  addProduct: (product: Product) => void;
-  updateProduct: (id: string, product: Partial<Product>) => void;
-  removeProduct: (id: string) => void;
-  addInvoice: (invoice: Invoice) => void;
-  updateInvoice: (id: string, invoice: Invoice) => void;
-  recordStockMovement: (movement: StockMovement) => void;
+  addClient: (client: Client) => Promise<void>;
+  updateClient: (id: string, client: Partial<Client>) => Promise<void>;
+  removeClient: (id: string) => Promise<void>;
+  addVendor: (vendor: Vendor) => Promise<void>;
+  updateVendor: (id: string, vendor: Partial<Vendor>) => Promise<void>;
+  removeVendor: (id: string) => Promise<void>;
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  removeProduct: (id: string) => Promise<void>;
+  addInvoice: (invoice: Invoice) => Promise<void>;
+  updateInvoice: (id: string, invoice: Invoice) => Promise<void>;
+  recordStockMovement: (movement: StockMovement) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   addTask: (task: Task) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
-  updateTaskRemote: (id: string, updates: Partial<Task>) => void;
-  addLead: (lead: Lead) => void;
-  updateLead: (id: string, updates: Partial<Lead>) => void;
-  addServiceTicket: (ticket: ServiceTicket) => void;
-  updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => void;
-  addExpense: (expense: ExpenseRecord) => void;
-  updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => void;
-  addEmployee: (emp: Employee) => void;
-  updateEmployee: (id: string, updates: Partial<Employee>) => void;
-  removeEmployee: (id: string) => void;
-  addNotification: (title: string, message: string, type: AppNotification['type']) => void;
-  markNotificationRead: (id: string) => void;
+  updateTaskRemote: (id: string, updates: Partial<Task>) => Promise<void>;
+  addLead: (lead: Lead) => Promise<void>;
+  updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
+  addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
+  updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
+  addExpense: (expense: ExpenseRecord) => Promise<void>;
+  updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => Promise<void>;
+  addEmployee: (emp: Employee) => Promise<void>;
+  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
+  removeEmployee: (id: string) => Promise<void>;
+  addNotification: (title: string, message: string, type: AppNotification['type']) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
   clearAllNotifications: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Utility to recursively sanitize Firestore data to ensure it's JSON serializable
 const sanitizeData = (data: any): any => {
   if (data === null || typeof data !== 'object') return data;
+  if (typeof data.toDate === 'function') return data.toDate().toISOString();
+  if (data instanceof Date) return data.toISOString();
+  if (Array.isArray(data)) return data.map(sanitizeData);
   
-  // Handle Firestore Timestamps and Javascript Dates
-  if (typeof data.toDate === 'function') {
-    return data.toDate().toISOString();
-  }
-  if (data instanceof Date) {
-    return data.toISOString();
-  }
-  
-  // Handle simple objects and arrays
-  if (Array.isArray(data)) {
-    return data.map(sanitizeData);
-  }
-  
-  // Check if it's a plain object to avoid recursing into internal Firebase instances/references
-  const isPlainObject = data.constructor === Object || data.constructor === undefined;
-  if (isPlainObject) {
-    const plain: any = {};
-    Object.keys(data).forEach(key => {
-      const value = data[key];
-      // Skip functions and specific internal keys if necessary
-      if (typeof value === 'function') return;
-      plain[key] = sanitizeData(value);
-    });
-    return plain;
-  }
-  
-  // If it's a complex object (like DocumentReference), don't recurse, just return a safe representation
-  return null;
+  const plain: any = {};
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    if (typeof value === 'function') return;
+    plain[key] = sanitizeData(value);
+  });
+  return plain;
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -136,23 +117,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userStats, setUserStats] = useState<UserStats>({
       points: 0,
       tasksCompleted: 0,
-      attendanceStreak: 0,
+      attendanceStreak: 12,
       salesRevenue: 0
   });
 
   useEffect(() => {
     const handleError = (err: any) => {
-        const msg = typeof err === 'string' ? err : (err?.message || "Database connection issue");
-        console.warn("Firestore Listener Warning:", msg);
-        if (err?.code === 'permission-denied') {
-            setDbError("Firestore Access Denied: Security Rules restricted.");
-        }
+        console.warn("Firestore Listener Warning:", err?.message || err);
+        if (err?.code === 'permission-denied') setDbError("Firestore Access Denied.");
     };
 
-    const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => ({
-        id: d.id,
-        ...sanitizeData(d.data())
-    }));
+    const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => {
+        const data = sanitizeData(d.data());
+        return {
+            ...data,
+            id: d.id // CRITICAL: Document ID must take precedence to ensure correct deletion
+        };
+    });
 
     const unsubscribes = [
       onSnapshot(collection(db, "clients"), (s) => setClients(mapDocs(s)), handleError),
@@ -179,10 +160,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const parsed = JSON.parse(saved);
             const fullEmp = employees.find(e => e.id === parsed.id);
             if (fullEmp) {
-                setCurrentUser({
-                    ...fullEmp,
-                    permissions: fullEmp.permissions ? [...fullEmp.permissions] : []
-                });
+                setCurrentUser({ ...fullEmp, permissions: fullEmp.permissions ? [...fullEmp.permissions] : [] });
                 setIsAuthenticated(true);
             }
         } catch (e) {
@@ -195,98 +173,100 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (currentUser) {
         const myPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((acc, curr) => acc + curr.points, 0);
         const myTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
-        setUserStats({
+        setUserStats(prev => ({
+            ...prev,
             points: myPoints,
             tasksCompleted: myTasks,
-            attendanceStreak: 12,
             salesRevenue: invoices.filter(i => i.customerName === currentUser.name && i.status === 'Paid').reduce((acc, i) => acc + i.grandTotal, 0)
-        });
+        }));
     }
   }, [pointHistory, tasks, currentUser, invoices]);
 
   const seedDatabase = async () => {
       const batch = writeBatch(db);
-      
       const initialEmployees: Employee[] = [
           { id: 'EMP001', name: 'Master Admin', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
-          // Fix: Corrected typo 'Tab_VIEW' to 'TabView'
           { id: 'EMP002', name: 'Staff User', role: 'SYSTEM_STAFF', department: 'Service', email: 'staff@demo.com', phone: '111', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'staff', permissions: [TabView.DASHBOARD, TabView.PROFILE, TabView.TASKS] }
       ];
-
       initialEmployees.forEach(emp => batch.set(doc(db, "employees", emp.id), emp));
       await batch.commit();
       addNotification('System Initialized', 'Enterprise Roles defined.', 'success');
   };
 
-  const setAuthSession = (employee: Employee) => {
-    const sessionData = {
-        id: String(employee.id),
-        name: String(employee.name),
-        email: String(employee.email),
-        role: String(employee.role),
-        department: String(employee.department)
-    };
-    
-    setCurrentUser({
-        ...employee,
-        permissions: employee.permissions ? [...employee.permissions] : []
-    });
-    setIsAuthenticated(true);
-    localStorage.setItem('sreemeditec_auth_user', JSON.stringify(sessionData));
-  };
-
   const login = async (email: string, password?: string) => {
-    if (employees.length === 0) {
-        throw new Error("Local registry is empty. Please click 'Initialize Workspace' first.");
-    }
     const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-    if (!employee) {
-        throw new Error(`Auth Error: '${email}' is not registered.`);
-    }
-    if (!employee.isLoginEnabled) {
-        throw new Error("Account Locked: Contact System Admin.");
-    }
+    if (!employee) throw new Error(`Auth Error: '${email}' not found.`);
+    if (!employee.isLoginEnabled) throw new Error("Account Locked.");
     if (employee.password === password) {
-        setAuthSession(employee);
+        setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
+        setIsAuthenticated(true);
+        localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
         return true;
-    } else {
-        throw new Error("Security Key Incorrect.");
     }
+    throw new Error("Incorrect Security Key.");
   };
 
   const loginWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const email = result.user.email;
-      if (!email) throw new Error("Google profile missing email access.");
-      const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-      if (!employee) {
-        await signOut(auth);
-        throw new Error(`Unauthorized: '${email}' is not in the registry.`);
-      }
-      setAuthSession(employee);
-      return true;
-    } catch (err: any) {
-      throw new Error(err?.message || "Google authentication failed.");
-    }
+    const result = await signInWithPopup(auth, googleProvider);
+    const employee = employees.find(e => e.email.toLowerCase() === result.user.email?.toLowerCase());
+    if (!employee) { await signOut(auth); throw new Error(`Unauthorized: '${result.user.email}' not registered.`); }
+    setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
+    setIsAuthenticated(true);
+    localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
+    return true;
   };
 
   const logout = async () => {
     try { await signOut(auth); } catch (e) {}
-    setCurrentUser(null);
-    setIsAuthenticated(false);
+    setCurrentUser(null); setIsAuthenticated(false);
     localStorage.removeItem('sreemeditec_auth_user');
   };
 
   const addClient = async (client: Client) => await setDoc(doc(db, "clients", client.id), client);
   const updateClient = async (id: string, client: Partial<Client>) => await updateDoc(doc(db, "clients", id), client);
-  const removeClient = async (id: string) => await deleteDoc(doc(db, "clients", id));
+  const removeClient = async (id: string) => {
+    if (!id) return;
+    const docId = String(id).trim();
+    console.debug(`Firestore: Attempting to remove client document: ${docId}`);
+    try {
+        await deleteDoc(doc(db, "clients", docId));
+        console.debug(`Firestore: Successfully removed client ${docId}`);
+    } catch (err) {
+        console.error(`Firestore Error: Could not delete client ${docId}`, err);
+        throw err;
+    }
+  };
+
   const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
   const updateVendor = async (id: string, vendor: Partial<Vendor>) => await updateDoc(doc(db, "vendors", id), vendor);
-  const removeVendor = async (id: string) => await deleteDoc(doc(db, "vendors", id));
+  const removeVendor = async (id: string) => {
+    if (!id) return;
+    const docId = String(id).trim();
+    console.debug(`Firestore: Attempting to remove vendor document: ${docId}`);
+    try {
+        await deleteDoc(doc(db, "vendors", docId));
+        console.debug(`Firestore: Successfully removed vendor ${docId}`);
+    } catch (err) {
+        console.error(`Firestore Error: Could not delete vendor ${docId}`, err);
+        throw err;
+    }
+  };
+
   const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
   const updateProduct = async (id: string, updates: Partial<Product>) => await updateDoc(doc(db, "products", id), updates);
-  const removeProduct = async (id: string) => await deleteDoc(doc(db, "products", id));
+  const removeProduct = async (id: string) => {
+    if (!id) return;
+    const docId = String(id).trim();
+    console.debug(`Firestore: Attempting to remove product document: ${docId}`);
+    try {
+        await deleteDoc(doc(db, "products", docId));
+        console.debug(`Firestore: Successfully removed product ${docId}`);
+    } catch (err) {
+        console.error(`Firestore Error: Could not delete product ${docId}`, err);
+        throw err;
+    }
+  };
+
   const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
   const updateInvoice = async (id: string, updatedInvoice: Invoice) => await setDoc(doc(db, "invoices", id), updatedInvoice);
   const addLead = async (lead: Lead) => await setDoc(doc(db, "leads", lead.id), lead);
@@ -299,23 +279,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
   const updateEmployee = async (id: string, updates: Partial<Employee>) => await updateDoc(doc(db, "employees", id), updates);
   const removeEmployee = async (id: string) => await deleteDoc(doc(db, "employees", id));
-  
   const addTask = async (task: Task) => await setDoc(doc(db, "tasks", task.id), task);
   const removeTask = async (id: string) => await deleteDoc(doc(db, "tasks", id));
   const updateTaskRemote = async (id: string, updates: Partial<Task>) => await updateDoc(doc(db, "tasks", id), updates);
 
   const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
-    const notifPayload = { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() };
-    await addDoc(collection(db, "notifications"), notifPayload);
+    await addDoc(collection(db, "notifications"), { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() });
   };
-
   const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
-  const clearAllNotifications = async () => notifications.forEach(n => markNotificationRead(n.id));
+  const clearAllNotifications = () => notifications.forEach(n => markNotificationRead(n.id));
 
   const addPoints = async (amount: number, category: PointHistory['category'], description: string) => {
       if (!currentUser) return;
-      const pointPayload = { date: new Date().toISOString().split('T')[0], points: amount, category, description, userId: currentUser.id, createdAt: serverTimestamp() };
-      await addDoc(collection(db, "pointHistory"), pointPayload);
+      await addDoc(collection(db, "pointHistory"), { date: new Date().toISOString().split('T')[0], points: amount, category, description, userId: currentUser.id, createdAt: serverTimestamp() });
   };
 
   const updatePrizePool = (amount: number) => setPrizePool(amount);
