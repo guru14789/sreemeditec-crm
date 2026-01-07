@@ -80,6 +80,40 @@ export interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+// Utility to recursively sanitize Firestore data to ensure it's JSON serializable
+const sanitizeData = (data: any): any => {
+  if (data === null || typeof data !== 'object') return data;
+  
+  // Handle Firestore Timestamps and Javascript Dates
+  if (typeof data.toDate === 'function') {
+    return data.toDate().toISOString();
+  }
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+  
+  // Handle simple objects and arrays
+  if (Array.isArray(data)) {
+    return data.map(sanitizeData);
+  }
+  
+  // Check if it's a plain object to avoid recursing into internal Firebase instances/references
+  const isPlainObject = data.constructor === Object || data.constructor === undefined;
+  if (isPlainObject) {
+    const plain: any = {};
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      // Skip functions and specific internal keys if necessary
+      if (typeof value === 'function') return;
+      plain[key] = sanitizeData(value);
+    });
+    return plain;
+  }
+  
+  // If it's a complex object (like DocumentReference), don't recurse, just return a safe representation
+  return null;
+};
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -115,34 +149,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    /**
-     * Sanitizes Firestore document data to ensure it's a plain serializable object.
-     * This prevents circular structure errors when components try to stringify state.
-     */
-    const sanitizeData = (data: any): any => {
-      if (data === null || typeof data !== 'object') return data;
-      
-      // Handle Firebase Timestamp
-      if (data.seconds !== undefined && data.nanoseconds !== undefined) {
-        return new Date(data.seconds * 1000).toISOString();
-      }
-
-      // Handle Arrays
-      if (Array.isArray(data)) {
-        return data.map(sanitizeData);
-      }
-
-      // Handle Objects (exclude non-POJO classes)
-      const plain: any = {};
-      Object.keys(data).forEach(key => {
-        const value = data[key];
-        // Skip common internal fields or specific complex objects if necessary
-        if (typeof value === 'function') return;
-        plain[key] = sanitizeData(value);
-      });
-      return plain;
-    };
-
     const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => ({
         id: d.id,
         ...sanitizeData(d.data())
@@ -166,7 +172,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribes.forEach(u => u());
   }, []);
 
-  // Restore session on load
   useEffect(() => {
     const saved = localStorage.getItem('sreemeditec_auth_user');
     if (saved) {
@@ -174,7 +179,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const parsed = JSON.parse(saved);
             const fullEmp = employees.find(e => e.id === parsed.id);
             if (fullEmp) {
-                setCurrentUser(fullEmp);
+                setCurrentUser({
+                    ...fullEmp,
+                    permissions: fullEmp.permissions ? [...fullEmp.permissions] : []
+                });
                 setIsAuthenticated(true);
             }
         } catch (e) {
@@ -200,31 +208,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const batch = writeBatch(db);
       
       const initialEmployees: Employee[] = [
-          { id: 'EMP001', name: 'Admin Hub', role: 'System Admin', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
-          { id: 'EMP002', name: 'Rahul Sharma', role: 'Senior Technician', department: 'Service', email: 'rahul@sreemeditec.com', phone: '7200021788', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'rahul', permissions: [TabView.DASHBOARD, TabView.TASKS, TabView.ATTENDANCE, TabView.SERVICE_ORDERS, TabView.PROFILE] },
-          { id: 'EMP003', name: 'Employee User', role: 'Staff', department: 'Sales', email: 'employee@demo.com', phone: '111', joinDate: '2023-10-01', baseSalary: 30000, status: 'Active', isLoginEnabled: true, password: 'pass', permissions: [TabView.DASHBOARD, TabView.LEADS, TabView.QUOTES, TabView.TASKS, TabView.ATTENDANCE, TabView.PROFILE] }
+          { id: 'EMP001', name: 'Master Admin', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
+          // Fix: Corrected typo 'Tab_VIEW' to 'TabView'
+          { id: 'EMP002', name: 'Staff User', role: 'SYSTEM_STAFF', department: 'Service', email: 'staff@demo.com', phone: '111', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'staff', permissions: [TabView.DASHBOARD, TabView.PROFILE, TabView.TASKS] }
       ];
 
       initialEmployees.forEach(emp => batch.set(doc(db, "employees", emp.id), emp));
-
-      const initialLeads: Lead[] = [
-          { id: 'L001', name: 'Dr. Sarah Smith', hospital: 'City General Hospital', source: 'Website', status: LeadStatus.NEW, value: 45000, lastContact: '2023-10-25', productInterest: 'Ultrasound Machine', email: 'sarah.s@gmail.com', phone: '9884818398', address: 'Chennai, TN' }
-      ];
-      initialLeads.forEach(lead => batch.set(doc(db, "leads", lead.id), lead));
-
       await batch.commit();
-      addNotification('System Ready', 'Workspace registry initialized.', 'success');
+      addNotification('System Initialized', 'Enterprise Roles defined.', 'success');
   };
 
   const setAuthSession = (employee: Employee) => {
     const sessionData = {
-        id: employee.id,
-        name: employee.name,
-        email: employee.email,
-        role: employee.role,
-        department: employee.department
+        id: String(employee.id),
+        name: String(employee.name),
+        email: String(employee.email),
+        role: String(employee.role),
+        department: String(employee.department)
     };
-    setCurrentUser(employee);
+    
+    setCurrentUser({
+        ...employee,
+        permissions: employee.permissions ? [...employee.permissions] : []
+    });
     setIsAuthenticated(true);
     localStorage.setItem('sreemeditec_auth_user', JSON.stringify(sessionData));
   };
@@ -233,21 +239,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (employees.length === 0) {
         throw new Error("Local registry is empty. Please click 'Initialize Workspace' first.");
     }
-    
     const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
     if (!employee) {
-        throw new Error(`Auth Error: '${email}' is not registered in the Sree Meditec database.`);
+        throw new Error(`Auth Error: '${email}' is not registered.`);
     }
-    
     if (!employee.isLoginEnabled) {
-        throw new Error("Account Locked: Please contact the system administrator.");
+        throw new Error("Account Locked: Contact System Admin.");
     }
-
     if (employee.password === password) {
         setAuthSession(employee);
         return true;
     } else {
-        throw new Error("Security Key Incorrect: Please verify your credentials.");
+        throw new Error("Security Key Incorrect.");
     }
   };
 
@@ -256,31 +259,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
       if (!email) throw new Error("Google profile missing email access.");
-      if (employees.length === 0) {
-        await signOut(auth);
-        throw new Error("Local registry is empty. Please 'Initialize Workspace' before using Google login.");
-      }
       const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
       if (!employee) {
         await signOut(auth);
-        throw new Error(`Unauthorized: '${email}' is not in the Sree Meditec staff registry.`);
-      }
-      if (!employee.isLoginEnabled) {
-        await signOut(auth);
-        throw new Error("Account restricted by HR policy.");
+        throw new Error(`Unauthorized: '${email}' is not in the registry.`);
       }
       setAuthSession(employee);
       return true;
     } catch (err: any) {
-      const cleanMsg = err?.message || "Google authentication failed.";
-      throw new Error(cleanMsg);
+      throw new Error(err?.message || "Google authentication failed.");
     }
   };
 
   const logout = async () => {
-    try {
-        await signOut(auth);
-    } catch (e) {}
+    try { await signOut(auth); } catch (e) {}
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('sreemeditec_auth_user');

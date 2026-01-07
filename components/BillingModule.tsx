@@ -717,7 +717,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
     );
 };
 
-const FormRow = ({ label, children }: { label: string, children: React.ReactNode }) => (
+const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{label}</label>
         {children}

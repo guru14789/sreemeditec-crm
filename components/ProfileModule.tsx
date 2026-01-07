@@ -57,23 +57,31 @@ const getDeviceIcon = (type: ActiveSession['type']) => {
 
 /**
  * Sanitizes data for JSON stringification to prevent circular references 
- * and convert Firestore objects (like Timestamps) into serializable strings.
+ * and convert Firestore objects into serializable strings.
  */
 const sanitizeForExport = (obj: any): any => {
-    const cache = new Set();
-    return JSON.parse(JSON.stringify(obj, (key, value) => {
-        if (typeof value === 'object' && value !== null) {
-            // Convert Firestore timestamps to strings
-            if (value.seconds !== undefined && value.nanoseconds !== undefined) {
-                return new Date(value.seconds * 1000).toISOString();
+    try {
+        const cache = new Set();
+        const jsonString = JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+                // Check visited objects to prevent circularity
+                if (cache.has(value)) {
+                    return "[Circular Reference]";
+                }
+                cache.add(value);
+                
+                // Convert Firestore timestamps to strings
+                if (typeof value.toDate === 'function') {
+                    return value.toDate().toISOString();
+                }
             }
-            if (cache.has(value)) {
-                return "[Circular Reference]";
-            }
-            cache.add(value);
-        }
-        return value;
-    }));
+            return value;
+        }, 2);
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.error("Sanitization error:", e);
+        return { error: "Object too complex to sanitize" };
+    }
 };
 
 export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserRole, currentUser }) => {
@@ -113,8 +121,11 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
     ]);
 
     const hasUnsavedChanges = useMemo(() => {
-        return JSON.stringify(profile) !== JSON.stringify(baseProfile) ||
-               JSON.stringify(appPrefs) !== JSON.stringify(basePrefs) ||
+        // Simple property check instead of deep JSON compare to avoid circularity crashes
+        return profile.name !== baseProfile.name ||
+               profile.bio !== baseProfile.bio ||
+               profile.phone !== baseProfile.phone ||
+               appPrefs.theme !== basePrefs.theme ||
                mfaEnabled !== baseMfa ||
                passwordData.current !== '';
     }, [profile, baseProfile, appPrefs, basePrefs, mfaEnabled, baseMfa, passwordData]);
@@ -165,7 +176,6 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     clients, products, invoices, stockMovements, expenses, employees, pointHistory
                 };
                 
-                // Sanitize to prevent circular reference errors
                 const sanitizedData = sanitizeForExport(rawData);
                 
                 const blob = new Blob([JSON.stringify(sanitizedData, null, 2)], { type: 'application/json' });

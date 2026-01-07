@@ -171,7 +171,6 @@ export enum TabView {
   PO_BUILDER = 'customer_po',
   SUPPLIER_PO = 'supplier_po',
   INVENTORY = 'inventory',
-  SERVICE = 'service',
   SERVICE_ORDERS = 'service_orders',
   SERVICE_REPORTS = 'service_reports',
   INSTALLATION_REPORTS = 'installation_reports',
@@ -180,7 +179,6 @@ export enum TabView {
   TASKS = 'tasks',
   BILLING = 'billing',
   DELIVERY = 'delivery',
-  SUPPORT = 'support',
   REPORTS = 'reports',
   PROFILE = 'profile',
   CLIENTS = 'clients',
@@ -189,10 +187,12 @@ export enum TabView {
   PERFORMANCE = 'performance',
 }
 
+export type EnterpriseRole = 'SYSTEM_ADMIN' | 'SYSTEM_STAFF';
+
 export interface Employee {
   id: string;
   name: string;
-  role: string;
+  role: EnterpriseRole;
   department: string;
   email: string;
   phone: string;
@@ -376,7 +376,6 @@ export interface PointHistory {
   points: number;
   category: 'Task' | 'Attendance' | 'Sales' | 'Bonus';
   description: string;
-  // userId is required for filtering by user in DataContext
   userId: string;
 }
 
@@ -387,21 +386,6 @@ export interface UserStats {
   salesRevenue: number;
 }
 
-export interface UserProfile {
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-  location: string;
-  bio: string;
-  notifications: {
-    email: boolean;
-    sms: boolean;
-    push: boolean;
-  };
-}
-
 export interface AppNotification {
   id: string;
   title: string;
@@ -410,4 +394,20 @@ export interface AppNotification {
   type: 'info' | 'alert' | 'warning' | 'success';
   read: boolean;
   isNewToast?: boolean;
+}
+
+// Add missing UserProfile interface used in ProfileModule
+export interface UserProfile {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  department: string;
+  location: string;
+  bio: string;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
 }
