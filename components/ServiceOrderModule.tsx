@@ -136,7 +136,7 @@ export const ServiceOrderModule: React.FC = () => {
                     idx + 1,
                     it.description,
                     it.quantity,
-                    it.unitPrice.toLocaleString('en-IN'),
+                    (it.unitPrice || 0).toLocaleString('en-IN'),
                     amount.toLocaleString('en-IN'),
                     `${it.taxRate}%`,
                     gstValue.toLocaleString('en-IN'),
@@ -154,8 +154,8 @@ export const ServiceOrderModule: React.FC = () => {
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
             body: [
-                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: totals.totalWithGst.toLocaleString('en-IN'), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: totals.grandTotal.toLocaleString('en-IN'), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
+                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: (totals.totalWithGst || 0).toLocaleString('en-IN'), styles: { halign: 'right', fontStyle: 'bold' } }],
+                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: (totals.grandTotal || 0).toLocaleString('en-IN'), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
             ]
         });
 
@@ -168,11 +168,11 @@ export const ServiceOrderModule: React.FC = () => {
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             quantity: 1,
-            unitPrice: prod?.price || 0,
+            unitPrice: prod?.sellingPrice || 0,
             taxRate: prod?.taxRate || 18,
-            amount: prod?.price || 0,
-            gstValue: (prod?.price || 0) * ((prod?.taxRate || 18) / 100),
-            priceWithGst: (prod?.price || 0) * (1 + ((prod?.taxRate || 18) / 100))
+            amount: prod?.sellingPrice || 0,
+            gstValue: (prod?.sellingPrice || 0) * ((prod?.taxRate || 18) / 100),
+            priceWithGst: (prod?.sellingPrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
         };
         setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
         if (builderTab === 'catalog') setBuilderTab('form');
@@ -206,8 +206,8 @@ export const ServiceOrderModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Completed', documentType: 'ServiceOrder' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Service Order</button>
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Completed', documentType: 'ServiceOrder' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Service Order</button>
             </div>
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
@@ -228,7 +228,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">

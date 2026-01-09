@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Lead, LeadStatus, FollowUp, TabView } from '../types';
 import { Mail, Phone, Plus, Wand2, RefreshCw, ShoppingBag, Globe, DownloadCloud, Box, CreditCard, MapPin, Printer, ArrowUpRight, User, Calendar, CheckSquare, MessageSquare, Clock, X, Save, UserPlus, FileText } from 'lucide-react';
@@ -54,8 +55,6 @@ export const LeadsModule: React.FC = () => {
     };
     setPendingQuoteData(quoteSeed);
     addNotification('Lead Conversion', `Lead data for ${lead.name} prepared for Quotation.`, 'success');
-    // We assume App.tsx or parent handles navigation when TabView changes
-    // In this simplified context, user must manually go to Quote module, or we trigger it.
   };
 
   const handleSyncLeads = () => {
@@ -94,6 +93,8 @@ export const LeadsModule: React.FC = () => {
     const updatedFollowUps = [...(selectedLead.followUps || []), followUp];
     updateLead(selectedLead.id, { followUps: updatedFollowUps });
     setShowAddFollowUp(false);
+    // Fixed: 'FollowUp' is a type and cannot be instantiated with 'new'. 
+    // Replaced with 'new Date().toISOString().split('T')[0]' to reset the form to today's date.
     setNewFollowUp({ type: 'Call', date: new Date().toISOString().split('T')[0], notes: '' });
     addNotification('Task Logged', `Follow-up set for ${selectedLead.name}.`, 'info');
   };
@@ -203,7 +204,7 @@ export const LeadsModule: React.FC = () => {
                             <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
                                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Box size={12}/> Item Interest</h4>
                                 <p className="font-black text-slate-800 mt-2">{selectedLead.productInterest}</p>
-                                <p className="text-xs font-bold text-indigo-600 mt-1">Est. Value: ₹{selectedLead.value.toLocaleString()}</p>
+                                <p className="text-xs font-bold text-indigo-600 mt-1">Est. Value: ₹{(selectedLead.value || 0).toLocaleString()}</p>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-3">
