@@ -6,16 +6,17 @@ import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
 const formatIndianNumber = (num: number) => {
-  if (num >= 10000000) {
-    return (num / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+  const n = num || 0;
+  if (n >= 10000000) {
+    return (n / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
   }
-  if (num >= 100000) {
-    return (num / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+  if (n >= 100000) {
+    return (n / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
   }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+  if (n >= 1000) {
+    return (n / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
   }
-  return num.toString();
+  return n.toLocaleString('en-IN');
 };
 
 export const InventoryModule: React.FC = () => {
@@ -64,7 +65,7 @@ export const InventoryModule: React.FC = () => {
   const scanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const low = products.filter(p => p.stock < p.minLevel);
+    const low = products.filter(p => (p.stock || 0) < (p.minLevel || 0));
     setLowStockItems(low);
     if (low.length > 0) {
         setShowNotification(true);
@@ -95,7 +96,7 @@ export const InventoryModule: React.FC = () => {
     setProcessingOrder(true);
     try {
         const idsToReplenish = products
-            .filter(p => p.stock < p.minLevel)
+            .filter(p => (p.stock || 0) < (p.minLevel || 0))
             .map(p => p.id);
         
         if (idsToReplenish.length > 0) {
@@ -170,14 +171,14 @@ export const InventoryModule: React.FC = () => {
     }
 
     const originalProduct = products.find(p => p.id === editingProduct.id);
-    const stockDiff = editingProduct.stock - (originalProduct?.stock || 0);
+    const stockDiff = (editingProduct.stock || 0) - (originalProduct?.stock || 0);
 
     await updateProduct(editingProduct.id, {
         ...editingProduct,
-        stock: Number(editingProduct.stock),
-        purchasePrice: Number(editingProduct.purchasePrice),
-        sellingPrice: Number(editingProduct.sellingPrice),
-        minLevel: Number(editingProduct.minLevel)
+        stock: Number(editingProduct.stock || 0),
+        purchasePrice: Number(editingProduct.purchasePrice || 0),
+        sellingPrice: Number(editingProduct.sellingPrice || 0),
+        minLevel: Number(editingProduct.minLevel || 0)
     });
 
     if (stockDiff !== 0) {
@@ -222,7 +223,7 @@ export const InventoryModule: React.FC = () => {
       const product = products.find(p => p.id === demoData.productId);
       if(!product) return;
 
-      if(product.stock < demoData.quantity) {
+      if((product.stock || 0) < demoData.quantity) {
           alert("Insufficient stock for this operation.");
           return;
       }
@@ -238,7 +239,7 @@ export const InventoryModule: React.FC = () => {
           });
       }
 
-      updateProduct(product.id, { stock: product.stock - demoData.quantity });
+      updateProduct(product.id, { stock: (product.stock || 0) - demoData.quantity });
 
       recordStockMovement({
           id: `MOV-DEMO-${Date.now()}`,
@@ -292,14 +293,14 @@ export const InventoryModule: React.FC = () => {
   const handleStockUpdate = () => {
       if (!scannedProduct || quickStockAmount <= 0) return;
 
-      let newStock = scannedProduct.stock;
+      let newStock = scannedProduct.stock || 0;
       let lastRestocked = scannedProduct.lastRestocked;
       
       if (scanOperation === 'In') {
           newStock += quickStockAmount;
           lastRestocked = new Date().toISOString().split('T')[0];
       } else {
-          if (scannedProduct.stock < quickStockAmount) {
+          if ((scannedProduct.stock || 0) < quickStockAmount) {
               alert(`Insufficient stock! Current stock is ${scannedProduct.stock}.`);
               return;
           }
@@ -333,10 +334,15 @@ export const InventoryModule: React.FC = () => {
       }, 50);
   };
 
-  // CALCULATIONS USE purchasePrice (Cost)
-  const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.purchasePrice), 0);
-  const equipmentValue = products.filter(p => p.category === 'Equipment').reduce((acc, p) => acc + (p.stock * p.purchasePrice), 0);
-  const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + (p.stock * p.purchasePrice), 0);
+  // --- REVISED CALCULATION LOGIC ---
+  // Equipment (Cost) - sum of Purchase Price * available stock for all products
+  const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+  
+  // Asset Valuation (Cost) - sum of Selling Price * available stock for all products
+  const assetValuationAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.sellingPrice || 0)), 0);
+
+  // Consumables (Cost) - remains specific to category for more detail
+  const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
 
   return (
     <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
@@ -349,18 +355,18 @@ export const InventoryModule: React.FC = () => {
               </div>
               <div className="relative z-10">
                   <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
-                      <Wallet size={14} /> Asset Valuation (Cost)
+                      <Wallet size={14} /> Asset Valuation (Selling Value)
                   </p>
-                  <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(totalInventoryValue)}</h3>
-                  <p className="text-xs text-emerald-100/60 mt-2 font-medium">Internal stock valuation</p>
+                  <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(assetValuationAll)}</h3>
+                  <p className="text-xs text-emerald-100/60 mt-2 font-medium">Total market value of all stock</p>
               </div>
           </div>
           
            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
               <div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Equipment (Cost)</p>
-                  <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(equipmentValue)}</h3>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">High value assets</p>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Equipment (Purchase Cost)</p>
+                  <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(equipmentCostAll)}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Total inventory investment</p>
               </div>
                <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:scale-110 transition-transform">
                   <Building2 size={24} />
@@ -501,7 +507,12 @@ export const InventoryModule: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 relative z-10">
                         {filteredProducts.map((product) => {
-                            const isLowStock = product.stock < product.minLevel;
+                            const stock = product.stock || 0;
+                            const minLevel = product.minLevel || 0;
+                            const isLowStock = stock < minLevel;
+                            const purchasePrice = product.purchasePrice || 0;
+                            const sellingPrice = product.sellingPrice || 0;
+
                             return (
                                 <tr key={product.id} className={`hover:bg-slate-50 transition-colors ${isLowStock ? 'bg-red-50/20' : ''}`}>
                                     <td className="px-6 py-5">
@@ -519,12 +530,12 @@ export const InventoryModule: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className={`px-6 py-5 text-right font-black ${isLowStock ? 'text-red-600' : 'text-slate-800'}`}>
-                                        <span className="text-lg">{product.stock}</span>
+                                        <span className="text-lg">{stock}</span>
                                         <span className="text-[10px] text-slate-400 ml-1 uppercase">{product.unit || 'nos'}</span>
-                                        <div className="text-[9px] text-slate-300 font-bold">Min: {product.minLevel}</div>
+                                        <div className="text-[9px] text-slate-300 font-bold">Min: {minLevel}</div>
                                     </td>
-                                    <td className="px-6 py-5 text-right font-black text-slate-400 italic">₹{(product.purchasePrice || 0).toLocaleString()}</td>
-                                    <td className="px-6 py-5 text-right font-black text-teal-700">₹{(product.sellingPrice || 0).toLocaleString()}</td>
+                                    <td className="px-6 py-5 text-right font-black text-slate-400 italic">₹{purchasePrice.toLocaleString('en-IN')}</td>
+                                    <td className="px-6 py-5 text-right font-black text-teal-700">₹{sellingPrice.toLocaleString('en-IN')}</td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 truncate">
                                             <MapPin size={12} className="shrink-0" /> <span className="truncate">{product.location}</span>
@@ -553,7 +564,7 @@ export const InventoryModule: React.FC = () => {
                                             <button 
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
-                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all group/btn"
+                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all group/btn"
                                                 title="Remove from Inventory"
                                             >
                                                 <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
@@ -663,21 +674,21 @@ export const InventoryModule: React.FC = () => {
                     <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Cost (₹)</label>
-                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-rose-600" value={editingProduct.purchasePrice} onChange={e => setEditingProduct({...editingProduct, purchasePrice: Number(e.target.value)})} />
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-rose-600" value={editingProduct.purchasePrice || 0} onChange={e => setEditingProduct({...editingProduct, purchasePrice: Number(e.target.value)})} />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
-                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-emerald-600" value={editingProduct.sellingPrice} onChange={e => setEditingProduct({...editingProduct, sellingPrice: Number(e.target.value)})} />
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({...editingProduct, sellingPrice: Number(e.target.value)})} />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Available Stock</label>
-                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock} onChange={e => setEditingProduct({...editingProduct, stock: Number(e.target.value)})} />
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock || 0} onChange={e => setEditingProduct({...editingProduct, stock: Number(e.target.value)})} />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Alert Level</label>
-                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel} onChange={e => setEditingProduct({...editingProduct, minLevel: Number(e.target.value)})} />
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel || 0} onChange={e => setEditingProduct({...editingProduct, minLevel: Number(e.target.value)})} />
                         </div>
                     </div>
                     <div className="space-y-1.5">
@@ -777,7 +788,7 @@ export const InventoryModule: React.FC = () => {
                                   <div className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg"><Package size={24} /></div>
                                   <div className="min-w-0">
                                       <h4 className="font-black text-emerald-900 dark:text-emerald-100 truncate text-sm uppercase">{scannedProduct.name}</h4>
-                                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Stock: {scannedProduct.stock} {scannedProduct.unit}</p>
+                                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Stock: {scannedProduct.stock || 0} {scannedProduct.unit}</p>
                                   </div>
                               </div>
 
@@ -833,8 +844,8 @@ export const InventoryModule: React.FC = () => {
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Equipment *</label>
                           <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none appearance-none" value={demoData.productId} onChange={e => setDemoData({...demoData, productId: e.target.value})}>
                               <option value="">Choose item from stock...</option>
-                              {products.filter(p => p.stock > 0).map(p => (
-                                  <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock} {p.unit})</option>
+                              {products.filter(p => (p.stock || 0) > 0).map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock || 0} {p.unit})</option>
                               ))}
                           </select>
                       </div>
