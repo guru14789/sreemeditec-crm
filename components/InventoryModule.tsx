@@ -56,7 +56,7 @@ export const InventoryModule: React.FC = () => {
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanQuery, setScanQuery] = useState('');
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
-  const [scanStatus, setScanStatus] = useState<'idle' | 'found' | 'not-found'>('idle');
+  const [scanStatus, setScanStatus] = useState<'found' | 'not-found' | 'idle'>('idle');
   const [scanOperation, setScanOperation] = useState<'In' | 'Out'>('In'); // Toggle for Add/Remove
   const [quickStockAmount, setQuickStockAmount] = useState<number>(1);
   const scanInputRef = useRef<HTMLInputElement>(null);
@@ -387,13 +387,13 @@ export const InventoryModule: React.FC = () => {
             <div className="flex items-center gap-3 w-full sm:w-auto">
                  <button 
                     type="button"
-                    onClick={() => setShowPOModal(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowPOModal(true); }}
                     className="flex-1 sm:flex-none whitespace-nowrap bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
                     <ShoppingCart size={16} /> Bulk Restock
                 </button>
                 <button 
                     type="button"
-                    onClick={() => setShowNotification(false)}
+                    onClick={(e) => { e.stopPropagation(); setShowNotification(false); }}
                     className="p-2 text-red-400 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors">
                     <X size={20} />
                 </button>
@@ -440,19 +440,19 @@ export const InventoryModule: React.FC = () => {
                         </div>
                         <button 
                             type="button"
-                            onClick={() => { setShowScanModal(true); handleResetScan(); }}
+                            onClick={(e) => { e.stopPropagation(); setShowScanModal(true); handleResetScan(); }}
                             className="bg-slate-800 text-white hover:bg-slate-900 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
                             <ScanBarcode size={16} /> Scan
                         </button>
                         <button 
                             type="button"
-                            onClick={() => setShowDemoModal(true)}
+                            onClick={(e) => { e.stopPropagation(); setShowDemoModal(true); }}
                             className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
                             <Send size={16} /> Demo
                         </button>
                         <button 
                             type="button"
-                            onClick={() => setShowAddProductModal(true)}
+                            onClick={(e) => { e.stopPropagation(); setShowAddProductModal(true); }}
                             className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
                             <Plus size={16} /> Register Item
                         </button>
