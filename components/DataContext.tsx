@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { 
   collection, 
   onSnapshot, 
@@ -31,6 +30,10 @@ export interface DataContextType {
   leads: Lead[];
   serviceTickets: ServiceTicket[];
   
+  // Conversion state for module-to-module workflow
+  pendingQuoteData: Partial<Invoice> | null;
+  setPendingQuoteData: (data: Partial<Invoice> | null) => void;
+
   // Auth State
   currentUser: Employee | null;
   isAuthenticated: boolean;
@@ -43,7 +46,7 @@ export interface DataContextType {
   userStats: UserStats;
   pointHistory: PointHistory[];
   prizePool: number;
-  addPoints: (amount: number, category: PointHistory['category'], description: string) => void;
+  addPoints: (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => void;
   updatePrizePool: (amount: number) => void;
 
   // Database Actions
@@ -60,6 +63,7 @@ export interface DataContextType {
   addInvoice: (invoice: Invoice) => Promise<void>;
   updateInvoice: (id: string, invoice: Invoice) => Promise<void>;
   recordStockMovement: (movement: StockMovement) => Promise<void>;
+  bulkReplenishStock: (productIds: string[], quantity: number) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   addTask: (task: Task) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
@@ -95,6 +99,17 @@ const sanitizeData = (data: any): any => {
   return plain;
 };
 
+const isRedundant = (existing: any, updates: any) => {
+    if (!existing) return false;
+    return Object.keys(updates).every(key => {
+        const val = updates[key];
+        if (typeof val === 'object' && val !== null) {
+            return JSON.stringify(existing[key]) === JSON.stringify(val);
+        }
+        return existing[key] === val;
+    });
+};
+
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -110,6 +125,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
   const [prizePool, setPrizePool] = useState<number>(1500);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
 
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -129,10 +145,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => {
         const data = sanitizeData(d.data());
-        return {
-            ...data,
-            id: d.id // CRITICAL: Document ID must take precedence to ensure correct deletion
-        };
+        return { ...data, id: d.id };
     });
 
     const unsubscribes = [
@@ -223,86 +236,120 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addClient = async (client: Client) => await setDoc(doc(db, "clients", client.id), client);
-  const updateClient = async (id: string, client: Partial<Client>) => await updateDoc(doc(db, "clients", id), client);
-  const removeClient = async (id: string) => {
-    if (!id) return;
-    const docId = String(id).trim();
-    console.debug(`Firestore: Attempting to remove client document: ${docId}`);
-    try {
-        await deleteDoc(doc(db, "clients", docId));
-        console.debug(`Firestore: Successfully removed client ${docId}`);
-    } catch (err) {
-        console.error(`Firestore Error: Could not delete client ${docId}`, err);
-        throw err;
-    }
+  const updateClient = async (id: string, updates: Partial<Client>) => {
+      const existing = clients.find(c => c.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "clients", id), updates);
   };
+  const removeClient = async (id: string) => id && await deleteDoc(doc(db, "clients", id.trim()));
 
   const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
-  const updateVendor = async (id: string, vendor: Partial<Vendor>) => await updateDoc(doc(db, "vendors", id), vendor);
-  const removeVendor = async (id: string) => {
-    if (!id) return;
-    const docId = String(id).trim();
-    console.debug(`Firestore: Attempting to remove vendor document: ${docId}`);
-    try {
-        await deleteDoc(doc(db, "vendors", docId));
-        console.debug(`Firestore: Successfully removed vendor ${docId}`);
-    } catch (err) {
-        console.error(`Firestore Error: Could not delete vendor ${docId}`, err);
-        throw err;
-    }
+  const updateVendor = async (id: string, updates: Partial<Vendor>) => {
+      const existing = vendors.find(v => v.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "vendors", id), updates);
   };
+  const removeVendor = async (id: string) => id && await deleteDoc(doc(db, "vendors", id.trim()));
 
   const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
-  const updateProduct = async (id: string, updates: Partial<Product>) => await updateDoc(doc(db, "products", id), updates);
-  const removeProduct = async (id: string) => {
-    if (!id) return;
-    const docId = String(id).trim();
-    console.debug(`Firestore: Attempting to remove product document: ${docId}`);
-    try {
-        await deleteDoc(doc(db, "products", docId));
-        console.debug(`Firestore: Successfully removed product ${docId}`);
-    } catch (err) {
-        console.error(`Firestore Error: Could not delete product ${docId}`, err);
-        throw err;
-    }
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+      const existing = products.find(p => p.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "products", id), updates);
   };
+  const removeProduct = async (id: string) => id && await deleteDoc(doc(db, "products", id.trim()));
 
   const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
-  const updateInvoice = async (id: string, updatedInvoice: Invoice) => await setDoc(doc(db, "invoices", id), updatedInvoice);
+  const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
+      const existing = invoices.find(i => i.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "invoices", id), updates);
+  };
+  
   const addLead = async (lead: Lead) => await setDoc(doc(db, "leads", lead.id), lead);
-  const updateLead = async (id: string, updates: Partial<Lead>) => await updateDoc(doc(db, "leads", id), updates);
+  const updateLead = async (id: string, updates: Partial<Lead>) => {
+      const existing = leads.find(l => l.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "leads", id), updates);
+  };
+  
   const addServiceTicket = async (t: ServiceTicket) => await setDoc(doc(db, "serviceTickets", t.id), t);
-  const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => await updateDoc(doc(db, "serviceTickets", id), updates);
+  const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => {
+      const existing = serviceTickets.find(s => s.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "serviceTickets", id), updates);
+  };
+  
   const recordStockMovement = async (m: StockMovement) => await addDoc(collection(db, "stockMovements"), m);
+
+  const bulkReplenishStock = async (productIds: string[], quantity: number) => {
+      const batch = writeBatch(db);
+      const date = new Date().toISOString().split('T')[0];
+      productIds.forEach(id => {
+          const product = products.find(p => p.id === id);
+          if (!product) return;
+          batch.update(doc(db, "products", id), { stock: product.stock + quantity, lastRestocked: date });
+          const movementRef = doc(collection(db, "stockMovements"));
+          batch.set(movementRef, { id: `MOV-${Date.now()}-${id}`, productId: id, productName: product.name, type: 'In', quantity: quantity, date: date, reference: `AUTO-RESTOCK`, purpose: 'Restock' });
+      });
+      await batch.commit();
+  };
+
   const addExpense = async (e: ExpenseRecord) => await setDoc(doc(db, "expenses", e.id), e);
-  const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => await updateDoc(doc(db, "expenses", id), { status });
+  const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => {
+      const existing = expenses.find(e => e.id === id);
+      if (existing?.status === status) return;
+      await updateDoc(doc(db, "expenses", id), { status });
+  };
+  
   const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
-  const updateEmployee = async (id: string, updates: Partial<Employee>) => await updateDoc(doc(db, "employees", id), updates);
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
+      const existing = employees.find(e => e.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "employees", id), updates);
+  };
   const removeEmployee = async (id: string) => await deleteDoc(doc(db, "employees", id));
+  
   const addTask = async (task: Task) => await setDoc(doc(db, "tasks", task.id), task);
   const removeTask = async (id: string) => await deleteDoc(doc(db, "tasks", id));
-  const updateTaskRemote = async (id: string, updates: Partial<Task>) => await updateDoc(doc(db, "tasks", id), updates);
+  const updateTaskRemote = async (id: string, updates: Partial<Task>) => {
+      const existing = tasks.find(t => t.id === id);
+      if (isRedundant(existing, updates)) return;
+      await updateDoc(doc(db, "tasks", id), updates);
+  };
 
   const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
     await addDoc(collection(db, "notifications"), { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() });
   };
   const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
-  const clearAllNotifications = () => notifications.forEach(n => markNotificationRead(n.id));
+  const clearAllNotifications = () => notifications.forEach(n => !n.read && markNotificationRead(n.id));
 
-  const addPoints = async (amount: number, category: PointHistory['category'], description: string) => {
-      if (!currentUser) return;
-      await addDoc(collection(db, "pointHistory"), { date: new Date().toISOString().split('T')[0], points: amount, category, description, userId: currentUser.id, createdAt: serverTimestamp() });
+  const addPoints = async (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => {
+      const finalUserId = targetUserId || currentUser?.id;
+      if (!finalUserId) return;
+      await addDoc(collection(db, "pointHistory"), { 
+        date: new Date().toISOString().split('T')[0], 
+        points: amount, 
+        category, 
+        description, 
+        userId: finalUserId, 
+        createdAt: serverTimestamp() 
+      });
   };
 
-  const updatePrizePool = (amount: number) => setPrizePool(amount);
+  const updatePrizePool = (amount: number) => {
+      if (prizePool === amount) return;
+      setPrizePool(amount);
+  };
 
   return (
     <DataContext.Provider value={{ 
         clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets,
+        pendingQuoteData, setPendingQuoteData,
         currentUser, isAuthenticated, login, loginWithGoogle, logout, dbError, seedDatabase,
         addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
-        addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
+        addInvoice, updateInvoice, recordStockMovement, bulkReplenishStock, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
         setTasks, addTask, removeTask, updateTaskRemote,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,

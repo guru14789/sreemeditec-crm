@@ -1,12 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Task, SubTask, TaskLog } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Task, TaskLog } from '../types';
 import { 
-    CheckSquare, Clock, Plus, User, Calendar, LayoutGrid, List as ListIcon, 
-    CheckCircle2, AlertCircle, MapPin, X, MessageSquare, 
-    ShieldCheck, LocateFixed, Zap, ChevronRight,
-    Timer, UserPlus, AlignLeft, ListChecks, History, 
-    ClipboardList, Send, Trash2, CheckCircle, RefreshCw, CalendarDays
+    CheckSquare, Clock, Plus, User, Calendar, 
+    X, AlignLeft, History, Zap, Trash2, RefreshCw
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -17,8 +14,8 @@ interface TaskModuleProps {
     isAdmin: boolean;
 }
 
-export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, currentUser, isAdmin }) => {
-  const { addPoints, employees, addNotification, updateTaskRemote, addTask, removeTask } = useData(); 
+export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
+  const { addPoints, employees, addNotification, updateTaskRemote, addTask, removeTask, currentUser: authUser } = useData(); 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   
@@ -32,11 +29,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
 
   const visibleTasks = useMemo(() => {
+    // System admins have permission to view all tasks across all users
     if (isAdmin) return tasks; 
-    const todayStr = new Date().toISOString().split('T')[0];
-    // Employees see tasks assigned to them, high priority alerts, or completed tasks for today
-    return tasks.filter(t => t.assignedTo === currentUser || t.priority === 'High' || (t.status === 'Done' && t.dueDate === todayStr));
-  }, [tasks, isAdmin, currentUser]);
+    
+    // Employees are restricted to only tasks explicitly assigned to them
+    return tasks.filter(t => t.assignedTo === authUser?.name);
+  }, [tasks, isAdmin, authUser]);
 
   const handleUpdateStatus = async (id: string, newStatus: Task['status']) => {
       const existing = tasks.find(t => t.id === id);
@@ -44,7 +42,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
 
       const log: TaskLog = {
           id: `LOG-${Date.now()}`,
-          user: currentUser,
+          user: authUser?.name || 'Unknown',
           action: `Status transitioned: ${existing.status} -> ${newStatus}`,
           timestamp: new Date().toLocaleTimeString()
       };
@@ -54,12 +52,30 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
           logs: [...(existing.logs || []), log]
       };
 
+      // Set 'submittedBy' when a staff member submits for review
+      if (newStatus === 'Review') {
+          updates.submittedBy = authUser?.id;
+      }
+
       try {
           await updateTaskRemote(id, updates);
           addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
           
+          // AWARD POINTS ONLY UPON APPROVAL TO 'DONE'
           if (newStatus === 'Done') {
-              addPoints(50, 'Task', `Task Completed: ${existing.title}`);
+              // RULE: Points go to the person who submitted the task for review, 
+              // fulfilling the requirement "awarded only to the user who submits for review, not who approves".
+              // Idempotency: only award if pointsAwarded is not true.
+              if (existing.submittedBy && !existing.pointsAwarded) {
+                  const targetEmp = employees.find(e => e.id === existing.submittedBy);
+                  if (targetEmp) {
+                      addPoints(50, 'Task', `Task Approved: ${existing.title}`, targetEmp.id);
+                      addNotification('Reward Processed', `50 points awarded to ${targetEmp.name}.`, 'success');
+                      
+                      // Mark as points awarded to prevent double points
+                      await updateTaskRemote(id, { pointsAwarded: true });
+                  }
+              }
               setSelectedTaskId(null);
           }
       } catch (err) {
@@ -94,7 +110,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
           dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
           locationName: newTask.locationName || 'Main Office',
           subTasks: [],
-          logs: [{ id: 'L1', user: currentUser, action: 'Task Dispatched', timestamp: new Date().toLocaleTimeString() }]
+          pointsAwarded: false,
+          logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleTimeString() }]
       };
 
       try {
@@ -169,7 +186,6 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
             <KanbanColumn title="Completed" status="Done" color="bg-emerald-500" />
         </div>
 
-        {/* Task Detail Sidebar/Modal */}
         {selectedTaskId && selectedTask && (
             <div className="fixed inset-0 z-[120] flex justify-end animate-in fade-in duration-300">
                 <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedTaskId(null)}></div>
@@ -191,7 +207,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                         <section>
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-medical-600" /> Command Actions</h4>
                             <div className="flex flex-col gap-3">
-                                {selectedTask.assignedTo === currentUser ? (
+                                {selectedTask.assignedTo === authUser?.name ? (
                                     <>
                                         {selectedTask.status === 'To Do' && (
                                             <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Work</button>
@@ -213,7 +229,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
                                 
                                 {isAdmin && selectedTask.status === 'Review' && (
                                     <div className="flex gap-3 pt-2">
-                                        <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">Approve</button>
+                                        <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">Approve & Close</button>
                                         <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="flex-1 bg-rose-50 text-rose-600 border border-rose-100 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Reject</button>
                                     </div>
                                 )}
@@ -244,7 +260,6 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, setTasks, current
             </div>
         )}
 
-        {/* Add Task Modal */}
         {showAddTaskModal && (
             <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">

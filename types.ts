@@ -73,6 +73,7 @@ export interface Product {
   category: 'Equipment' | 'Consumable' | 'Spare Part';
   sku: string;
   stock: number;
+  unit?: string; 
   price: number;
   minLevel: number;
   location: string;
@@ -164,6 +165,25 @@ export interface AMCReminder {
   status: 'Active' | 'Expiring Soon' | 'Expired';
 }
 
+// Added missing types for Delivery Challan module
+export interface ChallanItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  remarks?: string;
+}
+
+export interface DeliveryChallan {
+  id: string;
+  challanNumber: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  items: ChallanItem[];
+  status: 'Draft' | 'Dispatched';
+}
+
 export enum TabView {
   DASHBOARD = 'dashboard',
   LEADS = 'leads',
@@ -204,31 +224,6 @@ export interface Employee {
   isLoginEnabled?: boolean;
 }
 
-export interface PayrollRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  month: string;
-  baseSalary: number;
-  attendanceDays: number;
-  lopDays: number;
-  allowances: number;
-  deductions: number;
-  netPay: number;
-  status: 'Paid' | 'Pending' | 'Processing';
-  paymentDate?: string;
-}
-
-export interface LeaveRequest {
-  id: string;
-  employeeName: string;
-  type: 'Sick' | 'Casual' | 'Earned';
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: 'Approved' | 'Rejected' | 'Pending';
-}
-
 export interface SubTask {
   id: string;
   text: string;
@@ -247,6 +242,8 @@ export interface Task {
   title: string;
   description: string;
   assignedTo: string;
+  submittedBy?: string; // UID of user who moved to Review
+  pointsAwarded?: boolean; // Idempotency check
   priority: 'High' | 'Medium' | 'Low';
   status: 'To Do' | 'In Progress' | 'Review' | 'Done';
   dueDate: string;
@@ -255,18 +252,6 @@ export interface Task {
   locationName?: string;
   subTasks?: SubTask[];
   logs?: TaskLog[];
-  completionRequest?: {
-    requested: boolean;
-    note: string;
-    timestamp: string;
-  };
-  exceptionRequest?: {
-    type: 'Move' | 'Delete';
-    reason: string;
-    newDate?: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    timestamp: string;
-  };
 }
 
 export interface PaymentRecord {
@@ -338,27 +323,6 @@ export interface Invoice {
   createdBy?: string;
 }
 
-export interface ChallanItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unit?: string;
-  remarks?: string;
-}
-
-export interface DeliveryChallan {
-  id: string;
-  challanNumber: string;
-  date: string;
-  customerName: string;
-  customerAddress: string;
-  vehicleNumber?: string;
-  items: ChallanItem[];
-  status: 'Dispatched' | 'Delivered' | 'Returned' | 'Draft';
-  referenceOrder?: string;
-  createdBy?: string;
-}
-
 export interface ExpenseRecord {
   id: string;
   employeeName: string;
@@ -396,7 +360,6 @@ export interface AppNotification {
   isNewToast?: boolean;
 }
 
-// Add missing UserProfile interface used in ProfileModule
 export interface UserProfile {
   name: string;
   role: string;

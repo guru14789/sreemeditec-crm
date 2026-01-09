@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Clock, User, CheckCircle, Building2, AlertCircle, Timer, PauseCircle, ShieldCheck, ClipboardCheck } from 'lucide-react';
 import { Task, Employee } from '../types';
@@ -29,9 +30,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   useEffect(() => {
       const me = employees.find(e => e.name === currentUser);
       if (me) {
-          if (me.department === 'Service' || me.department === 'Sales') setWorkMode('Field');
-          else if (me.department === 'Remote') setWorkMode('Remote');
-          else setWorkMode('Office');
+          // Support is now task-based like Service and Sales
+          if (me.department === 'Service' || me.department === 'Sales' || me.department === 'Support') {
+              setWorkMode('Field');
+          } else if (me.department === 'Remote') {
+              setWorkMode('Remote');
+          } else {
+              setWorkMode('Office');
+          }
       }
   }, [currentUser, employees]);
 
@@ -92,7 +98,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   };
 
   const getEmpWorkedHoursDisplay = (emp: Employee) => {
-      if (emp.department === 'Service' || emp.department === 'Sales') {
+      // Support staff now show task progress instead of clock time
+      if (emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') {
           const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.dueDate === todayStr);
           const done = empTasks.filter(t => t.status === 'Done').length;
           return `${done}/${empTasks.length} Tasks`;
@@ -207,7 +214,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                     <Building2 size={20} className="text-slate-400" /> Staff Presence
                 </h3>
                 <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-                    {['All', 'Service', 'Administration'].map(dept => (
+                    {['All', 'Service', 'Administration', 'Support'].map(dept => (
                         <button 
                             key={dept}
                             onClick={() => setFilterStatus(dept)}
@@ -254,7 +261,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                                 </td>
                                 <td className="px-6 py-5">
                                     <div className="flex items-center gap-2 text-slate-800 font-black text-[11px]">
-                                        {emp.department === 'Service' || emp.department === 'Sales' ? <ClipboardCheck size={14} className="text-blue-500" /> : <Timer size={14} className="text-emerald-500" />}
+                                        {(emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') ? <ClipboardCheck size={14} className="text-blue-500" /> : <Timer size={14} className="text-emerald-500" />}
                                         {getEmpWorkedHoursDisplay(emp)}
                                     </div>
                                 </td>

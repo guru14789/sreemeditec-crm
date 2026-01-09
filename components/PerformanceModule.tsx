@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Trophy, Star, TrendingUp, Target, Award, Users, CheckCircle, Zap, Crown, Gift, Info, History, Medal, HelpCircle, Edit2, Check, X } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -6,34 +7,41 @@ interface PerformanceModuleProps {
     userRole?: 'Admin' | 'Employee';
 }
 
-const LEADERBOARD_DATA = [
-    { rank: 1, name: 'Rahul Sharma', points: 0, tasks: 45, attendance: '98%', badge: 'gold' },
-    { rank: 2, name: 'Priya Patel', points: 2100, tasks: 38, attendance: '95%', badge: 'none' },
-    { rank: 3, name: 'Mike Ross', points: 1950, tasks: 42, attendance: '92%', badge: 'none' },
-    { rank: 4, name: 'Sarah Jenkins', points: 1800, tasks: 35, attendance: '90%', badge: 'none' },
-    { rank: 5, name: 'David Kim', points: 1650, tasks: 30, attendance: '88%', badge: 'none' },
-];
-
 export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole = 'Employee' }) => {
-  const { userStats, pointHistory, prizePool, updatePrizePool } = useData();
+  const { userStats, pointHistory, prizePool, updatePrizePool, employees, tasks, currentUser: activeUser } = useData();
   const [showRules, setShowRules] = useState(false);
   const [isEditingPrize, setIsEditingPrize] = useState(false);
   const [tempPrize, setTempPrize] = useState(prizePool.toString());
 
   const isAdmin = userRole === 'Admin';
 
-  // Sync current user (Rahul) with live context stats
-  const dynamicLeaderboard = LEADERBOARD_DATA.map(user => {
-      if (user.name === 'Rahul Sharma') {
-          return { ...user, points: userStats.points, tasks: userStats.tasksCompleted };
-      }
-      return user;
-  }).sort((a, b) => b.points - a.points);
+  // FIX: Dynamic Leaderboard Generation
+  // Calculates real-time rankings by summing point history for every employee in the registry.
+  const dynamicLeaderboard = useMemo(() => {
+      const list = employees.map(emp => {
+          const empPoints = pointHistory
+              .filter(p => p.userId === emp.id)
+              .reduce((sum, p) => sum + p.points, 0);
+          
+          const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.status === 'Done').length;
+          
+          return {
+              id: emp.id,
+              name: emp.name,
+              points: empPoints,
+              tasks: empTasks,
+              attendance: '95%', // Baseline mock for attendance logic
+              badge: empPoints > 1000 ? 'gold' : 'none',
+              rank: 0 // Placeholder
+          };
+      });
 
-  // Re-assign ranks after sort
-  dynamicLeaderboard.forEach((user, index) => {
-      user.rank = index + 1;
-  });
+      // Sort by points descending
+      const sorted = [...list].sort((a, b) => b.points - a.points);
+      
+      // Assign ranks
+      return sorted.map((user, index) => ({ ...user, rank: index + 1 }));
+  }, [employees, pointHistory, tasks]);
 
   const top3 = dynamicLeaderboard.slice(0, 3);
 
@@ -57,7 +65,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
   return (
     <div className="h-full flex flex-col gap-5 overflow-y-auto custom-scrollbar p-2">
       
-      {/* Top Header - Mini Stats Optimized for Mobile */}
+      {/* Top Header - Mini Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                <div className="flex items-center gap-2 mb-2">
@@ -127,10 +135,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
           </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Leaderboard Content */}
       <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
-          
-          {/* Leaderboard Section */}
           <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
               <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-2">
@@ -144,56 +150,54 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-                  {/* MOBILE VIEW: Cards and Podium */}
+                  {/* MOBILE VIEW */}
                   <div className="lg:hidden space-y-4">
-                      {/* Top 3 Podium */}
                       <div className="flex items-end justify-center gap-2 px-2 pt-12 pb-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-2 shadow-inner">
                           {/* 2nd Place */}
                           <div className="flex flex-col items-center flex-1">
                               <div className="relative mb-2">
                                   <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-xl text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
-                                      {top3[1]?.name.charAt(0)}
+                                      {top3[1]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-1 -right-1 bg-slate-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">2</div>
                               </div>
-                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[1]?.name.split(' ')[0]}</p>
-                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[1]?.points}</p>
+                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[1]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[1]?.points || 0}</p>
                           </div>
                           
-                          {/* 1st Place - The Champion */}
+                          {/* 1st Place */}
                           <div className="flex flex-col items-center flex-1 transform scale-110 pb-1">
                               <div className="relative mb-2">
                                   <div className="absolute -top-9 left-1/2 -translate-x-1/2 text-amber-500">
                                       <Crown size={28} fill="currentColor" className="drop-shadow-[0_2px_4px_rgba(245,158,11,0.4)] animate-pulse" />
                                   </div>
                                   <div className="w-16 h-16 rounded-[1.2rem] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-black text-2xl text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
-                                      {top3[0]?.name.charAt(0)}
+                                      {top3[0]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-2 -right-2 bg-amber-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border-2 border-white shadow-sm z-20">1</div>
                               </div>
-                              <p className="text-[11px] font-black text-slate-900 dark:text-white truncate w-full text-center">{top3[0]?.name.split(' ')[0]}</p>
-                              <p className="text-[11px] font-black text-orange-600 dark:text-orange-400 mt-0.5">{top3[0]?.points}</p>
+                              <p className="text-[11px] font-black text-slate-900 dark:text-white truncate w-full text-center">{top3[0]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[11px] font-black text-orange-600 dark:text-orange-400 mt-0.5">{top3[0]?.points || 0}</p>
                           </div>
 
                           {/* 3rd Place */}
                           <div className="flex flex-col items-center flex-1">
                               <div className="relative mb-2">
                                   <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-black text-xl text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
-                                      {top3[2]?.name.charAt(0)}
+                                      {top3[2]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-1 -right-1 bg-orange-400 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm">3</div>
                               </div>
-                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[2]?.name.split(' ')[0]}</p>
-                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[2]?.points}</p>
+                              <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[2]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[2]?.points || 0}</p>
                           </div>
                       </div>
 
-                      {/* Full List Rendering */}
                       <div className="space-y-2.5 pb-4">
                           {dynamicLeaderboard.map((user) => {
-                              const isCurrentUser = user.name === 'Rahul Sharma';
+                              const isCurrentUser = user.id === activeUser?.id;
                               return (
-                                  <div key={user.name} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm'}`}>
+                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm'}`}>
                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
                                           user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
                                           user.rank === 2 ? 'bg-slate-100 text-slate-600' :
@@ -226,7 +230,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                       </div>
                   </div>
 
-                  {/* DESKTOP VIEW: Detailed Table */}
+                  {/* DESKTOP VIEW */}
                   <table className="hidden lg:table w-full text-left text-sm text-slate-600">
                       <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 backdrop-blur-md">
                           <tr>
@@ -240,10 +244,10 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {dynamicLeaderboard.map((user) => {
                               const rankStyle = getRankStyle(user.rank);
-                              const isCurrentUser = user.name === 'Rahul Sharma';
+                              const isCurrentUser = user.id === activeUser?.id;
                               
                               return (
-                                  <tr key={user.name} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isCurrentUser ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''}`}>
+                                  <tr key={user.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors ${isCurrentUser ? 'bg-indigo-50/20 dark:bg-indigo-900/5' : ''}`}>
                                       <td className="px-8 py-6 text-center">
                                           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-base mx-auto border-2 ${
                                               user.rank === 1 ? 'bg-amber-500 text-white border-white shadow-lg shadow-amber-500/20' : 
@@ -291,10 +295,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
               </div>
           </div>
 
-          {/* Side Panels Column */}
+          {/* Side Panel: Log */}
           <div className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
-              
-              {/* Performance Log Card */}
               <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden h-[350px] lg:h-auto lg:flex-1">
                   <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 shrink-0">
                       <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase text-[10px] tracking-widest">
@@ -328,7 +330,6 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                   </div>
               </div>
 
-              {/* Point Calculation Guide - Placed Under Performance Log */}
               <div className="bg-indigo-600 rounded-[2rem] p-6 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden shrink-0">
                    <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
                         <HelpCircle size={100} />
@@ -363,7 +364,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
           </div>
       </div>
 
-      {/* Rules Modal Overlay */}
+      {/* Rules Modal */}
       {showRules && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
               <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col overflow-hidden max-h-[85vh] animate-in zoom-in-95">
@@ -382,14 +383,6 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                               <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Task Milestone</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
                               <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">High Priority Bonus</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
                               <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Early Completion</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+5 pts</span></li>
-                          </ul>
-                      </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-[2rem] border border-emerald-100 dark:border-emerald-900/30">
-                          <h5 className="font-black text-emerald-900 dark:text-emerald-300 text-[10px] uppercase mb-4 tracking-widest border-b border-emerald-100 dark:border-emerald-800 pb-2">Attendance Sync</h5>
-                          <ul className="space-y-3 text-xs">
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">On-time Check-in</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+10 pts</span></li>
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Late Check-in</span> <span className="text-rose-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">-10 pts</span></li>
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Perfect 7-Day Streak</span> <span className="text-amber-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg">+100 pts</span></li>
                           </ul>
                       </div>
                   </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, StockMovement } from '../types';
-import { Package, AlertTriangle, Search, BellRing, X, ShoppingCart, CheckCircle, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, ScanBarcode, Trash2, Building2, RefreshCw } from 'lucide-react';
+import { Package, AlertTriangle, Search, BellRing, X, ShoppingCart, CheckCircle, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, ScanBarcode, Trash2, Building2, RefreshCw, Edit2 } from 'lucide-react';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -19,7 +19,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const InventoryModule: React.FC = () => {
-  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification } = useData();
+  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, bulkReplenishStock, clients, addClient, addNotification } = useData();
   const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
@@ -30,12 +30,17 @@ export const InventoryModule: React.FC = () => {
   const [pendingDelete, setPendingDelete] = useState<{id: string, name: string} | null>(null);
 
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showEditProductModal, setShowEditProductModal] = useState(false);
+  
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     category: 'Equipment',
     stock: 0,
+    unit: 'nos',
     minLevel: 5,
     location: 'Warehouse A'
   });
+
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Send for Demo Modal State
   const [showDemoModal, setShowDemoModal] = useState(false);
@@ -84,32 +89,26 @@ export const InventoryModule: React.FC = () => {
       }
   }, [showScanModal, scanStatus]);
 
-  const handleGeneratePO = () => {
+  const handleGeneratePO = async () => {
     setProcessingOrder(true);
-    setTimeout(() => {
+    try {
+        const idsToReplenish = products
+            .filter(p => p.stock < p.minLevel)
+            .map(p => p.id);
+        
+        if (idsToReplenish.length > 0) {
+            // Optimized bulk operation
+            await bulkReplenishStock(idsToReplenish, 10);
+        }
+        
         setProcessingOrder(false);
         setShowPOModal(false);
-        
-        products.forEach(p => {
-             if (p.stock < p.minLevel) {
-                 const qtyToAdd = 10;
-                 updateProduct(p.id, { stock: p.stock + qtyToAdd, lastRestocked: new Date().toISOString().split('T')[0] });
-                 recordStockMovement({
-                     id: `MOV-${Date.now()}-${p.id}`,
-                     productId: p.id,
-                     productName: p.name,
-                     type: 'In',
-                     quantity: qtyToAdd,
-                     date: new Date().toISOString().split('T')[0],
-                     reference: `PO-${Date.now().toString().slice(-4)}`,
-                     purpose: 'Restock'
-                 });
-             }
-        });
-        
         setShowNotification(false);
-        addNotification('Inventory Updated', `Successfully replenished ${lowStockItems.length} low-stock items.`, 'success');
-    }, 1500);
+        addNotification('Inventory Updated', `Successfully replenished ${idsToReplenish.length} low-stock items via batch sync.`, 'success');
+    } catch (err) {
+        setProcessingOrder(false);
+        addNotification('Restock Failed', 'Batch operation encountered an error.', 'alert');
+    }
   };
 
   const handleSaveProduct = async () => {
@@ -124,6 +123,7 @@ export const InventoryModule: React.FC = () => {
         category: newProduct.category as 'Equipment' | 'Consumable' | 'Spare Part' || 'Equipment',
         sku: newProduct.sku!,
         stock: Number(newProduct.stock) || 0,
+        unit: newProduct.unit || 'nos',
         price: Number(newProduct.price) || 0,
         minLevel: Number(newProduct.minLevel) || 5,
         location: newProduct.location || 'Unassigned',
@@ -151,7 +151,47 @@ export const InventoryModule: React.FC = () => {
 
     setShowAddProductModal(false);
     addNotification('Product Indexed', `"${productToAdd.name}" successfully added to registry.`, 'success');
-    setNewProduct({ category: 'Equipment', stock: 0, minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
+    setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
+  };
+
+  const handleOpenEdit = (product: Product) => {
+    setEditingProduct({ ...product });
+    setShowEditProductModal(true);
+  };
+
+  const handleUpdateSubmit = async () => {
+    if (!editingProduct) return;
+    if (!editingProduct.name || !editingProduct.sku) {
+        alert("Name and SKU are required.");
+        return;
+    }
+
+    const originalProduct = products.find(p => p.id === editingProduct.id);
+    const stockDiff = editingProduct.stock - (originalProduct?.stock || 0);
+
+    await updateProduct(editingProduct.id, {
+        ...editingProduct,
+        stock: Number(editingProduct.stock),
+        price: Number(editingProduct.price),
+        minLevel: Number(editingProduct.minLevel)
+    });
+
+    if (stockDiff !== 0) {
+        await recordStockMovement({
+            id: `MOV-MANUAL-${Date.now()}`,
+            productId: editingProduct.id,
+            productName: editingProduct.name,
+            type: stockDiff > 0 ? 'In' : 'Out',
+            quantity: Math.abs(stockDiff),
+            date: new Date().toISOString().split('T')[0],
+            reference: 'Manual Adjustment',
+            purpose: stockDiff > 0 ? 'Restock' : 'Sale'
+        });
+    }
+
+    setShowEditProductModal(false);
+    setEditingProduct(null);
+    addNotification('Record Updated', `"${editingProduct.name}" modified successfully.`, 'success');
   };
 
   const performDelete = async () => {
@@ -434,7 +474,7 @@ export const InventoryModule: React.FC = () => {
                             <th className="px-6 py-5 text-right w-[12%] bg-[#fcfdfd]">Unit Price</th>
                             <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Warehouse</th>
                             <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Status</th>
-                            <th className="px-6 py-5 text-right w-[80px] bg-[#fcfdfd]">Action</th>
+                            <th className="px-6 py-5 text-right w-[100px] bg-[#fcfdfd]">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 relative z-10">
@@ -458,7 +498,8 @@ export const InventoryModule: React.FC = () => {
                                     </td>
                                     <td className={`px-6 py-5 text-right font-black ${isLowStock ? 'text-red-600' : 'text-slate-800'}`}>
                                         <span className="text-lg">{product.stock}</span>
-                                        <span className="text-[10px] text-slate-400 ml-1">/ {product.minLevel}</span>
+                                        <span className="text-[10px] text-slate-400 ml-1 uppercase">{product.unit || 'nos'}</span>
+                                        <div className="text-[9px] text-slate-300 font-bold">Min: {product.minLevel}</div>
                                     </td>
                                     <td className="px-6 py-5 text-right font-black text-teal-700">₹{product.price.toLocaleString()}</td>
                                     <td className="px-6 py-5">
@@ -478,14 +519,23 @@ export const InventoryModule: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-5 text-right">
-                                        <button 
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
-                                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95 group/btn"
-                                            title="Remove from Inventory"
-                                        >
-                                            <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                        </button>
+                                        <div className="flex justify-end gap-1">
+                                            <button 
+                                                onClick={() => handleOpenEdit(product)}
+                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                title="Edit Product"
+                                            >
+                                                <Edit2 size={18} />
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
+                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all group/btn"
+                                                title="Remove from Inventory"
+                                            >
+                                                <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -561,6 +611,220 @@ export const InventoryModule: React.FC = () => {
           </div>
       )}
 
+      {/* Edit Product Modal */}
+      {showEditProductModal && editingProduct && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Edit Registry Item</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual Inventory Adjustment</p>
+                    </div>
+                    <button onClick={() => setShowEditProductModal(false)}><X size={28} className="text-slate-400 hover:text-slate-600 transition-colors"/></button>
+                </div>
+                <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Name *</label>
+                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Model *</label>
+                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({...editingProduct, sku: e.target.value})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type (nos/pkt)</label>
+                            <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({...editingProduct, unit: e.target.value.toLowerCase()})} placeholder="nos" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Available Stock</label>
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock} onChange={e => setEditingProduct({...editingProduct, stock: Number(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Price (₹)</label>
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
+                        <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({...editingProduct, supplier: e.target.value})} />
+                    </div>
+                </div>
+                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
+                    <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                    <button onClick={handleUpdateSubmit} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-medical-500/20 active:scale-95 transition-all">Commit Registry Changes</button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {showAddProductModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Register New Item</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Master Registry Entry</p>
+                    </div>
+                    <button onClick={() => setShowAddProductModal(false)}><X size={28} className="text-slate-400"/></button>
+                </div>
+                <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" placeholder="Product Name *" value={newProduct.name || ''} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                    <div className="grid grid-cols-2 gap-5">
+                        <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
+                        <select className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value as any})}>
+                            <option>Equipment</option><option>Consumable</option><option>Spare Part</option>
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({...newProduct, stock: Number(e.target.value)})} />
+                        <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({...newProduct, unit: e.target.value.toLowerCase()})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Unit Price (₹) *" value={newProduct.price || ''} onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})} />
+                        <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({...newProduct, minLevel: Number(e.target.value)})} />
+                    </div>
+                    <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Storage Location" value={newProduct.location || ''} onChange={e => setNewProduct({...newProduct, location: e.target.value})} />
+                </div>
+                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
+                    <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+                    <button onClick={handleSaveProduct} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Initialize Item</button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Scan Barcode Modal */}
+      {showScanModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                  <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                      <div>
+                          <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Barcode Scanner</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual SKU Entry / Scan Simulation</p>
+                      </div>
+                      <button onClick={() => setShowScanModal(false)}><X size={28} className="text-slate-400"/></button>
+                  </div>
+                  <div className="p-8 space-y-6">
+                      {scanStatus === 'idle' && (
+                          <form onSubmit={handleScanSubmit} className="space-y-4">
+                              <div className="p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                  <ScanBarcode size={64} className="mb-4 opacity-40 animate-pulse" />
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-center">Awaiting SKU Signal...</p>
+                              </div>
+                              <input 
+                                  ref={scanInputRef}
+                                  type="text" 
+                                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-center text-lg font-black tracking-widest outline-none focus:border-medical-500" 
+                                  placeholder="ENTER SKU MANUALLY"
+                                  value={scanQuery}
+                                  onChange={e => setScanQuery(e.target.value)}
+                                  autoFocus
+                              />
+                              <button type="submit" className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg">Verify SKU</button>
+                          </form>
+                      )}
+
+                      {scanStatus === 'found' && scannedProduct && (
+                          <div className="space-y-6 animate-in slide-in-from-bottom-2">
+                              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-[1.5rem] border border-emerald-100 dark:border-emerald-800 flex items-center gap-4">
+                                  <div className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg"><Package size={24} /></div>
+                                  <div className="min-w-0">
+                                      <h4 className="font-black text-emerald-900 dark:text-emerald-100 truncate text-sm uppercase">{scannedProduct.name}</h4>
+                                      <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Stock: {scannedProduct.stock} {scannedProduct.unit}</p>
+                                  </div>
+                              </div>
+
+                              <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
+                                  <button onClick={() => setScanOperation('In')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${scanOperation === 'In' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400'}`}>Stock In</button>
+                                  <button onClick={() => setScanOperation('Out')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${scanOperation === 'Out' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400'}`}>Stock Out</button>
+                              </div>
+
+                              <div className="space-y-2">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
+                                  <div className="flex items-center gap-3">
+                                      <button onClick={() => setQuickStockAmount(Math.max(1, quickStockAmount - 1))} className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black">-</button>
+                                      <input type="number" className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 text-center font-black text-xl" value={quickStockAmount} onChange={e => setQuickStockAmount(Number(e.target.value))} />
+                                      <button onClick={() => setQuickStockAmount(quickStockAmount + 1)} className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black">+</button>
+                                  </div>
+                              </div>
+
+                              <div className="flex gap-3">
+                                  <button onClick={handleResetScan} className="flex-1 py-4 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">Reset</button>
+                                  <button onClick={handleStockUpdate} className={`flex-[2] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg ${scanOperation === 'In' ? 'bg-emerald-600' : 'bg-orange-600'}`}>Process {scanOperation}</button>
+                              </div>
+                          </div>
+                      )}
+
+                      {scanStatus === 'not-found' && (
+                          <div className="text-center py-10 space-y-6 animate-in zoom-in-95">
+                              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto border border-rose-100 shadow-sm"><AlertTriangle size={40} /></div>
+                              <div>
+                                  <h4 className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight text-lg">Unrecognized SKU</h4>
+                                  <p className="text-xs text-slate-400 font-bold mt-2 px-6">The scanned identifier "{scanQuery}" does not match any items in the master registry.</p>
+                              </div>
+                              <button onClick={handleResetScan} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl">Retry Scan</button>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Send for Demo Modal */}
+      {showDemoModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                  <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                      <div>
+                          <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Demo Dispatch</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Temporary Equipment Assignment</p>
+                      </div>
+                      <button onClick={() => setShowDemoModal(false)}><X size={28} className="text-slate-400"/></button>
+                  </div>
+                  <div className="p-8 space-y-5">
+                      <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Equipment *</label>
+                          <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none appearance-none" value={demoData.productId} onChange={e => setDemoData({...demoData, productId: e.target.value})}>
+                              <option value="">Choose item from stock...</option>
+                              {products.filter(p => p.stock > 0).map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock} {p.unit})</option>
+                              ))}
+                          </select>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-5">
+                          <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dispatch Units</label>
+                              <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={demoData.quantity} onChange={e => setDemoData({...demoData, quantity: Number(e.target.value)})} min={1} />
+                          </div>
+                          <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dispatch Date</label>
+                              <input type="date" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={demoData.date} onChange={e => setDemoData({...demoData, date: e.target.value})} />
+                          </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Client / Hospital *</label>
+                          <input type="text" list="demo-clients" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Search customer index..." value={demoData.clientName} onChange={e => setDemoData({...demoData, clientName: e.target.value})} />
+                          <datalist id="demo-clients">{clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}</datalist>
+                      </div>
+
+                      <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site Location</label>
+                          <input type="text" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Installation Point" value={demoData.location} onChange={e => setDemoData({...demoData, location: e.target.value})} />
+                      </div>
+                  </div>
+                  <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                      <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+                      <button onClick={handleSendForDemo} className="flex-[2] py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-purple-500/20 active:scale-95 transition-all">Authorize Dispatch</button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

@@ -1,12 +1,11 @@
-
 import React, { useState } from 'react';
-import { Lead, LeadStatus, FollowUp } from '../types';
-import { Mail, Phone, Plus, Wand2, RefreshCw, ShoppingBag, Globe, DownloadCloud, Box, CreditCard, MapPin, Printer, ArrowUpRight, User, Calendar, CheckSquare, MessageSquare, Clock, X, Save, UserPlus } from 'lucide-react';
+import { Lead, LeadStatus, FollowUp, TabView } from '../types';
+import { Mail, Phone, Plus, Wand2, RefreshCw, ShoppingBag, Globe, DownloadCloud, Box, CreditCard, MapPin, Printer, ArrowUpRight, User, Calendar, CheckSquare, MessageSquare, Clock, X, Save, UserPlus, FileText } from 'lucide-react';
 import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
 
 export const LeadsModule: React.FC = () => {
-  const { leads, addLead, updateLead, addNotification } = useData();
+  const { leads, addLead, updateLead, addNotification, setPendingQuoteData } = useData();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [emailDraft, setEmailDraft] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,6 +29,33 @@ export const LeadsModule: React.FC = () => {
     const draft = await generateEmailDraft(lead.name, lead.productInterest, tone);
     setEmailDraft(draft);
     setIsGenerating(false);
+  };
+
+  const handleConvertLead = (lead: Lead) => {
+    const quoteSeed = {
+        customerName: lead.name,
+        customerHospital: lead.hospital,
+        customerAddress: lead.address || '',
+        subject: lead.productInterest,
+        phone: lead.phone,
+        items: [{
+            id: `ITEM-SEED-${Date.now()}`,
+            description: lead.productInterest,
+            quantity: 1,
+            unit: 'no',
+            unitPrice: lead.value || 0,
+            taxRate: 12,
+            amount: lead.value || 0,
+            gstValue: (lead.value || 0) * 0.12,
+            priceWithGst: (lead.value || 0) * 1.12,
+            hsn: '',
+            model: ''
+        }]
+    };
+    setPendingQuoteData(quoteSeed);
+    addNotification('Lead Conversion', `Lead data for ${lead.name} prepared for Quotation.`, 'success');
+    // We assume App.tsx or parent handles navigation when TabView changes
+    // In this simplified context, user must manually go to Quote module, or we trigger it.
   };
 
   const handleSyncLeads = () => {
@@ -179,10 +205,18 @@ export const LeadsModule: React.FC = () => {
                                 <p className="font-black text-slate-800 mt-2">{selectedLead.productInterest}</p>
                                 <p className="text-xs font-bold text-indigo-600 mt-1">Est. Value: ₹{selectedLead.value.toLocaleString()}</p>
                             </div>
-                            <button onClick={() => handleDraftEmail(selectedLead)} disabled={isGenerating} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 flex items-center justify-center gap-3 transition-all">
-                                {isGenerating ? <RefreshCw size={20} className="animate-spin" /> : <Wand2 size={20} />}
-                                <span className="text-[10px] font-black uppercase tracking-widest">Generate Sales Pitch</span>
-                            </button>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => handleDraftEmail(selectedLead)} disabled={isGenerating} className="flex-1 py-4 border border-slate-200 rounded-2xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 flex items-center justify-center gap-2 transition-all">
+                                    {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Draft Pitch</span>
+                                </button>
+                                <button onClick={() => handleConvertLead(selectedLead)} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-all">
+                                    <FileText size={16} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Gen Quotation</span>
+                                </button>
+                            </div>
+
                             {emailDraft && (
                                 <div className="bg-white border border-slate-200 p-4 rounded-2xl animate-in zoom-in-95">
                                     <pre className="whitespace-pre-wrap font-sans text-xs text-slate-600 leading-relaxed mb-4">{emailDraft}</pre>
