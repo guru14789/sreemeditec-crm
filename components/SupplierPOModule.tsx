@@ -181,7 +181,7 @@ export const SupplierPOModule: React.FC = () => {
                     idx + 1,
                     it.description,
                     it.quantity,
-                    it.unitPrice.toLocaleString('en-IN'),
+                    (it.unitPrice || 0).toLocaleString('en-IN'),
                     amount.toLocaleString('en-IN'),
                     `${it.taxRate}%`,
                     gstValue.toLocaleString('en-IN'),
@@ -238,11 +238,11 @@ export const SupplierPOModule: React.FC = () => {
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             quantity: 1,
-            unitPrice: prod?.price || 0,
+            unitPrice: prod?.purchasePrice || 0, // USE purchasePrice (Cost) for procurement
             taxRate: prod?.taxRate || 18,
-            amount: prod?.price || 0,
-            gstValue: (prod?.price || 0) * ((prod?.taxRate || 18) / 100),
-            priceWithGst: (prod?.price || 0) * (1 + ((prod?.taxRate || 18) / 100))
+            amount: prod?.purchasePrice || 0,
+            gstValue: (prod?.purchasePrice || 0) * ((prod?.taxRate || 18) / 100),
+            priceWithGst: (prod?.purchasePrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
         };
         setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
         if (builderTab === 'spares') setBuilderTab('form');
@@ -257,7 +257,7 @@ export const SupplierPOModule: React.FC = () => {
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
-                            updated.unitPrice = masterProd.price;
+                            updated.unitPrice = masterProd.purchasePrice; // USE purchasePrice
                             updated.taxRate = masterProd.taxRate || 18;
                             updated.hsn = masterProd.hsn || '';
                         }
@@ -352,7 +352,7 @@ export const SupplierPOModule: React.FC = () => {
                                     <td className="border-r border-black p-1 text-center">{idx + 1}</td>
                                     <td className="border-r border-black p-1 font-bold">{item.description}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity || ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? item.unitPrice.toLocaleString() : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString() : ''}</td>
                                     <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString() : ''}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity ? `${item.taxRate}%` : ''}</td>
                                     <td className="border-r border-black p-1 text-right">{item.quantity ? tax.toLocaleString() : ''}</td>
@@ -364,7 +364,7 @@ export const SupplierPOModule: React.FC = () => {
                     <tfoot>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Total</td>
-                            <td className="p-1 text-right font-black">{totals.totalWithGst.toLocaleString()}</td>
+                            <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString()}</td>
                         </tr>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Discount/Adjustment</td>
@@ -372,7 +372,7 @@ export const SupplierPOModule: React.FC = () => {
                         </tr>
                         <tr className="border-t border-black font-black bg-slate-50 text-sm">
                             <td colSpan={7} className="border-r border-black p-1.5 text-right uppercase">Grand Total</td>
-                            <td className="p-1.5 text-right">Rs. {totals.grandTotal.toLocaleString()}</td>
+                            <td className="p-1.5 text-right">Rs. {(totals.grandTotal || 0).toLocaleString()}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -417,7 +417,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px]">{inv.createdBy || 'System'}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{inv.grandTotal.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
@@ -565,7 +565,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
                                                     <div>
                                                         <p className="text-[8px] font-black text-slate-400 uppercase">Master Buy Rate</p>
-                                                        <p className="text-sm font-black text-slate-800 tracking-tight">₹{prod.price.toLocaleString()}</p>
+                                                        <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.purchasePrice || 0).toLocaleString()}</p>
                                                     </div>
                                                     <div className={`p-2 rounded-xl border shadow-sm transition-all group-hover:scale-110 ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-white text-medical-600 border-slate-100 group-hover:bg-medical-600 group-hover:text-white'}`}>
                                                         <Plus size={20} />

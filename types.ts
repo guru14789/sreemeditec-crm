@@ -74,7 +74,8 @@ export interface Product {
   sku: string;
   stock: number;
   unit?: string; 
-  price: number;
+  purchasePrice: number; // For internal valuation
+  sellingPrice: number;  // For outward documents
   minLevel: number;
   location: string;
   hsn?: string;

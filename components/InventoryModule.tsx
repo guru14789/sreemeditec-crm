@@ -37,7 +37,9 @@ export const InventoryModule: React.FC = () => {
     stock: 0,
     unit: 'nos',
     minLevel: 5,
-    location: 'Warehouse A'
+    location: 'Warehouse A',
+    purchasePrice: 0,
+    sellingPrice: 0
   });
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -112,8 +114,8 @@ export const InventoryModule: React.FC = () => {
   };
 
   const handleSaveProduct = async () => {
-    if (!newProduct.name || !newProduct.sku || !newProduct.price) {
-        alert("Please fill Name, SKU and Price.");
+    if (!newProduct.name || !newProduct.sku || newProduct.purchasePrice === undefined || newProduct.sellingPrice === undefined) {
+        alert("Please fill Name, SKU, Purchase Price and Selling Price.");
         return;
     }
     const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -124,7 +126,8 @@ export const InventoryModule: React.FC = () => {
         sku: newProduct.sku!,
         stock: Number(newProduct.stock) || 0,
         unit: newProduct.unit || 'nos',
-        price: Number(newProduct.price) || 0,
+        purchasePrice: Number(newProduct.purchasePrice) || 0,
+        sellingPrice: Number(newProduct.sellingPrice) || 0,
         minLevel: Number(newProduct.minLevel) || 5,
         location: newProduct.location || 'Unassigned',
         hsn: newProduct.hsn || '',
@@ -151,7 +154,7 @@ export const InventoryModule: React.FC = () => {
 
     setShowAddProductModal(false);
     addNotification('Product Indexed', `"${productToAdd.name}" successfully added to registry.`, 'success');
-    setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', price: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
+    setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', purchasePrice: 0, sellingPrice: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
   };
 
   const handleOpenEdit = (product: Product) => {
@@ -172,7 +175,8 @@ export const InventoryModule: React.FC = () => {
     await updateProduct(editingProduct.id, {
         ...editingProduct,
         stock: Number(editingProduct.stock),
-        price: Number(editingProduct.price),
+        purchasePrice: Number(editingProduct.purchasePrice),
+        sellingPrice: Number(editingProduct.sellingPrice),
         minLevel: Number(editingProduct.minLevel)
     });
 
@@ -265,7 +269,23 @@ export const InventoryModule: React.FC = () => {
           setScanOperation('In');
           setQuickStockAmount(1);
       } else {
-          setScanStatus('not-found');
+          // IF SKU NOT FOUND: Automatically transition to Registration Form with SKU pre-filled
+          setShowScanModal(false);
+          setNewProduct({
+              category: 'Equipment',
+              stock: 0,
+              unit: 'nos',
+              minLevel: 5,
+              location: 'Warehouse A',
+              sku: scanQuery, // Pre-fill the SKU field
+              name: '',
+              purchasePrice: 0,
+              sellingPrice: 0
+          });
+          setShowAddProductModal(true);
+          addNotification('SKU Not Found', `Initializing registry for SKU: ${scanQuery}`, 'info');
+          setScanQuery('');
+          setScanStatus('idle');
       }
   };
 
@@ -313,9 +333,10 @@ export const InventoryModule: React.FC = () => {
       }, 50);
   };
 
-  const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.price), 0);
-  const equipmentValue = products.filter(p => p.category === 'Equipment').reduce((acc, p) => acc + (p.stock * p.price), 0);
-  const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + (p.stock * p.price), 0);
+  // CALCULATIONS USE purchasePrice (Cost)
+  const totalInventoryValue = products.reduce((acc, product) => acc + (product.stock * product.purchasePrice), 0);
+  const equipmentValue = products.filter(p => p.category === 'Equipment').reduce((acc, p) => acc + (p.stock * p.purchasePrice), 0);
+  const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + (p.stock * p.purchasePrice), 0);
 
   return (
     <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
@@ -328,16 +349,16 @@ export const InventoryModule: React.FC = () => {
               </div>
               <div className="relative z-10">
                   <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
-                      <Wallet size={14} /> Asset Valuation
+                      <Wallet size={14} /> Asset Valuation (Cost)
                   </p>
                   <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(totalInventoryValue)}</h3>
-                  <p className="text-xs text-emerald-100/60 mt-2 font-medium">Total stock value</p>
+                  <p className="text-xs text-emerald-100/60 mt-2 font-medium">Internal stock valuation</p>
               </div>
           </div>
           
            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
               <div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Equipment</p>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Equipment (Cost)</p>
                   <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(equipmentValue)}</h3>
                   <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">High value assets</p>
               </div>
@@ -348,7 +369,7 @@ export const InventoryModule: React.FC = () => {
 
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
               <div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Consumables</p>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Consumables (Cost)</p>
                   <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(consumableValue)}</h3>
                   <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Gels, Spares, etc.</p>
               </div>
@@ -464,16 +485,17 @@ export const InventoryModule: React.FC = () => {
         {/* Table Content */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
             {activeTab === 'stock' ? (
-                <table className="w-full text-left text-sm text-slate-600 min-w-[1100px] table-fixed">
+                <table className="w-full text-left text-sm text-slate-600 min-w-[1200px] table-fixed">
                     <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-100 shadow-[0_1px_0_0_#f1f5f9]">
                         <tr>
-                            <th className="px-6 py-5 w-[22%] bg-[#fcfdfd]">Product Master</th>
-                            <th className="px-6 py-5 w-[15%] bg-[#fcfdfd]">Category & SKU</th>
-                            <th className="px-6 py-5 w-[15%] bg-[#fcfdfd]">Supplier</th>
-                            <th className="px-6 py-5 text-right w-[12%] bg-[#fcfdfd]">Available Stock</th>
-                            <th className="px-6 py-5 text-right w-[12%] bg-[#fcfdfd]">Unit Price</th>
-                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Warehouse</th>
-                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Status</th>
+                            <th className="px-6 py-5 w-[20%] bg-[#fcfdfd]">Product Master</th>
+                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Category & SKU</th>
+                            <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Supplier</th>
+                            <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Available Stock</th>
+                            <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Purchase Price</th>
+                            <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Selling Price</th>
+                            <th className="px-6 py-5 w-[10%] bg-[#fcfdfd]">Warehouse</th>
+                            <th className="px-6 py-5 w-[10%] bg-[#fcfdfd]">Status</th>
                             <th className="px-6 py-5 text-right w-[100px] bg-[#fcfdfd]">Action</th>
                         </tr>
                     </thead>
@@ -501,7 +523,8 @@ export const InventoryModule: React.FC = () => {
                                         <span className="text-[10px] text-slate-400 ml-1 uppercase">{product.unit || 'nos'}</span>
                                         <div className="text-[9px] text-slate-300 font-bold">Min: {product.minLevel}</div>
                                     </td>
-                                    <td className="px-6 py-5 text-right font-black text-teal-700">₹{product.price.toLocaleString()}</td>
+                                    <td className="px-6 py-5 text-right font-black text-slate-400 italic">₹{(product.purchasePrice || 0).toLocaleString()}</td>
+                                    <td className="px-6 py-5 text-right font-black text-teal-700">₹{(product.sellingPrice || 0).toLocaleString()}</td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 truncate">
                                             <MapPin size={12} className="shrink-0" /> <span className="truncate">{product.location}</span>
@@ -639,12 +662,22 @@ export const InventoryModule: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Cost (₹)</label>
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-rose-600" value={editingProduct.purchasePrice} onChange={e => setEditingProduct({...editingProduct, purchasePrice: Number(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-emerald-600" value={editingProduct.sellingPrice} onChange={e => setEditingProduct({...editingProduct, sellingPrice: Number(e.target.value)})} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Available Stock</label>
                             <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock} onChange={e => setEditingProduct({...editingProduct, stock: Number(e.target.value)})} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Price (₹)</label>
-                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} />
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Alert Level</label>
+                            <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel} onChange={e => setEditingProduct({...editingProduct, minLevel: Number(e.target.value)})} />
                         </div>
                     </div>
                     <div className="space-y-1.5">
@@ -680,14 +713,24 @@ export const InventoryModule: React.FC = () => {
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Purchase Cost (₹)</label>
+                            <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.purchasePrice || ''} onChange={e => setNewProduct({...newProduct, purchasePrice: Number(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selling Rate (₹)</label>
+                            <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({...newProduct, sellingPrice: Number(e.target.value)})} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-5">
                         <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({...newProduct, stock: Number(e.target.value)})} />
                         <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({...newProduct, unit: e.target.value.toLowerCase()})} />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
-                        <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Unit Price (₹) *" value={newProduct.price || ''} onChange={e => setNewProduct({...newProduct, price: Number(e.target.value)})} />
                         <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({...newProduct, minLevel: Number(e.target.value)})} />
+                        <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({...newProduct, location: e.target.value})} />
                     </div>
-                    <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Storage Location" value={newProduct.location || ''} onChange={e => setNewProduct({...newProduct, location: e.target.value})} />
+                    <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({...newProduct, supplier: e.target.value})} />
                 </div>
                 <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
                     <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>

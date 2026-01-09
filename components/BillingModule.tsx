@@ -329,11 +329,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             quantity: 1,
-            unitPrice: prod?.price || 0,
+            unitPrice: prod?.sellingPrice || 0, // USE sellingPrice for outward Invoice
             taxRate: prod?.taxRate || 18,
-            amount: prod?.price || 0,
-            gstValue: (prod?.price || 0) * 0.18,
-            priceWithGst: (prod?.price || 0) * 1.18
+            amount: prod?.sellingPrice || 0,
+            gstValue: (prod?.sellingPrice || 0) * 0.18,
+            priceWithGst: (prod?.sellingPrice || 0) * 1.18
         };
         setInvoice(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
     };
@@ -343,6 +343,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             const updatedItems = (prev.items || []).map(item => {
                 if (item.id === id) {
                     const updated = { ...item, [field]: value };
+                    if (field === 'description') {
+                        const masterProd = products.find(p => p.name === value);
+                        if (masterProd) {
+                            updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
+                            updated.hsn = masterProd.hsn || '';
+                        }
+                    }
                     updated.amount = updated.quantity * updated.unitPrice;
                     return updated;
                 }
@@ -382,7 +389,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         <td className="px-8 py-5 font-black text-medical-700">{inv.invoiceNumber}</td>
                                         <td className="px-8 py-5 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-8 py-5 text-center text-slate-400 text-xs">{formatDateDDMMYYYY(inv.date)}</td>
-                                        <td className="px-8 py-5 text-right font-black">₹{inv.grandTotal.toLocaleString()}</td>
+                                        <td className="px-8 py-5 text-right font-black">₹{(inv.grandTotal || 0).toLocaleString()}</td>
                                         <td className="px-8 py-5 text-center">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span>
                                         </td>
@@ -700,7 +707,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         <div key={prod.id} className="p-6 bg-slate-50 border border-slate-200 rounded-[2rem] hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group shadow-sm hover:shadow-xl" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors truncate uppercase">{prod.name}</h4>
-                                                <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">₹{prod.price.toLocaleString()} • {prod.sku}</p>
+                                                <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">₹{(prod.sellingPrice || 0).toLocaleString()} • {prod.sku}</p>
                                             </div>
                                             <div className="ml-4 p-2.5 bg-white rounded-xl border border-slate-100 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-md active:scale-90"><Plus size={20} /></div>
                                         </div>
