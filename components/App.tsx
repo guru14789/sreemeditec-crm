@@ -37,9 +37,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [toasts, setToasts] = useState<AppNotification[]>([]);
   
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -64,22 +62,6 @@ export const App: React.FC = () => {
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showNotifications]);
-
-  useEffect(() => {
-    const latestNotif = notifications[0];
-    if (latestNotif && latestNotif.isNewToast) {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(NOTIF_SOUND_URL);
-      }
-      audioRef.current.play().catch(() => {});
-      setToasts(prev => [latestNotif, ...prev]);
-      const timer = setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== latestNotif.id));
-        markNotificationRead(latestNotif.id);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notifications]);
 
   // AUTH GUARD
   if (!isAuthenticated || !currentUser) {
@@ -197,20 +179,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden relative">
-      <div className="fixed top-24 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="w-80 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 flex gap-4 animate-in slide-in-from-right pointer-events-auto">
-            <div className={`p-2.5 rounded-xl shrink-0 ${toast.type === 'alert' ? 'bg-rose-50' : toast.type === 'warning' ? 'bg-amber-50' : toast.type === 'success' ? 'bg-emerald-50' : 'bg-blue-50'}`}>
-              {getNotifIcon(toast.type)}
-            </div>
-            <div className="min-w-0">
-              <p className="font-black text-slate-800 dark:text-slate-100 text-sm tracking-tight">{toast.title}</p>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{toast.message}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
       <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 ${isSidebarOpen ? 'w-72' : 'w-24'} fixed lg:relative h-full shadow-2xl overflow-hidden`}>
         <div className={`p-6 h-24 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
             {isSidebarOpen && (

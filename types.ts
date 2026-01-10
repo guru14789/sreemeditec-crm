@@ -1,11 +1,56 @@
 
+export type EnterpriseRole = 'SYSTEM_ADMIN' | 'SYSTEM_STAFF';
+
+export enum TabView {
+  DASHBOARD = 'DASHBOARD',
+  LEADS = 'LEADS',
+  CLIENTS = 'CLIENTS',
+  VENDORS = 'VENDORS',
+  INVENTORY = 'INVENTORY',
+  BILLING = 'BILLING',
+  QUOTES = 'QUOTES',
+  PO_BUILDER = 'PO_BUILDER',
+  SUPPLIER_PO = 'SUPPLIER_PO',
+  SERVICE_ORDERS = 'SERVICE_ORDERS',
+  SERVICE_REPORTS = 'SERVICE_REPORTS',
+  INSTALLATION_REPORTS = 'INSTALLATION_REPORTS',
+  DELIVERY = 'DELIVERY',
+  TASKS = 'TASKS',
+  ATTENDANCE = 'ATTENDANCE',
+  EXPENSES = 'EXPENSES',
+  PERFORMANCE = 'PERFORMANCE',
+  HR = 'HR',
+  PROFILE = 'PROFILE',
+  REPORTS = 'REPORTS'
+}
+
 export enum LeadStatus {
   NEW = 'New',
-  CONTACTED = 'Contacted',
-  QUOTED = 'Quoted',
-  NEGOTIATION = 'Negotiation',
   WON = 'Won',
   LOST = 'Lost'
+}
+
+export interface FollowUp {
+  id: string;
+  date: string;
+  type: 'Call' | 'Meeting' | 'WhatsApp';
+  notes: string;
+  status: 'Pending' | 'Completed';
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  hospital: string;
+  source: string;
+  status: LeadStatus;
+  value: number;
+  lastContact: string;
+  productInterest: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  followUps: FollowUp[];
 }
 
 export interface Client {
@@ -21,50 +66,11 @@ export interface Client {
 export interface Vendor {
   id: string;
   name: string;
-  contactPerson?: string;
   address: string;
+  contactPerson?: string;
   gstin?: string;
   email?: string;
   phone?: string;
-}
-
-export interface OrderItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
-
-export interface OrderDetails {
-  orderId: string;
-  orderDate: string;
-  items: OrderItem[];
-  shippingAddress: string;
-  paymentStatus: 'Paid' | 'Pending' | 'COD';
-  platformFee?: number;
-}
-
-export interface FollowUp {
-  id: string;
-  date: string;
-  type: 'Call' | 'Email' | 'Meeting' | 'Site Visit' | 'WhatsApp';
-  notes: string;
-  status: 'Pending' | 'Completed';
-}
-
-export interface Lead {
-  id: string;
-  name: string;
-  hospital: string;
-  source: 'Website' | 'IndiaMART' | 'Referral' | 'Walk-in' | 'Amazon' | 'Flipkart';
-  status: LeadStatus;
-  value: number;
-  lastContact: string;
-  productInterest: string;
-  orderDetails?: OrderDetails;
-  phone?: string;
-  email?: string;
-  address?: string;
-  followUps?: FollowUp[];
 }
 
 export interface Product {
@@ -73,9 +79,9 @@ export interface Product {
   category: 'Equipment' | 'Consumable' | 'Spare Part';
   sku: string;
   stock: number;
-  unit?: string; 
-  purchasePrice: number; // For internal valuation
-  sellingPrice: number;  // For outward documents
+  unit: string;
+  purchasePrice: number;
+  sellingPrice: number;
   minLevel: number;
   location: string;
   hsn?: string;
@@ -84,6 +90,59 @@ export interface Product {
   description?: string;
   supplier?: string;
   lastRestocked?: string;
+  price?: number;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  hsn?: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  amount: number;
+  gstValue: number;
+  priceWithGst: number;
+  model?: string;
+  features?: string;
+  unit?: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  items: InvoiceItem[];
+  status: 'Pending' | 'Paid' | 'Draft' | 'Finalized';
+  customerName: string;
+  customerHospital?: string;
+  customerAddress?: string;
+  customerGstin?: string;
+  subtotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  documentType?: 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
+  createdBy?: string;
+  smcpoNumber?: string;
+  deliveryTime?: string;
+  specialNote?: string;
+  cpoNumber?: string;
+  cpoDate?: string;
+  bankDetails?: string;
+  deliveryAddress?: string;
+  bankAndBranch?: string;
+  accountNo?: string;
+  paymentMethod?: 'Bank Transfer' | 'NEFT' | 'RTGS' | 'Cheque' | 'Cash' | 'UPI';
+  advanceAmount?: number;
+  advanceDate?: string;
+  discount?: number;
+  subject?: string;
+  phone?: string;
+  freightAmount?: number;
+  freightTaxRate?: number;
+  paymentTerms?: string;
+  deliveryTerms?: string;
+  warrantyTerms?: string;
 }
 
 export interface StockMovement {
@@ -94,7 +153,81 @@ export interface StockMovement {
   quantity: number;
   date: string;
   reference: string;
-  purpose?: 'Sale' | 'Demo' | 'Restock' | 'Service' | 'Return';
+  purpose: 'Restock' | 'Sale' | 'Demo';
+}
+
+export interface ExpenseRecord {
+  id: string;
+  employeeName: string;
+  date: string;
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
+  amount: number;
+  description: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  receiptUrl?: string;
+  rejectionReason?: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  role: EnterpriseRole;
+  department: string;
+  email: string;
+  phone?: string;
+  joinDate?: string;
+  baseSalary?: number;
+  status: 'Active' | 'On Leave';
+  permissions: TabView[];
+  password?: string;
+  isLoginEnabled: boolean;
+}
+
+export interface UserStats {
+  points: number;
+  tasksCompleted: number;
+  attendanceStreak: number;
+  salesRevenue: number;
+}
+
+export interface PointHistory {
+  id: string;
+  date: string;
+  points: number;
+  category: 'Task' | 'Attendance' | 'Sales' | 'Lead';
+  description: string;
+  userId: string;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: 'alert' | 'warning' | 'success' | 'info';
+  read: boolean;
+}
+
+export interface TaskLog {
+  id: string;
+  user: string;
+  action: string;
+  timestamp: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string;
+  priority: 'Low' | 'Medium' | 'High';
+  status: 'To Do' | 'In Progress' | 'Review' | 'Done';
+  dueDate: string;
+  locationName?: string;
+  submittedBy?: string;
+  pointsAwarded?: boolean;
+  logs: TaskLog[];
+  subTasks?: any[];
 }
 
 export interface ServiceTicket {
@@ -102,11 +235,60 @@ export interface ServiceTicket {
   customer: string;
   equipment: string;
   issue: string;
-  priority: 'High' | 'Medium' | 'Low';
+  priority: 'Low' | 'Medium' | 'High';
   status: 'Open' | 'In Progress' | 'Resolved';
   assignedTo: string;
   dueDate: string;
-  type: 'Breakdown' | 'AMC' | 'Installation';
+}
+
+export interface AMCReminder {
+  id: string;
+  customer: string;
+  equipment: string;
+  expiryDate: string;
+}
+
+export interface ServiceReportItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface ServiceReport {
+  id: string;
+  reportNumber: string;
+  date: string;
+  customerName: string;
+  equipmentName: string;
+  problemReported: string;
+  actionTaken: string;
+  engineerName: string;
+  status: 'Draft' | 'Completed';
+  itemsUsed?: ServiceReportItem[];
+  documentType?: string;
+  serialNumber?: string;
+  customerHospital?: string;
+  customerAddress?: string;
+  office?: string;
+  time?: string;
+  machineStatus?: 'Warranty' | 'Out Of Warranty' | 'AMC';
+  softwareVersion?: string;
+  engineerObservations?: string;
+  poWoNumber?: string;
+  actionHardware?: string;
+  actionOperational?: string;
+  actionSoftware?: string;
+  pastBalance?: number;
+  visitCharges?: number;
+  sparesCharges?: number;
+  amountReceived?: number;
+  memoNumber?: string;
+  queriesRemarks?: string;
+  smirNo?: string;
+  installationOf?: string;
+  trainedPersons?: string;
 }
 
 export interface SupportMessage {
@@ -124,241 +306,10 @@ export interface SupportTicket {
   customerEmail: string;
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
   status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
-  category: 'Billing' | 'Technical' | 'Sales' | 'General';
+  category: 'Technical' | 'Billing' | 'Sales' | 'General';
   createdAt: string;
   updatedAt: string;
   messages: SupportMessage[];
-}
-
-export interface ServiceReportItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-}
-
-export interface ServiceReport {
-  id: string;
-  reportNumber: string;
-  date: string;
-  customerName: string;
-  customerHospital?: string;
-  customerAddress?: string;
-  equipmentName: string;
-  modelNumber?: string;
-  serialNumber?: string;
-  problemReported: string;
-  actionTaken: string;
-  engineerName: string;
-  status: 'Completed' | 'Pending Spares' | 'Observation' | 'Draft';
-  itemsUsed?: ServiceReportItem[];
-  customerRemarks?: string;
-  documentType?: 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
-  createdBy?: string;
-}
-
-export interface AMCReminder {
-  id: string;
-  hospital: string;
-  equipment: string;
-  expiryDate: string;
-  status: 'Active' | 'Expiring Soon' | 'Expired';
-}
-
-// Added missing types for Delivery Challan module
-export interface ChallanItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unit: string;
-  remarks?: string;
-}
-
-export interface DeliveryChallan {
-  id: string;
-  challanNumber: string;
-  date: string;
-  customerName: string;
-  customerAddress: string;
-  items: ChallanItem[];
-  status: 'Draft' | 'Dispatched';
-}
-
-export enum TabView {
-  DASHBOARD = 'dashboard',
-  LEADS = 'leads',
-  QUOTES = 'quotes',
-  PO_BUILDER = 'customer_po',
-  SUPPLIER_PO = 'supplier_po',
-  INVENTORY = 'inventory',
-  SERVICE_ORDERS = 'service_orders',
-  SERVICE_REPORTS = 'service_reports',
-  INSTALLATION_REPORTS = 'installation_reports',
-  HR = 'hr',
-  ATTENDANCE = 'attendance',
-  TASKS = 'tasks',
-  BILLING = 'billing',
-  DELIVERY = 'delivery',
-  REPORTS = 'reports',
-  PROFILE = 'profile',
-  CLIENTS = 'clients',
-  VENDORS = 'vendors',
-  EXPENSES = 'expenses',
-  PERFORMANCE = 'performance',
-}
-
-export type EnterpriseRole = 'SYSTEM_ADMIN' | 'SYSTEM_STAFF';
-
-export interface Employee {
-  id: string;
-  name: string;
-  role: EnterpriseRole;
-  department: string;
-  email: string;
-  phone: string;
-  joinDate: string;
-  baseSalary: number;
-  status: 'Active' | 'On Leave' | 'Terminated';
-  permissions?: TabView[];
-  password?: string;
-  isLoginEnabled?: boolean;
-}
-
-export interface SubTask {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
-export interface TaskLog {
-  id: string;
-  user: string;
-  action: string;
-  timestamp: string;
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  assignedTo: string;
-  submittedBy?: string; // UID of user who moved to Review
-  pointsAwarded?: boolean; // Idempotency check
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'To Do' | 'In Progress' | 'Review' | 'Done';
-  dueDate: string;
-  relatedTo?: string;
-  coords?: { lat: number; lng: number };
-  locationName?: string;
-  subTasks?: SubTask[];
-  logs?: TaskLog[];
-}
-
-export interface PaymentRecord {
-  id: string;
-  date: string;
-  amount: number;
-  mode: string;
-  reference?: string;
-}
-
-export interface InvoiceItem {
-  id: string;
-  description: string;
-  model?: string;
-  features?: string;
-  hsn: string;
-  quantity: number;
-  unit?: string;
-  unitPrice: number;
-  taxRate: number;
-  amount: number;
-  gstValue: number;
-  priceWithGst: number;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  documentType?: 'Quotation' | 'PO' | 'SupplierPO' | 'ServiceOrder';
-  date: string;
-  dueDate: string;
-  customerName: string;
-  customerHospital: string;
-  customerAddress: string;
-  customerGstin?: string;
-  phone?: string;
-  email?: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  taxTotal: number;
-  grandTotal: number;
-  status: 'Paid' | 'Pending' | 'Overdue' | 'Partial' | 'Draft' | 'Converted' | 'Completed';
-  paymentMethod?: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI' | 'NEFT';
-  smcpoNumber?: string;
-  cpoNumber?: string;
-  cpoDate?: string;
-  deliveryAddress?: string;
-  discount?: number;
-  advanceAmount?: number;
-  advanceDate?: string;
-  advanceMode?: string;
-  bankDetails?: string;
-  deliveryTime?: string;
-  specialNote?: string;
-  subject?: string;
-  freightAmount?: number;
-  freightTaxRate?: number;
-  paymentTerms?: string;
-  warrantyTerms?: string;
-  deliveryTerms?: string;
-  payments?: PaymentRecord[];
-  totalPaid?: number;
-  balanceDue?: number;
-  signatureImage?: string;
-  sealImage?: string;
-  relatedQuotationId?: string;
-  bankAndBranch?: string;
-  accountNo?: string;
-  createdBy?: string;
-}
-
-export interface ExpenseRecord {
-  id: string;
-  employeeName: string;
-  date: string;
-  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
-  amount: number;
-  description: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  receiptUrl?: string;
-}
-
-export interface PointHistory {
-  id: string;
-  date: string;
-  points: number;
-  category: 'Task' | 'Attendance' | 'Sales' | 'Bonus';
-  description: string;
-  userId: string;
-}
-
-export interface UserStats {
-  points: number;
-  tasksCompleted: number;
-  attendanceStreak: number;
-  salesRevenue: number;
-}
-
-export interface AppNotification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  type: 'info' | 'alert' | 'warning' | 'success';
-  read: boolean;
-  isNewToast?: boolean;
 }
 
 export interface UserProfile {
@@ -374,4 +325,23 @@ export interface UserProfile {
     sms: boolean;
     push: boolean;
   };
+}
+
+export interface ChallanItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit?: string;
+  remarks?: string;
+}
+
+export interface DeliveryChallan {
+  id: string;
+  challanNumber: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  items: ChallanItem[];
+  status: 'Draft' | 'Dispatched';
+  subject?: string;
 }

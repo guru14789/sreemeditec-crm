@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { 
   collection, 
@@ -73,7 +74,7 @@ export interface DataContextType {
   addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
   updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
   addExpense: (expense: ExpenseRecord) => Promise<void>;
-  updateExpenseStatus: (id: string, status: ExpenseRecord['status']) => Promise<void>;
+  updateExpenseStatus: (id: string, status: ExpenseRecord['status'], reason?: string) => Promise<void>;
   addEmployee: (emp: Employee) => Promise<void>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
@@ -280,7 +281,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await updateDoc(doc(db, "serviceTickets", id), updates);
   };
   
-  const recordStockMovement = async (m: StockMovement) => await addDoc(collection(db, "stockMovements"), m);
+  // Fix: changed from recordStockMovement = async (m: StockMovement) => await addDoc(...)
+  // to avoid type error with return type
+  const recordStockMovement = async (m: StockMovement) => {
+      await addDoc(collection(db, "stockMovements"), m);
+  };
 
   const bulkReplenishStock = async (productIds: string[], quantity: number) => {
       const batch = writeBatch(db);
@@ -296,10 +301,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addExpense = async (e: ExpenseRecord) => await setDoc(doc(db, "expenses", e.id), e);
-  const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => {
+  const updateExpenseStatus = async (id: string, status: ExpenseRecord['status'], reason?: string) => {
       const existing = expenses.find(e => e.id === id);
-      if (existing?.status === status) return;
-      await updateDoc(doc(db, "expenses", id), { status });
+      if (existing?.status === status && existing?.rejectionReason === reason) return;
+      
+      const updates: any = { status };
+      if (reason) updates.rejectionReason = reason;
+      
+      await updateDoc(doc(db, "expenses", id), updates);
   };
   
   const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
