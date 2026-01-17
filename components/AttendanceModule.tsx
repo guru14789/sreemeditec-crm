@@ -4,7 +4,7 @@ import {
     Clock, User, CheckCircle, Building2, AlertCircle, Timer, 
     PauseCircle, ShieldCheck, ClipboardCheck, 
     Calendar, Lock, Zap, UserCheck, RefreshCw,
-    FileSpreadsheet, TableProperties, LayoutGrid
+    FileSpreadsheet, TableProperties, LayoutGrid, CheckCircle2
 } from 'lucide-react';
 import { Task, Employee, AttendanceRecord, AttendanceStatus } from '../types';
 import { useData } from './DataContext';
@@ -19,7 +19,7 @@ type WorkMode = 'Office' | 'Field' | 'Remote';
 type SubTab = 'daily' | 'monthly' | 'detailed';
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, currentUser, userRole }) => {
-  const { addPoints, employees, saveAttendance, attendanceRecords, addNotification, currentUser: authUser } = useData();
+  const { addPoints, employees, saveAttendance, attendanceRecords, addNotification, currentUser: authUser, pointHistory } = useData();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('daily');
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -74,14 +74,31 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
   const myTasksToday = tasks.filter(t => t.assignedTo === currentUser && t.dueDate === todayStr);
   const completedTasksCount = myTasksToday.filter(t => t.status === 'Done').length;
   
-  const isOfficeHoursComplete = totalWorkedMs >= REQUIRED_OFFICE_MS;
-  const isFieldWorkComplete = completedTasksCount > 0; 
+  // NEW: Check if all daily tasks are completed
+  const allTasksCompleted = myTasksToday.length > 0 ? completedTasksCount === myTasksToday.length : true;
   
-  const canConfirmAttendance = (workMode === 'Field' || workMode === 'Remote' 
-    ? isFieldWorkComplete 
-    : isOfficeHoursComplete);
+  // NEW: Check if attendance was already finalized today
+  const hasFinalizedToday = useMemo(() => {
+    return attendanceRecords.some(r => 
+        r.employeeId === authUser?.id && 
+        r.date === todayStr && 
+        (r.status === AttendanceStatus.PRESENT || r.status === AttendanceStatus.HALFDAY)
+    );
+  }, [attendanceRecords, authUser, todayStr]);
+
+  const isOfficeHoursComplete = totalWorkedMs >= REQUIRED_OFFICE_MS;
+  
+  // Adjusted canConfirmAttendance: Must complete ALL tasks and satisfy work mode criteria
+  const canConfirmAttendance = (workMode === 'Field' || workMode === 'Remote') 
+    ? (myTasksToday.length > 0 && allTasksCompleted) 
+    : (isOfficeHoursComplete && allTasksCompleted);
 
   const handleCheckInOut = async () => {
+    if (hasFinalizedToday) {
+        addNotification('Restricted', 'Attendance for today is already finalized and locked.', 'warning');
+        return;
+    }
+
     if (isCheckedIn) {
         const currentSessionMs = currentTime.getTime() - (sessionStartTime?.getTime() || currentTime.getTime());
         const finalMs = accumulatedMs + currentSessionMs;
@@ -92,7 +109,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
             if (finalMs >= REQUIRED_OFFICE_MS) status = AttendanceStatus.PRESENT;
             else if (finalMs >= (REQUIRED_OFFICE_MS / 2)) status = AttendanceStatus.HALFDAY;
         } else {
-            status = isFieldWorkComplete ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT;
+            status = allTasksCompleted ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT;
         }
 
         const record: AttendanceRecord = {
@@ -114,8 +131,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
         setIsCheckedIn(false);
 
         if (status === AttendanceStatus.PRESENT) {
-            addPoints(50, 'Attendance', 'Daily Shift Milestone Met');
-            addNotification('Attendance Verified', 'Your status is marked as PRESENT.', 'success');
+            const pointsAlreadyAwarded = pointHistory.some(p => 
+                p.userId === authUser?.id && 
+                p.category === 'Attendance' && 
+                p.date === todayStr
+            );
+
+            if (!pointsAlreadyAwarded) {
+                addPoints(50, 'Attendance', 'Daily Shift Milestone Met');
+                addNotification('Attendance Verified', 'Your status is marked as PRESENT. +50 PTS awarded.', 'success');
+            } else {
+                addNotification('Shift Finalized', 'Attendance record updated. (Daily points already claimed)', 'info');
+            }
         } else {
             addNotification('Shift Logged', `Status: ${status}. Criteria not fully met.`, 'warning');
         }
@@ -314,11 +341,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
               {/* Interactive Check-in Card */}
               <div className="w-full lg:w-[380px] shrink-0 sticky lg:top-0">
                   <div className="bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 flex flex-col relative overflow-hidden group">
-                      <div className={`absolute top-0 left-0 w-full h-2 ${isCheckedIn ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                      <div className={`absolute top-0 left-0 w-full h-2 ${hasFinalizedToday ? 'bg-blue-500' : isCheckedIn ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
                       <div className="text-center mb-6 sm:mb-8">
                           <p className="text-slate-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                           <h3 className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white tracking-tighter font-mono">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</h3>
                       </div>
+                      
                       <div className="w-full bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center mb-6 sm:mb-8">
                           <div className={`flex items-center gap-2 sm:gap-3 font-black text-2xl sm:text-3xl transition-all ${isCheckedIn ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-300 dark:text-slate-600'}`}>
                               {workMode === 'Office' ? <Timer size={28} className={isCheckedIn ? "animate-spin-slow" : ""} /> : <ClipboardCheck size={28} />}
@@ -331,13 +359,49 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
                               </div>
                           )}
                       </div>
-                      <button onClick={handleCheckInOut} className={`w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-[11px] uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all transform active:scale-95 shadow-xl flex items-center justify-center gap-2 sm:gap-3 relative z-10 ${isCheckedIn ? canConfirmAttendance ? 'bg-emerald-600 text-white shadow-emerald-500/30' : 'bg-slate-800 text-white shadow-slate-900/30' : 'bg-medical-600 text-white shadow-medical-500/30 hover:bg-medical-700'}`}>
-                          {isCheckedIn ? (canConfirmAttendance ? <><CheckCircle size={20} /> Finalize Attendance</> : <><PauseCircle size={20} /> Stop & Log (Incomplete)</>) : <><Clock size={20} /> Start Daily Shift</>}
-                      </button>
-                      {!canConfirmAttendance && isCheckedIn && (
-                          <div className="mt-5 sm:mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-xl sm:rounded-2xl flex items-start gap-3">
+
+                      {hasFinalizedToday ? (
+                          <div className="w-full py-5 px-6 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 text-center animate-in zoom-in-95">
+                              <CheckCircle2 size={32} className="mx-auto text-blue-600 mb-2" />
+                              <p className="text-[11px] font-black text-blue-800 dark:text-blue-200 uppercase tracking-widest">Shift Completed</p>
+                              <p className="text-[9px] text-blue-600/60 font-bold uppercase mt-1">Registry Locked for Today</p>
+                          </div>
+                      ) : (
+                          <button 
+                            onClick={handleCheckInOut} 
+                            // Only allow Finalize button if all criteria met, or allow "Start" button
+                            className={`w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-[11px] uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all transform active:scale-95 shadow-xl flex items-center justify-center gap-2 sm:gap-3 relative z-10 ${
+                                isCheckedIn 
+                                ? canConfirmAttendance 
+                                    ? 'bg-emerald-600 text-white shadow-emerald-500/30' 
+                                    : 'bg-slate-800 text-white shadow-slate-900/30 opacity-50 cursor-not-allowed'
+                                : 'bg-medical-600 text-white shadow-medical-500/30 hover:bg-medical-700'
+                            }`}
+                            disabled={isCheckedIn && !canConfirmAttendance}
+                          >
+                              {isCheckedIn 
+                                ? canConfirmAttendance 
+                                    ? <><CheckCircle size={20} /> Finalize Attendance</> 
+                                    : <><PauseCircle size={20} /> Tasks Pending</> 
+                                : <><Clock size={20} /> Start Daily Shift</>}
+                          </button>
+                      )}
+
+                      {!canConfirmAttendance && isCheckedIn && !hasFinalizedToday && (
+                          <div className="mt-5 sm:mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40 rounded-xl sm:rounded-2xl flex items-start gap-3 animate-in slide-in-from-top-2">
                               <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                              <p className="text-[9px] sm:text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase leading-relaxed">{workMode === 'Office' ? `Ineligible for Present: Work ${formatDuration(Math.max(0, REQUIRED_OFFICE_MS - totalWorkedMs))} more` : myTasksToday.length === 0 ? 'No tasks found. Mark manual attendance via Admin.' : 'Attendance restricted: Complete at least 1 task'}</p>
+                              <div className="flex flex-col gap-1">
+                                  {!allTasksCompleted && (
+                                      <p className="text-[9px] sm:text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase leading-relaxed">
+                                          PENDING TASKS: Complete all {myTasksToday.length} tasks before finalizing.
+                                      </p>
+                                  )}
+                                  {workMode === 'Office' && !isOfficeHoursComplete && (
+                                      <p className="text-[9px] sm:text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase leading-relaxed">
+                                          TIME DEFICIT: Work {formatDuration(Math.max(0, REQUIRED_OFFICE_MS - totalWorkedMs))} more.
+                                      </p>
+                                  )}
+                              </div>
                           </div>
                       )}
                   </div>
@@ -418,8 +482,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
               <div className="flex items-center gap-3"><Calendar size={20} className="text-medical-600" /><div><h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white uppercase tracking-tight">Enterprise Ledger</h3><p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Monthly Summary Analytics</p></div></div>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <div className="flex gap-2 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{months.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
-                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
+                  <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="text-[9px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{months.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="text-[9px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
                 </div>
                 <button onClick={exportSummaries} className="bg-slate-800 dark:bg-slate-700 text-white px-4 sm:px-5 py-2.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-black transition-all shadow-lg"><FileSpreadsheet size={16} /> Export (.csv)</button>
               </div>
@@ -449,11 +513,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
           /* DETAILED DATE-WISE MATRIX - Fixed Height Table with Scroll */
           <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] sm:rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in slide-in-from-right-4 mb-6">
             <div className="p-5 sm:p-6 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-              <div className="flex items-center gap-3"><TableProperties size={20} className="text-indigo-600" /><div><h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white uppercase tracking-tight">Date-wise Matrix</h3><p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Individual Daily Attendance Registry</p></div></div>
+              <div className="flex items-center gap-3"><TableProperties size={20} className="text-indigo-600" /><div><h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white uppercase tracking-tight">Date-wise Matrix</h3><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Individual Daily Attendance Registry</p></div></div>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <div className="flex gap-2 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{months.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
-                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
+                  <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="text-[9px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{months.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="text-[9px] font-black uppercase tracking-widest bg-transparent px-2 py-1.5 outline-none dark:text-white">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
                 </div>
                 <button onClick={exportDetailed} className="bg-medical-600 text-white px-4 sm:px-5 py-2.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg"><FileSpreadsheet size={16} /> Export (.csv)</button>
               </div>
