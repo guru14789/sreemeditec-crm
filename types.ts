@@ -230,6 +230,26 @@ export interface Task {
   subTasks?: any[];
 }
 
+export enum AttendanceStatus {
+  PRESENT = 'Present',
+  ABSENT = 'Absent',
+  HALFDAY = 'Half-Day'
+}
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  totalHours?: number;
+  tasksCompleted?: number;
+  status: AttendanceStatus;
+  workMode: 'Office' | 'Field' | 'Remote';
+  overriddenBy?: string;
+}
+
 export interface ServiceTicket {
   id: string;
   customer: string;

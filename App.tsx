@@ -33,7 +33,7 @@ import { useData } from './components/DataContext';
 const NOTIF_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export const App: React.FC = () => {
-  const { employees, notifications, markNotificationRead, clearAllNotifications, isAuthenticated, currentUser, logout, tasks, setTasks } = useData();
+  const { employees, notifications, markNotificationRead, clearAllNotifications, isAuthenticated, isAdmin, currentUser, logout, tasks, setTasks } = useData();
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -68,11 +68,12 @@ export const App: React.FC = () => {
       return <Login />;
   }
 
-  const userRole = currentUser.department === 'Administration' ? 'Admin' : 'Employee';
+  // System Admins (SYSTEM_ADMIN role) bypass all departmental/permission barriers
+  const userRoleString = isAdmin ? 'Admin' : 'Employee';
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
-    if (userRole === 'Admin') return true;
+    if (isAdmin) return true; // Full authority for Super Admins
     if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
     return currentUser.permissions?.includes(tab);
   };
@@ -162,7 +163,7 @@ export const App: React.FC = () => {
 
     switch (activeTab) {
       case TabView.DASHBOARD: 
-        return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+        return isAdmin ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
       case TabView.LEADS: return <LeadsModule />;
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
@@ -171,18 +172,18 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUserName} userRole={userRole} />;
-      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUserName} isAdmin={userRole === 'Admin'} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUserName} userRole={userRoleString} />;
+      case TabView.TASKS: return <TaskModule tasks={tasks} setTasks={setTasks} currentUser={currentUserName} isAdmin={isAdmin} />;
       case TabView.HR: return <HRModule />;
-      case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => {}} currentUser={currentUserName} />;
+      case TabView.PROFILE: return <ProfileModule userRole={userRoleString} setUserRole={() => {}} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
-      case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
-      case TabView.PERFORMANCE: return <PerformanceModule userRole={userRole} />;
+      case TabView.EXPENSES: return <ExpenseModule userRole={userRoleString} currentUser={currentUserName} />;
+      case TabView.PERFORMANCE: return <PerformanceModule userRole={userRoleString} />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
-      default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+      default: return isAdmin ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };
 

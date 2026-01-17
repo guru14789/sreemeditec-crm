@@ -12,11 +12,16 @@ import {
   limit, 
   addDoc,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  where
 } from 'firebase/firestore';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, LeadStatus } from '../types';
+import { 
+  Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, 
+  Employee, TabView, UserStats, PointHistory, AppNotification, 
+  Task, Lead, ServiceTicket, LeadStatus, AttendanceRecord, AttendanceStatus 
+} from '../types';
 
 export interface DataContextType {
   clients: Client[];
@@ -30,6 +35,7 @@ export interface DataContextType {
   tasks: Task[];
   leads: Lead[];
   serviceTickets: ServiceTicket[];
+  attendanceRecords: AttendanceRecord[];
   
   // Conversion state for module-to-module workflow
   pendingQuoteData: Partial<Invoice> | null;
@@ -38,6 +44,7 @@ export interface DataContextType {
   // Auth State
   currentUser: Employee | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (email: string, password?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => void;
@@ -81,6 +88,7 @@ export interface DataContextType {
   addNotification: (title: string, message: string, type: AppNotification['type']) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   clearAllNotifications: () => void;
+  saveAttendance: (record: AttendanceRecord) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -123,6 +131,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [tasks, setTasks] = useState<Task[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
   const [prizePool, setPrizePool] = useState<number>(1500);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -130,6 +139,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [userStats, setUserStats] = useState<UserStats>({
       points: 0,
@@ -161,7 +171,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       onSnapshot(collection(db, "employees"), (s) => setEmployees(mapDocs(s)), handleError),
       onSnapshot(query(collection(db, "tasks"), orderBy("dueDate", "asc")), (s) => setTasks(mapDocs(s)), handleError),
       onSnapshot(query(collection(db, "notifications"), orderBy("time", "desc"), limit(20)), (s) => setNotifications(mapDocs(s)), handleError),
-      onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(mapDocs(s)), handleError)
+      onSnapshot(query(collection(db, "pointHistory"), orderBy("date", "desc"), limit(50)), (s) => setPointHistory(mapDocs(s)), handleError),
+      onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError)
     ];
 
     return () => unsubscribes.forEach(u => u());
@@ -176,6 +187,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (fullEmp) {
                 setCurrentUser({ ...fullEmp, permissions: fullEmp.permissions ? [...fullEmp.permissions] : [] });
                 setIsAuthenticated(true);
+                setIsAdmin(fullEmp.role === 'SYSTEM_ADMIN');
             }
         } catch (e) {
             localStorage.removeItem('sreemeditec_auth_user');
@@ -214,6 +226,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (employee.password === password) {
         setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
         setIsAuthenticated(true);
+        setIsAdmin(employee.role === 'SYSTEM_ADMIN');
         localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
         return true;
     }
@@ -226,13 +239,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!employee) { await signOut(auth); throw new Error(`Unauthorized: '${result.user.email}' not registered.`); }
     setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
     setIsAuthenticated(true);
+    setIsAdmin(employee.role === 'SYSTEM_ADMIN');
     localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
     return true;
   };
 
   const logout = async () => {
     try { await signOut(auth); } catch (e) {}
-    setCurrentUser(null); setIsAuthenticated(false);
+    setCurrentUser(null); setIsAuthenticated(false); setIsAdmin(false);
     localStorage.removeItem('sreemeditec_auth_user');
   };
 
@@ -281,8 +295,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await updateDoc(doc(db, "serviceTickets", id), updates);
   };
   
-  // Fix: changed from recordStockMovement = async (m: StockMovement) => await addDoc(...)
-  // to avoid type error with return type
   const recordStockMovement = async (m: StockMovement) => {
       await addDoc(collection(db, "stockMovements"), m);
   };
@@ -346,6 +358,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
   };
 
+  const saveAttendance = async (record: AttendanceRecord) => {
+      await setDoc(doc(db, "attendance", record.id), record);
+  };
+
   const updatePrizePool = (amount: number) => {
       if (prizePool === amount) return;
       setPrizePool(amount);
@@ -353,14 +369,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{ 
-        clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets,
+        clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets, attendanceRecords,
         pendingQuoteData, setPendingQuoteData,
-        currentUser, isAuthenticated, login, loginWithGoogle, logout, dbError, seedDatabase,
+        currentUser, isAuthenticated, isAdmin, login, loginWithGoogle, logout, dbError, seedDatabase,
         addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
         addInvoice, updateInvoice, recordStockMovement, bulkReplenishStock, addExpense, updateExpenseStatus,
         addEmployee, updateEmployee, removeEmployee,
-        setTasks, addTask, removeTask, updateTaskRemote,
+        setTasks, addTask, removeTask, updateTaskRemote, saveAttendance,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
         prizePool, updatePrizePool
     }}>

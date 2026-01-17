@@ -20,7 +20,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const InventoryModule: React.FC = () => {
-  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, bulkReplenishStock, clients, addClient, addNotification } = useData();
+  const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, bulkReplenishStock, clients, addClient, addNotification, isAdmin } = useData();
   const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
   const [lowStockItems, setLowStockItems] = useState<Product[]>([]);
   const [showNotification, setShowNotification] = useState(true);
@@ -270,21 +270,25 @@ export const InventoryModule: React.FC = () => {
           setScanOperation('In');
           setQuickStockAmount(1);
       } else {
-          // IF SKU NOT FOUND: Automatically transition to Registration Form with SKU pre-filled
+          // IF SKU NOT FOUND: Automatically transition to Registration Form if Admin
           setShowScanModal(false);
-          setNewProduct({
-              category: 'Equipment',
-              stock: 0,
-              unit: 'nos',
-              minLevel: 5,
-              location: 'Warehouse A',
-              sku: scanQuery, // Pre-fill the SKU field
-              name: '',
-              purchasePrice: 0,
-              sellingPrice: 0
-          });
-          setShowAddProductModal(true);
-          addNotification('SKU Not Found', `Initializing registry for SKU: ${scanQuery}`, 'info');
+          if (isAdmin) {
+              setNewProduct({
+                  category: 'Equipment',
+                  stock: 0,
+                  unit: 'nos',
+                  minLevel: 5,
+                  location: 'Warehouse A',
+                  sku: scanQuery, // Pre-fill the SKU field
+                  name: '',
+                  purchasePrice: 0,
+                  sellingPrice: 0
+              });
+              setShowAddProductModal(true);
+              addNotification('SKU Not Found', `Initializing registry for SKU: ${scanQuery}`, 'info');
+          } else {
+              addNotification('Unauthorized', 'SKU not found. Registry entries restricted to admins.', 'alert');
+          }
           setScanQuery('');
           setScanStatus('idle');
       }
@@ -412,12 +416,14 @@ export const InventoryModule: React.FC = () => {
                 </div>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
-                 <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setShowPOModal(true); }}
-                    className="flex-1 sm:flex-none whitespace-nowrap bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
-                    <ShoppingCart size={16} /> Bulk Restock
-                </button>
+                 {isAdmin && (
+                    <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowPOModal(true); }}
+                        className="flex-1 sm:flex-none whitespace-nowrap bg-red-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                        <ShoppingCart size={16} /> Bulk Restock
+                    </button>
+                 )}
                 <button 
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setShowNotification(false); }}
@@ -477,12 +483,14 @@ export const InventoryModule: React.FC = () => {
                             className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
                             <Send size={16} /> Demo
                         </button>
-                        <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setShowAddProductModal(true); }}
-                            className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
-                            <Plus size={16} /> Register Item
-                        </button>
+                        {isAdmin && (
+                            <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setShowAddProductModal(true); }}
+                                className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
+                                <Plus size={16} /> Register Item
+                            </button>
+                        )}
                     </>
                 )}
             </div>
@@ -554,21 +562,26 @@ export const InventoryModule: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <div className="flex justify-end gap-1">
-                                            <button 
-                                                onClick={() => handleOpenEdit(product)}
-                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                                                title="Edit Product"
-                                            >
-                                                <Edit2 size={18} />
-                                            </button>
-                                            <button 
-                                                type="button"
-                                                onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
-                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all group/btn"
-                                                title="Remove from Inventory"
-                                            >
-                                                <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                            </button>
+                                            {isAdmin && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => handleOpenEdit(product)}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                        title="Edit Product"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setPendingDelete({id: product.id, name: product.name}); }}
+                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all group/btn"
+                                                        title="Remove from Inventory"
+                                                    >
+                                                        <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                                    </button>
+                                                </>
+                                            )}
+                                            {!isAdmin && <ArrowUpRight size={18} className="text-slate-200" />}
                                         </div>
                                     </td>
                                 </tr>

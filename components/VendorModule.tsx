@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Vendor } from '../types';
 import { Truck, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Plus, Save, User, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useData } from './DataContext';
@@ -12,7 +12,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const VendorModule: React.FC = () => {
-  const { vendors, invoices, addVendor, removeVendor, addNotification } = useData();
+  const { vendors, invoices, addVendor, removeVendor, addNotification, isAdmin } = useData();
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -22,13 +22,20 @@ export const VendorModule: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<{id: string, name: string} | null>(null);
 
+  // System Admins bypass the secondary password gate
+  useEffect(() => {
+    if (isAdmin) {
+      setIsAuthenticated(true);
+    }
+  }, [isAdmin]);
+
   const verifyPassword = (e?: React.FormEvent) => {
       if (e) e.preventDefault();
       if (password === 'admin') setIsAuthenticated(true);
       else { alert("Incorrect Security Password."); setPassword(''); }
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !isAdmin) {
       return (
           <div className="h-full flex items-center justify-center bg-slate-50 p-4">
               <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border p-8 text-center animate-in fade-in zoom-in-95">
@@ -99,7 +106,9 @@ export const VendorModule: React.FC = () => {
           </div>
           <div className="flex gap-3">
               <input type="text" placeholder="Search..." className="pl-4 pr-4 py-2.5 border rounded-xl text-sm font-medium w-64 outline-none focus:border-indigo-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-              <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-medical-700 transition-all">+ Add Vendor</button>
+              {isAdmin && (
+                <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-medical-700 transition-all">+ Add Vendor</button>
+              )}
           </div>
       </div>
 
@@ -124,14 +133,16 @@ export const VendorModule: React.FC = () => {
                               <td className="px-6 py-4 text-right font-black text-indigo-700">₹{formatIndianNumber(getVendorProcurementValue(vendor.name))}</td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end items-center gap-1">
-                                    <button 
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); setPendingDelete({id: vendor.id, name: vendor.name}); }}
-                                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                        title="Delete Vendor"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {isAdmin && (
+                                        <button 
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setPendingDelete({id: vendor.id, name: vendor.name}); }}
+                                            className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                            title="Delete Vendor"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                     <div className="p-2 text-slate-300 group-hover:text-indigo-600 transition-colors">
                                         <ArrowUpRight size={18} />
                                     </div>
@@ -232,14 +243,16 @@ export const VendorModule: React.FC = () => {
                       </div>
                   </div>
                   <div className="p-6 border-t bg-slate-50 flex justify-end gap-3 shrink-0">
-                    <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setPendingDelete({id: selectedVendor.id, name: selectedVendor.name}); }}
-                        className="px-8 py-3 bg-white border border-rose-200 text-rose-500 font-bold rounded-xl hover:bg-rose-50 transition-colors uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-sm"
-                    >
-                        <Trash2 size={14} />
-                        Delete Supplier
-                    </button>
+                    {isAdmin && (
+                        <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setPendingDelete({id: selectedVendor.id, name: selectedVendor.name}); }}
+                            className="px-8 py-3 bg-white border border-rose-200 text-rose-500 font-bold rounded-xl hover:bg-rose-50 transition-colors uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-sm"
+                        >
+                            <Trash2 size={14} />
+                            Delete Supplier
+                        </button>
+                    )}
                     <button onClick={() => setSelectedVendor(null)} className="px-8 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-black transition-colors uppercase text-[10px] tracking-widest shadow-lg">Close Terminal</button>
                   </div>
               </div>

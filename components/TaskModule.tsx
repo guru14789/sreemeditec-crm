@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskLog } from '../types';
 import { 
     CheckSquare, Clock, Plus, User, Calendar, 
-    X, AlignLeft, History, Zap, Trash2, RefreshCw
+    X, AlignLeft, History, Zap, Trash2, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -18,6 +18,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
   const { addPoints, employees, addNotification, updateTaskRemote, addTask, removeTask, currentUser: authUser } = useData(); 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{id: string, title: string} | null>(null);
   
   const [newTask, setNewTask] = useState<Partial<Task>>({
       priority: 'Medium',
@@ -52,7 +54,6 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
           logs: [...(existing.logs || []), log]
       };
 
-      // Set 'submittedBy' when a staff member submits for review
       if (newStatus === 'Review') {
           updates.submittedBy = authUser?.id;
       }
@@ -61,18 +62,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
           await updateTaskRemote(id, updates);
           addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
           
-          // AWARD POINTS ONLY UPON APPROVAL TO 'DONE'
           if (newStatus === 'Done') {
-              // RULE: Points go to the person who submitted the task for review, 
-              // fulfilling the requirement "awarded only to the user who submits for review, not who approves".
-              // Idempotency: only award if pointsAwarded is not true.
               if (existing.submittedBy && !existing.pointsAwarded) {
                   const targetEmp = employees.find(e => e.id === existing.submittedBy);
                   if (targetEmp) {
                       addPoints(50, 'Task', `Task Approved: ${existing.title}`, targetEmp.id);
                       addNotification('Reward Processed', `50 points awarded to ${targetEmp.name}.`, 'success');
-                      
-                      // Mark as points awarded to prevent double points
                       await updateTaskRemote(id, { pointsAwarded: true });
                   }
               }
@@ -83,16 +78,20 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
       }
   };
 
-  const handleDeleteTask = async (id: string) => {
-      if (confirm("Permanently delete this task?")) {
-          try {
-              await removeTask(id);
-              setSelectedTaskId(null);
-              addNotification('Task Removed', 'The task has been deleted from the registry.', 'warning');
-          } catch (err) {
-              console.error("Delete failed", err);
-          }
-      }
+  const performDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+        await removeTask(pendingDelete.id);
+        if (selectedTaskId === pendingDelete.id) setSelectedTaskId(null);
+        addNotification('Record Purged', `Task "${pendingDelete.title}" removed from cloud registry.`, 'warning');
+        setPendingDelete(null);
+    } catch (err) {
+        console.error("Delete operation failed", err);
+        addNotification('Error', 'Failed to delete task. Check cloud permissions.', 'alert');
+    } finally {
+        setIsDeleting(false);
+    }
   };
 
   const handleCreateTask = async () => {
@@ -146,6 +145,15 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
                                 {task.priority}
                             </span>
+                            {isAdmin && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setPendingDelete({id: task.id, title: task.title}); }}
+                                    className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                    title="Purge Task"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
                         </div>
                         <h5 className="font-black text-slate-800 dark:text-slate-100 text-[12px] md:text-[13px] uppercase tracking-tight mb-2 leading-tight">{task.title}</h5>
                         <div className="pt-4 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
@@ -197,7 +205,13 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
                         </div>
                         <div className="flex items-center gap-2">
                             {isAdmin && (
-                                <button onClick={() => handleDeleteTask(selectedTask.id)} className="p-2 text-rose-300 hover:text-rose-600 transition-all"><Trash2 size={20}/></button>
+                                <button 
+                                    onClick={() => setPendingDelete({id: selectedTask.id, title: selectedTask.title})} 
+                                    className="p-2 text-rose-400 hover:text-rose-600 transition-all hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl"
+                                    title="Purge Task Permanent"
+                                >
+                                    <Trash2 size={20}/>
+                                </button>
                             )}
                             <button onClick={() => setSelectedTaskId(null)} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={28} /></button>
                         </div>
@@ -260,6 +274,36 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
             </div>
         )}
 
+        {/* Task Deletion Confirmation Modal (Mirrored from Client Module) */}
+        {pendingDelete && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl max-w-sm w-full p-8 text-center animate-in zoom-in-95">
+                    <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100 dark:border-rose-800">
+                        <AlertTriangle size={32} />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Confirm Deletion</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 leading-relaxed">
+                        Permanently remove task <b>{pendingDelete.title}</b> from the cloud database? This action is irreversible.
+                    </p>
+                    <div className="flex gap-3 mt-8">
+                        <button 
+                            onClick={() => setPendingDelete(null)}
+                            className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={performDelete}
+                            disabled={isDeleting}
+                            className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        >
+                            {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Purge Record"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {showAddTaskModal && (
             <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                 <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
@@ -270,12 +314,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
                     <div className="p-6 space-y-5">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title *</label>
-                            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({...newTask, title: e.target.value})} />
+                            <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white outline-none focus:border-medical-500" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({...newTask, title: e.target.value})} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent *</label>
-                                <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({...newTask, assignedTo: e.target.value})}>
+                                <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none outline-none focus:border-medical-500" value={newTask.assignedTo} onChange={e => setNewTask({...newTask, assignedTo: e.target.value})}>
                                     <option value="">Select Staff...</option>
                                     {employees.map(emp => (
                                         <option key={emp.id} value={emp.name}>{emp.name} ({emp.department})</option>
@@ -284,7 +328,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
-                                <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as any})}>
+                                <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none outline-none focus:border-medical-500" value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as any})}>
                                     <option value="Low">Low</option>
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
@@ -294,21 +338,21 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ tasks, isAdmin }) => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Due Date</label>
-                                <input type="date" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} />
+                                <input type="date" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white outline-none focus:border-medical-500" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Location</label>
-                                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({...newTask, locationName: e.target.value})} />
+                                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white outline-none focus:border-medical-500" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({...newTask, locationName: e.target.value})} />
                             </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Briefing Notes</label>
-                            <textarea className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the agent..." value={newTask.description || ''} onChange={e => setNewTask({...newTask, description: e.target.value})} />
+                            <textarea className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none outline-none focus:border-medical-500" rows={4} placeholder="Specific instructions for the agent..." value={newTask.description || ''} onChange={e => setNewTask({...newTask, description: e.target.value})} />
                         </div>
                     </div>
                     <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3 bg-slate-50/50 dark:bg-slate-800/50">
                         <button onClick={() => setShowAddTaskModal(false)} className="flex-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
-                        <button onClick={handleCreateTask} className="flex-1 bg-medical-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Dispatch</button>
+                        <button onClick={handleCreateTask} className="flex-1 bg-medical-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Confirm Dispatch</button>
                     </div>
                 </div>
             </div>
