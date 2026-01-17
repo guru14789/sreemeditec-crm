@@ -30,8 +30,6 @@ import { Login } from './components/Login';
 import { TabView, Task, AppNotification } from './types';
 import { useData } from './components/DataContext';
 
-const NOTIF_SOUND_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-
 export const App: React.FC = () => {
   const { employees, notifications, markNotificationRead, clearAllNotifications, isAuthenticated, isAdmin, currentUser, logout, tasks, setTasks } = useData();
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
@@ -40,6 +38,30 @@ export const App: React.FC = () => {
   
   const notifRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  // GLOBAL THEME PERSISTENCE
+  useEffect(() => {
+    const applyTheme = () => {
+      const theme = localStorage.getItem('crm-theme') || 'light';
+      const root = window.document.documentElement;
+      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      
+      if (isDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+    
+    // Listen for theme changes in other tabs or components
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'crm-theme') applyTheme();
+    });
+
+    return () => window.removeEventListener('storage', applyTheme);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {

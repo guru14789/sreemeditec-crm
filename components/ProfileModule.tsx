@@ -142,11 +142,16 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                profile.email !== authUser.email;
     }, [profile, authUser]);
 
+    // Update global document state when theme setting changes
     useEffect(() => {
         const root = window.document.documentElement;
         const targetTheme = appPrefs.theme;
         const isDark = targetTheme === 'dark' || (targetTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        
         if (isDark) root.classList.add('dark'); else root.classList.remove('dark');
+        
+        // PERSIST IMMEDIATELY
+        localStorage.setItem('crm-theme', targetTheme);
     }, [appPrefs.theme]);
 
     const handleSave = async () => {
@@ -160,7 +165,6 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                 phone: profile.phone
             });
 
-            localStorage.setItem('crm-theme', appPrefs.theme);
             setIsEditing(false);
             addNotification('Profile Synced', 'Registry records updated successfully.', 'success');
         } catch (err) {

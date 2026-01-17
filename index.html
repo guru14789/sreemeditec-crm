@@ -7,6 +7,19 @@
     <title>Sree Meditec CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+      // IMMEDIATE THEME INITIALIZATION
+      (function() {
+        try {
+          const theme = localStorage.getItem('crm-theme') || 'light';
+          const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (theme === 'dark' || (theme === 'system' && supportDarkMode)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+
       tailwind.config = {
         darkMode: 'class',
         theme: {
