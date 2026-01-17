@@ -9,19 +9,23 @@ import { useData } from './DataContext';
 const MODULE_OPTIONS = [
     { value: TabView.DASHBOARD, label: 'Dashboard' },
     { value: TabView.PROFILE, label: 'My Profile' },
-    { value: TabView.LEADS, label: 'Leads' },
-    { value: TabView.CLIENTS, label: 'Clients' },
-    { value: TabView.VENDORS, label: 'Vendors' },
+    { value: TabView.LEADS, label: 'Lead CRM' },
+    { value: TabView.CLIENTS, label: 'Client Database' },
+    { value: TabView.VENDORS, label: 'Vendor Database' },
     { value: TabView.INVENTORY, label: 'Inventory' },
-    { value: TabView.SERVICE_ORDERS, label: 'Service Orders' },
-    { value: TabView.SERVICE_REPORTS, label: 'Service Reports' },
-    { value: TabView.INSTALLATION_REPORTS, label: 'Install Reports' },
-    { value: TabView.TASKS, label: 'Tasks' },
-    { value: TabView.ATTENDANCE, label: 'Attendance' },
-    { value: TabView.EXPENSES, label: 'Expenses' },
-    { value: TabView.BILLING, label: 'Billing' },
+    { value: TabView.BILLING, label: 'Invoice Maker' },
+    { value: TabView.QUOTES, label: 'Quotation Maker' },
+    { value: TabView.PO_BUILDER, label: 'Customer PO Maker' },
+    { value: TabView.SUPPLIER_PO, label: 'Supplier PO Maker' },
+    { value: TabView.SERVICE_ORDERS, label: 'Service Order Maker' },
+    { value: TabView.SERVICE_REPORTS, label: 'Service Report Maker' },
+    { value: TabView.INSTALLATION_REPORTS, label: 'Install Report Maker' },
+    { value: TabView.DELIVERY, label: 'Delivery Challan' },
+    { value: TabView.TASKS, label: 'Task Manager' },
+    { value: TabView.ATTENDANCE, label: 'Check-in/Out' },
+    { value: TabView.EXPENSES, label: 'Vouchers' },
     { value: TabView.REPORTS, label: 'Reports' },
-    { value: TabView.PERFORMANCE, label: 'Performance' },
+    { value: TabView.PERFORMANCE, label: 'Leaderboard' },
     { value: TabView.HR, label: 'HR Management' },
 ];
 
@@ -115,15 +119,15 @@ export const HRModule: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
-        <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0 shadow-inner">
-            <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><Users size={14}/> Registry</button>
-            <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14}/> Access Grid</button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm gap-4 transition-colors">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl shrink-0 shadow-inner">
+            <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white dark:bg-slate-700 text-medical-700 dark:text-medical-400 shadow-sm' : 'text-slate-500'}`}><Users size={14}/> Registry</button>
+            <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white dark:bg-slate-700 text-medical-700 dark:text-medical-400 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14}/> Access Grid</button>
         </div>
         <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
             <div className="relative flex-1 sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white rounded-xl text-sm w-full outline-none focus:border-medical-500 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
             <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
         </div>
@@ -133,29 +137,29 @@ export const HRModule: React.FC = () => {
         {activeTab === 'employees' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
                 {filteredEmployees.map(emp => (
-                    <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white p-6 rounded-[2rem] border border-slate-100 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
+                    <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-4">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-medical-50 text-medical-700 border-medical-100'}`}>{emp.name.charAt(0)}</div>
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' : 'bg-medical-50 dark:bg-medical-900/30 text-medical-700 dark:text-medical-400 border-medical-100 dark:border-medical-800'}`}>{emp.name.charAt(0)}</div>
                                 <div>
-                                    <h4 className="font-black text-slate-800 truncate uppercase tracking-tight">{emp.name}</h4>
+                                    <h4 className="font-black text-slate-800 dark:text-slate-100 truncate uppercase tracking-tight">{emp.name}</h4>
                                     <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{emp.id} • {emp.role.replace('_', ' ')}</p>
                                 </div>
                             </div>
-                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>{emp.status}</span>
+                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800'}`}>{emp.status}</span>
                         </div>
-                        <div className="space-y-3 pt-4 border-t border-slate-50">
+                        <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
                             <div className="flex items-center justify-between">
                                 <span className="text-[9px] font-black text-slate-400 uppercase">Department</span>
-                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{emp.department}</span>
+                                <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{emp.department}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[9px] font-black text-slate-400 uppercase">Password</span>
-                                <span className="text-[10px] font-mono font-bold text-slate-800">{emp.password}</span>
+                                <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200">{emp.password}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[9px] font-black text-slate-400 uppercase">Access Status</span>
-                                <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-600' : 'text-medical-600'}`}>
+                                <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-600 dark:text-indigo-400' : 'text-medical-600 dark:text-medical-400'}`}>
                                     {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${emp.permissions?.length || 0} Modules Grant`}
                                 </span>
                             </div>
@@ -164,28 +168,28 @@ export const HRModule: React.FC = () => {
                 ))}
             </div>
         ) : (
-            <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm mb-6">
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6 transition-colors">
                 <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
+                    <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
                         <tr><th className="px-8 py-5 w-64">Identity</th><th className="px-8 py-5">Permission Array Configuration</th></tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {filteredEmployees.map(emp => {
                             const isAdmin = emp.role === 'SYSTEM_ADMIN';
                             return (
-                                <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''}`}>
+                                <tr key={emp.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isAdmin ? 'bg-indigo-50/10 dark:bg-indigo-900/5' : ''}`}>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{emp.name.charAt(0)}</div>
                                             <div>
-                                                <div className="font-black text-slate-800 uppercase tracking-tight">{emp.name}</div>
+                                                <div className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">{emp.name}</div>
                                                 <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{emp.role.replace('_', ' ')}</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
                                         {isAdmin ? (
-                                            <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 w-fit">
+                                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 rounded-xl border border-indigo-100 dark:border-indigo-800 w-fit">
                                                 <ShieldAlert size={16} />
                                                 <span className="text-[10px] font-black uppercase tracking-[0.15em]">Admin Override Active: All Tabs Accessible</span>
                                             </div>
@@ -197,7 +201,7 @@ export const HRModule: React.FC = () => {
                                                         <button 
                                                             key={mod.value} 
                                                             onClick={() => togglePermission(emp.id, mod.value)} 
-                                                            className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white text-slate-400 border-slate-200 hover:border-medical-300 hover:text-medical-600'}`}
+                                                            className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-medical-300 hover:text-medical-600'}`}
                                                         >
                                                             {mod.label}
                                                         </button>
@@ -217,10 +221,10 @@ export const HRModule: React.FC = () => {
 
       {showEmployeeModal && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-             <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border border-slate-100 dark:border-slate-800">
+                <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
                      <div>
-                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registry Role: {employeeFormData.role?.replace('_', ' ')}</p>
                      </div>
                     <button onClick={() => setShowEmployeeModal(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={28} /></button>
@@ -233,7 +237,7 @@ export const HRModule: React.FC = () => {
                                 <button 
                                     key={opt.value}
                                     onClick={() => setEmployeeFormData({...employeeFormData, role: opt.value})}
-                                    className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+                                    className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'}`}
                                 >
                                     {opt.label}
                                 </button>
@@ -243,18 +247,18 @@ export const HRModule: React.FC = () => {
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Name *</label>
-                        <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, name: e.target.value})} />
+                        <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase dark:text-white" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, name: e.target.value})} />
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID) *</label>
-                            <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
+                            <input type="email" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all dark:text-white" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password *</label>
                             <div className="relative">
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, password: e.target.value})} />
+                                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all dark:text-white" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, password: e.target.value})} />
                                 <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                             </div>
                         </div>
@@ -263,18 +267,18 @@ export const HRModule: React.FC = () => {
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
-                            <select className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({...employeeFormData, department: e.target.value})}>
+                            <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none dark:text-white" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({...employeeFormData, department: e.target.value})}>
                                 <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
                             </select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
-                            <input type="number" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, baseSalary: Number(e.target.value)})} />
+                            <input type="number" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none dark:text-white" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, baseSalary: Number(e.target.value)})} />
                         </div>
                     </div>
                 </div>
-                <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
-                    <button onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-[2.5rem]">
+                    <button onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                     <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">
                          {isEditing ? <RefreshCw size={16} /> : <UserPlus size={16} />}
                          <span>{isEditing ? 'COMMIT UPDATES' : 'INITIALIZE MEMBER'}</span>
