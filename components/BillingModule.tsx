@@ -4,7 +4,7 @@ import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     X, Save, Edit, Eye, List as ListIcon, PenTool, 
-    History, FileText
+    History, FileText, ArrowRightLeft
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -36,13 +36,29 @@ const numberToWords = (num: number): string => {
 
 const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const items = invoice.items || [];
-    const taxableValue = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
-    const taxTotal = items.reduce((sum, p) => sum + ((p.quantity * p.unitPrice) * (p.taxRate / 100)), 0);
-    const cgst = taxTotal / 2;
-    const sgst = taxTotal / 2;
+    const discount = invoice.discount || 0;
+    
+    const itemsGrossTotal = items.reduce((sum, it) => {
+        const lineBase = it.unitPrice * it.quantity;
+        const lineTax = lineBase * (it.taxRate / 100);
+        return sum + lineBase + lineTax;
+    }, 0);
+
+    const freight = invoice.freightAmount || 0;
+    const freightGst = freight * ((invoice.freightTaxRate || 18) / 100);
+    
+    const grandTotal = itemsGrossTotal - discount + freight + freightGst;
     const totalQty = items.reduce((sum, p) => sum + p.quantity, 0);
-    const grandTotal = taxableValue + taxTotal;
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty };
+    
+    const taxTotal = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice * (p.taxRate / 100)), 0) + freightGst;
+    const taxableValueForGrid = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
+
+    return { itemsGrossTotal, freight, freightGst, grandTotal, totalQty, discount, taxTotal, taxableValueForGrid };
+};
+
+const numericInputProps = {
+    onWheel: (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur(),
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
@@ -60,10 +76,23 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         customerName: '',
         customerAddress: '',
         customerGstin: '',
+        buyerName: '',
+        buyerAddress: '',
+        buyerGstin: '',
         smcpoNumber: 'verbal',
-        deliveryTime: 'Immediately',
+        buyerOrderDate: new Date().toISOString().split('T')[0],
+        deliveryNote: '',
+        modeOfPayment: 'Immediately',
+        referenceNoDate: '',
+        otherReferences: '',
+        dispatchDocNo: '',
+        deliveryNoteDate: new Date().toISOString().split('T')[0],
+        dispatchedThrough: 'Person',
         specialNote: 'Chennai',
-        documentType: 'PO'
+        documentType: 'PO',
+        discount: 0,
+        freightAmount: 0,
+        freightTaxRate: 18
     });
 
     useEffect(() => {
@@ -83,6 +112,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         const pageWidth = doc.internal.pageSize.getWidth();
         const midX = pageWidth / 2;
         const margin = 10;
+        const printableWidth = pageWidth - (margin * 2);
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
@@ -92,7 +122,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
 
         doc.setLineWidth(0.1);
-        doc.rect(margin, 12, pageWidth - (margin * 2), 78);
+        doc.rect(margin, 12, printableWidth, 78);
         doc.line(midX, 12, midX, 90);
 
         doc.setFont('helvetica', 'bold');
@@ -131,14 +161,25 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
         doc.setFont('helvetica', 'normal');
         doc.text('Delivery Note', midX + 1, startY + rowH + 4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.deliveryNote || '---', midX + 1, startY + rowH + 9);
+        
+        doc.setFont('helvetica', 'normal');
         doc.text('Mode/Terms of Payment', innerMid + 1, startY + rowH + 4);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.deliveryTime || 'Immediately', innerMid + 1, startY + rowH + 9);
+        doc.text(data.modeOfPayment || 'Immediately', innerMid + 1, startY + rowH + 9);
 
         doc.setFont('helvetica', 'normal');
         doc.text('Reference No. & Date.', midX + 1, startY + (rowH * 2) + 4);
-        doc.text('Other References', innerMid + 1, startY + (rowH * 2) + 4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.referenceNoDate || '---', midX + 1, startY + (rowH * 2) + 9);
 
+        doc.setFont('helvetica', 'normal');
+        doc.text('Other References', innerMid + 1, startY + (rowH * 2) + 4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.otherReferences || '---', innerMid + 1, startY + (rowH * 2) + 9);
+
+        doc.setFont('helvetica', 'normal');
         doc.text('Buyer\'s Order No.', midX + 1, startY + (rowH * 3) + 4);
         doc.setFont('helvetica', 'bold');
         doc.text(data.smcpoNumber || 'verbal', midX + 1, startY + (rowH * 3) + 9);
@@ -146,15 +187,22 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.setFont('helvetica', 'normal');
         doc.text('Dated', innerMid + 1, startY + (rowH * 3) + 4);
         doc.setFont('helvetica', 'bold');
-        doc.text(formatDateDDMMYYYY(data.date), innerMid + 1, startY + (rowH * 3) + 9);
+        doc.text(formatDateDDMMYYYY(data.buyerOrderDate), innerMid + 1, startY + (rowH * 3) + 9);
 
         doc.setFont('helvetica', 'normal');
         doc.text('Dispatch Doc No.', midX + 1, startY + (rowH * 4) + 4);
-        doc.text('Delivery Note Date', innerMid + 1, startY + (rowH * 4) + 4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.dispatchDocNo || '---', midX + 1, startY + (rowH * 4) + 9);
 
+        doc.setFont('helvetica', 'normal');
+        doc.text('Delivery Note Date', innerMid + 1, startY + (rowH * 4) + 4);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatDateDDMMYYYY(data.deliveryNoteDate), innerMid + 1, startY + (rowH * 4) + 9);
+
+        doc.setFont('helvetica', 'normal');
         doc.text('Dispatched through', midX + 1, startY + (rowH * 5) + 4);
         doc.setFont('helvetica', 'bold');
-        doc.text('Person', midX + 1, startY + (rowH * 5) + 9);
+        doc.text(data.dispatchedThrough || 'Person', midX + 1, startY + (rowH * 5) + 9);
 
         doc.setFont('helvetica', 'normal');
         doc.text('Destination', innerMid + 1, startY + (rowH * 5) + 4);
@@ -168,24 +216,28 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.setFont('helvetica', 'bold');
         doc.text(data.customerName || '', margin + 2, 53);
         doc.setFont('helvetica', 'normal');
-        const addrLines = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(addrLines, margin + 2, 57);
+        const consigneeAddrLines = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
+        doc.text(consigneeAddrLines, margin + 2, 57);
         
-        let partyCurrentY = 62 + (addrLines.length * 2);
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, partyCurrentY);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, partyCurrentY + 4);
+        let consigneeCurrentY = 57 + (consigneeAddrLines.length * 3.5);
+        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, consigneeCurrentY);
+        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, consigneeCurrentY + 4);
 
         doc.line(margin, 68, midX, 68);
         doc.text('Buyer (Bill to)', margin + 2, 71);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 75);
+        doc.text(data.buyerName || data.customerName || '', margin + 2, 75);
         doc.setFont('helvetica', 'normal');
-        doc.text(addrLines, margin + 2, 79);
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, partyCurrentY + 20);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, partyCurrentY + 24);
+        const buyerAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
+        doc.text(buyerAddrLines, margin + 2, 79);
+        
+        let buyerCurrentY = 79 + (buyerAddrLines.length * 3.5);
+        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, buyerCurrentY);
+        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, buyerCurrentY + 4);
 
         const itemsBody = (data.items || []).map((it, idx) => {
-            const base = it.quantity * it.unitPrice;
+            const rowBase = it.quantity * it.unitPrice;
+            const rowTax = rowBase * (it.taxRate / 100);
             return [
                 idx + 1, 
                 { content: it.description, styles: { fontStyle: 'bold' } as any }, 
@@ -195,17 +247,23 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                 it.unitPrice.toFixed(2), 
                 'nos', 
                 '', 
-                base.toFixed(2)
+                (rowBase + rowTax).toFixed(2)
             ];
         });
 
-        itemsBody.push(
-            ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.cgst.toFixed(2)],
-            ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.sgst.toFixed(2)]
-        );
+        if (docTotals.discount > 0) {
+            itemsBody.push(['', { content: 'Discount', styles: { fontStyle: 'bold', textColor: [225, 29, 72] } as any }, '', '', '', '', '', '', `-${docTotals.discount.toFixed(2)}`]);
+        }
+
+        if (docTotals.freight > 0) {
+            itemsBody.push(['', { content: 'Fare (Freight)', styles: { fontStyle: 'bold' } as any }, '', '0%', '1.00 nos', docTotals.freight.toFixed(2), 'nos', '', docTotals.freight.toFixed(2)]);
+            itemsBody.push(['', { content: `Freight GST (${data.freightTaxRate}%)`, styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', `${data.freightTaxRate}%`, '', '', '', '', docTotals.freightGst.toFixed(2)]);
+        }
 
         autoTable(doc, {
             startY: 90,
+            margin: { left: margin, right: margin },
+            tableWidth: printableWidth,
             head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST\nRate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
             body: itemsBody,
             foot: [[
@@ -247,10 +305,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
         autoTable(doc, {
             startY: tableFinalY + 18,
+            margin: { left: margin, right: margin },
+            tableWidth: printableWidth,
             head: [['HSN/SAC', 'Taxable\nValue', 'Central Tax', '', 'State Tax', '', 'Total\nTax Amount'], ['', '', 'Rate', 'Amount', 'Rate', 'Amount', '']],
             body: [
-                ['---', docTotals.taxableValue.toFixed(2), '9%', docTotals.cgst.toFixed(2), '9%', docTotals.sgst.toFixed(2), docTotals.taxTotal.toFixed(2)],
-                [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxableValue.toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: docTotals.cgst.toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: docTotals.sgst.toFixed(2), styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxTotal.toFixed(2), styles: { fontStyle: 'bold' } as any }]
+                ['---', docTotals.taxableValueForGrid.toFixed(2), '9%', (docTotals.taxTotal/2).toFixed(2), '9%', (docTotals.taxTotal/2).toFixed(2), docTotals.taxTotal.toFixed(2)],
+                [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxableValueForGrid.toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: (docTotals.taxTotal/2).toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: (docTotals.taxTotal/2).toFixed(2), styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxTotal.toFixed(2), styles: { fontStyle: 'bold' } as any }]
             ],
             theme: 'grid',
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 6.5 },
@@ -263,7 +323,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text(`Tax Amount (in words) : ${numberToWords(docTotals.taxTotal)}`, margin + 2, taxFinalY + 6);
 
         const bottomY = taxFinalY + 12;
-        doc.rect(margin, bottomY, pageWidth - (margin * 2), 40);
+        doc.rect(margin, bottomY, printableWidth, 40);
         doc.setFont('helvetica', 'bold');
         doc.text('Declaration', margin + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
@@ -276,16 +336,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('A/c No.         : 1617135000000754', midX + 2, bottomY + 15);
         doc.text('Branch & IFS Code : Selaiyur & KVBL0001617', midX + 2, bottomY + 20);
 
-        doc.rect(margin, bottomY + 25, pageWidth - (margin * 2), 25);
+        doc.rect(margin, bottomY + 25, printableWidth, 25);
         doc.line(midX, bottomY + 25, midX, bottomY + 50);
         doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 30);
         doc.setFont('helvetica', 'bold');
         doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 30, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 47, { align: 'right' });
-
-        doc.setFontSize(6);
-        doc.setFont('helvetica', 'italic');
-        doc.text('This is a Computer Generated Invoice', pageWidth / 2, bottomY + 56, { align: 'center' });
 
         doc.save(`Invoice_${data.invoiceNumber || 'New'}.pdf`);
     };
@@ -295,29 +351,25 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             alert("Please fill customer details and add at least one item.");
             return;
         }
-
         const invTotals = calculateDetailedTotals(invoice);
         const finalData: Invoice = {
             ...invoice as Invoice,
             id: editingId || `INV-${Date.now()}`,
-            subtotal: invTotals.taxableValue,
+            subtotal: invTotals.itemsGrossTotal,
             taxTotal: invTotals.taxTotal,
             grandTotal: invTotals.grandTotal,
             status: status === 'Draft' ? 'Draft' : 'Pending',
             documentType: 'PO',
             createdBy: currentUser?.name || 'System'
         };
-
         if (editingId) updateInvoice(editingId, finalData);
         else addInvoice(finalData);
-
         if (status === 'Finalized') {
             (invoice.items || []).forEach(item => {
                 const product = products.find(p => p.name === item.description);
                 if (product) updateProduct(product.id, { stock: Math.max(0, product.stock - item.quantity) });
             });
         }
-
         setViewState('history');
         setEditingId(null);
         addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
@@ -328,8 +380,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
+            model: prod?.model || '',
+            features: prod?.features || '',
             quantity: 1,
-            unitPrice: prod?.sellingPrice || 0, // USE sellingPrice for outward Invoice
+            unitPrice: prod?.sellingPrice || 0,
             taxRate: prod?.taxRate || 18,
             amount: prod?.sellingPrice || 0,
             gstValue: (prod?.sellingPrice || 0) * 0.18,
@@ -346,8 +400,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
-                            updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
+                            updated.unitPrice = masterProd.sellingPrice;
                             updated.hsn = masterProd.hsn || '';
+                            updated.model = masterProd.model || '';
+                            updated.features = masterProd.features || '';
                         }
                     }
                     updated.amount = updated.quantity * updated.unitPrice;
@@ -359,11 +415,20 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         });
     };
 
+    const copyConsigneeToBuyer = () => {
+        setInvoice(prev => ({
+            ...prev,
+            buyerName: prev.customerName,
+            buyerAddress: prev.customerAddress,
+            buyerGstin: prev.customerGstin
+        }));
+    };
+
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai' }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Invoice</button>
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', buyerOrderDate: new Date().toISOString().split('T')[0], modeOfPayment: 'Immediately', specialNote: 'Chennai', discount: 0, freightAmount: 0, freightTaxRate: 18, dispatchedThrough: 'Person', deliveryNote: '', referenceNoDate: '', otherReferences: '', dispatchDocNo: '', deliveryNoteDate: new Date().toISOString().split('T')[0], customerName: '', customerAddress: '', customerGstin: '', buyerName: '', buyerAddress: '', buyerGstin: '' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Invoice</button>
             </div>
 
             {viewState === 'history' ? (
@@ -374,14 +439,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[9px] text-slate-400 border-b">
-                                <tr>
-                                    <th className="px-8 py-5">Invoice #</th>
-                                    <th className="px-8 py-5">Customer</th>
-                                    <th className="px-8 py-5 text-center">Date</th>
-                                    <th className="px-8 py-5 text-right">Value</th>
-                                    <th className="px-8 py-5 text-center">Status</th>
-                                    <th className="px-8 py-5 text-right">Action</th>
-                                </tr>
+                                <tr><th className="px-8 py-5">Invoice #</th><th className="px-8 py-5">Consignee</th><th className="px-8 py-5 text-center">Date</th><th className="px-8 py-5 text-right">Value</th><th className="px-8 py-5 text-center">Status</th><th className="px-8 py-5 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {invoices.filter(i => i.documentType === 'PO' || !i.documentType).map(inv => (
@@ -390,9 +448,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         <td className="px-8 py-5 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-8 py-5 text-center text-slate-400 text-xs">{formatDateDDMMYYYY(inv.date)}</td>
                                         <td className="px-8 py-5 text-right font-black">₹{(inv.grandTotal || 0).toLocaleString()}</td>
-                                        <td className="px-8 py-5 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span>
-                                        </td>
+                                        <td className="px-8 py-5 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-8 py-5 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-300 hover:text-indigo-600"><Edit size={18}/></button>
@@ -407,30 +463,55 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
-                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Catalog</button>
+                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[120px] py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[120px] py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
+                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 min-w-[120px] py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Catalog</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
-                            <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar bg-white">
+                            <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar bg-white pb-32">
                                 <section className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
                                         <FormRow label="Invoice No."><input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
                                         <FormRow label="Dated"><input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
+                                        <FormRow label="Delivery Note"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.deliveryNote} onChange={e => setInvoice({...invoice, deliveryNote: e.target.value})} placeholder="Ref DC..." /></FormRow>
+                                        <FormRow label="Mode/Terms of Payment"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.modeOfPayment} onChange={e => setInvoice({...invoice, modeOfPayment: e.target.value})} placeholder="e.g. Immediately" /></FormRow>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+                                        <FormRow label="Reference No & Date"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.referenceNoDate} onChange={e => setInvoice({...invoice, referenceNoDate: e.target.value})} placeholder="Ref: ..." /></FormRow>
+                                        <FormRow label="Other References"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.otherReferences} onChange={e => setInvoice({...invoice, otherReferences: e.target.value})} /></FormRow>
                                         <FormRow label="Buyer Order No"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})} /></FormRow>
+                                        <FormRow label="Order Dated"><input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.buyerOrderDate} onChange={e => setInvoice({...invoice, buyerOrderDate: e.target.value})} /></FormRow>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+                                        <FormRow label="Dispatch Doc No."><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.dispatchDocNo} onChange={e => setInvoice({...invoice, dispatchDocNo: e.target.value})} /></FormRow>
+                                        <FormRow label="Delivery Note Date"><input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.deliveryNoteDate} onChange={e => setInvoice({...invoice, deliveryNoteDate: e.target.value})} /></FormRow>
+                                        <FormRow label="Dispatched Through"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.dispatchedThrough} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})} /></FormRow>
                                         <FormRow label="Destination"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                        <FormRow label="Discount (₹)"><input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold text-rose-600" value={invoice.discount} onChange={e => setInvoice({...invoice, discount: Number(e.target.value)})} placeholder="0.00" /></FormRow>
+                                        <FormRow label="Fare / Freight (₹)"><input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.freightAmount} onChange={e => setInvoice({...invoice, freightAmount: Number(e.target.value)})} placeholder="0.00" /></FormRow>
+                                        <FormRow label="Freight GST %"><input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.freightTaxRate} onChange={e => setInvoice({...invoice, freightTaxRate: Number(e.target.value)})} placeholder="18" /></FormRow>
                                     </div>
                                 </section>
 
                                 <section className="space-y-6">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">2. Party Details</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="flex justify-between items-center border-b pb-2">
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">2. Consignee & Buyer Identities</h3>
+                                        <button onClick={copyConsigneeToBuyer} className="flex items-center gap-2 text-[9px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-all uppercase tracking-widest">
+                                            <ArrowRightLeft size={14} /> Copy Ship to Bill
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                         <div className="space-y-6">
-                                            <FormRow label="Consignee Name *">
+                                            <h4 className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Consignee (Ship to)
+                                            </h4>
+                                            <FormRow label="Identity Name *">
                                                 <input type="text" list="client-list" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={invoice.customerName || ''} onChange={e => {
                                                     const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
                                                     setInvoice(prev => ({
@@ -444,10 +525,33 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <FormRow label="Consignee GSTIN">
                                                 <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
                                             </FormRow>
+                                            <FormRow label="Facility / Site Address">
+                                                <textarea rows={4} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Exact site location..." />
+                                            </FormRow>
                                         </div>
-                                        <FormRow label="Site / Billing Address">
-                                            <textarea rows={5} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full site address details..." />
-                                        </FormRow>
+
+                                        <div className="space-y-6 border-l border-slate-100 pl-0 md:pl-12">
+                                            <h4 className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Buyer (Bill to)
+                                            </h4>
+                                            <FormRow label="Billing Name *">
+                                                <input type="text" list="client-list" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={invoice.buyerName || ''} onChange={e => {
+                                                    const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
+                                                    setInvoice(prev => ({
+                                                        ...prev,
+                                                        buyerName: e.target.value,
+                                                        buyerAddress: client ? client.address : prev.buyerAddress,
+                                                        buyerGstin: client ? client.gstin : prev.buyerGstin
+                                                    }));
+                                                }} placeholder="Search or Type Buyer..." />
+                                            </FormRow>
+                                            <FormRow label="Buyer GSTIN">
+                                                <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.buyerGstin} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value})} placeholder="Buyer GST" />
+                                            </FormRow>
+                                            <FormRow label="Registered Billing Address">
+                                                <textarea rows={4} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.buyerAddress || ''} onChange={e => setInvoice({...invoice, buyerAddress: e.target.value})} placeholder="Official company address..." />
+                                            </FormRow>
+                                        </div>
                                     </div>
                                 </section>
 
@@ -474,15 +578,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     </div>
                                                     <div className="col-span-4 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                        <input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
                                                     </div>
                                                     <div className="col-span-4 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
+                                                        <input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
                                                     </div>
                                                     <div className="col-span-12 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                        <input type="number" {...numericInputProps} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -510,7 +614,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         </div>
 
                                         <div className="grid grid-cols-2 border border-black">
-                                            <div className="border-r border-black p-3 flex flex-col h-full">
+                                            <div className="border-r border-black p-3 flex flex-col h-full" style={{ width: '95mm' }}>
                                                 <h1 className="text-xl font-bold text-black mb-1">SREE MEDITEC</h1>
                                                 <p>Old No.2 New No.18, Bajanai Koil Street,</p>
                                                 <p>Rajakilpakkam, Chennai -73</p>
@@ -519,24 +623,24 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 <p>State Name : Tamil Nadu, Code : 33</p>
                                                 <p>E-Mail : sreemeditec@gmail.com</p>
                                             </div>
-                                            <div className="grid grid-cols-2 text-[9px]">
+                                            <div className="grid grid-cols-2 text-[9px]" style={{ width: '95mm' }}>
                                                 <div className="border-r border-b border-black p-2 h-[45px]">Invoice No.<br/><span className="font-bold text-[10px]">{invoice.invoiceNumber}</span></div>
                                                 <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Delivery Note<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Mode/Terms of Payment<br/><span className="font-bold text-[10px]">{invoice.deliveryTime}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Other References<br/><span className="font-bold"></span></div>
+                                                <div className="border-r border-b border-black p-2 h-[45px]">Delivery Note<br/><span className="font-bold text-[10px]">{invoice.deliveryNote}</span></div>
+                                                <div className="border-b border-black p-2 h-[45px]">Mode/Terms of Payment<br/><span className="font-bold text-[10px]">{invoice.modeOfPayment}</span></div>
+                                                <div className="border-r border-b border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold text-[10px]">{invoice.referenceNoDate}</span></div>
+                                                <div className="border-b border-black p-2 h-[45px]">Other References<br/><span className="font-bold text-[10px]">{invoice.otherReferences}</span></div>
                                                 <div className="border-r border-b border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[10px]">{invoice.smcpoNumber}</span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold"></span></div>
-                                                <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
+                                                <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.buyerOrderDate)}</span></div>
+                                                <div className="border-r border-b border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold text-[10px]">{invoice.dispatchDocNo}</span></div>
+                                                <div className="border-b border-black p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.deliveryNoteDate)}</span></div>
+                                                <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold text-[10px]">{invoice.dispatchedThrough}</span></div>
                                                 <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[10px]">{invoice.specialNote}</span></div>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 border-x border-b border-black min-h-[120px]">
-                                            <div className="border-r border-black p-3 flex flex-col justify-between">
+                                            <div className="border-r border-black p-3 flex flex-col justify-between" style={{ width: '95mm' }}>
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
                                                     <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.customerName}</p>
@@ -547,80 +651,101 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>
-                                            <div className="p-3 flex flex-col justify-between">
+                                            <div className="p-3 flex flex-col justify-between" style={{ width: '95mm' }}>
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
-                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.customerAddress}</p>
+                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.buyerAddress || invoice.customerAddress}</p>
                                                 </div>
                                                 <div className="mt-4">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.customerGstin}</p>
+                                                    <p className="font-bold">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
                                                     <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <table className="w-full border-x border-b border-black text-center text-[10px]">
+                                        <table className="w-full border-x border-b border-black text-center text-[10px] table-fixed" style={{ width: '190mm' }}>
                                             <thead className="bg-slate-50 font-bold border-b border-black">
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm]">
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Sl No.</th>
-                                                    <th className="border-r border-black p-2 text-left flex items-center">Description of Goods</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">HSN/SAC</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">GST Rate</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Qty</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Rate</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">per</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Disc. %</th>
-                                                    <th className="p-2 text-right flex items-center justify-end">Amount</th>
+                                                <tr>
+                                                    <th className="border-r border-black p-2" style={{ width: '10mm' }}>Sl No.</th>
+                                                    <th className="border-r border-black p-2 text-left" style={{ width: '70mm' }}>Description of Goods</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '15mm' }}>HSN/SAC</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '15mm' }}>GST Rate</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '20mm' }}>Qty</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '20mm' }}>Rate</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '10mm' }}>per</th>
+                                                    <th className="border-r border-black p-2" style={{ width: '10mm' }}>Disc. %</th>
+                                                    <th className="p-2 text-right" style={{ width: '20mm' }}>Amount</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {(invoice.items || []).map((it, idx) => {
                                                     const base = it.quantity * it.unitPrice;
+                                                    const tax = base * (it.taxRate / 100);
                                                     return (
-                                                        <tr key={`${idx}-m`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-b border-slate-100">
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{idx + 1}</td>
-                                                            <td className="border-r border-black p-2 text-left font-bold uppercase truncate flex items-center">{it.description}</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{it.hsn}</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{it.taxRate}%</td>
-                                                            <td className="border-r border-black p-2 text-right font-bold flex items-center justify-end">{it.quantity.toFixed(2)} nos</td>
-                                                            <td className="border-r border-black p-2 text-right flex items-center justify-end">{it.unitPrice.toFixed(2)}</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">nos</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center"></td>
-                                                            <td className="p-2 text-right font-black flex items-center justify-end">₹ {base.toFixed(2)}</td>
+                                                        <tr key={`${idx}-m`} className="border-b border-slate-100 h-8">
+                                                            <td className="border-r border-black p-2">{idx + 1}</td>
+                                                            <td className="border-r border-black p-2 text-left font-bold uppercase truncate">{it.description}</td>
+                                                            <td className="border-r border-black p-2">{it.hsn}</td>
+                                                            <td className="border-r border-black p-2">{it.taxRate}%</td>
+                                                            <td className="border-r border-black p-2 text-right font-bold">{it.quantity.toFixed(2)} nos</td>
+                                                            <td className="border-r border-black p-2 text-right">{it.unitPrice.toFixed(2)}</td>
+                                                            <td className="border-r border-black p-2">nos</td>
+                                                            <td className="border-r border-black p-2"></td>
+                                                            <td className="p-2 text-right font-black">₹ {(base + tax).toFixed(2)}</td>
                                                         </tr>
                                                     );
                                                 })}
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-4 bg-slate-50/20 italic">
+                                                
+                                                {totals.freight > 0 && (
+                                                    <>
+                                                        <tr className="h-6 bg-slate-50/10 font-bold">
+                                                            <td className="border-r border-black"></td>
+                                                            <td className="border-r border-black p-1 text-left">Fare (Freight)</td>
+                                                            <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black p-1 text-right">1.00 nos</td><td className="border-r border-black p-1 text-right">{totals.freight.toFixed(2)}</td><td className="border-r border-black p-1">nos</td><td className="border-r border-black"></td>
+                                                            <td className="p-1 text-right">Rs. {totals.freight.toFixed(2)}</td>
+                                                        </tr>
+                                                        <tr className="h-6 bg-slate-50/20 italic">
+                                                            <td className="border-r border-black"></td>
+                                                            <td className="border-r border-black p-1 text-left">Freight GST ({invoice.freightTaxRate}%)</td>
+                                                            <td className="border-r border-black"></td><td className="border-r border-black p-1 text-center">{invoice.freightTaxRate}%</td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                            <td className="p-1 text-right font-bold">{totals.freightGst.toFixed(2)}</td>
+                                                        </tr>
+                                                    </>
+                                                )}
+
+                                                <tr className="h-8 font-bold bg-slate-50/50">
                                                     <td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-1 text-left flex items-center">Output CGST</td>
-                                                    <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-1 text-right font-bold flex items-center justify-end">{totals.cgst.toFixed(2)}</td>
+                                                    <td colSpan={7} className="border-r border-black p-2 text-right uppercase tracking-widest text-[9px]">Gross Total (Items Sum):</td>
+                                                    <td className="p-2 text-right font-black">₹ {totals.itemsGrossTotal.toFixed(2)}</td>
                                                 </tr>
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-4 bg-slate-50/20 italic">
-                                                    <td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-1 text-left flex items-center">Output SGST</td>
-                                                    <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-1 text-right font-bold flex items-center justify-end">{totals.sgst.toFixed(2)}</td>
-                                                </tr>
-                                                {Array.from({ length: Math.max(0, 8 - (invoice.items?.length || 0)) }).map((_, i) => (
-                                                    <tr key={`f-${i}`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-8 border-b border-slate-50 opacity-10">
+
+                                                {totals.discount > 0 && (
+                                                    <tr className="h-6 bg-rose-50/20 italic text-rose-600">
+                                                        <td className="border-r border-black"></td>
+                                                        <td colSpan={7} className="border-r border-black p-1 text-right">Discount:</td>
+                                                        <td className="p-1 text-right font-bold">-Rs. {totals.discount.toFixed(2)}</td>
+                                                    </tr>
+                                                )}
+                                                
+                                                {Array.from({ length: Math.max(0, 6 - (invoice.items?.length || 0)) }).map((_, i) => (
+                                                    <tr key={`f-${i}`} className="h-8 border-b border-black opacity-10">
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-t border-black font-black bg-slate-50 text-[11px]">
-                                                    <td colSpan={2} className="border-r border-black p-2 text-right flex items-center justify-end">Total</td>
+                                                <tr className="border-t border-black font-black bg-slate-50 text-[11px] h-10">
+                                                    <td colSpan={2} className="border-r border-black p-2 text-right">Total</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-2 text-right font-black flex items-center justify-end">{totals.totalQty.toFixed(2)} nos</td>
+                                                    <td className="border-r border-black p-2 text-right font-black">{totals.totalQty.toFixed(2)} nos</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-2 text-right flex items-center justify-end">₹ {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td className="p-2 text-right font-black">₹ {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
 
-                                        <div className="flex justify-between items-start border-x border-b border-black p-3">
+                                        <div className="flex justify-between items-start border-x border-b border-black p-3" style={{ width: '190mm' }}>
                                             <div>
                                                 <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Amount Chargeable (in words)</p>
                                                 <p className="font-black text-xs">{numberToWords(totals.grandTotal)}</p>
@@ -628,7 +753,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <div className="text-[9px] font-black italic">E. & O.E</div>
                                         </div>
 
-                                        <div className="mt-2 border border-black">
+                                        <div className="mt-2 border border-black" style={{ width: '190mm' }}>
                                             <table className="w-full text-[8px] text-center border-collapse">
                                                 <thead className="bg-slate-100 border-b border-black font-black">
                                                     <tr>
@@ -646,16 +771,16 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 <tbody>
                                                     <tr className="border-b border-black">
                                                         <td className="border-r border-black p-1.5">---</td>
-                                                        <td className="border-r border-black p-1.5">{totals.taxableValue.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{totals.cgst.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{totals.sgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5">{totals.taxableValueForGrid.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{(totals.taxTotal/2).toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{(totals.taxTotal/2).toFixed(2)}</td>
                                                         <td className="p-1.5 font-bold">{totals.taxTotal.toFixed(2)}</td>
                                                     </tr>
                                                     <tr className="font-black bg-slate-50">
                                                         <td className="border-r border-black p-1.5 text-right">Total</td>
-                                                        <td className="border-r border-black p-1.5">{totals.taxableValue.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{totals.cgst.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{totals.sgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5">{totals.taxableValueForGrid.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{(totals.taxTotal/2).toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{(totals.taxTotal/2).toFixed(2)}</td>
                                                         <td className="p-1.5">₹ {totals.taxTotal.toFixed(2)}</td>
                                                     </tr>
                                                 </tbody>
@@ -663,12 +788,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         </div>
                                         <p className="text-[9px] font-black mt-1 uppercase">Tax Amount (in words) : {numberToWords(totals.taxTotal)}</p>
 
-                                        <div className="grid grid-cols-2 border border-black min-h-[100px] mt-2">
-                                            <div className="border-r border-black p-3 flex flex-col">
+                                        <div className="grid grid-cols-2 border border-black min-h-[100px] mt-2" style={{ width: '190mm' }}>
+                                            <div className="border-r border-black p-3 flex flex-col" style={{ width: '95mm' }}>
                                                 <p className="font-black text-[10px] underline mb-1 uppercase">Declaration</p>
                                                 <p className="text-[9px] mt-1 text-slate-600 leading-tight">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
                                             </div>
-                                            <div className="p-3">
+                                            <div className="p-3" style={{ width: '95mm' }}>
                                                 <p className="font-black text-[10px] uppercase mb-2">Company's Bank Details</p>
                                                 <div className="grid grid-cols-[80px_1fr] mt-1 gap-y-1 text-[9px]">
                                                     <span className="font-bold text-slate-400">Bank Name</span><span className="font-black">: KVB Bank</span>
@@ -678,11 +803,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 border-x border-b border-black min-h-[80px]">
-                                            <div className="border-r border-black p-3 flex flex-col justify-between">
+                                        <div className="grid grid-cols-2 border-x border-b border-black min-h-[80px]" style={{ width: '190mm' }}>
+                                            <div className="border-r border-black p-3 flex flex-col justify-between" style={{ width: '95mm' }}>
                                                 <p className="font-black text-[9px] uppercase text-slate-400">Customer Seal and Signature</p>
                                             </div>
-                                            <div className="p-3 flex flex-col text-right justify-between">
+                                            <div className="p-3 flex flex-col text-right justify-between" style={{ width: '95mm' }}>
                                                 <p className="font-black text-[11px] uppercase">for SREE MEDITEC</p>
                                                 <p className="font-black text-[10px] uppercase mt-10">Authorised Signatory</p>
                                             </div>

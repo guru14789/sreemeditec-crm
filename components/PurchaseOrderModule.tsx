@@ -173,18 +173,21 @@ export const PurchaseOrderModule: React.FC = () => {
         });
 
         // Summary Rows
+        const footerRows = [];
+        footerRows.push([{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: totals.totalWithGst.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }]);
+        if (totals.discount > 0) {
+            footerRows.push([{ content: 'Discount:', styles: { fontStyle: 'bold', textColor: [225, 29, 72] } }, { content: `-${totals.discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { halign: 'right', textColor: [225, 29, 72] } }]);
+        }
+        footerRows.push([{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]);
+        footerRows.push([{ content: `Advance Payment details: ${data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')} via ${data.paymentMethod} on ${formatDateDDMMYYYY(data.advanceDate)}` : '---'}`, colSpan: 2, styles: { fontStyle: 'bold' } }]);
+
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: totals.totalWithGst.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Discount/Buyback/adjustment', styles: { fontStyle: 'bold' } }, { content: (data.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } }],
-                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }],
-                [{ content: `Advance Payment details: ${data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')} via ${data.paymentMethod} on ${formatDateDDMMYYYY(data.advanceDate)}` : '---'}`, colSpan: 2, styles: { fontStyle: 'bold' } }]
-            ],
+            body: footerRows,
             columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
         });
 
@@ -237,12 +240,14 @@ export const PurchaseOrderModule: React.FC = () => {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
+            model: prod?.model || '',
+            features: prod?.features || '',
             quantity: 1,
-            unitPrice: prod?.price || 0,
+            unitPrice: prod?.sellingPrice || 0,
             taxRate: prod?.taxRate || 18,
-            amount: prod?.price || 0,
-            gstValue: (prod?.price || 0) * ((prod?.taxRate || 18) / 100),
-            priceWithGst: (prod?.price || 0) * (1 + ((prod?.taxRate || 18) / 100))
+            amount: prod?.sellingPrice || 0,
+            gstValue: (prod?.sellingPrice || 0) * ((prod?.taxRate || 18) / 100),
+            priceWithGst: (prod?.sellingPrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
         };
         setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
         if (builderTab === 'catalog') setBuilderTab('form');
@@ -272,9 +277,11 @@ export const PurchaseOrderModule: React.FC = () => {
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
-                            updated.unitPrice = masterProd.price;
+                            updated.unitPrice = masterProd.sellingPrice || 0;
                             updated.taxRate = masterProd.taxRate || 18;
                             updated.hsn = masterProd.hsn || '';
+                            updated.model = masterProd.model || '';
+                            updated.features = masterProd.features || '';
                         }
                     }
                     updated.amount = updated.quantity * updated.unitPrice;
@@ -392,10 +399,12 @@ export const PurchaseOrderModule: React.FC = () => {
                             <td colSpan={7} className="border-r border-black p-1 text-right">Total</td>
                             <td className="p-1 text-right font-black">{totals.totalWithGst.toLocaleString()}</td>
                         </tr>
-                        <tr className="border-t border-black font-bold">
-                            <td colSpan={7} className="border-r border-black p-1 text-right">Discount/Buyback/adjustment</td>
-                            <td className="p-1 text-right">{(data.discount || 0).toLocaleString()}</td>
-                        </tr>
+                        {totals.discount > 0 && (
+                            <tr className="border-t border-black font-bold text-rose-600">
+                                <td colSpan={7} className="border-r border-black p-1 text-right">Discount:</td>
+                                <td className="p-1 text-right">-Rs. {totals.discount.toLocaleString()}</td>
+                            </tr>
+                        )}
                         <tr className="border-t border-black font-black bg-slate-50 text-sm">
                             <td colSpan={7} className="border-r border-black p-1.5 text-right uppercase">Grand Total</td>
                             <td className="p-1.5 text-right">Rs. {totals.grandTotal.toLocaleString()}</td>
@@ -449,7 +458,7 @@ export const PurchaseOrderModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0] }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], discount: 0 }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
             </div>
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
@@ -627,7 +636,7 @@ export const PurchaseOrderModule: React.FC = () => {
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {products.map(prod => (
                                         <div key={prod.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group" onClick={() => handleAddItem(prod)}>
-                                            <div className="flex-1"><h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{prod.price.toLocaleString()} • {prod.sku}</p></div>
+                                            <div className="flex-1"><h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{prod.sellingPrice?.toLocaleString()} • {prod.sku}</p></div>
                                             <div className="ml-4 p-1.5 bg-white rounded-lg border border-slate-100 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-sm"><Plus size={16} /></div>
                                         </div>
                                     ))}

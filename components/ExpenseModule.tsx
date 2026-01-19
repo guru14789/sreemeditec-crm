@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { ExpenseRecord } from '../types';
-import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search, User, Check, X, Eye, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare } from 'lucide-react';
+import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search, User, Check, X, Eye, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare, Users, LayoutGrid, List } from 'lucide-react';
 import { useData } from './DataContext';
 
 interface ExpenseModuleProps {
@@ -9,8 +9,15 @@ interface ExpenseModuleProps {
     userRole: 'Admin' | 'Employee';
 }
 
+// Helper for typable/selectable inputs
+const numericInputProps = {
+    onWheel: (e: React.WheelEvent<HTMLInputElement>) => e.currentTarget.blur(),
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.target.select(),
+};
+
 export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userRole }) => {
   const { expenses, addExpense, updateExpenseStatus, addNotification } = useData();
+  const [activeExpenseTab, setActiveExpenseTab] = useState<'registry' | 'ledger'>('registry');
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewReceiptModal, setViewReceiptModal] = useState<ExpenseRecord | null>(null);
   const [rejectionModal, setRejectionModal] = useState<string | null>(null); 
@@ -144,10 +151,33 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
   const totalRejected = visibleExpenses.filter(e => e.status === 'Rejected').reduce((acc, curr) => acc + curr.amount, 0);
   const pendingAmount = visibleExpenses.filter(e => e.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
 
+  // ADMIN ONLY: Per-Employee Stats
+  const employeeWiseStats = useMemo(() => {
+    if (userRole !== 'Admin') return [];
+    
+    const statsMap: Record<string, { approved: number; pending: number; rejected: number; count: number }> = {};
+    
+    expenses.forEach(exp => {
+        if (!statsMap[exp.employeeName]) {
+            statsMap[exp.employeeName] = { approved: 0, pending: 0, rejected: 0, count: 0 };
+        }
+        
+        statsMap[exp.employeeName].count += 1;
+        if (exp.status === 'Approved') statsMap[exp.employeeName].approved += exp.amount;
+        else if (exp.status === 'Pending') statsMap[exp.employeeName].pending += exp.amount;
+        else if (exp.status === 'Rejected') statsMap[exp.employeeName].rejected += exp.amount;
+    });
+    
+    return Object.entries(statsMap).map(([name, data]) => ({
+        name,
+        ...data
+    })).sort((a, b) => b.approved - a.approved);
+  }, [expenses, userRole]);
+
   return (
     <div className="h-full flex flex-col gap-4 sm:gap-6 overflow-hidden p-1 sm:p-2">
       
-      {/* Stats Section - Fully Responsive Grid */}
+      {/* Stats Section - Company Level */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-emerald-500 shadow-xl shadow-emerald-500/10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 sm:p-6 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -155,7 +185,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
               </div>
               <div className="relative z-10">
                   <p className="text-emerald-600 dark:text-emerald-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
-                      <CheckCircle2 size={12} /> Approved Claims
+                      <CheckCircle2 size={12} /> {userRole === 'Admin' ? 'Total Approved Claims' : 'My Approved Claims'}
                   </p>
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{totalApprovedClaimed.toLocaleString()}</h3>
                   <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest hidden sm:block">Cleared for Disbursement</p>
@@ -171,7 +201,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                       <Clock size={12} /> Pending Approval
                   </p>
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{pendingAmount.toLocaleString()}</h3>
-                  <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest hidden sm:block">Awaiting Admin Action</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest hidden sm:block">Awaiting Action</p>
               </div>
           </div>
 
@@ -181,7 +211,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
               </div>
               <div className="relative z-10">
                   <p className="text-rose-600 dark:text-rose-400 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
-                      <XCircle size={12} /> Total Rejected
+                      <XCircle size={12} /> {userRole === 'Admin' ? 'Total Rejected' : 'My Rejected Claims'}
                   </p>
                   <h3 className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter text-rose-600">₹{totalRejected.toLocaleString()}</h3>
                   <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest hidden sm:block">Declined Claims</p>
@@ -189,120 +219,183 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
           </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shrink-0"><Receipt size={20} className="sm:w-6 sm:h-6" /></div>
-                  <div>
-                      <h2 className="font-black text-sm sm:text-lg text-slate-800 dark:text-white uppercase tracking-tight leading-none">Financial Vouchers</h2>
-                      <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{userRole === 'Admin' ? 'Enterprise Ledger' : 'My Reimbursement Log'}</p>
-                  </div>
-              </div>
-              <button 
-                  onClick={() => setShowAddModal(true)}
-                  className="w-full sm:w-auto bg-emerald-600 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95 shrink-0">
-                  <Plus size={16} /> Submit Claim
-              </button>
+      {/* Tab Switcher & Sub-Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm shrink-0">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl sm:rounded-2xl w-full sm:w-auto">
+              {userRole === 'Admin' ? (
+                <>
+                    <button 
+                        onClick={() => setActiveExpenseTab('registry')}
+                        className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg sm:rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeExpenseTab === 'registry' ? 'bg-white dark:bg-slate-700 text-medical-700 dark:text-medical-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                        <List size={16} /> Voucher Registry
+                    </button>
+                    <button 
+                        onClick={() => setActiveExpenseTab('ledger')}
+                        className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg sm:rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeExpenseTab === 'ledger' ? 'bg-white dark:bg-slate-700 text-medical-700 dark:text-medical-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                        <Users size={16} /> Staff Ledger
+                    </button>
+                </>
+              ) : (
+                <div className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-medical-700 dark:text-medical-400 flex items-center gap-2">
+                    <Receipt size={16} /> Personal Vouchers
+                </div>
+              )}
           </div>
-
-          {/* Responsive Scroll Container for Table */}
-          <div className="flex-1 overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left text-xs sm:text-sm text-slate-600 min-w-[700px] lg:min-w-full">
-                  <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 text-[8px] sm:text-[10px] uppercase font-black tracking-[0.1em] sm:tracking-[0.2em] text-slate-400 sticky top-0 z-20 backdrop-blur-md">
-                      <tr>
-                          <th className="px-4 sm:px-6 py-4 sm:py-5">Timestamp</th>
-                          {userRole === 'Admin' && <th className="px-4 sm:px-6 py-4 sm:py-5">Personnel</th>}
-                          <th className="px-4 sm:px-6 py-4 sm:py-5">Description</th>
-                          <th className="px-4 sm:px-6 py-4 sm:py-5 text-right">Value (₹)</th>
-                          <th className="px-4 sm:px-6 py-4 sm:py-5 text-center">Attachment</th>
-                          <th className="px-4 sm:px-6 py-4 sm:py-5 text-center">Status</th>
-                          {userRole === 'Admin' && <th className="px-4 sm:px-6 py-4 sm:py-5 text-right">Ops</th>}
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {visibleExpenses.map(expense => (
-                          <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
-                              <td className="px-4 sm:px-6 py-4 sm:py-5 font-bold text-slate-400 text-[10px] sm:text-xs uppercase whitespace-nowrap">{expense.date}</td>
-                              {userRole === 'Admin' && (
-                                  <td className="px-4 sm:px-6 py-4 sm:py-5">
-                                      <div className="flex items-center gap-2 sm:gap-3">
-                                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[8px] sm:text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
-                                              {expense.employeeName.charAt(0)}
-                                          </div>
-                                          <span className="font-black text-slate-800 dark:text-slate-200 text-[10px] sm:text-xs uppercase truncate max-w-[80px] sm:max-w-none">{expense.employeeName}</span>
-                                      </div>
-                                  </td>
-                              )}
-                              <td className="px-4 sm:px-6 py-4 sm:py-5">
-                                  <div className="flex flex-col min-w-[150px]">
-                                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
-                                          <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-800 whitespace-nowrap">{expense.category}</span>
-                                          <span className="font-black text-slate-800 dark:text-slate-200 text-[10px] sm:text-xs uppercase truncate max-w-[120px] sm:max-w-[200px]">{expense.description}</span>
-                                      </div>
-                                      {expense.status === 'Rejected' && expense.rejectionReason && (
-                                          <div className="flex items-start gap-1 text-rose-500 bg-rose-50 dark:bg-rose-900/10 p-1.5 sm:p-2 rounded-lg border border-rose-100 dark:border-rose-800/50 mt-1 max-w-[200px] sm:max-w-[300px]">
-                                              <MessageSquare size={10} className="shrink-0 mt-0.5" />
-                                              <p className="text-[8px] sm:text-[10px] font-bold leading-tight italic">Audit: {expense.rejectionReason}</p>
-                                          </div>
-                                      )}
-                                  </div>
-                              </td>
-                              <td className="px-4 sm:px-6 py-4 sm:py-5 text-right font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tighter whitespace-nowrap">₹{expense.amount.toLocaleString()}</td>
-                              <td className="px-4 sm:px-6 py-4 sm:py-5 text-center">
-                                  {expense.receiptUrl ? (
-                                      <button 
-                                        onClick={() => setViewReceiptModal(expense)}
-                                        className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all shadow-sm">
-                                        <ImageIcon size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                      </button>
-                                  ) : (
-                                      <span className="text-slate-200 dark:text-slate-700"><ImageIcon size={16} className="sm:w-[18px] sm:h-[18px]" /></span>
-                                  )}
-                              </td>
-                              <td className="px-4 sm:px-6 py-4 sm:py-5 text-center">
-                                  <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider sm:tracking-widest border ${getStatusColor(expense.status)}`}>
-                                      {expense.status === 'Approved' && <CheckCircle2 size={10} />}
-                                      {expense.status === 'Pending' && <Clock size={10} />}
-                                      {expense.status === 'Rejected' && <XCircle size={10} />}
-                                      <span className="hidden sm:inline ml-0.5">{expense.status}</span>
-                                      <span className="sm:hidden">{expense.status.charAt(0)}</span>
-                                  </span>
-                              </td>
-                              {userRole === 'Admin' && (
-                                  <td className="px-4 sm:px-6 py-4 sm:py-5 text-right">
-                                      {expense.status === 'Pending' && (
-                                          <div className="flex justify-end gap-1.5 sm:gap-2">
-                                              <button 
-                                                onClick={() => handleApprove(expense.id)}
-                                                className="p-1.5 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl hover:bg-emerald-600 hover:text-white border border-emerald-100 transition-all shadow-sm active:scale-90">
-                                                  <Check size={16} />
-                                              </button>
-                                              <button 
-                                                onClick={() => handleOpenRejection(expense.id)}
-                                                className="p-1.5 sm:p-2 bg-rose-50 text-rose-600 rounded-lg sm:rounded-xl hover:bg-rose-600 hover:text-white border border-rose-100 transition-all shadow-sm active:scale-90">
-                                                  <X size={16} />
-                                              </button>
-                                          </div>
-                                      )}
-                                  </td>
-                              )}
-                          </tr>
-                      ))}
-                      {visibleExpenses.length === 0 && (
-                          <tr>
-                              <td colSpan={7} className="py-16 sm:py-20 text-center opacity-30">
-                                  <div className="flex flex-col items-center">
-                                      <FileText size={32} className="sm:w-12 sm:h-12 mb-3 sm:mb-4 text-slate-300" />
-                                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest">No active vouchers found</p>
-                                  </div>
-                              </td>
-                          </tr>
-                      )}
-                  </tbody>
-              </table>
-          </div>
+          <button 
+              onClick={() => setShowAddModal(true)}
+              className="w-full sm:w-auto bg-emerald-600 text-white px-8 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
+              <Plus size={18} /> Submit Claim
+          </button>
       </div>
+
+      {/* Conditional Content rendering based on tabs */}
+      {userRole === 'Admin' && activeExpenseTab === 'ledger' ? (
+          /* Staff Ledger Tab (Admin Only) */
+          <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col animate-in fade-in zoom-in-98">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                      <Users size={16} className="text-indigo-600" />
+                      <h3 className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Personnel Ledger</h3>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase">{employeeWiseStats.length} Total Contributors</span>
+              </div>
+              <div className="flex-1 overflow-auto custom-scrollbar">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                      <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10 font-black uppercase tracking-wider text-slate-400 border-b dark:border-slate-700 text-[9px] sm:text-[10px]">
+                          <tr>
+                              <th className="px-8 py-5">Employee Identity</th>
+                              <th className="px-8 py-5 text-right">Approved (₹)</th>
+                              <th className="px-8 py-5 text-right text-amber-600">Pending (₹)</th>
+                              <th className="px-8 py-5 text-right text-rose-400">Rejected (₹)</th>
+                              <th className="px-8 py-5 text-center">Volume</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                          {employeeWiseStats.map(stat => (
+                              <tr key={stat.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                                  <td className="px-8 py-5">
+                                      <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center font-black text-xs text-indigo-600 border border-indigo-100 dark:border-indigo-800 group-hover:scale-110 transition-transform">{stat.name.charAt(0)}</div>
+                                          <div>
+                                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight block">{stat.name}</span>
+                                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Active Personnel</span>
+                                          </div>
+                                      </div>
+                                  </td>
+                                  <td className="px-8 py-5 text-right font-black text-emerald-600 text-base">₹{stat.approved.toLocaleString()}</td>
+                                  <td className="px-8 py-5 text-right font-bold text-amber-600">₹{stat.pending.toLocaleString()}</td>
+                                  <td className="px-8 py-5 text-right font-bold text-slate-300">₹{stat.rejected.toLocaleString()}</td>
+                                  <td className="px-8 py-5 text-center">
+                                      <span className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-xl font-black text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+                                          {stat.count} Claims
+                                      </span>
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      ) : (
+          /* Voucher Registry Tab (Standard for everyone) */
+          <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex-1 overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left text-xs sm:text-sm text-slate-600 min-w-[700px] lg:min-w-full">
+                      <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 text-[8px] sm:text-[10px] uppercase font-black tracking-[0.1em] sm:tracking-[0.2em] text-slate-400 sticky top-0 z-20 backdrop-blur-md">
+                          <tr>
+                              <th className="px-4 sm:px-6 py-4 sm:py-5">Timestamp</th>
+                              {userRole === 'Admin' && <th className="px-4 sm:px-6 py-4 sm:py-5">Personnel</th>}
+                              <th className="px-4 sm:px-6 py-4 sm:py-5">Description</th>
+                              <th className="px-4 sm:px-6 py-4 sm:py-5 text-right">Value (₹)</th>
+                              <th className="px-4 sm:px-6 py-4 sm:py-5 text-center">Attachment</th>
+                              <th className="px-4 sm:px-6 py-4 sm:py-5 text-center">Status</th>
+                              {userRole === 'Admin' && <th className="px-4 sm:px-6 py-4 sm:py-5 text-right">Ops</th>}
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {visibleExpenses.map(expense => (
+                              <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                                  <td className="px-4 sm:px-6 py-4 sm:py-5 font-bold text-slate-400 text-[10px] sm:text-xs uppercase whitespace-nowrap">{expense.date}</td>
+                                  {userRole === 'Admin' && (
+                                      <td className="px-4 sm:px-6 py-4 sm:py-5">
+                                          <div className="flex items-center gap-2 sm:gap-3">
+                                              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[8px] sm:text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
+                                                  {expense.employeeName.charAt(0)}
+                                              </div>
+                                              <span className="font-black text-slate-800 dark:text-slate-200 text-[10px] sm:text-xs uppercase truncate max-w-[80px] sm:max-w-none">{expense.employeeName}</span>
+                                          </div>
+                                      </td>
+                                  )}
+                                  <td className="px-4 sm:px-6 py-4 sm:py-5">
+                                      <div className="flex flex-col min-w-[150px]">
+                                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
+                                              <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-800 whitespace-nowrap">{expense.category}</span>
+                                              <span className="font-black text-slate-800 dark:text-slate-200 text-[10px] sm:text-xs uppercase truncate max-w-[120px] sm:max-w-[200px]">{expense.description}</span>
+                                          </div>
+                                          {expense.status === 'Rejected' && expense.rejectionReason && (
+                                              <div className="flex items-start gap-1 text-rose-500 bg-rose-50 dark:bg-rose-900/10 p-1.5 sm:p-2 rounded-lg border border-rose-100 dark:border-rose-800/50 mt-1 max-w-[200px] sm:max-w-[300px]">
+                                                  <MessageSquare size={10} className="shrink-0 mt-0.5" />
+                                                  <p className="text-[8px] sm:text-[10px] font-bold leading-tight italic">Audit: {expense.rejectionReason}</p>
+                                              </div>
+                                          )}
+                                      </div>
+                                  </td>
+                                  <td className="px-4 sm:px-6 py-4 sm:py-5 text-right font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tighter whitespace-nowrap">₹{expense.amount.toLocaleString()}</td>
+                                  <td className="px-4 sm:px-6 py-4 sm:py-5 text-center">
+                                      {expense.receiptUrl ? (
+                                          <button 
+                                            onClick={() => setViewReceiptModal(expense)}
+                                            className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all shadow-sm">
+                                            <ImageIcon size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                          </button>
+                                      ) : (
+                                          <span className="text-slate-200 dark:text-slate-700"><ImageIcon size={16} className="sm:w-[18px] sm:h-[18px]" /></span>
+                                      )}
+                                  </td>
+                                  <td className="px-4 sm:px-6 py-4 sm:py-5 text-center">
+                                      <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider sm:tracking-widest border ${getStatusColor(expense.status)}`}>
+                                          {expense.status === 'Approved' && <CheckCircle2 size={10} />}
+                                          {expense.status === 'Pending' && <Clock size={10} />}
+                                          {expense.status === 'Rejected' && <XCircle size={10} />}
+                                          <span className="hidden sm:inline ml-0.5">{expense.status}</span>
+                                          <span className="sm:hidden">{expense.status.charAt(0)}</span>
+                                      </span>
+                                  </td>
+                                  {userRole === 'Admin' && (
+                                      <td className="px-4 sm:px-6 py-4 sm:py-5 text-right">
+                                          {expense.status === 'Pending' && (
+                                              <div className="flex justify-end gap-1.5 sm:gap-2">
+                                                  <button 
+                                                    onClick={() => handleApprove(expense.id)}
+                                                    className="p-1.5 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl hover:bg-emerald-600 hover:text-white border border-emerald-100 transition-all shadow-sm active:scale-90">
+                                                      <Check size={16} />
+                                                  </button>
+                                                  <button 
+                                                    onClick={() => handleOpenRejection(expense.id)}
+                                                    className="p-1.5 sm:p-2 bg-rose-50 text-rose-600 rounded-lg sm:rounded-xl hover:bg-rose-600 hover:text-white border border-rose-100 transition-all shadow-sm active:scale-90">
+                                                      <X size={16} />
+                                                  </button>
+                                              </div>
+                                          )}
+                                      </td>
+                                  )}
+                              </tr>
+                          ))}
+                          {visibleExpenses.length === 0 && (
+                              <tr>
+                                  <td colSpan={7} className="py-16 sm:py-20 text-center opacity-30">
+                                      <div className="flex flex-col items-center">
+                                          <FileText size={32} className="sm:w-12 sm:h-12 mb-3 sm:mb-4 text-slate-300" />
+                                          <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest">No vouchers logged in stream</p>
+                                      </div>
+                                  </td>
+                              </tr>
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      )}
 
       {/* Add Voucher Modal */}
       {showAddModal && (
@@ -310,7 +403,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
               <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
                   <div className="p-5 sm:p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                       <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">New Voucher</h3>
-                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Submit digital expense proof</p>
+                      <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Initialize digital expense proof</p>
                   </div>
                   <div className="p-5 sm:p-8 space-y-4 sm:space-y-6 overflow-y-auto max-h-[60vh] sm:max-h-[70vh] custom-scrollbar">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -333,13 +426,13 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                       </div>
                       <div className="space-y-1.5">
                           <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Claim Amount (₹)</label>
-                          <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4 text-xl sm:text-2xl font-black outline-none focus:border-medical-500 text-emerald-600"
+                          <input type="number" {...numericInputProps} className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 sm:px-5 sm:py-4 text-xl sm:text-2xl font-black outline-none focus:border-medical-500 text-emerald-600"
                               placeholder="0.00" value={newExpense.amount || ''} onChange={e => setNewExpense({...newExpense, amount: Number(e.target.value)})} />
                       </div>
                       <div className="space-y-1.5">
                           <label className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Memo / Purpose</label>
                           <textarea rows={2} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 sm:px-5 sm:py-3 text-xs sm:text-sm font-bold outline-none focus:border-medical-500 dark:text-white resize-none"
-                              placeholder="Reason for expense..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
+                              placeholder="Specific reason for expense..." value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
                       </div>
                       
                       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -358,7 +451,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                       <img src={receiptPreview} alt="Preview" className="w-full h-full object-cover" />
                                   </div>
                                   <div className="text-left">
-                                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-tight">Image Attached</p>
+                                      <p className="text-[10px] sm:text-xs font-black uppercase tracking-tight">Evidence Attached</p>
                                       <p className="text-[8px] sm:text-[9px] font-black opacity-50 uppercase tracking-widest">Tap to Replace</p>
                                   </div>
                               </div>
@@ -372,7 +465,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                   </div>
                   <div className="p-5 sm:p-8 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:gap-4 bg-slate-50/50 dark:bg-slate-800/50">
                       <button onClick={() => { setShowAddModal(false); setReceiptPreview(null); }} className="order-2 sm:order-1 flex-1 bg-white dark:bg-slate-700 text-slate-400 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">Cancel</button>
-                      <button onClick={handleAddExpense} disabled={isCompressing} className="order-1 sm:order-2 flex-[2] bg-medical-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-medical-500/20 active:scale-95 disabled:opacity-50">Submit Claim</button>
+                      <button onClick={handleAddExpense} disabled={isCompressing} className="order-1 sm:order-2 flex-[2] bg-medical-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-medical-500/20 active:scale-95 disabled:opacity-50">Authorize Submit</button>
                   </div>
               </div>
           </div>
@@ -381,26 +474,26 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
       {/* Rejection Modal */}
       {rejectionModal && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in">
-              <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-sm flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border border-rose-100 dark:border-rose-900">
+              <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-sm flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border border-rose-100 dark:border-rose-900">
                   <div className="p-6 sm:p-8 text-center space-y-4">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 bg-rose-50 dark:bg-rose-900/20 rounded-xl sm:rounded-[1.5rem] flex items-center justify-center mx-auto text-rose-600 border border-rose-100 dark:border-rose-800">
                           <AlertCircle size={28} className="sm:w-8 sm:h-8" />
                       </div>
                       <div>
-                          <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">Decline Voucher?</h3>
-                          <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Audit trail requires feedback</p>
+                          <h3 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">Decline Claim?</h3>
+                          <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Registry requires audit feedback</p>
                       </div>
                       <textarea 
                         autoFocus
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl sm:rounded-2xl px-4 py-4 text-[11px] sm:text-xs font-bold outline-none focus:border-rose-500 dark:text-white resize-none min-h-[100px]"
-                        placeholder="Rejection reason..."
+                        placeholder="State reason for rejection..."
                         value={rejectionReason}
                         onChange={e => setRejectionReason(e.target.value)}
                       />
                   </div>
                   <div className="p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/50 flex gap-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => setRejectionModal(null)} className="flex-1 py-3 text-[9px] sm:text-[10px] font-black uppercase text-slate-400 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600">Abort</button>
-                      <button onClick={handleConfirmRejection} className="flex-[2] py-3 text-[9px] sm:text-[10px] font-black uppercase text-white bg-rose-600 rounded-xl shadow-lg shadow-rose-500/20 active:scale-95">Confirm</button>
+                      <button onClick={handleConfirmRejection} className="flex-[2] py-3 text-[9px] sm:text-[10px] font-black uppercase text-white bg-rose-600 rounded-xl shadow-lg shadow-rose-500/20 active:scale-95">Commit Decline</button>
                   </div>
               </div>
           </div>
@@ -413,7 +506,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                   <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                       <div className="flex items-center gap-3">
                           <ImageIcon size={18} className="text-indigo-600" />
-                          <h3 className="font-black text-[10px] sm:text-sm text-slate-800 dark:text-white uppercase tracking-widest">Digital Evidence</h3>
+                          <h3 className="font-black text-[10px] sm:text-sm text-slate-800 dark:text-white uppercase tracking-widest">Digital Attachment</h3>
                       </div>
                       <button onClick={() => setViewReceiptModal(null)} className="text-slate-400 hover:text-slate-600 p-1.5 sm:p-2 hover:bg-white dark:hover:bg-slate-700 rounded-full transition-all"><X size={20} className="sm:w-6 sm:h-6"/></button>
                   </div>
@@ -423,7 +516,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                       ) : (
                         <div className="text-center text-slate-300">
                           <ImageIcon size={48} className="mx-auto mb-4 opacity-10 sm:w-20 sm:h-20" />
-                          <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest opacity-40">Attachment Missing</p>
+                          <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest opacity-40">Attachment Not Indexed</p>
                         </div>
                       )}
                   </div>
@@ -434,7 +527,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                               <p className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tighter">₹{viewReceiptModal.amount.toLocaleString()}</p>
                           </div>
                           <div>
-                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">User</p>
+                              <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 sm:mb-1">Contributor</p>
                               <p className="text-xs sm:text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase truncate max-w-[120px]">{viewReceiptModal.employeeName}</p>
                           </div>
                       </div>

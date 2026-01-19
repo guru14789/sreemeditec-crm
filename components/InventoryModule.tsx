@@ -135,6 +135,7 @@ export const InventoryModule: React.FC = () => {
         taxRate: newProduct.taxRate || 18,
         model: newProduct.model || '',
         description: newProduct.description || '',
+        features: newProduct.features || '',
         supplier: newProduct.supplier || '',
         lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
     };
@@ -155,7 +156,7 @@ export const InventoryModule: React.FC = () => {
 
     setShowAddProductModal(false);
     addNotification('Product Indexed', `"${productToAdd.name}" successfully added to registry.`, 'success');
-    setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', purchasePrice: 0, sellingPrice: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
+    setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', purchasePrice: 0, sellingPrice: 0, hsn: '', taxRate: 18, model: '', description: '', features: '', supplier: '' });
   };
 
   const handleOpenEdit = (product: Product) => {
@@ -680,9 +681,13 @@ export const InventoryModule: React.FC = () => {
                             <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({...editingProduct, sku: e.target.value})} />
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type (nos/pkt)</label>
-                            <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({...editingProduct, unit: e.target.value.toLowerCase()})} placeholder="nos" />
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model Name</label>
+                            <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" value={editingProduct.model || ''} onChange={e => setEditingProduct({...editingProduct, model: e.target.value})} placeholder="Model ID" />
                         </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Technical Features</label>
+                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none resize-none" value={editingProduct.features || ''} onChange={e => setEditingProduct({...editingProduct, features: e.target.value})} placeholder="Key product specifications..." />
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
@@ -737,6 +742,11 @@ export const InventoryModule: React.FC = () => {
                         </select>
                     </div>
                     <div className="grid grid-cols-2 gap-5">
+                        <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Model Name" value={newProduct.model || ''} onChange={e => setNewProduct({...newProduct, model: e.target.value})} />
+                        <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({...newProduct, unit: e.target.value.toLowerCase()})} />
+                    </div>
+                    <textarea rows={3} className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-bold outline-none resize-none" placeholder="Technical Features" value={newProduct.features || ''} onChange={e => setNewProduct({...newProduct, features: e.target.value})} />
+                    <div className="grid grid-cols-2 gap-5">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Purchase Cost (₹)</label>
                             <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.purchasePrice || ''} onChange={e => setNewProduct({...newProduct, purchasePrice: Number(e.target.value)})} />
@@ -748,13 +758,12 @@ export const InventoryModule: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-5">
                         <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({...newProduct, stock: Number(e.target.value)})} />
-                        <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({...newProduct, unit: e.target.value.toLowerCase()})} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-5">
                         <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({...newProduct, minLevel: Number(e.target.value)})} />
-                        <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({...newProduct, location: e.target.value})} />
                     </div>
-                    <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({...newProduct, supplier: e.target.value})} />
+                    <div className="grid grid-cols-1 gap-5">
+                        <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({...newProduct, location: e.target.value})} />
+                        <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({...newProduct, supplier: e.target.value})} />
+                    </div>
                 </div>
                 <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
                     <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
@@ -767,7 +776,7 @@ export const InventoryModule: React.FC = () => {
       {/* Scan Barcode Modal */}
       {showScanModal && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-100 animate-in zoom-in-95">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-md w-full overflow-hidden scale-100 animate-in zoom-in-95">
                   <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                       <div>
                           <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Barcode Scanner</h3>

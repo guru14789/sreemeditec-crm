@@ -88,6 +88,7 @@ export interface Product {
   taxRate?: number;
   model?: string;
   description?: string;
+  features?: string;
   supplier?: string;
   lastRestocked?: string;
   price?: number;
@@ -118,6 +119,9 @@ export interface Invoice {
   customerHospital?: string;
   customerAddress?: string;
   customerGstin?: string;
+  buyerName?: string;
+  buyerAddress?: string;
+  buyerGstin?: string;
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
@@ -143,6 +147,15 @@ export interface Invoice {
   paymentTerms?: string;
   deliveryTerms?: string;
   warrantyTerms?: string;
+  // Logistical / Dispatch Fields
+  deliveryNote?: string;
+  modeOfPayment?: string;
+  referenceNoDate?: string;
+  otherReferences?: string;
+  buyerOrderDate?: string;
+  dispatchDocNo?: string;
+  deliveryNoteDate?: string;
+  dispatchedThrough?: string;
 }
 
 export interface StockMovement {
