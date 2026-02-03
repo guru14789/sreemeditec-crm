@@ -1,7 +1,4 @@
 
-import { FieldValue, Timestamp } from 'firebase/firestore';
-
-// Fix: Updated roles to match HRModule usage
 export type EnterpriseRole = 'SYSTEM_ADMIN' | 'SYSTEM_STAFF';
 
 export enum TabView {
@@ -27,50 +24,56 @@ export enum TabView {
   REPORTS = 'REPORTS'
 }
 
-export interface ServerMetadata {
-  createdAt?: FieldValue | Timestamp;
-  updatedAt?: FieldValue | Timestamp;
-  createdBy?: string; // UID or Name
+export enum LeadStatus {
+  NEW = 'New',
+  WON = 'Won',
+  LOST = 'Lost'
 }
 
-// Fix: Added missing properties used in ProfileModule
-export interface UserProfile extends ServerMetadata {
-  uid: string;
+export interface FollowUp {
+  id: string;
+  date: string;
+  type: 'Call' | 'Meeting' | 'WhatsApp';
+  notes: string;
+  status: 'Pending' | 'Completed';
+}
+
+export interface Lead {
+  id: string;
   name: string;
-  email: string;
-  role: EnterpriseRole | string;
-  department: string;
+  hospital: string;
+  source: string;
+  status: LeadStatus;
+  value: number;
+  lastContact: string;
+  productInterest: string;
   phone?: string;
-  isLoginEnabled: boolean;
-  permissions: TabView[];
-  baseSalary?: number;
-  location?: string;
-  bio?: string;
-  notifications?: {
-      email: boolean;
-      sms: boolean;
-      push: boolean;
-  };
+  email?: string;
+  address?: string;
+  followUps: FollowUp[];
 }
 
-// Fix: Added missing Employee interface used in HR and Attendance modules
-export interface Employee {
-    id: string;
-    name: string;
-    role: EnterpriseRole;
-    department: string;
-    email: string;
-    phone?: string;
-    joinDate?: string;
-    baseSalary?: number;
-    status: 'Active' | 'Inactive';
-    permissions: TabView[];
-    password?: string;
-    isLoginEnabled: boolean;
+export interface Client {
+  id: string;
+  name: string;
+  hospital?: string;
+  address: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
 }
 
-// Fix: Added description and features to Product
-export interface Product extends ServerMetadata {
+export interface Vendor {
+  id: string;
+  name: string;
+  address: string;
+  contactPerson?: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface Product {
   id: string;
   name: string;
   category: 'Equipment' | 'Consumable' | 'Spare Part';
@@ -84,30 +87,29 @@ export interface Product extends ServerMetadata {
   hsn?: string;
   taxRate?: number;
   model?: string;
-  supplier?: string;
   description?: string;
   features?: string;
+  supplier?: string;
   lastRestocked?: string;
+  price?: number;
 }
 
-// Fix: Added missing properties used in Billing/PO/Quotation modules
 export interface InvoiceItem {
   id: string;
   description: string;
   hsn?: string;
-  model?: string;
-  features?: string;
   quantity: number;
-  unit?: string;
   unitPrice: number;
   taxRate: number;
   amount: number;
-  gstValue?: number;
-  priceWithGst?: number;
+  gstValue: number;
+  priceWithGst: number;
+  model?: string;
+  features?: string;
+  unit?: string;
 }
 
-// Fix: Added extensive missing fields for various document types (Billing, PO, Quotation, SPO)
-export interface Invoice extends ServerMetadata {
+export interface Invoice {
   id: string;
   invoiceNumber: string;
   date: string;
@@ -120,286 +122,259 @@ export interface Invoice extends ServerMetadata {
   buyerName?: string;
   buyerAddress?: string;
   buyerGstin?: string;
-  documentType: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  
-  // Doc Maker shared fields
-  discount?: number;
-  freightAmount?: number;
-  freightTaxRate?: number;
-  deliveryNote?: string;
-  modeOfPayment?: string;
-  referenceNoDate?: string;
-  otherReferences?: string;
+  documentType?: 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
+  createdBy?: string;
   smcpoNumber?: string;
-  buyerOrderDate?: string;
-  dispatchDocNo?: string;
-  deliveryNoteDate?: string;
-  dispatchedThrough?: string;
+  deliveryTime?: string;
   specialNote?: string;
-  
-  // PO / SPO specific
   cpoNumber?: string;
   cpoDate?: string;
   bankDetails?: string;
   deliveryAddress?: string;
   bankAndBranch?: string;
   accountNo?: string;
-  paymentMethod?: string;
+  paymentMethod?: 'Bank Transfer' | 'NEFT' | 'RTGS' | 'Cheque' | 'Cash' | 'UPI';
   advanceAmount?: number;
   advanceDate?: string;
-  deliveryTime?: string;
-  
-  // Quotation specific
+  discount?: number;
   subject?: string;
   phone?: string;
+  freightAmount?: number;
+  freightTaxRate?: number;
   paymentTerms?: string;
   deliveryTerms?: string;
   warrantyTerms?: string;
+  // Logistical / Dispatch Fields
+  deliveryNote?: string;
+  modeOfPayment?: string;
+  referenceNoDate?: string;
+  otherReferences?: string;
+  buyerOrderDate?: string;
+  dispatchDocNo?: string;
+  deliveryNoteDate?: string;
+  dispatchedThrough?: string;
 }
 
-// Fix: Added AttendanceStatus enum
-export enum AttendanceStatus {
-    PRESENT = 'Present',
-    ABSENT = 'Absent',
-    HALFDAY = 'Half-Day',
-    PENDING = 'Pending'
-}
-
-// Fix: Added missing properties to AttendanceRecord
-export interface AttendanceRecord {
-  id: string; // Format: uid_YYYY-MM-DD
-  userId: string;
-  employeeId?: string;
-  userName: string;
-  employeeName?: string;
-  date: string; // YYYY-MM-DD
-  checkIn: FieldValue | Timestamp | string;
-  checkOut?: FieldValue | Timestamp | string;
-  status: AttendanceStatus | string;
-  workMode: 'Office' | 'Field' | 'Remote';
-  totalHours?: number;
-  tasksCompleted?: number;
-  overriddenBy?: string;
-}
-
-// Fix: Added date to PointHistory
-export interface PointHistory extends ServerMetadata {
+export interface StockMovement {
   id: string;
+  productId: string;
+  productName: string;
+  type: 'In' | 'Out';
+  quantity: number;
+  date: string;
+  reference: string;
+  purpose: 'Restock' | 'Sale' | 'Demo';
+}
+
+export interface ExpenseRecord {
+  id: string;
+  employeeName: string;
+  date: string;
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
+  amount: number;
+  description: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  receiptUrl?: string;
+  rejectionReason?: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  role: EnterpriseRole;
+  department: string;
+  email: string;
+  phone?: string;
+  joinDate?: string;
+  baseSalary?: number;
+  status: 'Active' | 'On Leave';
+  permissions: TabView[];
+  password?: string;
+  isLoginEnabled: boolean;
+}
+
+export interface UserStats {
+  points: number;
+  tasksCompleted: number;
+  attendanceStreak: number;
+  salesRevenue: number;
+}
+
+export interface PointHistory {
+  id: string;
+  date: string;
   points: number;
   category: 'Task' | 'Attendance' | 'Sales' | 'Lead';
   description: string;
   userId: string;
-  date: string;
 }
 
-// Fix: Added missing TaskLog and properties to Task
-export interface TaskLog {
-    id: string;
-    user: string;
-    action: string;
-    timestamp: string;
-}
-
-export interface Task extends ServerMetadata {
-  id: string;
-  title: string;
-  description: string;
-  assignedTo: string; // Name
-  priority: 'Low' | 'Medium' | 'High';
-  status: 'To Do' | 'In Progress' | 'Review' | 'Done';
-  dueDate: string;
-  locationName?: string;
-  subTasks?: any[];
-  pointsAwarded?: boolean;
-  logs?: TaskLog[];
-  submittedBy?: string;
-}
-
-// Fix: Added missing Client and Vendor interfaces
-export interface Client {
-    id: string;
-    name: string;
-    hospital?: string;
-    address: string;
-    gstin?: string;
-    email?: string;
-    phone?: string;
-}
-
-export interface Vendor {
-    id: string;
-    name: string;
-    address: string;
-    contactPerson?: string;
-    gstin?: string;
-    email?: string;
-    phone?: string;
-}
-
-// Fix: Added missing StockMovement interface
-export interface StockMovement {
-    id: string;
-    productId: string;
-    productName: string;
-    type: 'In' | 'Out';
-    quantity: number;
-    date: string;
-    reference: string;
-    purpose: 'Restock' | 'Sale' | 'Demo';
-}
-
-// Fix: Added missing ExpenseRecord interface
-export interface ExpenseRecord {
-    id: string;
-    employeeName: string;
-    date: string;
-    category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
-    amount: number;
-    description: string;
-    status: 'Pending' | 'Approved' | 'Rejected';
-    receiptUrl?: string;
-    rejectionReason?: string;
-}
-
-// Fix: Added missing AppNotification interface
 export interface AppNotification {
   id: string;
   title: string;
   message: string;
   time: string;
-  type: 'info' | 'success' | 'warning' | 'alert';
+  type: 'alert' | 'warning' | 'success' | 'info';
   read: boolean;
-  isNewToast?: boolean;
-  createdAt?: FieldValue | Timestamp;
 }
 
-// Fix: Added missing LeadStatus, FollowUp, and Lead interfaces
-export enum LeadStatus {
-    NEW = 'New',
-    CONTACTED = 'Contacted',
-    QUALIFIED = 'Qualified',
-    PROPOSAL = 'Proposal',
-    NEGOTIATION = 'Negotiation',
-    WON = 'Won',
-    LOST = 'Lost'
+export interface TaskLog {
+  id: string;
+  user: string;
+  action: string;
+  timestamp: string;
 }
 
-export interface FollowUp {
-    id: string;
-    date: string;
-    type: 'Call' | 'Meeting' | 'WhatsApp';
-    notes: string;
-    status: 'Pending' | 'Completed';
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string;
+  priority: 'Low' | 'Medium' | 'High';
+  status: 'To Do' | 'In Progress' | 'Review' | 'Done';
+  dueDate: string;
+  locationName?: string;
+  submittedBy?: string;
+  pointsAwarded?: boolean;
+  logs: TaskLog[];
+  subTasks?: any[];
 }
 
-export interface Lead {
-    id: string;
-    name: string;
-    hospital: string;
-    source: 'Website' | 'Amazon' | 'Flipkart' | 'Referral' | 'IndiaMART' | 'Walk-in' | 'Social Media';
-    status: LeadStatus;
-    value: number;
-    lastContact: string;
-    productInterest: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    followUps: FollowUp[];
+export enum AttendanceStatus {
+  PRESENT = 'Present',
+  ABSENT = 'Absent',
+  HALFDAY = 'Half-Day'
 }
 
-// Fix: Added missing ServiceTicket, AMCReminder, ServiceReport interfaces
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  totalHours?: number;
+  tasksCompleted?: number;
+  status: AttendanceStatus;
+  workMode: 'Office' | 'Field' | 'Remote';
+  overriddenBy?: string;
+}
+
 export interface ServiceTicket {
-    id: string;
-    customer: string;
-    equipment: string;
-    issue: string;
-    priority: 'Low' | 'Medium' | 'High';
-    status: 'Open' | 'In Progress' | 'Resolved';
-    assignedTo: string;
-    dueDate: string;
+  id: string;
+  customer: string;
+  equipment: string;
+  issue: string;
+  priority: 'Low' | 'Medium' | 'High';
+  status: 'Open' | 'In Progress' | 'Resolved';
+  assignedTo: string;
+  dueDate: string;
 }
 
 export interface AMCReminder {
-    id: string;
-    customer: string;
-    equipment: string;
-    expiryDate: string;
-    status: 'Pending' | 'Sent' | 'Renewed';
+  id: string;
+  customer: string;
+  equipment: string;
+  expiryDate: string;
 }
 
 export interface ServiceReportItem {
-    id: string;
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    amount: number;
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
 }
 
 export interface ServiceReport {
-    id: string;
-    reportNumber: string;
-    date: string;
-    customerName: string;
-    customerAddress?: string;
-    customerHospital?: string;
-    equipmentName: string;
-    problemReported: string;
-    actionTaken: string;
-    engineerName: string;
-    status: 'Draft' | 'Completed';
-    itemsUsed?: ServiceReportItem[];
-    documentType?: string;
-    serialNumber?: string;
+  id: string;
+  reportNumber: string;
+  date: string;
+  customerName: string;
+  equipmentName: string;
+  problemReported: string;
+  actionTaken: string;
+  engineerName: string;
+  status: 'Draft' | 'Completed';
+  itemsUsed?: ServiceReportItem[];
+  documentType?: string;
+  serialNumber?: string;
+  customerHospital?: string;
+  customerAddress?: string;
+  office?: string;
+  time?: string;
+  machineStatus?: 'Warranty' | 'Out Of Warranty' | 'AMC';
+  softwareVersion?: string;
+  engineerObservations?: string;
+  poWoNumber?: string;
+  actionHardware?: string;
+  actionOperational?: string;
+  actionSoftware?: string;
+  pastBalance?: number;
+  visitCharges?: number;
+  sparesCharges?: number;
+  amountReceived?: number;
+  memoNumber?: string;
+  queriesRemarks?: string;
+  smirNo?: string;
+  installationOf?: string;
+  trainedPersons?: string;
 }
 
-// Fix: Added missing UserStats interface
-export interface UserStats {
-    points: number;
-    tasksCompleted: number;
-    attendanceStreak: number;
-    salesRevenue: number;
-}
-
-// Fix: Added missing SupportMessage and SupportTicket interfaces
 export interface SupportMessage {
-    id: string;
-    sender: string;
-    text: string;
-    timestamp: string;
-    isAdmin: boolean;
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: string;
+  isAdmin: boolean;
 }
 
 export interface SupportTicket {
-    id: string;
-    subject: string;
-    customerName: string;
-    customerEmail: string;
-    priority: 'Low' | 'Medium' | 'High' | 'Urgent';
-    status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
-    category: 'Technical' | 'Billing' | 'Sales' | 'General';
-    createdAt: string;
-    updatedAt: string;
-    messages: SupportMessage[];
+  id: string;
+  subject: string;
+  customerName: string;
+  customerEmail: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+  category: 'Technical' | 'Billing' | 'Sales' | 'General';
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
 }
 
-// Fix: Added missing ChallanItem and DeliveryChallan interfaces
+export interface UserProfile {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  department: string;
+  location: string;
+  bio: string;
+  notifications: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+  };
+}
+
 export interface ChallanItem {
-    id: string;
-    description: string;
-    quantity: number;
-    unit: string;
-    remarks?: string;
+  id: string;
+  description: string;
+  quantity: number;
+  unit?: string;
+  remarks?: string;
 }
 
 export interface DeliveryChallan {
-    id: string;
-    challanNumber: string;
-    date: string;
-    customerName: string;
-    customerAddress: string;
-    items: ChallanItem[];
-    status: 'Draft' | 'Dispatched';
+  id: string;
+  challanNumber: string;
+  date: string;
+  customerName: string;
+  customerAddress: string;
+  items: ChallanItem[];
+  status: 'Draft' | 'Dispatched';
+  subject?: string;
 }
