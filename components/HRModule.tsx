@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Employee, TabView, EnterpriseRole } from '../types';
 import { 
-    Users, Search, ShieldCheck, X, RefreshCw, UserPlus, Lock, ShieldAlert
+    Users, IndianRupee, Search, ShieldCheck, UserPlus, X, Briefcase, Mail, Phone, ChevronRight, ArrowLeft, CreditCard, Check, Save, Calendar, Trash2, UserMinus, Plus, Key, Lock, Power, ShieldAlert, UserCheck, Info, RefreshCw
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -35,12 +35,11 @@ const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
 ];
 
 export const HRModule: React.FC = () => {
-  const { employees, updateEmployee, registerEmployee, removeEmployee, addNotification } = useData();
+  const { employees, updateEmployee, addEmployee, removeEmployee, addNotification } = useData();
   const [activeTab, setActiveTab] = useState<'employees' | 'permissions'>('employees');
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   
   const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
@@ -48,9 +47,10 @@ export const HRModule: React.FC = () => {
     department: 'Sales',
     status: 'Active',
     baseSalary: 30000,
-    permissions: [TabView.DASHBOARD]
+    permissions: [TabView.DASHBOARD],
+    isLoginEnabled: true,
+    password: ''
   });
-  const [password, setPassword] = useState('');
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
@@ -61,52 +61,55 @@ export const HRModule: React.FC = () => {
         status: 'Active',
         baseSalary: 30000,
         joinDate: new Date().toISOString().split('T')[0],
-        permissions: [TabView.DASHBOARD]
+        permissions: [TabView.DASHBOARD],
+        isLoginEnabled: true,
+        password: Math.random().toString(36).slice(-8)
     });
-    setPassword(Math.random().toString(36).slice(-10));
     setShowEmployeeModal(true);
   };
 
   const handleOpenEditModal = (emp: Employee) => {
     setIsEditing(true);
-    setSelectedEmployeeId(emp.uid);
+    setSelectedEmployeeId(emp.id);
     setEmployeeFormData({ ...emp });
     setShowEmployeeModal(true);
   };
 
-  const handleSaveEmployee = async () => {
-    if(!employeeFormData.name || !employeeFormData.email || (!isEditing && !password)) {
+  const handleSaveEmployee = () => {
+    if(!employeeFormData.name || !employeeFormData.email || !employeeFormData.password) {
       alert("Name, Email, and Password are mandatory.");
       return;
     }
-    
-    setIsProcessing(true);
-    try {
-        if (isEditing && selectedEmployeeId) {
-            await updateEmployee(selectedEmployeeId, employeeFormData);
-            addNotification('Registry Updated', `Staff record for ${employeeFormData.name} synced.`, 'success');
-        } else {
-            await registerEmployee(employeeFormData, password);
-            addNotification('Staff Registered', `${employeeFormData.name} successfully provisioned.`, 'success');
-        }
-        setShowEmployeeModal(false);
-    } catch (err: any) {
-        console.error("Auth Creation Error:", err);
-        let msg = "Provisioning failed.";
-        if (err.code === 'auth/email-already-in-use') msg = "Staff member already has an account.";
-        if (err.code === 'auth/weak-password') msg = "Password too weak for security standards.";
-        addNotification('Registry Error', msg, 'alert');
-    } finally {
-        setIsProcessing(false);
+    if (isEditing && selectedEmployeeId) {
+        updateEmployee(selectedEmployeeId, employeeFormData);
+        addNotification('Registry Updated', `Staff record for ${employeeFormData.name} synced.`, 'success');
+    } else {
+        const emp: Employee = {
+            id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+            name: employeeFormData.name!,
+            role: (employeeFormData.role as EnterpriseRole) || 'SYSTEM_STAFF',
+            department: employeeFormData.department || 'General',
+            email: employeeFormData.email!,
+            phone: employeeFormData.phone || '',
+            joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
+            baseSalary: Number(employeeFormData.baseSalary),
+            status: 'Active',
+            permissions: employeeFormData.permissions || [],
+            password: employeeFormData.password,
+            isLoginEnabled: true
+        };
+        addEmployee(emp);
+        addNotification('Staff Registered', `${emp.name} added to enterprise registry.`, 'success');
     }
+    setShowEmployeeModal(false);
   };
 
-  const togglePermission = (uid: string, tab: TabView) => {
-      const emp = employees.find(e => e.uid === uid);
+  const togglePermission = (empId: string, tab: TabView) => {
+      const emp = employees.find(e => e.id === empId);
       if (!emp || emp.role === 'SYSTEM_ADMIN') return;
       const currentPerms = emp.permissions || [];
       const newPerms = currentPerms.includes(tab) ? currentPerms.filter(t => t !== tab) : [...currentPerms, tab];
-      updateEmployee(uid, { permissions: newPerms });
+      updateEmployee(empId, { permissions: newPerms });
   };
 
   const filteredEmployees = employees.filter(emp => 
@@ -134,7 +137,7 @@ export const HRModule: React.FC = () => {
         {activeTab === 'employees' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
                 {filteredEmployees.map(emp => (
-                    <div key={emp.uid} onClick={() => handleOpenEditModal(emp)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
+                    <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-4">
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800' : 'bg-medical-50 dark:bg-medical-900/30 text-medical-700 dark:text-medical-400 border-medical-100 dark:border-medical-800'}`}>{emp.name.charAt(0)}</div>
@@ -151,8 +154,8 @@ export const HRModule: React.FC = () => {
                                 <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">{emp.department}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-[9px] font-black text-slate-400 uppercase">Security ID</span>
-                                <span className="text-[9px] font-mono font-bold text-slate-400 truncate max-w-[100px]">{emp.uid}</span>
+                                <span className="text-[9px] font-black text-slate-400 uppercase">Password</span>
+                                <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200">{emp.password}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-[9px] font-black text-slate-400 uppercase">Access Status</span>
@@ -174,7 +177,7 @@ export const HRModule: React.FC = () => {
                         {filteredEmployees.map(emp => {
                             const isAdmin = emp.role === 'SYSTEM_ADMIN';
                             return (
-                                <tr key={emp.uid} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isAdmin ? 'bg-indigo-50/10 dark:bg-indigo-900/5' : ''}`}>
+                                <tr key={emp.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isAdmin ? 'bg-indigo-50/10 dark:bg-indigo-900/5' : ''}`}>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>{emp.name.charAt(0)}</div>
@@ -197,7 +200,7 @@ export const HRModule: React.FC = () => {
                                                     return (
                                                         <button 
                                                             key={mod.value} 
-                                                            onClick={() => togglePermission(emp.uid, mod.value)} 
+                                                            onClick={() => togglePermission(emp.id, mod.value)} 
                                                             className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-medical-300 hover:text-medical-600'}`}
                                                         >
                                                             {mod.label}
@@ -249,20 +252,14 @@ export const HRModule: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Email (Auth ID) *</label>
-                            <input type="email" disabled={isEditing} className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all dark:text-white disabled:opacity-50" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID) *</label>
+                            <input type="email" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all dark:text-white" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, email: e.target.value})} />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{isEditing ? 'Security ID' : 'Login Key *'}</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password *</label>
                             <div className="relative">
-                                {isEditing ? (
-                                    <input type="text" disabled className="w-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 rounded-2xl px-5 py-3 text-[10px] font-mono font-bold outline-none dark:text-white" value={employeeFormData.uid} />
-                                ) : (
-                                    <>
-                                        <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all dark:text-white" value={password} onChange={(e) => setPassword(e.target.value)} />
-                                        <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                                    </>
-                                )}
+                                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all dark:text-white" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({...employeeFormData, password: e.target.value})} />
+                                <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                             </div>
                         </div>
                     </div>
@@ -282,9 +279,9 @@ export const HRModule: React.FC = () => {
                 </div>
                 <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-[2.5rem]">
                     <button onClick={() => setShowEmployeeModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
-                    <button onClick={handleSaveEmployee} disabled={isProcessing} className="flex-[2] py-4 bg-[#022c22] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50">
-                         {isProcessing ? <RefreshCw className="animate-spin" size={16} /> : isEditing ? <RefreshCw size={16} /> : <UserPlus size={16} />}
-                         <span>{isProcessing ? 'PROVISIONING...' : isEditing ? 'COMMIT UPDATES' : 'INITIALIZE MEMBER'}</span>
+                    <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">
+                         {isEditing ? <RefreshCw size={16} /> : <UserPlus size={16} />}
+                         <span>{isEditing ? 'COMMIT UPDATES' : 'INITIALIZE MEMBER'}</span>
                     </button>
                 </div>
              </div>

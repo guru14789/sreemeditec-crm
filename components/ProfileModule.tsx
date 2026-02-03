@@ -103,16 +103,12 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
     const [isExporting, setIsExporting] = useState(false);
 
     // Map registry employee to user profile interface
-    // Fix: Added missing uid, isLoginEnabled, and permissions properties to satisfy the UserProfile interface.
     const mapEmployeeToProfile = (emp: Employee | null): UserProfile => ({
-        uid: emp?.uid || '',
         name: emp?.name || 'Guest User',
         role: emp?.role.replace('_', ' ') || 'Unassigned',
         email: emp?.email || '',
         phone: emp?.phone || '',
         department: emp?.department || 'General',
-        isLoginEnabled: emp?.isLoginEnabled || false,
-        permissions: emp?.permissions || [],
         location: 'Not Specified', // These aren't in the Employee registry yet
         bio: 'Team Member at Sree Meditec.',
         notifications: { email: true, sms: true, push: false }
@@ -150,7 +146,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
     useEffect(() => {
         const root = window.document.documentElement;
         const targetTheme = appPrefs.theme;
-        const isDark = targetTheme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        const isDark = targetTheme === 'dark' || (targetTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         
         if (isDark) root.classList.add('dark'); else root.classList.remove('dark');
         
