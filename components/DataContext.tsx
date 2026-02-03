@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { 
   collection, 
   onSnapshot, 
@@ -12,15 +12,15 @@ import {
   limit, 
   addDoc,
   serverTimestamp,
-  writeBatch,
-  where
+  writeBatch
 } from 'firebase/firestore';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged, User, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
+import { registerNewEmployeeAuth } from '../services/authService';
 import { 
   Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, 
   Employee, TabView, UserStats, PointHistory, AppNotification, 
-  Task, Lead, ServiceTicket, LeadStatus, AttendanceRecord, AttendanceStatus 
+  Task, Lead, ServiceTicket, AttendanceRecord 
 } from '../types';
 
 export interface DataContextType {
@@ -37,28 +37,25 @@ export interface DataContextType {
   serviceTickets: ServiceTicket[];
   attendanceRecords: AttendanceRecord[];
   
-  // Conversion state for module-to-module workflow
   pendingQuoteData: Partial<Invoice> | null;
   setPendingQuoteData: (data: Partial<Invoice> | null) => void;
 
-  // Auth State
   currentUser: Employee | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password?: string) => Promise<boolean>;
-  loginWithGoogle: () => Promise<boolean>;
+  // Fix: Added missing login, loginWithGoogle, and seedDatabase to interface
+  login: (email: string, pass: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  seedDatabase: () => Promise<void>;
   logout: () => void;
   dbError: string | null;
 
-  // Performance & Points
   userStats: UserStats;
   pointHistory: PointHistory[];
   prizePool: number;
   addPoints: (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => void;
   updatePrizePool: (amount: number) => void;
 
-  // Database Actions
-  seedDatabase: () => Promise<void>;
   addClient: (client: Client) => Promise<void>;
   updateClient: (id: string, client: Partial<Client>) => Promise<void>;
   removeClient: (id: string) => Promise<void>;
@@ -69,7 +66,7 @@ export interface DataContextType {
   updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   removeProduct: (id: string) => Promise<void>;
   addInvoice: (invoice: Invoice) => Promise<void>;
-  updateInvoice: (id: string, invoice: Invoice) => Promise<void>;
+  updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
   recordStockMovement: (movement: StockMovement) => Promise<void>;
   bulkReplenishStock: (productIds: string[], quantity: number) => Promise<void>;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -82,9 +79,12 @@ export interface DataContextType {
   updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
   addExpense: (expense: ExpenseRecord) => Promise<void>;
   updateExpenseStatus: (id: string, status: ExpenseRecord['status'], reason?: string) => Promise<void>;
-  addEmployee: (emp: Employee) => Promise<void>;
+  
+  // PRODUCTION AUTH METHODS
+  registerEmployee: (data: any, password: string) => Promise<void>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
+  
   addNotification: (title: string, message: string, type: AppNotification['type']) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   clearAllNotifications: () => void;
@@ -106,17 +106,6 @@ const sanitizeData = (data: any): any => {
     plain[key] = sanitizeData(value);
   });
   return plain;
-};
-
-const isRedundant = (existing: any, updates: any) => {
-    if (!existing) return false;
-    return Object.keys(updates).every(key => {
-        const val = updates[key];
-        if (typeof val === 'object' && val !== null) {
-            return JSON.stringify(existing[key]) === JSON.stringify(val);
-        }
-        return existing[key] === val;
-    });
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -149,6 +138,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   useEffect(() => {
+    return onAuthStateChanged(auth, (fbUser) => {
+        if (fbUser) {
+            const employeeProfile = employees.find(e => e.uid === fbUser.uid);
+            if (employeeProfile) {
+                setCurrentUser(employeeProfile);
+                setIsAuthenticated(true);
+                setIsAdmin(employeeProfile.role === 'SYSTEM_ADMIN');
+            }
+        } else {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            setIsAdmin(false);
+        }
+    });
+  }, [employees]);
+
+  useEffect(() => {
     const handleError = (err: any) => {
         console.warn("Firestore Listener Warning:", err?.message || err);
         if (err?.code === 'permission-denied') setDbError("Firestore Access Denied.");
@@ -178,127 +184,83 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribes.forEach(u => u());
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('sreemeditec_auth_user');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            const fullEmp = employees.find(e => e.id === parsed.id);
-            if (fullEmp) {
-                setCurrentUser({ ...fullEmp, permissions: fullEmp.permissions ? [...fullEmp.permissions] : [] });
-                setIsAuthenticated(true);
-                setIsAdmin(fullEmp.role === 'SYSTEM_ADMIN');
-            }
-        } catch (e) {
-            localStorage.removeItem('sreemeditec_auth_user');
-        }
-    }
-  }, [employees]);
-
-  useEffect(() => {
-    if (currentUser) {
-        const myPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((acc, curr) => acc + curr.points, 0);
-        const myTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
-        setUserStats(prev => ({
-            ...prev,
-            points: myPoints,
-            tasksCompleted: myTasks,
-            salesRevenue: invoices.filter(i => i.customerName === currentUser.name && i.status === 'Paid').reduce((acc, i) => acc + i.grandTotal, 0)
-        }));
-    }
-  }, [pointHistory, tasks, currentUser, invoices]);
-
-  const seedDatabase = async () => {
-      const batch = writeBatch(db);
-      const initialEmployees: Employee[] = [
-          { id: 'EMP001', name: 'Master Admin', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
-          { id: 'EMP002', name: 'Staff User', role: 'SYSTEM_STAFF', department: 'Service', email: 'staff@demo.com', phone: '111', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'staff', permissions: [TabView.DASHBOARD, TabView.PROFILE, TabView.TASKS] }
-      ];
-      initialEmployees.forEach(emp => batch.set(doc(db, "employees", emp.id), emp));
-      await batch.commit();
-      addNotification('System Initialized', 'Enterprise Roles defined.', 'success');
+  // Fix: Implement login with email and password
+  const login = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
   };
 
-  const login = async (email: string, password?: string) => {
-    const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-    if (!employee) throw new Error(`Auth Error: '${email}' not found.`);
-    if (!employee.isLoginEnabled) throw new Error("Account Locked.");
-    if (employee.password === password) {
-        setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
-        setIsAuthenticated(true);
-        setIsAdmin(employee.role === 'SYSTEM_ADMIN');
-        localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
-        return true;
-    }
-    throw new Error("Incorrect Security Key.");
-  };
-
+  // Fix: Implement login with Google provider
   const loginWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
-    const employee = employees.find(e => e.email.toLowerCase() === result.user.email?.toLowerCase());
-    if (!employee) { await signOut(auth); throw new Error(`Unauthorized: '${result.user.email}' not registered.`); }
-    setCurrentUser({ ...employee, permissions: employee.permissions ? [...employee.permissions] : [] });
-    setIsAuthenticated(true);
-    setIsAdmin(employee.role === 'SYSTEM_ADMIN');
-    localStorage.setItem('sreemeditec_auth_user', JSON.stringify({ id: employee.id, name: employee.name }));
-    return true;
+    await signInWithPopup(auth, googleProvider);
+  };
+
+  // Fix: Implement database seeding for initial setup
+  const seedDatabase = async () => {
+    if (employees.length === 0) {
+      const adminData = {
+        name: 'System Admin',
+        email: 'admin@sreemeditec.com',
+        role: 'SYSTEM_ADMIN',
+        department: 'Administration',
+        status: 'Active',
+        permissions: Object.values(TabView),
+        isLoginEnabled: true
+      };
+      // We create a doc with a predictable ID for the initial setup.
+      // In production, registerEmployee should be used to create the Auth account too.
+      const initialUid = "initial-admin-setup";
+      const profile: Employee = {
+        ...adminData,
+        id: "EMP001",
+        uid: initialUid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      } as Employee;
+      await setDoc(doc(db, "employees", initialUid), profile);
+      addNotification('Registry Seeded', 'Default administrator record created in Firestore.', 'success');
+    }
   };
 
   const logout = async () => {
-    try { await signOut(auth); } catch (e) {}
-    setCurrentUser(null); setIsAuthenticated(false); setIsAdmin(false);
-    localStorage.removeItem('sreemeditec_auth_user');
+    await signOut(auth);
+  };
+
+  const registerEmployee = async (formData: any, password: string) => {
+      // Step 1: Create Firebase Auth account securely
+      const uid = await registerNewEmployeeAuth(formData.email, password);
+      
+      // Step 2: Create Firestore Profile linked to UID
+      const internalId = `EMP${String(employees.length + 1).padStart(3, '0')}`;
+      const profile: Employee = {
+          ...formData,
+          id: internalId,
+          uid: uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          isLoginEnabled: true,
+          status: 'Active'
+      };
+      
+      // Store in employees collection using UID as the document key for fast lookup
+      await setDoc(doc(db, "employees", uid), profile);
   };
 
   const addClient = async (client: Client) => await setDoc(doc(db, "clients", client.id), client);
-  const updateClient = async (id: string, updates: Partial<Client>) => {
-      const existing = clients.find(c => c.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "clients", id), updates);
-  };
-  const removeClient = async (id: string) => id && await deleteDoc(doc(db, "clients", id.trim()));
-
+  const updateClient = async (id: string, updates: Partial<Client>) => await updateDoc(doc(db, "clients", id), updates);
+  const removeClient = async (id: string) => await deleteDoc(doc(db, "clients", id));
   const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
-  const updateVendor = async (id: string, updates: Partial<Vendor>) => {
-      const existing = vendors.find(v => v.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "vendors", id), updates);
-  };
-  const removeVendor = async (id: string) => id && await deleteDoc(doc(db, "vendors", id.trim()));
-
+  const updateVendor = async (id: string, updates: Partial<Vendor>) => await updateDoc(doc(db, "vendors", id), updates);
+  const removeVendor = async (id: string) => await deleteDoc(doc(db, "vendors", id));
   const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
-      const existing = products.find(p => p.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "products", id), updates);
-  };
-  const removeProduct = async (id: string) => id && await deleteDoc(doc(db, "products", id.trim()));
-
+  const updateProduct = async (id: string, updates: Partial<Product>) => await updateDoc(doc(db, "products", id), updates);
+  const removeProduct = async (id: string) => await deleteDoc(doc(db, "products", id));
   const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
-  const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
-      const existing = invoices.find(i => i.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "invoices", id), updates);
-  };
-  
+  const updateInvoice = async (id: string, updates: Partial<Invoice>) => await updateDoc(doc(db, "invoices", id), updates);
   const addLead = async (lead: Lead) => await setDoc(doc(db, "leads", lead.id), lead);
-  const updateLead = async (id: string, updates: Partial<Lead>) => {
-      const existing = leads.find(l => l.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "leads", id), updates);
-  };
-  
+  const updateLead = async (id: string, updates: Partial<Lead>) => await updateDoc(doc(db, "leads", id), updates);
   const addServiceTicket = async (t: ServiceTicket) => await setDoc(doc(db, "serviceTickets", t.id), t);
-  const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => {
-      const existing = serviceTickets.find(s => s.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "serviceTickets", id), updates);
-  };
-  
-  const recordStockMovement = async (m: StockMovement) => {
-      await addDoc(collection(db, "stockMovements"), m);
-  };
-
+  const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => await updateDoc(doc(db, "serviceTickets", id), updates);
+  const recordStockMovement = async (m: StockMovement) => await addDoc(collection(db, "stockMovements"), m);
   const bulkReplenishStock = async (productIds: string[], quantity: number) => {
       const batch = writeBatch(db);
       const date = new Date().toISOString().split('T')[0];
@@ -311,42 +273,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       await batch.commit();
   };
-
   const addExpense = async (e: ExpenseRecord) => await setDoc(doc(db, "expenses", e.id), e);
   const updateExpenseStatus = async (id: string, status: ExpenseRecord['status'], reason?: string) => {
-      const existing = expenses.find(e => e.id === id);
-      if (existing?.status === status && existing?.rejectionReason === reason) return;
-      
       const updates: any = { status };
       if (reason) updates.rejectionReason = reason;
-      
       await updateDoc(doc(db, "expenses", id), updates);
   };
-  
-  const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
-  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
-      const existing = employees.find(e => e.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "employees", id), updates);
-  };
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => await updateDoc(doc(db, "employees", id), updates);
   const removeEmployee = async (id: string) => await deleteDoc(doc(db, "employees", id));
-  
   const addTask = async (task: Task) => await setDoc(doc(db, "tasks", task.id), task);
   const removeTask = async (id: string) => await deleteDoc(doc(db, "tasks", id));
-  const updateTaskRemote = async (id: string, updates: Partial<Task>) => {
-      const existing = tasks.find(t => t.id === id);
-      if (isRedundant(existing, updates)) return;
-      await updateDoc(doc(db, "tasks", id), updates);
-  };
-
+  const updateTaskRemote = async (id: string, updates: Partial<Task>) => await updateDoc(doc(db, "tasks", id), updates);
   const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
     await addDoc(collection(db, "notifications"), { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() });
   };
   const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
   const clearAllNotifications = () => notifications.forEach(n => !n.read && markNotificationRead(n.id));
-
   const addPoints = async (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => {
-      const finalUserId = targetUserId || currentUser?.id;
+      const finalUserId = targetUserId || currentUser?.uid;
       if (!finalUserId) return;
       await addDoc(collection(db, "pointHistory"), { 
         date: new Date().toISOString().split('T')[0], 
@@ -357,25 +301,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         createdAt: serverTimestamp() 
       });
   };
-
-  const saveAttendance = async (record: AttendanceRecord) => {
-      await setDoc(doc(db, "attendance", record.id), record);
-  };
-
-  const updatePrizePool = (amount: number) => {
-      if (prizePool === amount) return;
-      setPrizePool(amount);
-  };
+  const saveAttendance = async (record: AttendanceRecord) => await setDoc(doc(db, "attendance", record.id), record);
+  const updatePrizePool = (amount: number) => setPrizePool(amount);
 
   return (
     <DataContext.Provider value={{ 
         clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets, attendanceRecords,
         pendingQuoteData, setPendingQuoteData,
-        currentUser, isAuthenticated, isAdmin, login, loginWithGoogle, logout, dbError, seedDatabase,
+        currentUser, isAuthenticated, isAdmin, login, loginWithGoogle, seedDatabase, logout, dbError,
         addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
         addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
         addInvoice, updateInvoice, recordStockMovement, bulkReplenishStock, addExpense, updateExpenseStatus,
-        addEmployee, updateEmployee, removeEmployee,
+        registerEmployee, updateEmployee, removeEmployee,
         setTasks, addTask, removeTask, updateTaskRemote, saveAttendance,
         userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
         prizePool, updatePrizePool

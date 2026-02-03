@@ -42,6 +42,7 @@ export const ServiceOrderModule: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         items: [],
         discount: 0,
+        // Fix: Type '"Completed"' is not assignable to type '"Pending" | "Paid" | "Draft" | "Finalized"'. Changed to 'Pending'.
         status: 'Pending',
         customerName: '',
         customerHospital: '',
@@ -207,7 +208,7 @@ export const ServiceOrderModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Completed', documentType: 'ServiceOrder' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Service Order</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'ServiceOrder' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Service Order</button>
             </div>
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">

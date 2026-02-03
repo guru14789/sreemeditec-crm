@@ -112,8 +112,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
             status = allTasksCompleted ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT;
         }
 
+        // Fix: Added missing userId and userName properties to meet AttendanceRecord interface
         const record: AttendanceRecord = {
             id: `ATT-${todayStr}-${authUser?.id}`,
+            userId: authUser?.uid || '',
+            userName: authUser?.name || '',
             employeeId: authUser?.id || 'Unknown',
             employeeName: currentUser,
             date: todayStr,
@@ -159,11 +162,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, curre
 
   const handleAdminOverride = async (emp: Employee, newStatus: AttendanceStatus) => {
       if (!isAdmin) return;
+      // Fix: Added missing userId, userName, and checkIn properties to meet AttendanceRecord interface
       const record: AttendanceRecord = {
           id: `ATT-${todayStr}-${emp.id}`,
+          userId: emp.uid,
+          userName: emp.name,
           employeeId: emp.id,
           employeeName: emp.name,
           date: todayStr,
+          checkIn: new Date().toLocaleTimeString(),
           status: newStatus,
           workMode: (emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') ? 'Field' : 'Office',
           overriddenBy: authUser?.name
