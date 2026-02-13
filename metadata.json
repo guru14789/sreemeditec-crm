@@ -1,0 +1,7 @@
+{
+  "name": "Nirva",
+  "description": "A comprehensive CRM and ERP solution for Medical Equipment businesses, featuring Lead Management, Inventory, AMC Tracking, and AI-powered insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

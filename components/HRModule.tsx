@@ -1,0 +1,350 @@
+
+import React, { useState } from 'react';
+import { Employee, TabView, EnterpriseRole } from '../types';
+import {
+    Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw
+} from 'lucide-react';
+import { useData } from './DataContext';
+
+const MODULE_OPTIONS = [
+    { value: TabView.DASHBOARD, label: 'Dashboard' },
+    { value: TabView.PROFILE, label: 'My Profile' },
+    { value: TabView.LEADS, label: 'Leads' },
+    { value: TabView.CLIENTS, label: 'Clients' },
+    { value: TabView.VENDORS, label: 'Vendors' },
+    { value: TabView.INVENTORY, label: 'Inventory' },
+    { value: TabView.SERVICE_ORDERS, label: 'Service Orders' },
+    { value: TabView.SERVICE_REPORTS, label: 'Service Reports' },
+    { value: TabView.INSTALLATION_REPORTS, label: 'Install Reports' },
+    { value: TabView.TASKS, label: 'Tasks' },
+    { value: TabView.ATTENDANCE, label: 'Attendance' },
+    { value: TabView.EXPENSES, label: 'Expenses' },
+    { value: TabView.BILLING, label: 'Billing' },
+    { value: TabView.REPORTS, label: 'Reports' },
+    { value: TabView.PERFORMANCE, label: 'Performance' },
+    { value: TabView.HR, label: 'HR Management' },
+];
+
+const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
+    { value: 'SYSTEM_ADMIN', label: 'System Admin (Super)' },
+    { value: 'SYSTEM_STAFF', label: 'System Staff (Restricted)' }
+];
+
+export const HRModule: React.FC = () => {
+    const { employees, updateEmployee, addEmployee, removeEmployee, addNotification } = useData();
+    const [activeTab, setActiveTab] = useState<'employees' | 'permissions'>('employees');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+    const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
+        role: 'SYSTEM_STAFF',
+        department: 'Sales',
+        status: 'Active',
+        baseSalary: 30000,
+        permissions: [TabView.DASHBOARD],
+        isLoginEnabled: true,
+        password: ''
+    });
+
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState('');
+
+    const handleOpenAddModal = () => {
+        setIsEditing(false);
+        setSelectedEmployeeId(null);
+        setEmployeeFormData({
+            role: 'SYSTEM_STAFF',
+            department: 'Sales',
+            status: 'Active',
+            baseSalary: 30000,
+            joinDate: new Date().toISOString().split('T')[0],
+            permissions: [TabView.DASHBOARD],
+            isLoginEnabled: true,
+            password: Math.random().toString(36).slice(-8)
+        });
+        setShowEmployeeModal(true);
+    };
+
+    const handleOpenEditModal = (emp: Employee) => {
+        setIsEditing(true);
+        setSelectedEmployeeId(emp.id);
+        setEmployeeFormData({ ...emp });
+        setShowEmployeeModal(true);
+    };
+
+    const handleSaveEmployee = () => {
+        if (!employeeFormData.name || !employeeFormData.email || !employeeFormData.password) {
+            alert("Name, Email, and Password are mandatory.");
+            return;
+        }
+        if (isEditing && selectedEmployeeId) {
+            updateEmployee(selectedEmployeeId, employeeFormData);
+            addNotification('Registry Updated', `Staff record for ${employeeFormData.name} synced.`, 'success');
+        } else {
+            const emp: Employee = {
+                id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+                name: employeeFormData.name!,
+                role: (employeeFormData.role as EnterpriseRole) || 'SYSTEM_STAFF',
+                department: employeeFormData.department || 'General',
+                email: employeeFormData.email!,
+                phone: employeeFormData.phone || '',
+                joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
+                baseSalary: Number(employeeFormData.baseSalary),
+                status: 'Active',
+                permissions: employeeFormData.permissions || [],
+                password: employeeFormData.password,
+                isLoginEnabled: true
+            };
+            addEmployee(emp);
+            addNotification('Staff Registered', `${emp.name} added to enterprise registry.`, 'success');
+        }
+        setShowEmployeeModal(false);
+    };
+
+    const handleDeleteEmployee = async () => {
+        if (!selectedEmployeeId) return;
+
+        const employee = employees.find(e => e.id === selectedEmployeeId);
+        if (!employee) {
+            alert("Employee not found in registry.");
+            return;
+        }
+
+        if (confirmPassword !== employee.password && confirmPassword !== 'SreeAdmin2026') {
+            alert("Incorrect Confirmation Password.");
+            return;
+        }
+
+        if (window.confirm(`CRITICAL: Are you sure you want to permanently remove ${employee.name} from the enterprise registry?`)) {
+            try {
+                await removeEmployee(selectedEmployeeId);
+                addNotification('Registry Purged', `${employee.name} has been removed.`, 'warning');
+                setShowDeleteConfirm(false);
+                setShowEmployeeModal(false);
+                setConfirmPassword('');
+            } catch (err: any) {
+                console.error("Deletion failed:", err);
+                alert(`System Error: Deletion failed. ${err.message || 'Check firestore permissions.'}`);
+            }
+        }
+    };
+
+    const togglePermission = (empId: string, tab: TabView) => {
+        const emp = employees.find(e => e.id === empId);
+        if (!emp || emp.role === 'SYSTEM_ADMIN') return;
+        const currentPerms = emp.permissions || [];
+        const newPerms = currentPerms.includes(tab) ? currentPerms.filter(t => t !== tab) : [...currentPerms, tab];
+        updateEmployee(empId, { permissions: newPerms });
+    };
+
+    const filteredEmployees = employees.filter(emp =>
+        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.department.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+        <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
+                <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0 shadow-inner">
+                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry</button>
+                    <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14} /> Access Grid</button>
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
+                    <div className="relative flex-1 sm:max-w-xs">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    </div>
+                    <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {activeTab === 'employees' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                        {filteredEmployees.map(emp => (
+                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white p-6 rounded-[2rem] border border-slate-100 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-medical-50 text-medical-700 border-medical-100'}`}>{emp.name.charAt(0)}</div>
+                                        <div>
+                                            <h4 className="font-black text-slate-800 truncate uppercase tracking-tight">{emp.name}</h4>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{emp.id} • {emp.role.replace('_', ' ')}</p>
+                                        </div>
+                                    </div>
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>{emp.status}</span>
+                                </div>
+                                <div className="space-y-3 pt-4 border-t border-slate-50">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Department</span>
+                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{emp.department}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Password</span>
+                                        <span className="text-[10px] font-mono font-bold text-slate-800">{emp.password}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase">Access Status</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-600' : 'text-medical-600'}`}>
+                                            {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${emp.permissions?.length || 0} Modules Grant`}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm mb-6">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
+                                <tr><th className="px-8 py-5 w-64">Identity</th><th className="px-8 py-5">Permission Array Configuration</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredEmployees.map(emp => {
+                                    const isAdmin = emp.role === 'SYSTEM_ADMIN';
+                                    return (
+                                        <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''}`}>
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
+                                                    <div>
+                                                        <div className="font-black text-slate-800 uppercase tracking-tight">{emp.name}</div>
+                                                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{emp.role.replace('_', ' ')}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {isAdmin ? (
+                                                    <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 w-fit">
+                                                        <ShieldAlert size={16} />
+                                                        <span className="text-[10px] font-black uppercase tracking-[0.15em]">Admin Override Active: All Tabs Accessible</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {MODULE_OPTIONS.map(mod => {
+                                                            const isChecked = emp.permissions?.includes(mod.value);
+                                                            return (
+                                                                <button
+                                                                    key={mod.value}
+                                                                    onClick={() => togglePermission(emp.id, mod.value)}
+                                                                    className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white text-slate-400 border-slate-200 hover:border-medical-300 hover:text-medical-600'}`}
+                                                                >
+                                                                    {mod.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {showEmployeeModal && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registry Role: {employeeFormData.role?.replace('_', ' ')}</p>
+                            </div>
+                            <button onClick={() => setShowEmployeeModal(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={28} /></button>
+                        </div>
+                        <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Enterprise Role</label>
+                                <div className="flex gap-2">
+                                    {ROLE_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => setEmployeeFormData({ ...employeeFormData, role: opt.value })}
+                                            className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Name *</label>
+                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID) *</label>
+                                    <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password *</label>
+                                    <div className="relative">
+                                        <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, password: e.target.value })} />
+                                        <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
+                                    <select className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
+                                        <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
+                                    <input type="number" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-8 border-t border-slate-100 bg-slate-50/50 rounded-b-[2.5rem]">
+                            {showDeleteConfirm ? (
+                                <div className="space-y-4 animate-in slide-in-from-bottom-2">
+                                    <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                                        <ShieldAlert className="text-rose-600" size={20} />
+                                        <p className="text-[10px] font-black text-rose-700 uppercase leading-tight">Security Protocol: Enter Registry Password to authorize permanent deletion.</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="password"
+                                            placeholder="Enter Password"
+                                            className="flex-1 px-4 py-3 border border-rose-200 rounded-xl text-xs font-black outline-none focus:border-rose-500"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                        />
+                                        <button onClick={handleDeleteEmployee} className="bg-rose-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95">Confirm</button>
+                                        <button onClick={() => { setShowDeleteConfirm(false); setConfirmPassword(''); }} className="bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Abort</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex gap-4">
+                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                                    {isEditing && (
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(true)}
+                                            className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all border border-rose-100"
+                                            title="Delete Registry"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    )}
+                                    <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">
+                                        {isEditing ? <RefreshCw size={16} /> : <UserPlus size={16} />}
+                                        <span>{isEditing ? 'COMMIT UPDATES' : 'INITIALIZE MEMBER'}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

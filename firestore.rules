@@ -1,0 +1,23 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Comprehensive rule for all collections used in the app
+    match /{collectionName}/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Specific validation for tasks (example of more granular control)
+    match /tasks/{taskId} {
+      allow create, update: if isAuthenticated() && 
+        request.resource.data.title is string &&
+        request.resource.data.status in ['To Do', 'In Progress', 'Review', 'Done'];
+    }
+  }
+}
