@@ -83,8 +83,20 @@ export const HRModule: React.FC = () => {
             updateEmployee(selectedEmployeeId, employeeFormData);
             addNotification('Registry Updated', `Staff record for ${employeeFormData.name} synced.`, 'success');
         } else {
+            // Robust ID Generation: Find the highest existing EMP number to avoid collisions
+            const lastIdNumber = employees.reduce((max, emp) => {
+                const idMatch = emp.id.match(/EMP(\d+)/);
+                if (idMatch) {
+                    const num = parseInt(idMatch[1]);
+                    return num > max ? num : max;
+                }
+                return max;
+            }, 0);
+
+            const nextId = `EMP${String(lastIdNumber + 1).padStart(3, '0')}`;
+
             const emp: Employee = {
-                id: `EMP${String(employees.length + 1).padStart(3, '0')}`,
+                id: nextId,
                 name: employeeFormData.name!,
                 role: (employeeFormData.role as EnterpriseRole) || 'SYSTEM_STAFF',
                 department: employeeFormData.department || 'General',
@@ -148,7 +160,7 @@ export const HRModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
                 <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0 shadow-inner">
-                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry</button>
+                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry ({employees.length})</button>
                     <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14} /> Access Grid</button>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
