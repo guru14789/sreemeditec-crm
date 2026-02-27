@@ -190,6 +190,19 @@ export interface UserStats {
   salesRevenue: number;
 }
 
+export interface AttendanceRecord {
+  id: string;
+  userId: string;
+  userName: string;
+  date: string; // ISO date string (YYYY-MM-DD)
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  totalWorkedMs: number;
+  lastSessionStartTime: string | null;
+  status: 'CheckedIn' | 'Paused' | 'Completed';
+  workMode: 'Office' | 'Field' | 'Remote';
+}
+
 export interface PointHistory {
   id: string;
   date: string;

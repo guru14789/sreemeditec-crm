@@ -174,8 +174,8 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUserName} userRole={userRole} />;
-      case TabView.TASKS: return <TaskModule tasks={tasks} isAdmin={userRole === 'Admin'} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} />;
+      case TabView.TASKS: return <TaskModule />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;

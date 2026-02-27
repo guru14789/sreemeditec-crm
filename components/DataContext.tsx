@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -27,6 +27,7 @@ export interface DataContextType {
     tasks: Task[];
     leads: Lead[];
     serviceTickets: ServiceTicket[];
+    attendanceRecords: AttendanceRecord[];
 
     pendingQuoteData: Partial<Invoice> | null;
     setPendingQuoteData: (data: Partial<Invoice> | null) => void;
@@ -76,6 +77,7 @@ export interface DataContextType {
     addNotification: (title: string, message: string, type: AppNotification['type']) => Promise<void>;
     markNotificationRead: (id: string) => Promise<void>;
     clearAllNotifications: () => void;
+    updateAttendance: (record: Partial<AttendanceRecord> & { id: string }) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -118,6 +120,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [tasks, setTasks] = useState<Task[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
+    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -281,7 +284,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const data = mapDocs(s);
                 data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
                 setPointHistory(data.slice(0, 100));
-            }, handleError)
+            }, handleError),
+            onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError)
         ];
 
         return () => unsubscribes.forEach(u => u());
@@ -403,7 +407,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (isRedundant(existing, updates)) return;
         await updateDoc(doc(db, "clients", id), updates);
     };
-    const removeClient = async (id: string) => id && await deleteDoc(doc(db, "clients", id.trim()));
+    const removeClient = async (id: string) => { if (id) await deleteDoc(doc(db, "clients", id.trim())); };
 
     const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
     const updateVendor = async (id: string, updates: Partial<Vendor>) => {
@@ -411,7 +415,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (isRedundant(existing, updates)) return;
         await updateDoc(doc(db, "vendors", id), updates);
     };
-    const removeVendor = async (id: string) => id && await deleteDoc(doc(db, "vendors", id.trim()));
+    const removeVendor = async (id: string) => { if (id) await deleteDoc(doc(db, "vendors", id.trim())); };
 
     const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
     const updateProduct = async (id: string, updates: Partial<Product>) => {
@@ -419,7 +423,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (isRedundant(existing, updates)) return;
         await updateDoc(doc(db, "products", id), updates);
     };
-    const removeProduct = async (id: string) => id && await deleteDoc(doc(db, "products", id.trim()));
+    const removeProduct = async (id: string) => { if (id) await deleteDoc(doc(db, "products", id.trim())); };
 
     const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
     const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
@@ -490,6 +494,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
     const clearAllNotifications = () => notifications.forEach(n => !n.read && markNotificationRead(n.id));
 
+    const updateAttendance = async (record: Partial<AttendanceRecord> & { id: string }) => {
+        await setDoc(doc(db, "attendance", record.id), record, { merge: true });
+    };
+
     const addPoints = async (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => {
         const finalUserId = targetUserId || currentUser?.id;
         if (!finalUserId) return;
@@ -522,6 +530,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             authError,
             isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
+            attendanceRecords, updateAttendance,
             prizePool, updatePrizePool
         }}>
             {children}
