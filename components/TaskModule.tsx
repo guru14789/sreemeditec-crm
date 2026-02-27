@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskLog } from '../types';
 import {
     CheckSquare, Plus, User, Calendar,
-    X, AlignLeft, History, Zap, Trash2
+    X, AlignLeft, History, Zap, Trash2, Edit
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -26,6 +26,12 @@ export const TaskModule: React.FC = () => {
     const [showAddTaskModal, setShowAddTaskModal] = useState(false);
     const [isRescheduling, setIsRescheduling] = useState(false);
     const [rescheduleDate, setRescheduleDate] = useState('');
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editPriority, setEditPriority] = useState<Task['priority']>('Medium');
+    const [editAssignedTo, setEditAssignedTo] = useState('');
 
     const [newTask, setNewTask] = useState<Partial<Task>>({
         priority: 'Medium',
@@ -153,6 +159,36 @@ export const TaskModule: React.FC = () => {
         }
     };
 
+    const handleSaveTaskEdit = async () => {
+        if (!selectedTask) return;
+        if (!editTitle.trim()) {
+            alert("Title cannot be empty");
+            return;
+        }
+
+        try {
+            const log: TaskLog = {
+                id: `LOG-${Date.now()}`,
+                user: authUser?.name || 'Admin',
+                action: `Task Updated: Title/Description modified by admin`,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            await updateTaskRemote(selectedTask.id, {
+                title: editTitle,
+                description: editDescription,
+                priority: editPriority,
+                assignedTo: editAssignedTo,
+                logs: [...(selectedTask.logs || []), log]
+            });
+            setIsEditing(false);
+            addNotification('Task Updated', 'Mission briefing updated successfully.', 'success');
+        } catch (err) {
+            console.error("Task update failed", err);
+            alert("Failed to update task");
+        }
+    };
+
     const KanbanColumn = ({ status, title, color }: { status: Task['status'], title: string, color: string }) => {
         const columnTasks = visibleTasks.filter(t => t.status === status);
         return (
@@ -226,15 +262,40 @@ export const TaskModule: React.FC = () => {
                     <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedTaskId(null)}></div>
                     <div className="w-full max-w-xl bg-white dark:bg-slate-900 h-full relative z-10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
                         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50/50 dark:bg-slate-800/50">
-                            <div>
+                            <div className="flex-1">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">JOB ID: {selectedTask.id}</span>
-                                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">{selectedTask.title}</h3>
+                                {isEditing ? (
+                                    <input
+                                        type="text"
+                                        className="w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100"
+                                        value={editTitle}
+                                        onChange={(e) => setEditTitle(e.target.value)}
+                                        placeholder="Task Title"
+                                    />
+                                ) : (
+                                    <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">{selectedTask.title}</h3>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 ml-4">
+                                {isAdmin && !isEditing && (
+                                    <button
+                                        onClick={() => {
+                                            setEditTitle(selectedTask.title);
+                                            setEditDescription(selectedTask.description);
+                                            setEditPriority(selectedTask.priority);
+                                            setEditAssignedTo(selectedTask.assignedTo);
+                                            setIsEditing(true);
+                                        }}
+                                        className="p-2 text-indigo-400 hover:text-indigo-600 transition-all"
+                                        title="Edit Mission Details"
+                                    >
+                                        <Edit size={20} />
+                                    </button>
+                                )}
                                 {isAdmin && (
                                     <button onClick={() => handleDeleteTask(selectedTask.id)} className="p-2 text-rose-300 hover:text-rose-600 transition-all"><Trash2 size={20} /></button>
                                 )}
-                                <button onClick={() => setSelectedTaskId(null)} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={28} /></button>
+                                <button onClick={() => { setSelectedTaskId(null); setIsEditing(false); }} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={28} /></button>
                             </div>
                         </div>
 
@@ -242,24 +303,55 @@ export const TaskModule: React.FC = () => {
                             <section>
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-medical-600" /> Command Actions</h4>
                                 <div className="flex flex-col gap-3">
-                                    {selectedTask.assignedTo === authUser?.name ? (
-                                        <>
-                                            {selectedTask.status === 'To Do' && (
-                                                <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Work</button>
-                                            )}
-                                            {selectedTask.status === 'In Progress' && (
-                                                <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review')} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Submit Review</button>
-                                            )}
-                                            {selectedTask.status === 'Review' && (
-                                                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
-                                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Under Admin Review</p>
+                                    {isEditing ? (
+                                        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent</label>
+                                                    <select
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        value={editAssignedTo}
+                                                        onChange={(e) => setEditAssignedTo(e.target.value)}
+                                                    >
+                                                        {employees.map(emp => (
+                                                            <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned to: {selectedTask.assignedTo}</p>
+                                                <div className="space-y-1">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
+                                                    <select
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        value={editPriority}
+                                                        onChange={(e) => setEditPriority(e.target.value as any)}
+                                                    >
+                                                        <option value="Low">Low</option>
+                                                        <option value="Medium">Medium</option>
+                                                        <option value="High">High</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
+                                    ) : (
+                                        selectedTask.assignedTo === authUser?.name ? (
+                                            <>
+                                                {selectedTask.status === 'To Do' && (
+                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Work</button>
+                                                )}
+                                                {selectedTask.status === 'In Progress' && (
+                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review')} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Submit Review</button>
+                                                )}
+                                                {selectedTask.status === 'Review' && (
+                                                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
+                                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Under Admin Review</p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned to: {selectedTask.assignedTo}</p>
+                                            </div>
+                                        )
                                     )}
 
                                     {isAdmin && (
@@ -320,8 +412,35 @@ export const TaskModule: React.FC = () => {
                             </section>
 
                             <section>
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><AlignLeft size={14} /> Mission Briefing</h4>
-                                <div className="p-5 bg-slate-50 dark:bg-slate-800 rounded-[2rem] text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedTask.description}</div>
+                                <div className="flex justify-between items-center mb-3">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><AlignLeft size={14} /> Mission Briefing</h4>
+                                    {isEditing && (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setIsEditing(false)}
+                                                className="text-[9px] font-black text-rose-500 uppercase hover:underline"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleSaveTaskEdit}
+                                                className="text-[9px] font-black text-emerald-600 uppercase hover:underline"
+                                            >
+                                                Apply Changes
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {isEditing ? (
+                                    <textarea
+                                        className="w-full p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[2rem] text-sm text-slate-600 dark:text-slate-400 leading-relaxed min-h-[150px] resize-none focus:outline-medical-500"
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                        placeholder="Enter detailed mission instructions..."
+                                    />
+                                ) : (
+                                    <div className="p-5 bg-slate-50 dark:bg-slate-800 rounded-[2rem] text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{selectedTask.description}</div>
+                                )}
                             </section>
 
                             <section>
