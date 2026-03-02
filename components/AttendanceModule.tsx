@@ -121,6 +121,24 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         }
     }, [isOfficeHoursComplete, isCheckedIn, isLocked, workMode, me, todayStr]);
 
+    const logActualDeparture = async () => {
+        if (!me) return;
+        const recordId = `${me.id}_${todayStr}`;
+        await updateAttendance({
+            id: recordId,
+            userId: me.id,
+            userName: me.name,
+            date: todayStr,
+            checkOutTime: new Date().toISOString() // Only update checkout time, not MS worked
+        });
+        addNotification('Departure Logged', 'Your final departure time has been updated.', 'success');
+    };
+
+    const formatTime = (isoString: string | null | undefined) => {
+        if (!isoString) return '--:--';
+        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
     const handleCheckInOut = async () => {
         if (isLocked || !me) return;
 
@@ -310,10 +328,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                 )}
                             </button>
                         ) : (
-                            <div className="w-full py-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400">
-                                <Lock size={24} className="mb-2" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Shift Completed & Locked</span>
-                                <span className="text-[8px] font-bold mt-1">See you tomorrow!</span>
+                            <div className="w-full flex-col gap-3">
+                                <div className="w-full py-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400">
+                                    <Lock size={24} className="mb-2" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Shift Completed & Locked</span>
+                                    <span className="text-[8px] font-bold mt-1">See you tomorrow!</span>
+                                </div>
+                                <button
+                                    onClick={logActualDeparture}
+                                    className="w-full mt-3 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700 shadow-md flex items-center justify-center gap-2"
+                                >
+                                    <Clock size={14} /> Log Actual Departure Time
+                                </button>
                             </div>
                         )}
 
@@ -359,6 +385,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                     <th className="px-6 py-4">Staff Member</th>
                                     <th className="px-6 py-4">Department</th>
                                     <th className="px-6 py-4">Progress / Time</th>
+                                    <th className="px-6 py-4 hidden md:table-cell">Check In</th>
+                                    <th className="px-6 py-4 hidden md:table-cell">Check Out</th>
                                     <th className="px-6 py-4 text-right">Day Status</th>
                                 </tr>
                             </thead>
@@ -388,6 +416,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                     {(emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') ? <ClipboardCheck size={14} className="text-blue-500" /> : <Timer size={14} className="text-emerald-500" />}
                                                     {getEmpAttendanceDisplay(emp)}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-5 hidden md:table-cell">
+                                                <span className="text-[11px] font-bold text-slate-600">
+                                                    {formatTime(rec?.checkInTime)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5 hidden md:table-cell">
+                                                <span className="text-[11px] font-bold text-slate-600">
+                                                    {formatTime(rec?.checkOutTime)}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-5 text-right">
                                                 <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
