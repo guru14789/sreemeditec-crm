@@ -61,6 +61,11 @@ export interface Client {
   gstin?: string;
   email?: string;
   phone?: string;
+  cinNo?: string;
+  panNo?: string;
+  dlNo?: string;
+  udyamNo?: string;
+  status?: 'Draft' | 'Finalized';
 }
 
 export interface Vendor {
@@ -71,6 +76,11 @@ export interface Vendor {
   gstin?: string;
   email?: string;
   phone?: string;
+  cinNo?: string;
+  panNo?: string;
+  dlNo?: string;
+  udyamNo?: string;
+  status?: 'Draft' | 'Finalized';
 }
 
 export interface Product {

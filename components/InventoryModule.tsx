@@ -205,7 +205,8 @@ export const InventoryModule: React.FC = () => {
                 name: demoData.clientName,
                 hospital: demoData.location || '',
                 address: demoData.location || '',
-                gstin: ''
+                gstin: '',
+                status: 'Finalized'
             });
         }
 
