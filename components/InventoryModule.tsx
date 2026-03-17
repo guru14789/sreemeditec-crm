@@ -38,7 +38,9 @@ export const InventoryModule: React.FC = () => {
         minLevel: 5,
         location: 'Warehouse A',
         purchasePrice: 0,
-        sellingPrice: 0
+        sellingPrice: 0,
+        hsn: '',
+        taxRate: 5
     });
 
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -613,6 +615,23 @@ export const InventoryModule: React.FC = () => {
                                     <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel || 0} onChange={e => setEditingProduct({ ...editingProduct, minLevel: Number(e.target.value) })} />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">HSN Code</label>
+                                    <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.hsn || ''} onChange={e => setEditingProduct({ ...editingProduct, hsn: e.target.value })} placeholder="HSN Code" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GST Percentage (%)</label>
+                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.taxRate || 0} onChange={e => setEditingProduct({ ...editingProduct, taxRate: Number(e.target.value) })} />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tax Calculation (Selling Price + GST)</label>
+                                <div className="w-full bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
+                                    <span>Calculated Rate:</span>
+                                    <span>₹{((editingProduct.sellingPrice || 0) * (1 + (editingProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                            </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
                                 <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
@@ -662,6 +681,23 @@ export const InventoryModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-5">
                                 <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({ ...newProduct, minLevel: Number(e.target.value) })} />
                                 <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({ ...newProduct, location: e.target.value })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">HSN Code</label>
+                                    <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="HSN Code" value={newProduct.hsn || ''} onChange={e => setNewProduct({ ...newProduct, hsn: e.target.value })} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">GST Percentage (%)</label>
+                                    <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="18" value={newProduct.taxRate || ''} onChange={e => setNewProduct({ ...newProduct, taxRate: Number(e.target.value) })} />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tax Calculation (Selling Price + GST)</label>
+                                <div className="w-full bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
+                                    <span>Calculated Rate:</span>
+                                    <span>₹{((newProduct.sellingPrice || 0) * (1 + (newProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
                             </div>
                             <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
                         </div>
