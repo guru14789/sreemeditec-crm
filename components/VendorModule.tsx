@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Vendor } from '../types';
-import { Truck, Search, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Building2, Wallet, Lock, Plus, Save, User, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Truck, MapPin, Phone, Mail, FileText, ArrowUpRight, X, Lock, User, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useData } from './DataContext';
 
 const formatIndianNumber = (num: number) => {
@@ -317,11 +317,11 @@ export const VendorModule: React.FC = () => {
                                     <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-1">Supplier Profile</h4>
                                         <div className="space-y-4 text-sm text-slate-600 font-medium">
-                                            <div className="flex items-start gap-2"><MapPin size={16} className="text-indigo-500 shrink-0 mt-0.5" /> <span className="whitespace-pre-wrap">{selectedVendor.address}</span></div>
-                                            <div className="flex items-center gap-2"><User size={16} className="text-indigo-500 shrink-0" /> <span className="uppercase">{selectedVendor.contactPerson || 'General Contact'}</span></div>
-                                            <div className="flex items-center gap-2"><Phone size={16} className="text-indigo-500 shrink-0" /> <span>{selectedVendor.phone || 'N/A'}</span></div>
-                                            <div className="flex items-center gap-2"><Mail size={16} className="text-indigo-500 shrink-0" /> <span>{selectedVendor.email || 'N/A'}</span></div>
-                                            <div className="flex items-center gap-2"><FileText size={16} className="text-indigo-500 shrink-0" /> <span className="font-bold">GST: {selectedVendor.gstin || 'N/A'}</span></div>
+                                            <div className="flex items-start gap-2 overflow-hidden"><MapPin size={16} className="text-indigo-500 shrink-0 mt-0.5" /> <span className="whitespace-pre-wrap break-all flex-1 min-w-0">{selectedVendor.address}</span></div>
+                                            <div className="flex items-center gap-2 overflow-hidden"><User size={16} className="text-indigo-500 shrink-0" /> <span className="uppercase truncate flex-1 min-w-0">{selectedVendor.contactPerson || 'General Contact'}</span></div>
+                                            <div className="flex items-center gap-2 overflow-hidden"><Phone size={16} className="text-indigo-500 shrink-0" /> <span className="truncate flex-1 min-w-0">{selectedVendor.phone || 'N/A'}</span></div>
+                                            <div className="flex items-center gap-2 overflow-hidden"><Mail size={16} className="text-indigo-500 shrink-0" /> <span className="truncate break-all flex-1 min-w-0">{selectedVendor.email || 'N/A'}</span></div>
+                                            <div className="flex items-center gap-2 overflow-hidden"><FileText size={16} className="text-indigo-500 shrink-0" /> <span className="font-bold truncate flex-1 min-w-0">GST: {selectedVendor.gstin || 'N/A'}</span></div>
                                             <div className="pt-2 mt-2 border-t border-slate-200 space-y-2">
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">CIN:</span> <span className="font-bold text-slate-800">{selectedVendor.cinNo || 'N/A'}</span></div>
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">PAN:</span> <span className="font-bold text-slate-800">{selectedVendor.panNo || 'N/A'}</span></div>
