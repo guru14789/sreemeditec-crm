@@ -12,7 +12,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const VendorModule: React.FC = () => {
-    const { vendors, invoices, addVendor, removeVendor, addNotification } = useData();
+    const { vendors, invoices, addVendor, updateVendor, removeVendor, addNotification } = useData();
     const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
@@ -21,6 +21,8 @@ export const VendorModule: React.FC = () => {
     const [password, setPassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editVendorData, setEditVendorData] = useState<Partial<Vendor>>({});
 
     const verifyPassword = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -54,9 +56,6 @@ export const VendorModule: React.FC = () => {
         normalize(v.name).includes(normalize(searchQuery)) ||
         normalize(v.id).includes(normalize(searchQuery))
     );
-
-    const [isEditing, setIsEditing] = useState(false);
-    const [editVendorData, setEditVendorData] = useState<Partial<Vendor>>({});
 
     const handleSaveVendor = async (status: 'Draft' | 'Finalized' = 'Finalized') => {
         if (!newVendor.name) { alert("Name is required"); return; }

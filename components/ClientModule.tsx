@@ -12,7 +12,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const ClientModule: React.FC = () => {
-    const { clients, invoices, addClient, removeClient, addNotification } = useData();
+    const { clients, invoices, addClient, updateClient, removeClient, addNotification } = useData();
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
@@ -21,6 +21,8 @@ export const ClientModule: React.FC = () => {
     const [password, setPassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editClientData, setEditClientData] = useState<Partial<Client>>({});
 
     const verifyPassword = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -52,8 +54,6 @@ export const ClientModule: React.FC = () => {
 
     const filteredClients = clients.filter(c => normalize(c.name).includes(normalize(searchQuery)) || normalize(c.id).includes(normalize(searchQuery)));
 
-    const [isEditing, setIsEditing] = useState(false);
-    const [editClientData, setEditClientData] = useState<Partial<Client>>({});
 
     const handleSaveClient = async (status: 'Draft' | 'Finalized' = 'Finalized') => {
         if (!newClientData.name || !newClientData.address) {
