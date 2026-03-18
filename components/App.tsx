@@ -146,7 +146,7 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} currentUser={currentUser.name} userRole={userRoleString} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} />;
       case TabView.TASKS: return <TaskModule />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRoleString} setUserRole={() => { }} currentUser={currentUser.name} />;
@@ -170,7 +170,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden relative">
-      <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 ${isSidebarOpen ? 'w-72' : 'w-24'} fixed lg:relative h-full shadow-2xl overflow-hidden`}>
+      <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[1000] lg:z-40 transition-all duration-300 border-r border-white/5 ${isSidebarOpen ? 'w-72' : 'w-24'} fixed lg:relative h-full shadow-2xl overflow-hidden`}>
         <div className={`p-6 h-24 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           {isSidebarOpen && (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4">

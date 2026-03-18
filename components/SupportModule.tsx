@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { SupportTicket, SupportMessage } from '../types';
 import { 
-    Headset, Plus, Search, Filter, MessageSquare, Clock, AlertCircle, 
-    CheckCircle2, X, Send, Wand2, User, Mail, ChevronRight, 
-    MoreVertical, Paperclip, RefreshCw, ShieldAlert, Sparkles
+    Headset, Plus, Search, MessageSquare, Clock, AlertCircle, 
+    CheckCircle2, X, Send, User, Mail, ChevronRight, 
+    Paperclip, RefreshCw, ShieldAlert, Sparkles
 } from 'lucide-react';
 import { generateSupportReply } from '../geminiService';
 
@@ -331,7 +331,7 @@ export const SupportModule: React.FC = () => {
 
             {/* Create Ticket Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-3xl">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
