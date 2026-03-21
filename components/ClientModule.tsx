@@ -130,16 +130,16 @@ export const ClientModule: React.FC = () => {
                 <div className="flex gap-3 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input type="text" placeholder="Search entity..." className="pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium w-full outline-none focus:border-blue-500 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <input type="text" placeholder="Search entity..." className="pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm font-medium w-full outline-none focus:border-blue-500 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
                     <button onClick={() => setShowAddModal(true)} className="bg-[#022c22] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2 shrink-0">+ Add Client</button>
                 </div>
             </div>
 
-            <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col shadow-sm">
+            <div className="flex-1 bg-white rounded-[2rem] border border-slate-300 overflow-hidden flex flex-col shadow-sm">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left text-sm text-slate-600">
-                        <thead className="bg-slate-50/80 border-b border-slate-100 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10 backdrop-blur-sm">
+                        <thead className="bg-slate-50/80 border-b border-slate-300 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10 backdrop-blur-sm">
                             <tr>
                                 <th className="px-8 py-5">Entity Information</th>
                                 <th className="px-8 py-5">Facility / Hospital</th>
@@ -153,7 +153,7 @@ export const ClientModule: React.FC = () => {
                                 <tr key={client.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => { setSelectedClient(client); setEditClientData(client); setIsEditing(false); }}>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-200 uppercase">{client.name.charAt(0)}</div>
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500 border border-slate-300 uppercase">{client.name.charAt(0)}</div>
                                             <div>
                                                 <div className="font-black text-slate-800 text-sm uppercase tracking-tight">{client.name}</div>
                                                 <div className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{client.id}</div>
@@ -229,7 +229,7 @@ export const ClientModule: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Entity Intake</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registering new client to cloud sync</p>
@@ -239,59 +239,59 @@ export const ClientModule: React.FC = () => {
                         <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entity Name *</label>
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase" placeholder="Client Name" value={newClientData.name || ''} onChange={e => setNewClientData({ ...newClientData, name: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase" placeholder="Client Name" value={newClientData.name || ''} onChange={e => setNewClientData({ ...newClientData, name: e.target.value })} />
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Clinic Name</label>
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all" placeholder="Facility Name" value={newClientData.hospital || ''} onChange={e => setNewClientData({ ...newClientData, hospital: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all" placeholder="Facility Name" value={newClientData.hospital || ''} onChange={e => setNewClientData({ ...newClientData, hospital: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all font-mono" placeholder="+91" value={newClientData.phone || ''} onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all font-mono" placeholder="+91" value={newClientData.phone || ''} onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GSTIN Number</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="GST Number" value={newClientData.gstin || ''} onChange={e => setNewClientData({ ...newClientData, gstin: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="GST Number" value={newClientData.gstin || ''} onChange={e => setNewClientData({ ...newClientData, gstin: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CIN NO</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="CIN Number" value={newClientData.cinNo || ''} onChange={e => setNewClientData({ ...newClientData, cinNo: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="CIN Number" value={newClientData.cinNo || ''} onChange={e => setNewClientData({ ...newClientData, cinNo: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN NO</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="PAN Number" value={newClientData.panNo || ''} onChange={e => setNewClientData({ ...newClientData, panNo: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="PAN Number" value={newClientData.panNo || ''} onChange={e => setNewClientData({ ...newClientData, panNo: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">DL no</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="DL Number" value={newClientData.dlNo || ''} onChange={e => setNewClientData({ ...newClientData, dlNo: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="DL Number" value={newClientData.dlNo || ''} onChange={e => setNewClientData({ ...newClientData, dlNo: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">UDYAM No</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="UDYAM Number" value={newClientData.udyamNo || ''} onChange={e => setNewClientData({ ...newClientData, udyamNo: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all uppercase font-mono" placeholder="UDYAM Number" value={newClientData.udyamNo || ''} onChange={e => setNewClientData({ ...newClientData, udyamNo: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                                <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all" placeholder="client@example.com" value={newClientData.email || ''} onChange={e => setNewClientData({ ...newClientData, email: e.target.value })} />
+                                <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-blue-500 transition-all" placeholder="client@example.com" value={newClientData.email || ''} onChange={e => setNewClientData({ ...newClientData, email: e.target.value })} />
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registration Address *</label>
-                                <textarea className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold resize-none outline-none focus:border-blue-500 transition-all min-h-[100px]" placeholder="Full physical/legal address" value={newClientData.address || ''} onChange={e => setNewClientData({ ...newClientData, address: e.target.value })} />
+                                <textarea className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold resize-none outline-none focus:border-blue-500 transition-all min-h-[100px]" placeholder="Full physical/legal address" value={newClientData.address || ''} onChange={e => setNewClientData({ ...newClientData, address: e.target.value })} />
                             </div>
                         </div>
-                        <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
-                            <button onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400 active:scale-95 transition-all">Discard</button>
+                        <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50 rounded-b-[2.5rem]">
+                            <button onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400 active:scale-95 transition-all">Discard</button>
                             <button onClick={() => handleSaveClient('Draft')} className="flex-1 bg-amber-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-amber-700 transition-all active:scale-95">Save as Draft</button>
                             <button onClick={() => handleSaveClient('Finalized')} className="flex-[2] bg-[#022c22] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95">Commit Registry</button>
                         </div>
@@ -320,55 +320,55 @@ export const ClientModule: React.FC = () => {
                                     <div className="space-y-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entity Name</label>
-                                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.name || ''} onChange={e => setEditClientData({ ...editClientData, name: e.target.value })} />
+                                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.name || ''} onChange={e => setEditClientData({ ...editClientData, name: e.target.value })} />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Clinic</label>
-                                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.hospital || ''} onChange={e => setEditClientData({ ...editClientData, hospital: e.target.value })} />
+                                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.hospital || ''} onChange={e => setEditClientData({ ...editClientData, hospital: e.target.value })} />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.phone || ''} onChange={e => setEditClientData({ ...editClientData, phone: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.phone || ''} onChange={e => setEditClientData({ ...editClientData, phone: e.target.value })} />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GSTIN</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.gstin || ''} onChange={e => setEditClientData({ ...editClientData, gstin: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.gstin || ''} onChange={e => setEditClientData({ ...editClientData, gstin: e.target.value })} />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CIN NO</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.cinNo || ''} onChange={e => setEditClientData({ ...editClientData, cinNo: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.cinNo || ''} onChange={e => setEditClientData({ ...editClientData, cinNo: e.target.value })} />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN NO</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.panNo || ''} onChange={e => setEditClientData({ ...editClientData, panNo: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.panNo || ''} onChange={e => setEditClientData({ ...editClientData, panNo: e.target.value })} />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">DL no</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.dlNo || ''} onChange={e => setEditClientData({ ...editClientData, dlNo: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.dlNo || ''} onChange={e => setEditClientData({ ...editClientData, dlNo: e.target.value })} />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">UDYAM No</label>
-                                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.udyamNo || ''} onChange={e => setEditClientData({ ...editClientData, udyamNo: e.target.value })} />
+                                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.udyamNo || ''} onChange={e => setEditClientData({ ...editClientData, udyamNo: e.target.value })} />
                                             </div>
                                         </div>
                                     </div>
                                     <div className="space-y-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                                            <input type="email" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.email || ''} onChange={e => setEditClientData({ ...editClientData, email: e.target.value })} />
+                                            <input type="email" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.email || ''} onChange={e => setEditClientData({ ...editClientData, email: e.target.value })} />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Address</label>
-                                            <textarea className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500 min-h-[150px]" value={editClientData.address || ''} onChange={e => setEditClientData({ ...editClientData, address: e.target.value })} />
+                                            <textarea className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500 min-h-[150px]" value={editClientData.address || ''} onChange={e => setEditClientData({ ...editClientData, address: e.target.value })} />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
-                                            <select className="w-full border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.status || 'Finalized'} onChange={e => setEditClientData({ ...editClientData, status: e.target.value as any })}>
+                                            <select className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-blue-500" value={editClientData.status || 'Finalized'} onChange={e => setEditClientData({ ...editClientData, status: e.target.value as any })}>
                                                 <option value="Draft">Draft</option>
                                                 <option value="Finalized">Finalized</option>
                                             </select>
@@ -377,7 +377,7 @@ export const ClientModule: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-300 space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-1">Client Profile</h4>
                                         <div className="space-y-4 text-sm text-slate-600 font-medium">
                                             <div className="flex items-start gap-2 overflow-hidden"><MapPin size={16} className="text-blue-500 shrink-0 mt-0.5" /> <span className="whitespace-pre-wrap break-all flex-1 min-w-0">{selectedClient.address}</span></div>
@@ -385,7 +385,7 @@ export const ClientModule: React.FC = () => {
                                             <div className="flex items-center gap-2 overflow-hidden"><Phone size={16} className="text-blue-500 shrink-0" /> <span className="truncate flex-1 min-w-0">{selectedClient.phone || 'N/A'}</span></div>
                                             <div className="flex items-center gap-2 overflow-hidden"><Mail size={16} className="text-blue-500 shrink-0" /> <span className="truncate break-all flex-1 min-w-0">{selectedClient.email || 'N/A'}</span></div>
                                             <div className="flex items-center gap-2 overflow-hidden"><FileText size={16} className="text-blue-500 shrink-0" /> <span className="font-bold truncate flex-1 min-w-0">GST: {selectedClient.gstin || 'N/A'}</span></div>
-                                            <div className="pt-2 mt-2 border-t border-slate-200 space-y-2">
+                                            <div className="pt-2 mt-2 border-t border-slate-300 space-y-2">
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">CIN:</span> <span className="font-bold text-slate-800">{selectedClient.cinNo || 'N/A'}</span></div>
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">PAN:</span> <span className="font-bold text-slate-800">{selectedClient.panNo || 'N/A'}</span></div>
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">DL NO:</span> <span className="font-bold text-slate-800">{selectedClient.dlNo || 'N/A'}</span></div>
@@ -393,7 +393,7 @@ export const ClientModule: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 shadow-inner min-h-[300px] flex flex-col">
+                                    <div className="md:col-span-2 bg-white rounded-3xl border border-slate-300 p-6 shadow-inner min-h-[300px] flex flex-col">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 mb-4">Financial Ledger Summary</h4>
                                         <div className="flex-1 flex flex-col items-center justify-center opacity-20 italic text-sm text-slate-400">
                                             <Wallet size={48} className="mb-4 text-slate-300" />
@@ -406,7 +406,7 @@ export const ClientModule: React.FC = () => {
                         <div className="p-6 border-t bg-slate-50 flex justify-end gap-3 shrink-0">
                             {isEditing ? (
                                 <>
-                                    <button onClick={() => setIsEditing(false)} className="px-8 py-3 bg-white border border-slate-200 text-slate-400 font-bold rounded-xl hover:bg-slate-50 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
+                                    <button onClick={() => setIsEditing(false)} className="px-8 py-3 bg-white border border-slate-300 text-slate-400 font-bold rounded-xl hover:bg-slate-50 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
                                     <button onClick={handleUpdateClient} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-black transition-colors uppercase text-[10px] tracking-widest shadow-lg">Save Changes</button>
                                 </>
                             ) : (

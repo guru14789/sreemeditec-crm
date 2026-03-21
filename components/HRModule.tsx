@@ -166,7 +166,7 @@ export const HRModule: React.FC = () => {
                 <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
                     <div className="relative flex-1 sm:max-w-xs">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-300 rounded-xl text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
                     <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
                 </div>
@@ -176,7 +176,7 @@ export const HRModule: React.FC = () => {
                 {activeTab === 'employees' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
                         {filteredEmployees.map(emp => (
-                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white p-6 rounded-[2rem] border border-slate-100 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
+                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white p-6 rounded-[2rem] border border-slate-300 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-medical-50 text-medical-700 border-medical-100'}`}>{emp.name.charAt(0)}</div>
@@ -207,9 +207,9 @@ export const HRModule: React.FC = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm mb-6">
+                    <div className="bg-white rounded-[2rem] border border-slate-300 overflow-hidden shadow-sm mb-6">
                         <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
+                            <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
                                 <tr><th className="px-8 py-5 w-64">Identity</th><th className="px-8 py-5">Permission Array Configuration</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -240,7 +240,7 @@ export const HRModule: React.FC = () => {
                                                                 <button
                                                                     key={mod.value}
                                                                     onClick={() => togglePermission(emp.id, mod.value)}
-                                                                    className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white text-slate-400 border-slate-200 hover:border-medical-300 hover:text-medical-600'}`}
+                                                                    className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'}`}
                                                                 >
                                                                     {mod.label}
                                                                 </button>
@@ -261,7 +261,7 @@ export const HRModule: React.FC = () => {
             {showEmployeeModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50 shrink-0">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registry Role: {employeeFormData.role?.replace('_', ' ')}</p>
@@ -276,7 +276,7 @@ export const HRModule: React.FC = () => {
                                         <button
                                             key={opt.value}
                                             onClick={() => setEmployeeFormData({ ...employeeFormData, role: opt.value })}
-                                            className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+                                            className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-300'}`}
                                         >
                                             {opt.label}
                                         </button>
@@ -286,18 +286,18 @@ export const HRModule: React.FC = () => {
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Name *</label>
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID) *</label>
-                                    <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} />
+                                    <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password *</label>
                                     <div className="relative">
-                                        <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, password: e.target.value })} />
+                                        <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, password: e.target.value })} />
                                         <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                                     </div>
                                 </div>
@@ -306,17 +306,17 @@ export const HRModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
-                                    <select className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
+                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
                                         <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
-                                    <input type="number" className="w-full border border-slate-200 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
                                 </div>
                             </div>
                         </div>
-                        <div className="p-8 border-t border-slate-100 bg-slate-50/50 rounded-b-[2.5rem]">
+                        <div className="p-8 border-t border-slate-300 bg-slate-50/50 rounded-b-[2.5rem]">
                             {showDeleteConfirm ? (
                                 <div className="space-y-4 animate-in slide-in-from-bottom-2">
                                     <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl">
@@ -337,7 +337,7 @@ export const HRModule: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                                     {isEditing && (
                                         <button
                                             onClick={() => setShowDeleteConfirm(true)}

@@ -19,6 +19,31 @@ const formatIndianNumber = (num: number) => {
     return n.toLocaleString('en-IN');
 };
 
+const InlineInput: React.FC<{ 
+    value: string | number, 
+    onSave: (val: string | number) => void, 
+    onCancel: () => void,
+    type?: 'text' | 'number',
+    className?: string
+}> = ({ value, onSave, onCancel, type = 'text', className = "" }) => {
+    const [tempValue, setTempValue] = useState(value);
+
+    return (
+        <input 
+            autoFocus
+            type={type}
+            value={tempValue}
+            onChange={(e) => setTempValue(type === 'number' ? Number(e.target.value) : e.target.value)}
+            onBlur={() => { if (tempValue !== value) onSave(tempValue); else onCancel(); }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') onSave(tempValue);
+                if (e.key === 'Escape') onCancel();
+            }}
+            className={`w-full bg-indigo-50 border border-indigo-300 rounded px-1.5 py-0.5 outline-none font-black animate-in zoom-in-95 duration-75 text-indigo-700 ${className}`}
+        />
+    );
+};
+
 export const InventoryModule: React.FC = () => {
     const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification } = useData();
     const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
@@ -30,6 +55,19 @@ export const InventoryModule: React.FC = () => {
 
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showEditProductModal, setShowEditProductModal] = useState(false);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [inlineEdit, setInlineEdit] = useState<{ id: string, field: string } | null>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeMenuId && !(event.target as Element).closest('.menu-container')) {
+                setActiveMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeMenuId]);
 
     const [newProduct, setNewProduct] = useState<Partial<Product>>({
         category: 'Equipment',
@@ -185,6 +223,14 @@ export const InventoryModule: React.FC = () => {
             setIsDeleting(false);
         }
     };
+    const handleQuickUpdate = (id: string, field: string, value: string | number) => {
+        const product = products.find(p => p.id === id);
+        if (product) {
+            updateProduct(id, { ...product, [field]: value });
+            addNotification('Registry Adjusted', `Updated ${field} for ${product.name}`, 'success');
+        }
+        setInlineEdit(null);
+    };
 
     const handleSendForDemo = () => {
         if (!demoData.productId || demoData.quantity <= 0 || !demoData.clientName) {
@@ -327,7 +373,7 @@ export const InventoryModule: React.FC = () => {
                         <Wallet size={100} />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <p className="text-emerald-100 text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
                             <Wallet size={14} /> Asset Valuation (Selling Value)
                         </p>
                         <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(assetValuationAll)}</h3>
@@ -335,9 +381,9 @@ export const InventoryModule: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
                     <div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Equipment (Purchase Cost)</p>
+                        <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Equipment (Purchase Cost)</p>
                         <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(equipmentCostAll)}</h3>
                         <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Total inventory investment</p>
                     </div>
@@ -346,9 +392,9 @@ export const InventoryModule: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
                     <div>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Consumables (Cost)</p>
+                        <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Consumables (Cost)</p>
                         <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(consumableValue)}</h3>
                         <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Gels, Spares, etc.</p>
                     </div>
@@ -361,10 +407,10 @@ export const InventoryModule: React.FC = () => {
             </div>
 
             {/* Main Inventory Section */}
-            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
+            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
 
                 {/* Toolbar with Tabs */}
-                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="p-5 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex flex-col gap-3">
                         <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
                             <button
@@ -392,7 +438,7 @@ export const InventoryModule: React.FC = () => {
                                     <input
                                         type="text"
                                         placeholder="Search inventory..."
-                                        className="block w-full pl-10 pr-4 py-2.5 border border-slate-200 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
+                                        className="block w-full pl-10 pr-4 py-2.5 border border-slate-300 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                     />
@@ -406,7 +452,7 @@ export const InventoryModule: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowDemoModal(true); }}
-                                    className="bg-white border border-slate-200 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
+                                    className="bg-white border border-slate-300 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
                                     <Send size={16} /> Demo
                                 </button>
                                 <button
@@ -423,18 +469,20 @@ export const InventoryModule: React.FC = () => {
                 {/* Table Content */}
                 <div className="flex-1 overflow-auto custom-scrollbar relative">
                     {activeTab === 'stock' ? (
-                        <table className="w-full text-left text-sm text-slate-600 min-w-[1200px] table-fixed">
-                            <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-100 shadow-[0_1px_0_0_#f1f5f9]">
+                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[1200px] table-fixed">
+                            <thead className="bg-[#fcfdfd] text-[8px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-6 py-5 w-[20%] bg-[#fcfdfd]">Product Master</th>
-                                    <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Category & SKU</th>
-                                    <th className="px-6 py-5 w-[12%] bg-[#fcfdfd]">Supplier</th>
-                                    <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Available Stock</th>
-                                    <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Purchase Price</th>
-                                    <th className="px-6 py-5 text-right w-[10%] bg-[#fcfdfd]">Selling Price</th>
-                                    <th className="px-6 py-5 w-[10%] bg-[#fcfdfd]">Warehouse</th>
-                                    <th className="px-6 py-5 w-[10%] bg-[#fcfdfd]">Status</th>
-                                    <th className="px-6 py-5 text-right w-[100px] bg-[#fcfdfd]">Action</th>
+                                    <th className="px-6 py-4 w-[18%] bg-[#fcfdfd]">Product Master</th>
+                                    <th className="px-6 py-4 w-[12%] bg-[#fcfdfd]">Category & SKU</th>
+                                    <th className="px-6 py-4 w-[12%] bg-[#fcfdfd]">Supplier</th>
+                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Available Stock</th>
+                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Purchase Price</th>
+                                    <th className="px-6 py-4 text-right w-[8%] bg-[#fcfdfd]">Selling Price</th>
+                                    <th className="px-6 py-4 text-center w-[6%] bg-[#fcfdfd]">GST %</th>
+                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Total Asset</th>
+                                    <th className="px-6 py-4 w-[10%] bg-[#fcfdfd]">Warehouse</th>
+                                    <th className="px-6 py-4 w-[10%] bg-[#fcfdfd]">Status</th>
+                                    <th className="px-6 py-4 text-right w-[100px] bg-[#fcfdfd]">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 relative z-10">
@@ -445,55 +493,127 @@ export const InventoryModule: React.FC = () => {
                                     const sellingPrice = product.sellingPrice || 0;
 
                                     return (
-                                        <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-5">
-                                                <div className="font-black text-slate-800 truncate" title={product.name}>{product.name}</div>
-                                                <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 truncate">{product.model || 'Standard Model'}</div>
+                                        <tr key={product.id} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
+                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'name' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'name' ? (
+                                                    <InlineInput value={product.name} onSave={(v) => handleQuickUpdate(product.id, 'name', v)} onCancel={() => setInlineEdit(null)} />
+                                                ) : (
+                                                    <div className="font-black text-slate-800 truncate text-[11px]" title={product.name}>{product.name}</div>
+                                                )}
+                                                <div 
+                                                    className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 truncate cursor-text"
+                                                    onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'model' }); }}
+                                                >
+                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'model' ? (
+                                                        <InlineInput value={product.model || ''} onSave={(v) => handleQuickUpdate(product.id, 'model', v)} onCancel={() => setInlineEdit(null)} className="text-[9px]" />
+                                                    ) : (
+                                                        product.model || 'Standard Model'
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <div className="text-xs font-black text-indigo-600 uppercase truncate">{product.category}</div>
-                                                <div className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{product.sku}</div>
+                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'category' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'category' ? (
+                                                    <InlineInput value={product.category} onSave={(v) => handleQuickUpdate(product.id, 'category', v)} onCancel={() => setInlineEdit(null)} className="text-indigo-600" />
+                                                ) : (
+                                                    <div className="text-[11px] font-black text-indigo-600 uppercase truncate">{product.category}</div>
+                                                )}
+                                                <div 
+                                                    className="text-[9px] font-mono text-slate-400 mt-0.5 truncate cursor-text"
+                                                    onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sku' }); }}
+                                                >
+                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'sku' ? (
+                                                        <InlineInput value={product.sku} onSave={(v) => handleQuickUpdate(product.id, 'sku', v)} onCancel={() => setInlineEdit(null)} className="text-[9px] font-mono" />
+                                                    ) : (
+                                                        product.sku
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-5">
+                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'supplier' }); }}>
                                                 <div className="flex items-center gap-2 text-slate-600 font-bold truncate">
-                                                    <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center shrink-0"><Building2 size={12} /></div>
-                                                    <span className="truncate">{product.supplier || 'Not set'}</span>
+                                                    <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0"><Building2 size={10} /></div>
+                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'supplier' ? (
+                                                        <InlineInput value={product.supplier || ''} onSave={(v) => handleQuickUpdate(product.id, 'supplier', v)} onCancel={() => setInlineEdit(null)} />
+                                                    ) : (
+                                                        <span className="truncate">{product.supplier || 'Not set'}</span>
+                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-right font-black text-slate-800">
-                                                <span className="text-lg">{stock}</span>
-                                                <span className="text-[10px] text-slate-400 ml-1 uppercase">{product.unit || 'nos'}</span>
-
+                                            <td className="px-6 py-4 text-right font-black text-slate-800 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'stock' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'stock' ? (
+                                                    <InlineInput type="number" value={stock} onSave={(v) => handleQuickUpdate(product.id, 'stock', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
+                                                ) : (
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-sm">{stock}</span>
+                                                        <span className="text-[9px] text-slate-400 uppercase leading-none">{product.unit || 'nos'}</span>
+                                                    </div>
+                                                )}
                                             </td>
-                                            <td className="px-6 py-5 text-right font-black text-slate-400 italic">₹{purchasePrice.toLocaleString('en-IN')}</td>
-                                            <td className="px-6 py-5 text-right font-black text-teal-700">₹{sellingPrice.toLocaleString('en-IN')}</td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase text-slate-400 truncate">
-                                                    <MapPin size={12} className="shrink-0" /> <span className="truncate">{product.location}</span>
+                                            <td className="px-6 py-4 text-right font-black text-slate-400 italic editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'purchasePrice' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'purchasePrice' ? (
+                                                    <InlineInput type="number" value={product.purchasePrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'purchasePrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right italic" />
+                                                ) : (
+                                                    <span>₹{purchasePrice.toLocaleString('en-IN')}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-black text-teal-700 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sellingPrice' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'sellingPrice' ? (
+                                                    <InlineInput type="number" value={product.sellingPrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'sellingPrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
+                                                ) : (
+                                                    <span>₹{sellingPrice.toLocaleString('en-IN')}</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'taxRate' }); }}>
+                                                {inlineEdit?.id === product.id && inlineEdit.field === 'taxRate' ? (
+                                                    <InlineInput type="number" value={product.taxRate || 0} onSave={(v) => handleQuickUpdate(product.id, 'taxRate', Number(v))} onCancel={() => setInlineEdit(null)} className="text-center" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-black text-slate-700">{product.taxRate || 0}%</span>
+                                                        <span className="text-[9px] text-slate-400 font-bold">₹{((sellingPrice * (product.taxRate || 0)) / 100).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-black text-medical-800 bg-medical-50/10">
+                                                ₹{(stock * (product.purchasePrice || 0)).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'location' }); }}>
+                                                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate">
+                                                    <MapPin size={10} className="shrink-0" />
+                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'location' ? (
+                                                        <InlineInput value={product.location || ''} onSave={(v) => handleQuickUpdate(product.id, 'location', v)} onCancel={() => setInlineEdit(null)} className="text-[9px]" />
+                                                    ) : (
+                                                        <span className="truncate">{product.location}</span>
+                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-1.5 text-emerald-600 text-[10px] font-black uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 w-fit">
-                                                    <CheckCircle size={12} className="shrink-0" /> <span>Optimal</span>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 w-fit">
+                                                    <CheckCircle size={10} className="shrink-0" /> <span>Optimal</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <div className="flex justify-end gap-1">
-                                                    <button
-                                                        onClick={() => handleOpenEdit(product)}
-                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                                                        title="Edit Product"
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="relative flex justify-end menu-container">
+                                                    <button 
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            setActiveMenuId(activeMenuId === product.id ? null : product.id); 
+                                                        }} 
+                                                        className={`p-2 rounded-xl transition-all ${activeMenuId === product.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
                                                     >
-                                                        <Edit2 size={18} />
+                                                        <RefreshCw size={16} className={activeMenuId === product.id ? 'animate-spin-slow' : ''} />
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: product.id, name: product.name }); }}
-                                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all group/btn"
-                                                        title="Remove from Inventory"
-                                                    >
-                                                        <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                    </button>
+                                                    
+                                                    {activeMenuId === product.id && (
+                                                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                            <div className="p-2 space-y-1">
+                                                                <button onClick={() => { handleOpenEdit(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
+                                                                    <Edit2 size={14} className="text-indigo-500" /> Edit Product
+                                                                </button>
+                                                                <button onClick={() => { setPendingDelete({ id: product.id, name: product.name }); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
+                                                                    <Trash2 size={14} className="text-rose-500" /> Delete Product
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -502,37 +622,37 @@ export const InventoryModule: React.FC = () => {
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full text-left text-sm text-slate-600 min-w-[800px]">
-                            <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-100 shadow-[0_1px_0_0_#f1f5f9]">
+                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[800px]">
+                            <thead className="bg-[#fcfdfd] text-[8px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-6 py-5 bg-[#fcfdfd]">Transaction Date</th>
-                                    <th className="px-6 py-5 bg-[#fcfdfd]">Nature of Movement</th>
-                                    <th className="px-6 py-5 bg-[#fcfdfd]">Product Master</th>
-                                    <th className="px-6 py-5 text-right bg-[#fcfdfd]">Quantity</th>
-                                    <th className="px-6 py-5 bg-[#fcfdfd]">Reference / Notes</th>
+                                    <th className="px-6 py-4 bg-[#fcfdfd]">Transaction Date</th>
+                                    <th className="px-6 py-4 bg-[#fcfdfd]">Nature of Movement</th>
+                                    <th className="px-6 py-4 bg-[#fcfdfd]">Product Master</th>
+                                    <th className="px-6 py-4 text-right bg-[#fcfdfd]">Quantity</th>
+                                    <th className="px-6 py-4 bg-[#fcfdfd]">Reference / Notes</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 relative z-10">
                                 {stockMovements.length > 0 ? (
                                     stockMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((movement) => (
-                                        <tr key={movement.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-5 text-slate-500 font-bold">{movement.date}</td>
-                                            <td className="px-6 py-5">
-                                                <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${movement.type === 'In'
+                                        <tr key={movement.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-b-0">
+                                            <td className="px-6 py-4 text-slate-500 font-bold">{movement.date}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border ${movement.type === 'In'
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                     : movement.purpose === 'Demo'
                                                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                                                         : 'bg-orange-50 text-orange-700 border-orange-200'
                                                     }`}>
-                                                    {movement.type === 'In' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+                                                    {movement.type === 'In' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
                                                     {movement.type === 'In' ? 'Stock Receipt' : movement.purpose === 'Demo' ? 'Demo Dispatch' : 'Sales Dispatch'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5 font-black text-slate-800">{movement.productName}</td>
-                                            <td className="px-6 py-5 text-right font-black text-lg text-slate-700">
+                                            <td className="px-6 py-4 font-black text-slate-800">{movement.productName}</td>
+                                            <td className="px-6 py-4 text-right font-black text-sm text-slate-700">
                                                 {movement.quantity}
                                             </td>
-                                            <td className="px-6 py-5 font-mono text-[10px] text-slate-400 max-w-xs truncate">
+                                            <td className="px-6 py-4 font-mono text-[9px] text-slate-400 max-w-xs truncate">
                                                 {movement.reference}
                                             </td>
                                         </tr>
@@ -573,7 +693,7 @@ export const InventoryModule: React.FC = () => {
             {showEditProductModal && editingProduct && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Edit Registry Item</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual Inventory Adjustment</p>
@@ -583,62 +703,62 @@ export const InventoryModule: React.FC = () => {
                         <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Name *</label>
-                                <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                                <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Model *</label>
-                                    <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+                                    <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type (nos/pkt)</label>
-                                    <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value.toLowerCase() })} placeholder="nos" />
+                                    <input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value.toLowerCase() })} placeholder="nos" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Cost (₹)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-rose-600" value={editingProduct.purchasePrice || 0} onChange={e => setEditingProduct({ ...editingProduct, purchasePrice: Number(e.target.value) })} />
+                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none text-rose-600" value={editingProduct.purchasePrice || 0} onChange={e => setEditingProduct({ ...editingProduct, purchasePrice: Number(e.target.value) })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({ ...editingProduct, sellingPrice: Number(e.target.value) })} />
+                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({ ...editingProduct, sellingPrice: Number(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Available Stock</label>
-                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock || 0} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} />
+                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none text-indigo-600" value={editingProduct.stock || 0} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Alert Level</label>
-                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel || 0} onChange={e => setEditingProduct({ ...editingProduct, minLevel: Number(e.target.value) })} />
+                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.minLevel || 0} onChange={e => setEditingProduct({ ...editingProduct, minLevel: Number(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">HSN Code</label>
-                                    <input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.hsn || ''} onChange={e => setEditingProduct({ ...editingProduct, hsn: e.target.value })} placeholder="HSN Code" />
+                                    <input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.hsn || ''} onChange={e => setEditingProduct({ ...editingProduct, hsn: e.target.value })} placeholder="HSN Code" />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GST Percentage (%)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.taxRate || 0} onChange={e => setEditingProduct({ ...editingProduct, taxRate: Number(e.target.value) })} />
+                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={editingProduct.taxRate || 0} onChange={e => setEditingProduct({ ...editingProduct, taxRate: Number(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tax Calculation (Selling Price + GST)</label>
-                                <div className="w-full bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
+                                <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
                                     <span>Calculated Rate:</span>
                                     <span>₹{((editingProduct.sellingPrice || 0) * (1 + (editingProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
-                                <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
+                                <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
                             </div>
                         </div>
-                        <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
-                            <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                        <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
+                            <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                             <button onClick={handleUpdateSubmit} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-medical-500/20 active:scale-95 transition-all">Commit Registry Changes</button>
                         </div>
                     </div>
@@ -649,7 +769,7 @@ export const InventoryModule: React.FC = () => {
             {showAddProductModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Register New Item</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Master Registry Entry</p>
@@ -657,52 +777,52 @@ export const InventoryModule: React.FC = () => {
                             <button onClick={() => setShowAddProductModal(false)}><X size={28} className="text-slate-400" /></button>
                         </div>
                         <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" placeholder="Product Name *" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
+                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500" placeholder="Product Name *" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
                             <div className="grid grid-cols-2 gap-5">
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
-                                <select className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
+                                <select className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
                                     <option>Equipment</option><option>Consumable</option><option>Spare Part</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Purchase Cost (₹)</label>
-                                    <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.purchasePrice || ''} onChange={e => setNewProduct({ ...newProduct, purchasePrice: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.purchasePrice || ''} onChange={e => setNewProduct({ ...newProduct, purchasePrice: Number(e.target.value) })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selling Rate (₹)</label>
-                                    <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({ ...newProduct, sellingPrice: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({ ...newProduct, sellingPrice: Number(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
-                                <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
-                                <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value.toLowerCase() })} />
+                                <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
+                                <input type="text" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value.toLowerCase() })} />
                             </div>
                             <div className="grid grid-cols-2 gap-5">
-                                <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({ ...newProduct, minLevel: Number(e.target.value) })} />
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({ ...newProduct, location: e.target.value })} />
+                                <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({ ...newProduct, minLevel: Number(e.target.value) })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({ ...newProduct, location: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">HSN Code</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="HSN Code" value={newProduct.hsn || ''} onChange={e => setNewProduct({ ...newProduct, hsn: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="HSN Code" value={newProduct.hsn || ''} onChange={e => setNewProduct({ ...newProduct, hsn: e.target.value })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">GST Percentage (%)</label>
-                                    <input type="number" className="w-full border border-slate-200 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="18" value={newProduct.taxRate || ''} onChange={e => setNewProduct({ ...newProduct, taxRate: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="18" value={newProduct.taxRate || ''} onChange={e => setNewProduct({ ...newProduct, taxRate: Number(e.target.value) })} />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tax Calculation (Selling Price + GST)</label>
-                                <div className="w-full bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
+                                <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-2xl px-5 py-3 text-sm font-black text-medical-600 flex justify-between items-center">
                                     <span>Calculated Rate:</span>
                                     <span>₹{((newProduct.sellingPrice || 0) * (1 + (newProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
-                            <input type="text" className="w-full border border-slate-200 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
+                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
                         </div>
-                        <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50">
-                            <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+                        <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
+                            <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
                             <button onClick={handleSaveProduct} className="flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Initialize Item</button>
                         </div>
                     </div>
@@ -713,7 +833,7 @@ export const InventoryModule: React.FC = () => {
             {showScanModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
                                 <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Barcode Scanner</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual SKU Entry / Scan Simulation</p>
@@ -723,14 +843,14 @@ export const InventoryModule: React.FC = () => {
                         <div className="p-8 space-y-6">
                             {scanStatus === 'idle' && (
                                 <form onSubmit={handleScanSubmit} className="space-y-4">
-                                    <div className="p-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                    <div className="p-12 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
                                         <ScanBarcode size={64} className="mb-4 opacity-40 animate-pulse" />
                                         <p className="text-[10px] font-black uppercase tracking-widest text-center">Awaiting SKU Signal...</p>
                                     </div>
                                     <input
                                         ref={scanInputRef}
                                         type="text"
-                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-center text-lg font-black tracking-widest outline-none focus:border-medical-500"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-4 text-center text-lg font-black tracking-widest outline-none focus:border-medical-500"
                                         placeholder="ENTER SKU MANUALLY"
                                         value={scanQuery}
                                         onChange={e => setScanQuery(e.target.value)}
@@ -759,7 +879,7 @@ export const InventoryModule: React.FC = () => {
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
                                         <div className="flex items-center gap-3">
                                             <button onClick={() => setQuickStockAmount(Math.max(1, quickStockAmount - 1))} className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black">-</button>
-                                            <input type="number" className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-3 text-center font-black text-xl" value={quickStockAmount} onChange={e => setQuickStockAmount(Number(e.target.value))} />
+                                            <input type="number" className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-3 text-center font-black text-xl" value={quickStockAmount} onChange={e => setQuickStockAmount(Number(e.target.value))} />
                                             <button onClick={() => setQuickStockAmount(quickStockAmount + 1)} className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black">+</button>
                                         </div>
                                     </div>
@@ -790,7 +910,7 @@ export const InventoryModule: React.FC = () => {
             {showDemoModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
                                 <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Demo Dispatch</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Temporary Equipment Assignment</p>
@@ -800,7 +920,7 @@ export const InventoryModule: React.FC = () => {
                         <div className="p-8 space-y-5">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Equipment *</label>
-                                <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none appearance-none" value={demoData.productId} onChange={e => setDemoData({ ...demoData, productId: e.target.value })}>
+                                <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none appearance-none" value={demoData.productId} onChange={e => setDemoData({ ...demoData, productId: e.target.value })}>
                                     <option value="">Choose item from stock...</option>
                                     {products.filter(p => (p.stock || 0) > 0).map(p => (
                                         <option key={p.id} value={p.id}>{p.name} (Stock: {p.stock || 0} {p.unit})</option>
@@ -811,27 +931,27 @@ export const InventoryModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dispatch Units</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={demoData.quantity} onChange={e => setDemoData({ ...demoData, quantity: Number(e.target.value) })} min={1} />
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={demoData.quantity} onChange={e => setDemoData({ ...demoData, quantity: Number(e.target.value) })} min={1} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dispatch Date</label>
-                                    <input type="date" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={demoData.date} onChange={e => setDemoData({ ...demoData, date: e.target.value })} />
+                                    <input type="date" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" value={demoData.date} onChange={e => setDemoData({ ...demoData, date: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Client / Hospital *</label>
-                                <input type="text" list="demo-clients" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Search customer index..." value={demoData.clientName} onChange={e => setDemoData({ ...demoData, clientName: e.target.value })} />
+                                <input type="text" list="demo-clients" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none" placeholder="Search customer index..." value={demoData.clientName} onChange={e => setDemoData({ ...demoData, clientName: e.target.value })} />
                                 <datalist id="demo-clients">{clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}</datalist>
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Site Location</label>
-                                <input type="text" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Installation Point" value={demoData.location} onChange={e => setDemoData({ ...demoData, location: e.target.value })} />
+                                <input type="text" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none" placeholder="Installation Point" value={demoData.location} onChange={e => setDemoData({ ...demoData, location: e.target.value })} />
                             </div>
                         </div>
-                        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-                            <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+                        <div className="p-8 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                            <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
                             <button onClick={handleSendForDemo} className="flex-[2] py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-purple-500/20 active:scale-95 transition-all">Authorize Dispatch</button>
                         </div>
                     </div>

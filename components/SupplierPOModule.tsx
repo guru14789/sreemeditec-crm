@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem, Product } from '../types';
+import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, 
-    History, Download, Edit, Eye, List as ListIcon, Calendar, ArrowLeft, Building2, CreditCard, Package, CheckCircle2, Star, FileText
+    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -33,11 +33,12 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const SupplierPOModule: React.FC = () => {
-    const { vendors, products, invoices, addInvoice, updateInvoice, addVendor, addNotification, currentUser } = useData();
+    const { vendors, products, invoices, addInvoice, updateInvoice, addNotification, currentUser } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
     const [order, setOrder] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -71,6 +72,12 @@ export const SupplierPOModule: React.FC = () => {
             }));
         }
     }, [viewState, editingId, invoices]);
+
+    useEffect(() => {
+        const handleGlobalClick = () => setActiveMenuId(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
 
     const filteredSpares = useMemo(() => {
         const query = catalogSearch.toLowerCase();
@@ -386,43 +393,71 @@ export const SupplierPOModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
+            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
                 <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.' }); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Procurement</button>
             </div>
 
             {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center bg-slate-50/30"><h3 className="font-black text-slate-800 uppercase tracking-tight text-xs tracking-widest">Procurement History</h3></div>
+                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30"><h3 className="font-black text-slate-800 uppercase tracking-tight text-xs tracking-widest">Procurement History</h3></div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[10px] text-slate-500 border-b">
+                        <table className="w-full text-left text-[11px]">
+                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
                                     <th className="px-6 py-4">PO #</th>
                                     <th className="px-6 py-4">Vendor</th>
                                     <th className="px-6 py-4">Author</th>
-                                    <th className="px-6 py-4 text-right">Value</th>
+                                    <th className="px-6 py-4 text-right">Grand Total</th>
                                     <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {invoices.filter(i => i.documentType === 'SupplierPO').map(inv => (
-                                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
+                                    <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black uppercase text-slate-500">{inv.createdBy?.charAt(0) || 'S'}</div>
-                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px]">{inv.createdBy || 'System'}</span>
+                                            <div 
+                                                title={inv.createdBy || 'System'}
+                                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
+                                            >
+                                                {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><Edit size={18}/></button>
-                                                <button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"><Download size={18}/></button>
+                                            <div className="relative flex justify-end">
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setActiveMenuId(activeMenuId === inv.id ? null : inv.id); 
+                                                    }} 
+                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                >
+                                                    <MoreVertical size={18} />
+                                                </button>
+                                                
+                                                {activeMenuId === inv.id && (
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px] border-slate-300">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Edit Procurement"
+                                                        >
+                                                            <Edit size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Download PDF"
+                                                        >
+                                                            <Download size={18} />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -432,8 +467,8 @@ export const SupplierPOModule: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
+                <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
+                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
                         <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Details</button>
                         <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Preview</button>
                         <button onClick={() => setBuilderTab('spares')} className={`flex-1 min-w-[120px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'spares' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><ListIcon size={18}/> Spares Store</button>
@@ -446,71 +481,71 @@ export const SupplierPOModule: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">SMPOC No.</label>
-                                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.invoiceNumber} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMPOC-001" />
+                                            <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.invoiceNumber} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMPOC-001" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Date</label>
-                                            <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.date} onChange={e => setOrder({...order, date: e.target.value})} />
+                                            <input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.date} onChange={e => setOrder({...order, date: e.target.value})} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Vendor Ref No.</label>
-                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={order.cpoNumber} onChange={e => setOrder({...order, cpoNumber: e.target.value})} placeholder="Ref-1234" />
+                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={order.cpoNumber} onChange={e => setOrder({...order, cpoNumber: e.target.value})} placeholder="Ref-1234" />
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ref Date</label>
-                                            <input type="date" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.cpoDate} onChange={e => setOrder({...order, cpoDate: e.target.value})} />
+                                            <input type="date" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.cpoDate} onChange={e => setOrder({...order, cpoDate: e.target.value})} />
                                         </div>
                                     </div>
                                 </section>
                                 <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b pb-2 flex items-center gap-2"><Building2 size={14}/> Vendor Linkage</h3>
                                     <div className="relative">
-                                        <input type="text" list="vendor-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.customerName || ''} onChange={e => handleVendorSelect(e.target.value)} placeholder="Search Authorized Vendor Database *" />
+                                        <input type="text" list="vendor-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.customerName || ''} onChange={e => handleVendorSelect(e.target.value)} placeholder="Search Authorized Vendor Database *" />
                                         <datalist id="vendor-list">{vendors.map(v => <option key={v.id} value={v.name} />)}</datalist>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none transition-all" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Vendor Address Details" />
-                                        <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none transition-all" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Sree Meditec Delivery Point" />
+                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none transition-all" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Vendor Address Details" />
+                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none transition-all" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Sree Meditec Delivery Point" />
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <input type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" placeholder="Vendor GSTIN" value={order.customerGstin} onChange={e => setOrder({...order, customerGstin: e.target.value})} />
-                                        <input type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" placeholder="Our Billing GSTIN" value={order.bankDetails} onChange={e => setOrder({...order, bankDetails: e.target.value})} />
+                                        <input type="text" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" placeholder="Vendor GSTIN" value={order.customerGstin} onChange={e => setOrder({...order, customerGstin: e.target.value})} />
+                                        <input type="text" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" placeholder="Our Billing GSTIN" value={order.bankDetails} onChange={e => setOrder({...order, bankDetails: e.target.value})} />
                                     </div>
                                 </section>
                                 <section className="space-y-4">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-2 gap-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Package size={14}/> Line Items</h3><div className="flex gap-2 w-full sm:w-auto"><button onClick={() => handleAddItem()} className="flex-1 sm:flex-none text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1.5 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Add Empty Row</button><button onClick={() => setBuilderTab('spares')} className="flex-1 sm:flex-none text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Browse Spares Store</button></div></div>
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-300 pb-2 gap-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Package size={14}/> Line Items</h3><div className="flex gap-2 w-full sm:w-auto"><button onClick={() => handleAddItem()} className="flex-1 sm:flex-none text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1.5 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Add Empty Row</button><button onClick={() => setBuilderTab('spares')} className="flex-1 sm:flex-none text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Browse Spares Store</button></div></div>
                                     <div className="space-y-4">
                                         {order.items?.map((item) => (
-                                            <div key={item.id} className="p-4 sm:p-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] sm:rounded-[2rem] relative group hover:bg-white hover:border-medical-200 transition-all">
+                                            <div key={item.id} className="p-4 sm:p-5 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] relative group hover:bg-white hover:border-medical-200 transition-all">
                                                 <button onClick={() => setOrder({...order, items: order.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
                                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                                    <div className="md:col-span-8"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Description</label><input type="text" list="prod-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black" placeholder="Part or Consumable" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} /></div>
+                                                    <div className="md:col-span-8"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1">Description</label><input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Part or Consumable" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} /></div>
                                                     <div className="grid grid-cols-3 md:col-span-4 gap-2">
-                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-center">Qty</label><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
-                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-right">Buy Rate</label><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
-                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-center">GST %</label><input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
+                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-center">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
+                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-right">Buy Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
+                                                        <div className="col-span-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1 block mb-1 text-center">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                         {order.items?.length === 0 && (
-                                            <div className="py-12 border-2 border-dashed border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
+                                            <div className="py-12 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center justify-center text-slate-300">
                                                 <Package size={40} className="mb-2 opacity-20" />
                                                 <p className="text-xs font-black uppercase tracking-widest text-center px-4">No spares indexed in this order</p>
                                             </div>
                                         )}
                                     </div>
                                 </section>
-                                <section className="space-y-6 bg-slate-50/50 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100">
+                                <section className="space-y-6 bg-slate-50/50 p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-300">
                                     <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><CreditCard size={16} /> Fulfillment & Terms</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Discount / Adjustment (₹)</label><input type="number" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.discount} onChange={e => setOrder({...order, discount: Number(e.target.value)})} placeholder="0.00" /></div>
-                                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Delivery Lead Time</label><input type="text" className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.deliveryTime} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. Immediate, 7 Days" /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Discount / Adjustment (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.discount} onChange={e => setOrder({...order, discount: Number(e.target.value)})} placeholder="0.00" /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Delivery Lead Time</label><input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.deliveryTime} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. Immediate, 7 Days" /></div>
                                     </div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment / Contract Terms</label><textarea rows={2} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.paymentTerms} onChange={e => setOrder({...order, paymentTerms: e.target.value})} placeholder="e.g. 100% against delivery" /></div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Special Packing/Shipping Notes</label><textarea rows={3} className="w-full bg-white border border-slate-200 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Any specific vendor requirements..." /></div>
+                                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment / Contract Terms</label><textarea rows={2} className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.paymentTerms} onChange={e => setOrder({...order, paymentTerms: e.target.value})} placeholder="e.g. 100% against delivery" /></div>
+                                    <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Special Packing/Shipping Notes</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Any specific vendor requirements..." /></div>
                                 </section>
                                 <div className="flex flex-col sm:flex-row gap-4 pt-10 sticky bottom-0 bg-white pb-6 border-t border-slate-50 z-30">
                                     <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button>
@@ -531,7 +566,7 @@ export const SupplierPOModule: React.FC = () => {
                                     </div>
                                     <div className="relative w-full sm:w-80">
                                         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <input type="text" placeholder="Filter Spares Registry..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
+                                        <input type="text" placeholder="Filter Spares Registry..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
                                     </div>
                                 </div>
                                 
@@ -550,24 +585,24 @@ export const SupplierPOModule: React.FC = () => {
                                                  className={`p-5 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden ${
                                                      isVendorMatch 
                                                      ? 'bg-indigo-50/20 border-indigo-200 shadow-md ring-1 ring-indigo-100' 
-                                                     : 'bg-white border-slate-100 hover:border-medical-400 shadow-sm'
+                                                     : 'bg-white border-slate-300 hover:border-medical-400 shadow-sm'
                                                  }`} 
                                                  onClick={() => handleAddItem(prod)}>
                                                 {isVendorMatch && <div className="absolute top-0 right-0 p-2 bg-indigo-600 text-white rounded-bl-2xl"><Star size={12} fill="currentColor" /></div>}
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2 mb-2">
-                                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{prod.category}</span>
+                                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-100 text-slate-500 border-slate-300'}`}>{prod.category}</span>
                                                         <span className="text-[9px] font-mono text-slate-400 tracking-tighter uppercase">{prod.sku}</span>
                                                     </div>
                                                     <h4 className="font-black text-slate-800 text-sm leading-tight group-hover:text-medical-700 transition-colors">{prod.name}</h4>
                                                     <p className="text-[9px] font-black text-slate-400 mt-2 uppercase truncate">{prod.supplier || 'N/A Supplier'}</p>
                                                 </div>
-                                                <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+                                                <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-slate-300 pt-4">
                                                     <div>
                                                         <p className="text-[8px] font-black text-slate-400 uppercase">Master Buy Rate</p>
                                                         <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.purchasePrice || 0).toLocaleString()}</p>
                                                     </div>
-                                                    <div className={`p-2 rounded-xl border shadow-sm transition-all group-hover:scale-110 ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-white text-medical-600 border-slate-100 group-hover:bg-medical-600 group-hover:text-white'}`}>
+                                                    <div className={`p-2 rounded-xl border shadow-sm transition-all group-hover:scale-110 ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-white text-medical-600 border-slate-300 group-hover:bg-medical-600 group-hover:text-white'}`}>
                                                         <Plus size={20} />
                                                     </div>
                                                 </div>

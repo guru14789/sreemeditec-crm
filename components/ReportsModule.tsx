@@ -70,7 +70,7 @@ export const ReportsModule: React.FC = () => {
     <div className="h-full flex flex-col gap-6 overflow-y-auto p-2">
         
         {/* Header Toolbar */}
-        <div className="flex flex-col sm:flex-row justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl border border-slate-300 shadow-sm">
             <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-white shadow-lg shadow-indigo-500/20">
                     <FileText size={24} />
@@ -85,7 +85,7 @@ export const ReportsModule: React.FC = () => {
                  <div className="relative hidden sm:block">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <select 
-                        className="pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer hover:bg-slate-100 transition-colors"
+                        className="pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer hover:bg-slate-100 transition-colors"
                         value={dateRange}
                         onChange={(e) => setDateRange(e.target.value)}
                     >
@@ -96,7 +96,7 @@ export const ReportsModule: React.FC = () => {
                         <option>This Year</option>
                     </select>
                  </div>
-                 <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors group">
+                 <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors group">
                     <Download size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" /> 
                     <span className="hidden sm:inline">Export Report</span>
                 </button>
@@ -106,7 +106,7 @@ export const ReportsModule: React.FC = () => {
         {/* KPI Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
              {/* Total Revenue */}
-             <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-emerald-100 transition-all">
+             <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-emerald-100 transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
                         <DollarSign size={20} />
@@ -122,7 +122,7 @@ export const ReportsModule: React.FC = () => {
              </div>
 
              {/* Net Profit */}
-             <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-indigo-100 transition-all">
+             <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-indigo-100 transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">
                         <TrendingUp size={20} />
@@ -138,7 +138,7 @@ export const ReportsModule: React.FC = () => {
              </div>
 
              {/* Total Expenses */}
-             <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-rose-100 transition-all">
+             <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-rose-100 transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl group-hover:scale-110 transition-transform">
                         <ArrowDownRight size={20} />
@@ -154,7 +154,7 @@ export const ReportsModule: React.FC = () => {
              </div>
 
              {/* Sales Growth */}
-             <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-amber-100 transition-all">
+             <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-amber-100 transition-all">
                 <div className="flex justify-between items-start mb-2">
                     <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
                         <PieChartIcon size={20} />
@@ -174,7 +174,7 @@ export const ReportsModule: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
             
             {/* Main Financial Chart */}
-            <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+            <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="font-bold text-lg text-slate-800">Financial Performance</h3>
@@ -246,7 +246,7 @@ export const ReportsModule: React.FC = () => {
             <div className="w-full lg:w-[350px] flex flex-col gap-6 shrink-0">
                 
                 {/* Category Distribution */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[300px]">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col h-[300px]">
                     <h3 className="font-bold text-lg text-slate-800 mb-2">Sales by Category</h3>
                     <div className="flex-1 w-full min-h-0 relative">
                         <ResponsiveContainer width="100%" height="100%">
@@ -286,7 +286,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
 
                 {/* Top Selling Products */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex-1 flex flex-col">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex-1 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg text-slate-800">Top Products</h3>
                         <button className="text-slate-400 hover:text-slate-600"><MoreHorizontal size={18} /></button>
@@ -316,7 +316,7 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         {/* Lead Source & Conversion Graph */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[400px] shrink-0">
+        <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col h-[400px] shrink-0">
              <div className="flex justify-between items-center mb-6">
                 <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">

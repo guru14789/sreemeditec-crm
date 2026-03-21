@@ -220,9 +220,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         if (record?.status === 'Paused') return 'bg-amber-50 text-amber-700 border-amber-100';
 
         switch (status) {
-            case 'Active': return 'bg-slate-50 text-slate-700 border-slate-100';
+            case 'Active': return 'bg-slate-50 text-slate-700 border-slate-300';
             case 'On Leave': return 'bg-rose-50 text-rose-700 border-rose-100';
-            default: return 'bg-slate-100 text-slate-600 border-slate-200';
+            default: return 'bg-slate-100 text-slate-600 border-slate-300';
         }
     };
 
@@ -232,7 +232,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             {/* Confirmation Modal */}
             {showConfirmModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 transform transition-all animate-in fade-in zoom-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-300 transform transition-all animate-in fade-in zoom-in duration-300">
                         <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
                             <CheckCircle size={32} />
                         </div>
@@ -260,21 +260,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
             {/* Requirement Info Bar */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-                <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0"><User size={20} /></div>
                     <div className="min-w-0">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Authenticated</p>
                         <h4 className="font-black text-slate-800 uppercase tracking-tight truncate text-sm">{me?.name}</h4>
                     </div>
                 </div>
-                <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="w-10 h-10 bg-medical-50 text-medical-600 rounded-2xl flex items-center justify-center shrink-0"><ShieldCheck size={20} /></div>
                     <div className="min-w-0">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Work Configuration</p>
                         <h4 className="font-black text-medical-600 uppercase tracking-tight text-sm">{workMode} Profile</h4>
                     </div>
                 </div>
-                <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0"><AlertCircle size={20} /></div>
                     <div className="min-w-0">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Condition for Day End</p>
@@ -289,7 +289,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 {/* Left Column: Action Card */}
                 <div className="w-full lg:w-1/3 flex flex-col gap-6 shrink-0">
                     {/* Primary Action Card */}
-                    <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-6 flex flex-col relative overflow-hidden group shrink-0">
+                    <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-300 p-6 flex flex-col relative overflow-hidden group shrink-0">
                         <div className={`absolute top-0 left-0 w-full h-2 ${isLocked ? 'bg-indigo-500' : isCheckedIn ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
 
                         <div className="text-center mb-6">
@@ -302,7 +302,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                 {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                             </div>
 
-                            <div className="w-full bg-slate-50 rounded-[2rem] p-4 border border-slate-100 flex flex-col items-center justify-center">
+                            <div className="w-full bg-slate-50 rounded-[2rem] p-4 border border-slate-300 flex flex-col items-center justify-center">
                                 <div className={`flex items-center gap-2 font-black text-2xl transition-all ${isLocked ? 'text-indigo-600' : isCheckedIn ? 'text-emerald-600' : 'text-slate-300'}`}>
                                     {isLocked ? <Lock size={24} /> : workMode === 'Field' ? <ClipboardCheck size={24} /> : <Timer size={24} className={isCheckedIn ? "animate-pulse" : ""} />}
                                     <span>{workMode === 'Field' ? `${completedTasksCount}/${totalTasksCount}` : formatDuration(totalWorkedMs)}</span>
@@ -329,7 +329,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                             </button>
                         ) : (
                             <div className="w-full flex-col gap-3">
-                                <div className="w-full py-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400">
+                                <div className="w-full py-4 bg-slate-50 border border-slate-300 rounded-2xl flex flex-col items-center justify-center text-slate-400">
                                     <Lock size={24} className="mb-2" />
                                     <span className="text-[10px] font-black uppercase tracking-widest">Shift Completed & Locked</span>
                                     <span className="text-[8px] font-bold mt-1">See you tomorrow!</span>
@@ -357,12 +357,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 </div>
 
                 {/* Right Column: Staff Registry (Attendance Sheet) */}
-                <div className="flex-1 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[400px]">
-                    <div className="p-6 border-b border-slate-100 flex flex-wrap gap-4 justify-between items-center bg-slate-50/50">
+                <div className="flex-1 bg-white rounded-[2.5rem] shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
+                    <div className="p-6 border-b border-slate-300 flex flex-wrap gap-4 justify-between items-center bg-slate-50/50">
                         <h3 className="font-black text-base text-slate-800 uppercase tracking-tight flex items-center gap-2">
                             <Building2 size={20} className="text-slate-400" /> Attendance Sheet
                         </h3>
-                        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex bg-white p-1 rounded-xl border border-slate-300 shadow-sm">
                             {['All', 'Service', 'Administration', 'Support'].map(dept => (
                                 <button
                                     key={dept}
@@ -380,7 +380,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10 text-[9px] uppercase font-black tracking-widest text-slate-400">
+                            <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 text-[9px] uppercase font-black tracking-widest text-slate-400">
                                 <tr>
                                     <th className="px-6 py-4">Staff Member</th>
                                     <th className="px-6 py-4">Department</th>
@@ -397,7 +397,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                         <tr key={emp.id} className="hover:bg-slate-50 transition-colors group">
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-200">
+                                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-300">
                                                         {emp.name.charAt(0)}
                                                     </div>
                                                     <div>

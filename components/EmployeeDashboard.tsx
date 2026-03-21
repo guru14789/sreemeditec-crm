@@ -41,7 +41,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
 
       {/* Personal KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl group-hover:scale-110 transition-transform">
               <Zap size={22} fill="currentColor" />
@@ -52,7 +52,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
           <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{userStats.points}</h3>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl group-hover:scale-110 transition-transform">
               <CheckCircle2 size={22} />
@@ -63,7 +63,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
           <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{userStats.tasksCompleted}</h3>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
               <Star size={22} />
@@ -102,9 +102,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
           <div className="space-y-3">
             {myTasksToday.length > 0 ? (
               myTasksToday.map(task => (
-                <div key={task.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-medical-400 hover:shadow-lg transition-all cursor-pointer">
+                <div key={task.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.2rem] border border-slate-300 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-medical-400 hover:shadow-lg transition-all cursor-pointer">
                   <div className="flex items-start gap-5">
-                    <div className={`p-3.5 rounded-2xl shrink-0 transition-colors ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
+                    <div className={`p-3.5 rounded-2xl shrink-0 transition-colors ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-300'}`}>
                       {task.status === 'Done' ? <CheckCircle2 size={22} /> : <Clock size={22} />}
                     </div>
                     <div>
@@ -116,7 +116,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
                           <MapPin size={12} className="text-indigo-400" /> {task.locationName || 'Main Office'}
                         </span>
                         <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border tracking-tighter ${
-                          task.priority === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-500 border-slate-100'
+                          task.priority === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-500 border-slate-300'
                         }`}>
                           {task.priority} Priority
                         </span>
@@ -129,7 +129,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
                 </div>
               ))
             ) : (
-              <div className="py-16 bg-slate-50/50 dark:bg-slate-800/30 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center px-10">
+              <div className="py-16 bg-slate-50/50 dark:bg-slate-800/30 rounded-[3rem] border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-center px-10">
                 <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl shadow-xl mb-6">
                   <Calendar size={40} className="text-slate-200" />
                 </div>
@@ -142,7 +142,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
 
         {/* Sidebar: Performance & Points */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
             <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50">
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-[0.3em] flex items-center gap-2">
                 <Star size={16} className="text-amber-500" /> Performance Feed
@@ -150,7 +150,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             </div>
             <div className="p-5 space-y-3">
               {pointHistory.slice(0, 5).map(log => (
-                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800/50 flex items-center justify-between hover:border-indigo-200 transition-colors">
+                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-indigo-200 transition-colors">
                   <div className="min-w-0 pr-4">
                     <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase truncate leading-tight tracking-tight">{log.description}</p>
                     <p className="text-[8px] font-bold text-slate-300 uppercase mt-1.5 tracking-widest">{log.date}</p>

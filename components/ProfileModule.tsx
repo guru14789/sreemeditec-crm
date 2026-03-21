@@ -259,7 +259,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     <NavItem id="data" icon={Database} label="System Data" activeTab={activeTab} onClick={setActiveTab} />
                 </div>
 
-                <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 overflow-hidden flex flex-col">
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
                         <div className="max-w-3xl mx-auto">
                             {activeTab === 'general' && (
@@ -269,11 +269,11 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                         <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase tracking-widest">ID: {authUser?.id}</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
-                                        <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
-                                        <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
-                                        <FormRow label="Contact Phone"><input type="tel" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
-                                        <FormRow label="Department" fullWidth><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.department} /></FormRow>
+                                        <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
+                                        <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
+                                        <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
+                                        <FormRow label="Contact Phone"><input type="tel" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
+                                        <FormRow label="Department" fullWidth><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.department} /></FormRow>
                                     </div>
                                 </div>
                             )}
@@ -281,19 +281,19 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                             {activeTab === 'security' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-10">
                                     <div className="mb-6"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Access & Security</h3></div>
-                                    <div className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row items-center justify-between gap-6 ${mfaEnabled ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'} ${!isEditing ? 'opacity-60' : ''}`}>
+                                    <div className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row items-center justify-between gap-6 ${mfaEnabled ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700'} ${!isEditing ? 'opacity-60' : ''}`}>
                                         <div className="flex items-center gap-5">
                                             <div className="p-4 rounded-2xl bg-white dark:bg-slate-700 shadow-sm"><Smartphone size={28}/></div>
                                             <div><p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">Two-Factor Authentication</p><p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{mfaEnabled ? 'OTP active' : 'Registry protection inactive'}</p></div>
                                         </div>
                                         <button disabled={!isEditing} onClick={handleToggleMFA} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${mfaEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>{mfaEnabled ? 'Deactivate' : 'Activate'}</button>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-300 dark:border-slate-800">
                                         <div className="space-y-4">
                                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Lock size={14}/> Active Connections</h4>
                                             <div className="space-y-3">
                                                 {sessions.map(s => (
-                                                    <div key={s.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                                                    <div key={s.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700">{getDeviceIcon(s.type)}</div>
                                                             <div><p className="text-[11px] font-black text-slate-800 dark:text-slate-200">{s.device}</p><p className="text-[9px] font-bold text-slate-400 uppercase">{s.ip}</p></div>
@@ -314,7 +314,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Monitor size={14}/> UI Theme</h4>
                                         <div className="grid grid-cols-3 gap-4">
                                             {['light', 'dark', 'system'].map(t => (
-                                                <button key={t} onClick={() => isEditing && setAppPrefs({...appPrefs, theme: t as any})} className={`p-5 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all ${appPrefs.theme === t ? 'border-medical-500 bg-medical-50 dark:bg-medical-900/10' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50'}`}>
+                                                <button key={t} onClick={() => isEditing && setAppPrefs({...appPrefs, theme: t as any})} className={`p-5 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all ${appPrefs.theme === t ? 'border-medical-500 bg-medical-50 dark:bg-medical-900/10' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50'}`}>
                                                     <div className={`p-3 rounded-2xl ${appPrefs.theme === t ? 'bg-medical-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{t === 'light' ? <Sun size={20}/> : t === 'dark' ? <Moon size={20}/> : <Monitor size={20}/>}</div>
                                                     <p className="text-[9px] font-black uppercase tracking-widest">{t}</p>
                                                 </button>
@@ -349,7 +349,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     </div>
 
                     {isEditing && (
-                        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center gap-3">
+                        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-300 dark:border-slate-800 flex justify-between items-center gap-3">
                             <div className="flex items-center gap-2">
                                 <p className={`text-[10px] font-black uppercase tracking-widest ${hasUnsavedChanges ? 'text-amber-600 animate-pulse' : 'text-slate-400'}`}>
                                     {hasUnsavedChanges ? 'Registry mismatch detected' : 'In sync with registry'}

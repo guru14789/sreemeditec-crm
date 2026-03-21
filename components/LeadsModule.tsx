@@ -138,9 +138,9 @@ export const LeadsModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl shadow-sm border border-slate-300">
                 <div className="flex gap-3">
-                    <button onClick={handleSyncLeads} disabled={isSyncing} className="bg-slate-50 border border-slate-200 text-slate-700 hover:text-medical-600 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2">
+                    <button onClick={handleSyncLeads} disabled={isSyncing} className="bg-slate-50 border border-slate-300 text-slate-700 hover:text-medical-600 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2">
                         <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
                         {isSyncing ? 'Syncing...' : 'Sync Cloud'}
                     </button>
@@ -151,10 +151,10 @@ export const LeadsModule: React.FC = () => {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 lg:overflow-hidden lg:min-h-0">
-                <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[400px]">
+                <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
                     <div className="overflow-x-auto flex-1 custom-scrollbar">
                         <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50/80 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
+                            <thead className="bg-slate-50/80 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
                                 <tr><th className="px-6 py-4">Lead / Hospital</th><th className="px-6 py-4">Source</th><th className="px-6 py-4">Interest</th><th className="px-6 py-4">Next Action</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -180,8 +180,8 @@ export const LeadsModule: React.FC = () => {
                 </div>
 
                 {selectedLead && (
-                    <div className="w-full lg:w-[420px] bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 duration-300">
-                        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <div className="w-full lg:w-[420px] bg-white rounded-3xl shadow-2xl border border-slate-300 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 duration-300">
+                        <div className="p-6 border-b border-slate-300 bg-slate-50/50">
                             <div className="flex justify-between items-start mb-4">
                                 <div><h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{selectedLead.name}</h3><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedLead.hospital}</p></div>
                                 <button onClick={() => setSelectedLead(null)}><X size={24} className="text-slate-400 hover:text-slate-600" /></button>
@@ -195,7 +195,7 @@ export const LeadsModule: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                             {activeTab === 'details' ? (
                                 <div className="space-y-6">
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-300 space-y-3">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Phone size={12} /> Contact Profile</h4>
                                         <div className="text-sm font-bold text-slate-700">{selectedLead.phone || 'No Phone'}</div>
                                         <div className="text-sm font-bold text-slate-700">{selectedLead.email || 'No Email'}</div>
@@ -208,7 +208,7 @@ export const LeadsModule: React.FC = () => {
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => handleDraftEmail(selectedLead)} disabled={isGenerating} className="flex-1 py-4 border border-slate-200 rounded-2xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 flex items-center justify-center gap-2 transition-all">
+                                        <button onClick={() => handleDraftEmail(selectedLead)} disabled={isGenerating} className="flex-1 py-4 border border-slate-300 rounded-2xl text-slate-400 hover:text-medical-600 hover:bg-medical-50 flex items-center justify-center gap-2 transition-all">
                                             {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Wand2 size={16} />}
                                             <span className="text-[10px] font-black uppercase tracking-widest">Draft Pitch</span>
                                         </button>
@@ -219,7 +219,7 @@ export const LeadsModule: React.FC = () => {
                                     </div>
 
                                     {emailDraft && (
-                                        <div className="bg-white border border-slate-200 p-4 rounded-2xl animate-in zoom-in-95">
+                                        <div className="bg-white border border-slate-300 p-4 rounded-2xl animate-in zoom-in-95">
                                             <pre className="whitespace-pre-wrap font-sans text-xs text-slate-600 leading-relaxed mb-4">{emailDraft}</pre>
                                             <button className="w-full bg-slate-800 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Copy to Clipboard</button>
                                         </div>
@@ -227,22 +227,22 @@ export const LeadsModule: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    <button onClick={() => setShowAddFollowUp(!showAddFollowUp)} className="w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-100 transition-all">
+                                    <button onClick={() => setShowAddFollowUp(!showAddFollowUp)} className="w-full bg-slate-50 border border-slate-300 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-100 transition-all">
                                         <Plus size={16} /> Schedule Touchpoint
                                     </button>
                                     {showAddFollowUp && (
-                                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xl space-y-4 animate-in slide-in-from-top-4">
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-300 shadow-xl space-y-4 animate-in slide-in-from-top-4">
                                             <div className="grid grid-cols-2 gap-4">
-                                                <select className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-black uppercase" value={newFollowUp.type} onChange={e => setNewFollowUp({ ...newFollowUp, type: e.target.value as any })}><option>Call</option><option>Meeting</option><option>WhatsApp</option></select>
-                                                <input type="date" className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-black uppercase" value={newFollowUp.date} onChange={e => setNewFollowUp({ ...newFollowUp, date: e.target.value })} />
+                                                <select className="w-full border border-slate-300 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-black uppercase" value={newFollowUp.type} onChange={e => setNewFollowUp({ ...newFollowUp, type: e.target.value as any })}><option>Call</option><option>Meeting</option><option>WhatsApp</option></select>
+                                                <input type="date" className="w-full border border-slate-300 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-black uppercase" value={newFollowUp.date} onChange={e => setNewFollowUp({ ...newFollowUp, date: e.target.value })} />
                                             </div>
-                                            <textarea className="w-full border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-bold" rows={2} placeholder="Notes..." value={newFollowUp.notes || ''} onChange={e => setNewFollowUp({ ...newFollowUp, notes: e.target.value })} />
+                                            <textarea className="w-full border border-slate-300 bg-slate-50 rounded-xl px-3 py-2 text-[10px] font-bold" rows={2} placeholder="Notes..." value={newFollowUp.notes || ''} onChange={e => setNewFollowUp({ ...newFollowUp, notes: e.target.value })} />
                                             <button onClick={handleAddFollowUp} className="w-full bg-medical-600 text-white py-2 rounded-xl text-[10px] font-black uppercase">Commit Reminder</button>
                                         </div>
                                     )}
                                     <div className="space-y-4">
                                         {selectedLead.followUps?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(fu => (
-                                            <div key={fu.id} className={`p-4 rounded-2xl border ${fu.status === 'Completed' ? 'bg-slate-50 opacity-60' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                            <div key={fu.id} className={`p-4 rounded-2xl border ${fu.status === 'Completed' ? 'bg-slate-50 opacity-60' : 'bg-white border-slate-300 shadow-sm'}`}>
                                                 <div className="flex justify-between items-start mb-2">
                                                     <span className="text-[10px] font-black uppercase text-indigo-600">{fu.type}</span>
                                                     <span className="text-[9px] font-bold text-slate-400">{fu.date}</span>
@@ -264,30 +264,30 @@ export const LeadsModule: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="p-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Manual Lead Intake</h3>
                             <button onClick={() => setShowAddModal(false)}><X size={24} className="text-slate-400" /></button>
                         </div>
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Detail *</label>
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Client or Lead Name" value={newLeadData.name || ''} onChange={e => setNewLeadData({ ...newLeadData, name: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Client or Lead Name" value={newLeadData.name || ''} onChange={e => setNewLeadData({ ...newLeadData, name: e.target.value })} />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Organization / Hospital *</label>
-                                <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Legal Entity Name" value={newLeadData.hospital || ''} onChange={e => setNewLeadData({ ...newLeadData, hospital: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Legal Entity Name" value={newLeadData.hospital || ''} onChange={e => setNewLeadData({ ...newLeadData, hospital: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Source</label>
-                                    <select className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold appearance-none outline-none focus:border-medical-500 transition-all" value={newLeadData.source} onChange={e => setNewLeadData({ ...newLeadData, source: e.target.value as any })}>
+                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold appearance-none outline-none focus:border-medical-500 transition-all" value={newLeadData.source} onChange={e => setNewLeadData({ ...newLeadData, source: e.target.value as any })}>
                                         <option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Walk-in</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Status</label>
-                                    <select className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold appearance-none outline-none focus:border-medical-500 transition-all" value={newLeadData.status} onChange={e => setNewLeadData({ ...newLeadData, status: e.target.value as any })}>
+                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold appearance-none outline-none focus:border-medical-500 transition-all" value={newLeadData.status} onChange={e => setNewLeadData({ ...newLeadData, status: e.target.value as any })}>
                                         <option value={LeadStatus.NEW}>New</option><option value={LeadStatus.WON}>Won</option><option value={LeadStatus.LOST}>Lost</option>
                                     </select>
                                 </div>
@@ -296,32 +296,32 @@ export const LeadsModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Item Interest</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={newLeadData.productInterest || ''} onChange={e => setNewLeadData({ ...newLeadData, productInterest: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={newLeadData.productInterest || ''} onChange={e => setNewLeadData({ ...newLeadData, productInterest: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estimated Value (₹)</label>
-                                    <input type="number" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Value" value={newLeadData.value || ''} onChange={e => setNewLeadData({ ...newLeadData, value: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Value" value={newLeadData.value || ''} onChange={e => setNewLeadData({ ...newLeadData, value: Number(e.target.value) })} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
-                                    <input type="text" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="+91..." value={newLeadData.phone || ''} onChange={e => setNewLeadData({ ...newLeadData, phone: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="+91..." value={newLeadData.phone || ''} onChange={e => setNewLeadData({ ...newLeadData, phone: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                                    <input type="email" className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="example@mail.com" value={newLeadData.email || ''} onChange={e => setNewLeadData({ ...newLeadData, email: e.target.value })} />
+                                    <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="example@mail.com" value={newLeadData.email || ''} onChange={e => setNewLeadData({ ...newLeadData, email: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Address</label>
-                                <textarea className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px]" placeholder="Location details..." value={newLeadData.address || ''} onChange={e => setNewLeadData({ ...newLeadData, address: e.target.value })} />
+                                <textarea className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px]" placeholder="Location details..." value={newLeadData.address || ''} onChange={e => setNewLeadData({ ...newLeadData, address: e.target.value })} />
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 flex gap-3 bg-slate-50/30">
-                            <button onClick={() => setShowAddModal(false)} className="flex-1 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 active:scale-95">Discard</button>
+                        <div className="p-6 border-t border-slate-300 flex gap-3 bg-slate-50/30">
+                            <button onClick={() => setShowAddModal(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 active:scale-95">Discard</button>
                             <button onClick={handleSaveNewLead} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all hover:bg-medical-700 active:scale-95">Complete Sync</button>
                         </div>
                     </div>

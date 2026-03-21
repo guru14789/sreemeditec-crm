@@ -218,7 +218,7 @@ export const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 py-3 flex items-center shrink-0 h-24 z-50 sticky top-0 shadow-sm transition-colors duration-300">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-8 py-3 flex items-center shrink-0 h-24 z-50 sticky top-0 shadow-sm transition-colors duration-300">
           <div className="flex-1 flex flex-col items-start min-w-0">
             <h2 className="text-[24px] font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
               {activeTab.replace(/_/g, ' ')}
@@ -237,7 +237,7 @@ export const App: React.FC = () => {
               </button>
             </div>
             <div onClick={() => setActiveTab(TabView.PROFILE)} className="cursor-pointer group">
-              <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-black transition-transform group-hover:scale-105">{currentUser.name.charAt(0)}</div>
+              <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-black transition-transform group-hover:scale-105">{currentUser.name.charAt(0)}</div>
             </div>
           </div>
         </header>

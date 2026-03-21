@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -28,6 +28,10 @@ export interface DataContextType {
     leads: Lead[];
     serviceTickets: ServiceTicket[];
     attendanceRecords: AttendanceRecord[];
+    deliveryChallans: DeliveryChallan[];
+    installationReports: ServiceReport[];
+    serviceReports: ServiceReport[];
+
 
     pendingQuoteData: Partial<Invoice> | null;
     setPendingQuoteData: (data: Partial<Invoice> | null) => void;
@@ -78,7 +82,17 @@ export interface DataContextType {
     markNotificationRead: (id: string) => Promise<void>;
     clearAllNotifications: () => void;
     updateAttendance: (record: Partial<AttendanceRecord> & { id: string }) => Promise<void>;
+    addDeliveryChallan: (challan: DeliveryChallan) => Promise<void>;
+    updateDeliveryChallan: (id: string, updates: Partial<DeliveryChallan>) => Promise<void>;
+    removeDeliveryChallan: (id: string) => Promise<void>;
+    addInstallationReport: (report: ServiceReport) => Promise<void>;
+    updateInstallationReport: (id: string, updates: Partial<ServiceReport>) => Promise<void>;
+    removeInstallationReport: (id: string) => Promise<void>;
+    addServiceReport: (report: ServiceReport) => Promise<void>;
+    updateServiceReport: (id: string, updates: Partial<ServiceReport>) => Promise<void>;
+    removeServiceReport: (id: string) => Promise<void>;
 }
+
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -121,6 +135,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [leads, setLeads] = useState<Lead[]>([]);
     const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+    const [deliveryChallans, setDeliveryChallans] = useState<DeliveryChallan[]>([]);
+    const [installationReports, setInstallationReports] = useState<ServiceReport[]>([]);
+    const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
+
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
     const [dbError, setDbError] = useState<string | null>(null);
@@ -237,7 +255,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setTasks([]);
             setNotifications([]);
             setPointHistory([]);
+            setDeliveryChallans([]);
+            setInstallationReports([]);
+            setServiceReports([]);
             return;
+
         }
 
         const handleError = (err: any) => {
@@ -285,7 +307,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
                 setPointHistory(data.slice(0, 100));
             }, handleError),
+            onSnapshot(collection(db, "deliveryChallans"), (s) => {
+                const data = mapDocs(s);
+                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+                setDeliveryChallans(data);
+            }, handleError),
+            onSnapshot(collection(db, "installationReports"), (s) => {
+                const data = mapDocs(s);
+                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+                setInstallationReports(data);
+            }, handleError),
+            onSnapshot(collection(db, "serviceReports"), (s) => {
+                const data = mapDocs(s);
+                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+                setServiceReports(data);
+            }, handleError),
             onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError)
+
         ];
 
         return () => unsubscribes.forEach(u => u());
@@ -498,6 +536,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await setDoc(doc(db, "attendance", record.id), record, { merge: true });
     };
 
+    const addDeliveryChallan = async (challan: DeliveryChallan) => await setDoc(doc(db, "deliveryChallans", challan.id), challan);
+    const updateDeliveryChallan = async (id: string, updates: Partial<DeliveryChallan>) => {
+        const existing = deliveryChallans.find(c => c.id === id);
+        if (isRedundant(existing, updates)) return;
+        await updateDoc(doc(db, "deliveryChallans", id), updates);
+    };
+    const removeDeliveryChallan = async (id: string) => { if (id) await deleteDoc(doc(db, "deliveryChallans", id.trim())); };
+
+    const addInstallationReport = async (report: ServiceReport) => await setDoc(doc(db, "installationReports", report.id), report);
+    const updateInstallationReport = async (id: string, updates: Partial<ServiceReport>) => {
+        const existing = installationReports.find(r => r.id === id);
+        if (isRedundant(existing, updates)) return;
+        await updateDoc(doc(db, "installationReports", id), updates);
+    };
+    const removeInstallationReport = async (id: string) => { if (id) await deleteDoc(doc(db, "installationReports", id.trim())); };
+
+    const addServiceReport = async (report: ServiceReport) => await setDoc(doc(db, "serviceReports", report.id), report);
+    const updateServiceReport = async (id: string, updates: Partial<ServiceReport>) => {
+        const existing = serviceReports.find(r => r.id === id);
+        if (isRedundant(existing, updates)) return;
+        await updateDoc(doc(db, "serviceReports", id), updates);
+    };
+    const removeServiceReport = async (id: string) => { if (id) await deleteDoc(doc(db, "serviceReports", id.trim())); };
+
+
     const addPoints = async (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => {
         const finalUserId = targetUserId || currentUser?.id;
         if (!finalUserId) return;
@@ -531,7 +594,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
             attendanceRecords, updateAttendance,
+            deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan,
+            installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,
+            serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool
+
         }}>
             {children}
         </DataContext.Provider>

@@ -23,4 +23,11 @@
   .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #475569;
   }
+  .editable-cell {
+    @apply transition-all duration-200 hover:bg-indigo-50/40 cursor-text relative;
+  }
+  .editable-cell:hover::after {
+    content: "Quick Edit";
+    @apply absolute top-1 right-2 text-[6px] font-black uppercase text-indigo-400 opacity-50;
+  }
 }

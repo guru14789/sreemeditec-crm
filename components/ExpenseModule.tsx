@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ExpenseRecord } from '../types';
-import { Receipt, Plus, FileText, Calendar, IndianRupee, CheckCircle2, Clock, XCircle, Filter, Search, User, Check, X, Eye, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare } from 'lucide-react';
+import { Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, Check, X, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare } from 'lucide-react';
 import { useData } from './DataContext';
 
 interface ExpenseModuleProps {
@@ -19,6 +19,19 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+    // Close menu when clicking outside
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (activeMenuId && !(event.target as Element).closest('.menu-container')) {
+                setActiveMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeMenuId]);
+
     const [newExpense, setNewExpense] = useState<Partial<ExpenseRecord>>({
         date: new Date().toISOString().split('T')[0],
         category: 'Travel',
@@ -162,7 +175,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <CheckCircle2 size={80} className="text-emerald-500" />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
+                        <p className="text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
                             <CheckCircle2 size={14} /> Total Claimed (Approved)
                         </p>
                         <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{totalApprovedClaimed.toLocaleString()}</h3>
@@ -175,7 +188,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <Clock size={80} />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
+                        <p className="text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
                             <Clock size={14} /> Pending Approval
                         </p>
                         <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{pendingAmount.toLocaleString()}</h3>
@@ -188,7 +201,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <XCircle size={80} />
                     </div>
                     <div className="relative z-10">
-                        <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
+                        <p className="text-rose-600 dark:text-rose-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
                             <XCircle size={14} /> Total Rejected
                         </p>
                         <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter text-rose-600">₹{totalRejected.toLocaleString()}</h3>
@@ -198,8 +211,8 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden min-h-[500px]">
-                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+            <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden min-h-[500px]">
+                <div className="p-5 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg"><Receipt size={24} /></div>
                         <div>
@@ -215,37 +228,37 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                 </div>
 
                 <div className="flex-1 overflow-auto custom-scrollbar p-0">
-                    <table className="w-full text-left text-sm text-slate-600">
-                        <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 text-[10px] uppercase font-black tracking-[0.2em] text-slate-400 sticky top-0 z-10 backdrop-blur-md">
+                    <table className="w-full text-left text-[11px] text-slate-600">
+                        <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-300 dark:border-slate-700 text-[8px] uppercase font-black tracking-[0.2em] text-slate-400 sticky top-0 z-10 backdrop-blur-md">
                             <tr>
-                                <th className="px-6 py-5">Timestamp</th>
-                                {userRole === 'Admin' && <th className="px-6 py-5">Personnel</th>}
-                                <th className="px-6 py-5">Description</th>
-                                <th className="px-6 py-5 text-right">Value (₹)</th>
-                                <th className="px-6 py-5 text-center">Attachment</th>
-                                <th className="px-6 py-5 text-center">Status</th>
-                                {userRole === 'Admin' && <th className="px-6 py-5 text-right">Operations</th>}
+                                <th className="px-6 py-4">Timestamp</th>
+                                {userRole === 'Admin' && <th className="px-6 py-4">Personnel</th>}
+                                <th className="px-6 py-4">Description</th>
+                                <th className="px-6 py-4 text-right">Value (₹)</th>
+                                <th className="px-6 py-4 text-center">Attachment</th>
+                                <th className="px-6 py-4 text-center">Status</th>
+                                <th className="px-6 py-4 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {visibleExpenses.map(expense => (
                                 <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
-                                    <td className="px-6 py-5 font-bold text-slate-400 text-xs uppercase">{expense.date}</td>
+                                    <td className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase">{expense.date}</td>
                                     {userRole === 'Admin' && (
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase shadow-inner">
-                                                    {expense.employeeName.charAt(0)}
-                                                </div>
-                                                <span className="font-black text-slate-800 dark:text-slate-200 text-xs uppercase">{expense.employeeName}</span>
+                                        <td className="px-6 py-4">
+                                            <div 
+                                                title={expense.employeeName}
+                                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase shadow-inner cursor-help"
+                                            >
+                                                {expense.employeeName.charAt(0)}
                                             </div>
                                         </td>
                                     )}
-                                    <td className="px-6 py-5">
+                                    <td className="px-6 py-4">
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-800">{expense.category}</span>
-                                                <span className="font-black text-slate-800 dark:text-slate-200 text-xs uppercase truncate max-w-[200px]">{expense.description}</span>
+                                                <span className="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase truncate max-w-[200px]">{expense.description}</span>
                                             </div>
                                             {expense.status === 'Rejected' && expense.rejectionReason && (
                                                 <div className="flex items-start gap-1 text-rose-500 bg-rose-50 dark:bg-rose-900/10 p-2 rounded-lg border border-rose-100 dark:border-rose-800/50 mt-1 max-w-[300px]">
@@ -255,44 +268,67 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-5 text-right font-black text-slate-900 dark:text-white text-base tracking-tighter">₹{expense.amount.toLocaleString()}</td>
-                                    <td className="px-6 py-5 text-center">
+                                    <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white text-sm tracking-tighter">₹{expense.amount.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-center">
                                         {expense.receiptUrl ? (
                                             <button
                                                 onClick={() => setViewReceiptModal(expense)}
                                                 className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all shadow-sm" title="View Digital Receipt">
-                                                <ImageIcon size={18} />
+                                                <ImageIcon size={16} />
                                             </button>
                                         ) : (
-                                            <span className="text-slate-200 dark:text-slate-700"><ImageIcon size={18} /></span>
+                                            <span className="text-slate-200 dark:text-slate-700"><ImageIcon size={16} /></span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-5 text-center">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${getStatusColor(expense.status)}`}>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border ${getStatusColor(expense.status)}`}>
                                             {expense.status === 'Approved' && <CheckCircle2 size={12} />}
                                             {expense.status === 'Pending' && <Clock size={12} />}
                                             {expense.status === 'Rejected' && <XCircle size={12} />}
                                             {expense.status}
                                         </span>
                                     </td>
-                                    {userRole === 'Admin' && (
-                                        <td className="px-6 py-5 text-right">
-                                            {expense.status === 'Pending' && (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleApprove(expense.id)}
-                                                        className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white border border-emerald-100 transition-all shadow-sm active:scale-90" title="Grant Approval">
-                                                        <Check size={18} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenRejection(expense.id)}
-                                                        className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white border border-rose-100 transition-all shadow-sm active:scale-90" title="Submit Audit Feedback">
-                                                        <X size={18} />
-                                                    </button>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="relative flex justify-end menu-container">
+                                            <button 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setActiveMenuId(activeMenuId === expense.id ? null : expense.id); 
+                                                }} 
+                                                className={`p-2 rounded-xl transition-all ${activeMenuId === expense.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                            >
+                                                {expense.status === 'Pending' ? <AlertCircle size={16} className={activeMenuId === expense.id ? 'animate-pulse' : ''} /> : <div className="text-xl font-bold">⋮</div>}
+                                            </button>
+                                            
+                                            {activeMenuId === expense.id && (
+                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                    <div className="p-2 space-y-1">
+                                                        {expense.receiptUrl && (
+                                                            <button onClick={() => { setViewReceiptModal(expense); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
+                                                                <ImageIcon size={14} className="text-indigo-500" /> View Receipt
+                                                            </button>
+                                                        )}
+                                                        {userRole === 'Admin' && expense.status === 'Pending' && (
+                                                            <>
+                                                                <button onClick={() => { handleApprove(expense.id); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-xl transition-colors">
+                                                                    <Check size={14} className="text-emerald-500" /> Approve
+                                                                </button>
+                                                                <button onClick={() => { handleOpenRejection(expense.id); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors">
+                                                                    <X size={14} className="text-rose-500" /> Reject
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => { setActiveMenuId(null); }}
+                                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                                                        >
+                                                            <RefreshCw size={14} /> Refresh
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
-                                        </td>
-                                    )}
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                             {visibleExpenses.length === 0 && (
@@ -314,7 +350,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             {showAddModal && (
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                        <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-8 border-b border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                             <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">New Reimbursement Voucher</h3>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Submit digital expense proof</p>
                         </div>
@@ -322,12 +358,12 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voucher Date</label>
-                                    <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 dark:text-white"
+                                    <input type="date" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 dark:text-white"
                                         value={newExpense.date} onChange={e => setNewExpense({ ...newExpense, date: e.target.value })} />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
-                                    <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 dark:text-white appearance-none"
+                                    <select className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 dark:text-white appearance-none"
                                         value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value as any })}>
                                         <option>Travel</option>
                                         <option>Food</option>
@@ -339,12 +375,12 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Claim Amount (₹)</label>
-                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-2xl font-black outline-none focus:border-medical-500 text-emerald-600"
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-4 text-2xl font-black outline-none focus:border-medical-500 text-emerald-600"
                                     placeholder="0.00" value={newExpense.amount || ''} onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })} />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Description / Memo</label>
-                                <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 dark:text-white resize-none"
+                                <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 dark:text-white resize-none"
                                     placeholder="Describe why this expense was incurred..." value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
                             </div>
 
@@ -358,7 +394,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
                             <div
                                 onClick={() => !isCompressing && fileInputRef.current?.click()}
-                                className={`p-6 border-2 border-dashed rounded-[2rem] text-center cursor-pointer transition-all ${isCompressing ? 'opacity-50 cursor-wait' : ''} ${receiptPreview ? 'border-emerald-500 bg-emerald-50/30 text-emerald-600' : 'border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
+                                className={`p-6 border-2 border-dashed rounded-[2rem] text-center cursor-pointer transition-all ${isCompressing ? 'opacity-50 cursor-wait' : ''} ${receiptPreview ? 'border-emerald-500 bg-emerald-50/30 text-emerald-600' : 'border-slate-300 dark:border-slate-700 text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
                             >
                                 {isCompressing ? (
                                     <div className="flex flex-col items-center justify-center gap-3">
@@ -384,7 +420,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 )}
                             </div>
                         </div>
-                        <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-8 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
                             <button onClick={() => { setShowAddModal(false); setReceiptPreview(null); }} className="flex-1 bg-white dark:bg-slate-700 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">Cancel</button>
                             <button onClick={handleAddExpense} disabled={isCompressing} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-medical-500/30 active:scale-95 disabled:opacity-50">Authorize Submission</button>
                         </div>
@@ -407,14 +443,14 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
                             <textarea
                                 autoFocus
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-4 text-xs font-bold outline-none focus:border-rose-500 dark:text-white resize-none min-h-[100px]"
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-4 text-xs font-bold outline-none focus:border-rose-500 dark:text-white resize-none min-h-[100px]"
                                 placeholder="Why is this voucher being rejected? (e.g. Missing invoice, Incorrect category...)"
                                 value={rejectionReason}
                                 onChange={e => setRejectionReason(e.target.value)}
                             />
                         </div>
-                        <div className="p-6 bg-slate-50 dark:bg-slate-800/50 flex gap-3 border-t border-slate-100 dark:border-slate-800">
-                            <button onClick={() => setRejectionModal(null)} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600">Abort</button>
+                        <div className="p-6 bg-slate-50 dark:bg-slate-800/50 flex gap-3 border-t border-slate-300 dark:border-slate-800">
+                            <button onClick={() => setRejectionModal(null)} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 bg-white dark:bg-slate-700 rounded-xl border border-slate-300 dark:border-slate-600">Abort</button>
                             <button
                                 onClick={handleConfirmRejection}
                                 className="flex-[2] py-3 text-[10px] font-black uppercase text-white bg-rose-600 rounded-xl shadow-lg shadow-rose-500/20 active:scale-95">
@@ -429,7 +465,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             {viewReceiptModal && (
                 <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/80 backdrop-blur-xl p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl w-full max-w-2xl flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-                        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl"><ImageIcon size={18} /></div>
                                 <h3 className="font-black text-sm text-slate-800 dark:text-white uppercase tracking-widest">Digital Evidence Proof</h3>
@@ -446,7 +482,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 </div>
                             )}
                         </div>
-                        <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center">
+                        <div className="p-8 border-t border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center">
                             <div className="flex gap-10">
                                 <div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Voucher Amount</p>

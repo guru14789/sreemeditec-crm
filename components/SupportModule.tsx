@@ -128,7 +128,7 @@ export const SupportModule: React.FC = () => {
             case 'Urgent': return 'bg-rose-50 text-rose-700 border-rose-100';
             case 'High': return 'bg-orange-50 text-orange-700 border-orange-100';
             case 'Medium': return 'bg-amber-50 text-amber-700 border-amber-100';
-            default: return 'bg-slate-50 text-slate-600 border-slate-100';
+            default: return 'bg-slate-50 text-slate-600 border-slate-300';
         }
     };
 
@@ -146,19 +146,19 @@ export const SupportModule: React.FC = () => {
             
             {/* Top Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><MessageSquare size={24}/></div>
                     <div><div className="text-2xl font-black text-slate-800">{tickets.length}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Tickets</div></div>
                 </div>
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl"><ShieldAlert size={24}/></div>
                     <div><div className="text-2xl font-black text-slate-800">{tickets.filter(t => t.priority === 'Urgent').length}</div><div className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Urgent Action</div></div>
                 </div>
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><Clock size={24}/></div>
                     <div><div className="text-2xl font-black text-slate-800">{tickets.filter(t => t.status === 'Open').length}</div><div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Awaiting Response</div></div>
                 </div>
-                <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className="bg-white p-5 rounded-3xl border border-slate-300 shadow-sm flex items-center gap-4">
                     <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl"><CheckCircle2 size={24}/></div>
                     <div><div className="text-2xl font-black text-slate-800">4.2h</div><div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Avg. Resolve Time</div></div>
                 </div>
@@ -167,21 +167,21 @@ export const SupportModule: React.FC = () => {
             <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
                 
                 {/* Tickets List */}
-                <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
+                <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden">
                     <div className="p-5 border-b border-slate-50 flex flex-col sm:flex-row justify-between gap-4 items-center bg-slate-50/30">
                         <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                             <input 
                                 type="text" 
                                 placeholder="Search tickets..." 
-                                className="pl-10 pr-4 py-2 w-full border border-slate-200 rounded-xl text-sm outline-none focus:border-medical-500 bg-white"
+                                className="pl-10 pr-4 py-2 w-full border border-slate-300 rounded-xl text-sm outline-none focus:border-medical-500 bg-white"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
                             <select 
-                                className="flex-1 sm:flex-none border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 outline-none bg-white"
+                                className="flex-1 sm:flex-none border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 outline-none bg-white"
                                 value={statusFilter}
                                 onChange={e => setStatusFilter(e.target.value)}
                             >
@@ -240,9 +240,9 @@ export const SupportModule: React.FC = () => {
 
                 {/* Detail Panel */}
                 {selectedTicket ? (
-                    <div className="w-full lg:w-[450px] bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 duration-300">
+                    <div className="w-full lg:w-[450px] bg-white rounded-3xl shadow-xl border border-slate-300 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 duration-300">
                         {/* Panel Header */}
-                        <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white relative">
+                        <div className="p-6 border-b border-slate-300 bg-gradient-to-br from-slate-50 to-white relative">
                             <button onClick={() => setSelectedTicket(null)} className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-full lg:hidden">
                                 <X size={20} />
                             </button>
@@ -254,7 +254,7 @@ export const SupportModule: React.FC = () => {
                             </div>
                             <div className="mt-6 flex gap-2">
                                 <select 
-                                    className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg outline-none"
+                                    className="text-xs font-bold bg-white border border-slate-300 px-3 py-1.5 rounded-lg outline-none"
                                     value={selectedTicket.status}
                                     onChange={e => updateTicketStatus(selectedTicket.id, e.target.value as any)}
                                 >
@@ -273,7 +273,7 @@ export const SupportModule: React.FC = () => {
                                     <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative ${
                                         msg.isAdmin 
                                             ? 'bg-medical-600 text-white rounded-tr-none' 
-                                            : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
+                                            : 'bg-white border border-slate-300 text-slate-700 rounded-tl-none'
                                     }`}>
                                         <p className="text-sm leading-relaxed">{msg.text}</p>
                                         <div className={`text-[9px] mt-2 font-bold uppercase tracking-wider opacity-60 ${msg.isAdmin ? 'text-white' : 'text-slate-400'}`}>
@@ -285,7 +285,7 @@ export const SupportModule: React.FC = () => {
                         </div>
 
                         {/* Reply Area */}
-                        <div className="p-4 bg-white border-t border-slate-100">
+                        <div className="p-4 bg-white border-t border-slate-300">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Internal Response</span>
                                 <button 
@@ -298,7 +298,7 @@ export const SupportModule: React.FC = () => {
                             </div>
                             <div className="relative">
                                 <textarea 
-                                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:border-medical-500 outline-none resize-none transition-colors pr-12 min-h-[100px]"
+                                    className="w-full border border-slate-300 rounded-2xl px-4 py-3 text-sm focus:border-medical-500 outline-none resize-none transition-colors pr-12 min-h-[100px]"
                                     placeholder="Type your response here..."
                                     value={replyText}
                                     onChange={e => setReplyText(e.target.value)}
@@ -319,7 +319,7 @@ export const SupportModule: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-white rounded-3xl border border-dashed border-slate-200 m-2">
+                    <div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-white rounded-3xl border border-dashed border-slate-300 m-2">
                         <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300">
                             <Headset size={40} />
                         </div>
@@ -333,7 +333,7 @@ export const SupportModule: React.FC = () => {
             {showCreateModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-3xl">
+                        <div className="p-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50 rounded-t-3xl">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                                 <Plus className="text-medical-600" /> Create Manual Ticket
                             </h3>
@@ -344,7 +344,7 @@ export const SupportModule: React.FC = () => {
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Subject *</label>
                                 <input 
                                     type="text" 
-                                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500"
+                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500"
                                     placeholder="Brief description of the issue"
                                     onChange={e => setNewTicket({...newTicket, subject: e.target.value})}
                                 />
@@ -352,19 +352,19 @@ export const SupportModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Customer Name *</label>
-                                    <input type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500" 
+                                    <input type="text" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500" 
                                         onChange={e => setNewTicket({...newTicket, customerName: e.target.value})} />
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Email Address *</label>
-                                    <input type="email" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500" 
+                                    <input type="email" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500" 
                                         onChange={e => setNewTicket({...newTicket, customerEmail: e.target.value})} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Category</label>
-                                    <select className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none"
                                         value={newTicket.category} onChange={e => setNewTicket({...newTicket, category: e.target.value as any})}>
                                         <option>Technical</option>
                                         <option>Billing</option>
@@ -374,7 +374,7 @@ export const SupportModule: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Priority</label>
-                                    <select className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none"
+                                    <select className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none"
                                         value={newTicket.priority} onChange={e => setNewTicket({...newTicket, priority: e.target.value as any})}>
                                         <option>Low</option>
                                         <option>Medium</option>
@@ -385,10 +385,10 @@ export const SupportModule: React.FC = () => {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1.5">Initial Message</label>
-                                <textarea rows={4} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500 resize-none" placeholder="Enter customer's query..." />
+                                <textarea rows={4} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-medical-500 resize-none" placeholder="Enter customer's query..." />
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 flex gap-3">
+                        <div className="p-6 border-t border-slate-300 flex gap-3">
                             <button onClick={() => setShowCreateModal(false)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Cancel</button>
                             <button className="flex-1 bg-medical-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-medical-500/20">Create Ticket</button>
                         </div>

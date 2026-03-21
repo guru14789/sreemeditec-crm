@@ -48,9 +48,9 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
   const getRankStyle = (rank: number) => {
     switch(rank) {
         case 1: return { bg: 'bg-amber-100 text-amber-600 border-amber-200', icon: <Trophy size={14} className="fill-current"/>, label: 'Champion', card: 'border-amber-400/50 bg-amber-50/10' };
-        case 2: return { bg: 'bg-slate-100 text-slate-500 border-slate-200', icon: <Medal size={14} />, label: 'Runner Up', card: 'border-slate-300/50 bg-slate-50/10' };
+        case 2: return { bg: 'bg-slate-100 text-slate-500 border-slate-300', icon: <Medal size={14} />, label: 'Runner Up', card: 'border-slate-300/50 bg-slate-50/10' };
         case 3: return { bg: 'bg-orange-100 text-orange-600 border-orange-200', icon: <Award size={14} />, label: 'Top 3', card: 'border-orange-300/50 bg-orange-50/10' };
-        default: return { bg: 'bg-slate-50 text-slate-400 border-slate-100', icon: null, label: `#${rank}`, card: 'border-slate-100 bg-white dark:bg-slate-800' };
+        default: return { bg: 'bg-slate-50 text-slate-400 border-slate-300', icon: null, label: `#${rank}`, card: 'border-slate-300 bg-white dark:bg-slate-800' };
     }
   };
 
@@ -67,7 +67,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
       
       {/* Top Header - Mini Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
                <div className="flex items-center gap-2 mb-2">
                   <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg"><Zap size={14} /></div>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">My Points</span>
@@ -78,7 +78,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
               </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between">
               <div className="flex items-center gap-2 mb-2">
                   <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><Target size={14} /></div>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tasks Done</span>
@@ -86,7 +86,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
               <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">{userStats.tasksCompleted}</h3>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between">
               <div className="flex items-center gap-2 mb-2">
                   <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg"><CheckCircle size={14} /></div>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Streak</span>
@@ -137,7 +137,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
 
       {/* Main Leaderboard Content */}
       <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
-          <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
+          <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
               <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-2">
                       <Award className="text-amber-500" size={18} />
@@ -152,7 +152,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
               <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
                   {/* MOBILE VIEW */}
                   <div className="lg:hidden space-y-4">
-                      <div className="flex items-end justify-center gap-2 px-2 pt-12 pb-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 mb-2 shadow-inner">
+                      <div className="flex items-end justify-center gap-2 px-2 pt-12 pb-6 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-300 dark:border-slate-800/50 mb-2 shadow-inner">
                           {/* 2nd Place */}
                           <div className="flex flex-col items-center flex-1">
                               <div className="relative mb-2">
@@ -197,7 +197,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                           {dynamicLeaderboard.map((user) => {
                               const isCurrentUser = user.id === activeUser?.id;
                               return (
-                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm'}`}>
+                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 shadow-sm'}`}>
                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
                                           user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
                                           user.rank === 2 ? 'bg-slate-100 text-slate-600' :
@@ -232,7 +232,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
 
                   {/* DESKTOP VIEW */}
                   <table className="hidden lg:table w-full text-left text-sm text-slate-600">
-                      <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 backdrop-blur-md">
+                      <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-300 dark:border-slate-800 text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-10 backdrop-blur-md">
                           <tr>
                               <th className="px-8 py-5 w-24 text-center">Rank</th>
                               <th className="px-8 py-5">Staff Member</th>
@@ -253,7 +253,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                                               user.rank === 1 ? 'bg-amber-500 text-white border-white shadow-lg shadow-amber-500/20' : 
                                               user.rank === 2 ? 'bg-slate-300 text-white border-white shadow-lg shadow-slate-300/20' :
                                               user.rank === 3 ? 'bg-orange-400 text-white border-white shadow-lg shadow-orange-400/20' :
-                                              'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                                              'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700'
                                           }`}>
                                               {user.rank}
                                           </div>
@@ -297,7 +297,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
 
           {/* Side Panel: Log */}
           <div className="w-full lg:w-80 flex flex-col gap-5 shrink-0">
-              <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden h-[350px] lg:h-auto lg:flex-1">
+              <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden h-[350px] lg:h-auto lg:flex-1">
                   <div className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 shrink-0">
                       <h3 className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase text-[10px] tracking-widest">
                           <History size={16} className="text-slate-400" /> Performance Log
@@ -368,7 +368,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
       {showRules && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
               <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col overflow-hidden max-h-[85vh] animate-in zoom-in-95">
-                  <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                       <h4 className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest text-xs flex items-center gap-2">
                           <Info size={16} className="text-indigo-500" /> Point Criteria
                       </h4>

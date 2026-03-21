@@ -314,7 +314,7 @@ export const VendorModule: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-300 space-y-4">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-1">Supplier Profile</h4>
                                         <div className="space-y-4 text-sm text-slate-600 font-medium">
                                             <div className="flex items-start gap-2 overflow-hidden"><MapPin size={16} className="text-indigo-500 shrink-0 mt-0.5" /> <span className="whitespace-pre-wrap break-all flex-1 min-w-0">{selectedVendor.address}</span></div>
@@ -322,7 +322,7 @@ export const VendorModule: React.FC = () => {
                                             <div className="flex items-center gap-2 overflow-hidden"><Phone size={16} className="text-indigo-500 shrink-0" /> <span className="truncate flex-1 min-w-0">{selectedVendor.phone || 'N/A'}</span></div>
                                             <div className="flex items-center gap-2 overflow-hidden"><Mail size={16} className="text-indigo-500 shrink-0" /> <span className="truncate break-all flex-1 min-w-0">{selectedVendor.email || 'N/A'}</span></div>
                                             <div className="flex items-center gap-2 overflow-hidden"><FileText size={16} className="text-indigo-500 shrink-0" /> <span className="font-bold truncate flex-1 min-w-0">GST: {selectedVendor.gstin || 'N/A'}</span></div>
-                                            <div className="pt-2 mt-2 border-t border-slate-200 space-y-2">
+                                            <div className="pt-2 mt-2 border-t border-slate-300 space-y-2">
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">CIN:</span> <span className="font-bold text-slate-800">{selectedVendor.cinNo || 'N/A'}</span></div>
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">PAN:</span> <span className="font-bold text-slate-800">{selectedVendor.panNo || 'N/A'}</span></div>
                                                 <div className="flex items-center justify-between text-[10px] uppercase tracking-widest"><span className="text-slate-400">DL NO:</span> <span className="font-bold text-slate-800">{selectedVendor.dlNo || 'N/A'}</span></div>
@@ -330,7 +330,7 @@ export const VendorModule: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="md:col-span-2 bg-white rounded-3xl border border-slate-100 p-6 shadow-inner min-h-[300px] flex flex-col">
+                                    <div className="md:col-span-2 bg-white rounded-3xl border border-slate-300 p-6 shadow-inner min-h-[300px] flex flex-col">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 mb-4">Procurement History</h4>
                                         <div className="flex-1 flex flex-col items-center justify-center opacity-20 italic text-sm text-slate-400 text-center">
                                             <FileText size={48} className="mb-4 text-slate-300" />
@@ -344,7 +344,7 @@ export const VendorModule: React.FC = () => {
                         <div className="p-6 border-t bg-slate-50 flex justify-end gap-3 shrink-0">
                             {isEditing ? (
                                 <>
-                                    <button onClick={() => setIsEditing(false)} className="px-8 py-3 bg-white border border-slate-200 text-slate-400 font-bold rounded-xl hover:bg-slate-50 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
+                                    <button onClick={() => setIsEditing(false)} className="px-8 py-3 bg-white border border-slate-300 text-slate-400 font-bold rounded-xl hover:bg-slate-50 transition-colors uppercase text-[10px] tracking-widest">Cancel</button>
                                     <button onClick={handleUpdateVendor} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-black transition-colors uppercase text-[10px] tracking-widest shadow-lg">Save Changes</button>
                                 </>
                             ) : (

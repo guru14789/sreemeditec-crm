@@ -192,8 +192,8 @@ export const TaskModule: React.FC = () => {
     const KanbanColumn = ({ status, title, color }: { status: Task['status'], title: string, color: string }) => {
         const columnTasks = visibleTasks.filter(t => t.status === status);
         return (
-            <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-200/60 dark:border-slate-800 shadow-inner overflow-hidden">
-                <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-100 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 sticky top-0 z-10 backdrop-blur-sm">
+            <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden">
+                <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 sticky top-0 z-10 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
                         <h4 className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{title}</h4>
@@ -205,7 +205,7 @@ export const TaskModule: React.FC = () => {
                         <div
                             key={task.id}
                             onClick={() => setSelectedTaskId(task.id)}
-                            className={`group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${task.priority === 'High' && task.status !== 'Done' ? 'border-rose-100 dark:border-rose-900' : 'border-slate-100 dark:border-slate-800'}`}
+                            className={`group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${task.priority === 'High' && task.status !== 'Done' ? 'border-rose-100 dark:border-rose-900' : 'border-slate-300 dark:border-slate-800'}`}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
@@ -229,7 +229,7 @@ export const TaskModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden relative">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm shrink-0">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm shrink-0">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-gradient-to-br from-indigo-600 to-medical-600 rounded-[1.5rem] text-white shadow-xl flex items-center justify-center"><CheckSquare size={24} /></div>
                     <div>
@@ -261,13 +261,13 @@ export const TaskModule: React.FC = () => {
                 <div className="fixed inset-0 z-[120] flex justify-end animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedTaskId(null)}></div>
                     <div className="w-full max-w-xl bg-white dark:bg-slate-900 h-full relative z-10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
-                        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-start bg-slate-50/50 dark:bg-slate-800/50">
                             <div className="flex-1">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">JOB ID: {selectedTask.id}</span>
                                 {isEditing ? (
                                     <input
                                         type="text"
-                                        className="w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100"
+                                        className="w-full mt-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2 text-xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100"
                                         value={editTitle}
                                         onChange={(e) => setEditTitle(e.target.value)}
                                         placeholder="Task Title"
@@ -304,12 +304,12 @@ export const TaskModule: React.FC = () => {
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-medical-600" /> Command Actions</h4>
                                 <div className="flex flex-col gap-3">
                                     {isEditing ? (
-                                        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent</label>
                                                     <select
-                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
                                                         value={editAssignedTo}
                                                         onChange={(e) => setEditAssignedTo(e.target.value)}
                                                     >
@@ -321,7 +321,7 @@ export const TaskModule: React.FC = () => {
                                                 <div className="space-y-1">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
                                                     <select
-                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
                                                         value={editPriority}
                                                         onChange={(e) => setEditPriority(e.target.value as any)}
                                                     >
@@ -348,14 +348,14 @@ export const TaskModule: React.FC = () => {
                                                 )}
                                             </>
                                         ) : (
-                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned to: {selectedTask.assignedTo}</p>
                                             </div>
                                         )
                                     )}
 
                                     {isAdmin && (
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <Calendar size={12} /> Reschedule Mission
@@ -385,7 +385,7 @@ export const TaskModule: React.FC = () => {
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="date"
-                                                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold"
+                                                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold"
                                                         value={rescheduleDate}
                                                         onChange={(e) => setRescheduleDate(e.target.value)}
                                                     />
@@ -433,7 +433,7 @@ export const TaskModule: React.FC = () => {
                                 </div>
                                 {isEditing ? (
                                     <textarea
-                                        className="w-full p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[2rem] text-sm text-slate-600 dark:text-slate-400 leading-relaxed min-h-[150px] resize-none focus:outline-medical-500"
+                                        className="w-full p-5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm text-slate-600 dark:text-slate-400 leading-relaxed min-h-[150px] resize-none focus:outline-medical-500"
                                         value={editDescription}
                                         onChange={(e) => setEditDescription(e.target.value)}
                                         placeholder="Enter detailed mission instructions..."
@@ -447,7 +447,7 @@ export const TaskModule: React.FC = () => {
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><History size={14} /> Mission Logs</h4>
                                 <div className="space-y-4">
                                     {selectedTask.logs?.map(log => (
-                                        <div key={log.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm">
+                                        <div key={log.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-sm">
                                             <div className="flex justify-between items-start mb-1 text-[10px] font-black uppercase">
                                                 <span className="text-slate-800 dark:text-slate-200">{log.user}</span>
                                                 <span className="text-slate-300">{log.timestamp}</span>
@@ -465,19 +465,19 @@ export const TaskModule: React.FC = () => {
             {showAddTaskModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Dispatch Job</h3>
                             <button onClick={() => setShowAddTaskModal(false)}><X size={24} className="text-slate-400" /></button>
                         </div>
                         <div className="p-6 space-y-5">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title *</label>
-                                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent *</label>
-                                    <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })}>
+                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })}>
                                         <option value="">Select Staff...</option>
                                         {employees.map(emp => (
                                             <option key={emp.id} value={emp.name}>{emp.name} ({emp.department})</option>
@@ -486,7 +486,7 @@ export const TaskModule: React.FC = () => {
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
-                                    <select className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
+                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
                                         <option value="Low">Low</option>
                                         <option value="Medium">Medium</option>
                                         <option value="High">High</option>
@@ -496,20 +496,20 @@ export const TaskModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Due Date</label>
-                                    <input type="date" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                                    <input type="date" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Location</label>
-                                    <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({ ...newTask, locationName: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({ ...newTask, locationName: e.target.value })} />
                                 </div>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Briefing Notes</label>
-                                <textarea className="w-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
+                                <textarea className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3 bg-slate-50/50 dark:bg-slate-800/50">
-                            <button onClick={() => setShowAddTaskModal(false)} className="flex-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
+                        <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-3 bg-slate-50/50 dark:bg-slate-800/50">
+                            <button onClick={() => setShowAddTaskModal(false)} className="flex-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
                             <button onClick={handleCreateTask} className="flex-1 bg-medical-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Dispatch</button>
                         </div>
                     </div>

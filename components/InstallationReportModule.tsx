@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ServiceReport } from '../types';
 import { 
-    Plus, History, Download, Edit, Eye, PenTool, Save, X, ArrowLeft, Building2, User, FileText
+    History, Download, Edit, Eye, PenTool, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -22,11 +22,11 @@ interface SimpleInstallationReport extends Partial<ServiceReport> {
 }
 
 export const InstallationReportModule: React.FC = () => {
-    const { clients, products, addNotification } = useData();
+    const { clients, products, addNotification, installationReports, addInstallationReport, updateInstallationReport } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview'>('form');
-    const [reports, setReports] = useState<SimpleInstallationReport[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
     const [report, setReport] = useState<SimpleInstallationReport>({
         smirNo: '',
@@ -45,11 +45,18 @@ export const InstallationReportModule: React.FC = () => {
         if (viewState === 'builder' && !editingId && !report.smirNo) {
             setReport(prev => ({
                 ...prev,
-                smirNo: `${String(reports.length + 20).padStart(3, '0')}`
+                smirNo: `${String(installationReports.length + 20).padStart(3, '0')}`
             }));
         }
-    }, [viewState, reports.length, editingId, report.smirNo]);
+    }, [viewState, installationReports.length, editingId, report.smirNo]);
 
+    useEffect(() => {
+        const handleGlobalClick = () => setActiveMenuId(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
+
+    // ... (handleDownloadPDF remains the same)
     const handleDownloadPDF = (data: SimpleInstallationReport) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -125,22 +132,31 @@ export const InstallationReportModule: React.FC = () => {
         doc.save(`Installation_Report_${data.smirNo}.pdf`);
     };
 
-    const handleSave = (status: 'Draft' | 'Finalized') => {
+    const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!report.customerName || !report.installationOf) {
             alert("Customer Name and Machine Name are required.");
             return;
         }
-        const finalData: SimpleInstallationReport = {
+        const finalData: any = {
             ...report,
             id: editingId || `INS-${Date.now()}`,
             status: status === 'Draft' ? 'Draft' : 'Completed',
             documentType: 'InstallationReport'
         };
-        if (editingId) setReports(prev => prev.map(r => r.id === editingId ? finalData : r));
-        else setReports(prev => [finalData, ...prev]);
-        setViewState('history');
-        setEditingId(null);
-        addNotification('Registry Updated', `Installation Report ${finalData.smirNo} saved as ${status}.`, 'success');
+        
+        try {
+            if (editingId) {
+                await updateInstallationReport(editingId, finalData);
+            } else {
+                await addInstallationReport(finalData);
+            }
+            setViewState('history');
+            setEditingId(null);
+            addNotification('Registry Updated', `Installation Report ${finalData.smirNo} saved as ${status}.`, 'success');
+        } catch (err) {
+            console.error("Save error:", err);
+            addNotification('Save Failed', 'Could not persist report to cloud.', 'alert');
+        }
     };
 
     const renderReportTemplate = (data: SimpleInstallationReport) => (
@@ -210,22 +226,21 @@ export const InstallationReportModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
+            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
                 <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: 'S. Suresh Kumar', status: 'Completed' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Report</button>
             </div>
 
             {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                        <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs tracking-widest">Installation History</h3>
-                    </div>
+                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center"><h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Installation History</h3></div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[10px] text-slate-500 border-b">
+                        <table className="w-full text-left text-[11px]">
+                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
                                     <th className="px-6 py-4">SMIR #</th>
-                                    <th className="px-6 py-4">Customer</th>
+                                    <th className="px-6 py-4">Consignee</th>
+                                    <th className="px-6 py-4">Author</th>
                                     <th className="px-6 py-4">Machine</th>
                                     <th className="px-6 py-4 text-center">Date</th>
                                     <th className="px-6 py-4 text-center">Status</th>
@@ -233,22 +248,53 @@ export const InstallationReportModule: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {reports.length > 0 ? reports.map(r => (
-                                    <tr key={r.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-6 py-4 font-black text-indigo-600">{r.smirNo}</td>
+                                {installationReports.length > 0 ? installationReports.map((r: any) => (
+                                    <tr key={r.id} onClick={() => { setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
+                                        <td className="px-6 py-4 font-black">{r.smirNo}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{r.customerName}</td>
-                                        <td className="px-6 py-4 text-slate-600">{r.installationOf}</td>
-                                        <td className="px-6 py-4 text-center text-xs font-bold text-slate-500">{formatDateDDMMYYYY(r.date)}</td>
+                                        <td className="px-6 py-4">
+                                            <div 
+                                                title={r.engineerName || 'Engineer'}
+                                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
+                                            >
+                                                {r.engineerName?.charAt(0) || 'E'}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-500 font-medium uppercase tracking-wider">{r.installationOf || '---'}</td>
+                                        <td className="px-6 py-4 text-center text-slate-500 font-medium">{formatDateDDMMYYYY(r.date)}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${
-                                                r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                                                'bg-slate-100 text-slate-500 border-slate-200'
-                                            }`}>{r.status}</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{r.status}</span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={() => { setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-400 hover:text-indigo-600"><Edit size={18}/></button>
-                                                <button onClick={() => handleDownloadPDF(r)} className="p-2 text-slate-400 hover:text-emerald-500"><Download size={18}/></button>
+                                            <div className="relative flex justify-end">
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setActiveMenuId(activeMenuId === r.id! ? null : r.id!); 
+                                                    }} 
+                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === r.id! ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                >
+                                                    <MoreVertical size={18} />
+                                                </button>
+                                                
+                                                {activeMenuId === r.id && (
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px] border-slate-300">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Edit Installation"
+                                                        >
+                                                            <Edit size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Download PDF"
+                                                        >
+                                                            <Download size={18} />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -260,8 +306,8 @@ export const InstallationReportModule: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0 overflow-x-auto no-scrollbar">
+                <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
+                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0 overflow-x-auto no-scrollbar">
                         <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Editor</button>
                         <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Print Preview</button>
                     </div>
@@ -274,16 +320,16 @@ export const InstallationReportModule: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">SMIR No.</label>
-                                            <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.smirNo} onChange={e => setReport({...report, smirNo: e.target.value})} />
+                                            <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.smirNo} onChange={e => setReport({...report, smirNo: e.target.value})} />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Date</label>
-                                            <input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.date} onChange={e => setReport({...report, date: e.target.value})} />
+                                            <input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.date} onChange={e => setReport({...report, date: e.target.value})} />
                                         </div>
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Installation Report Of (Machine Name)</label>
-                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5" value={report.installationOf} onChange={e => setReport({...report, installationOf: e.target.value})} placeholder="e.g. OT light LED TMI Nova 4+4" />
+                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5" value={report.installationOf} onChange={e => setReport({...report, installationOf: e.target.value})} placeholder="e.g. OT light LED TMI Nova 4+4" />
                                     </div>
                                 </section>
 
@@ -292,15 +338,15 @@ export const InstallationReportModule: React.FC = () => {
                                     <div className="space-y-4">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Customer Name (As Per Invoice)</label>
-                                            <input type="text" list="client-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.customerName} onChange={e => setReport({...report, customerName: e.target.value})} placeholder="Billing Entity Name" />
+                                            <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.customerName} onChange={e => setReport({...report, customerName: e.target.value})} placeholder="Billing Entity Name" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Hospital / Clinic / Centre Name</label>
-                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.customerHospital} onChange={e => setReport({...report, customerHospital: e.target.value})} placeholder="Site Facility Name" />
+                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.customerHospital} onChange={e => setReport({...report, customerHospital: e.target.value})} placeholder="Site Facility Name" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Installation Address</label>
-                                            <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none resize-none" value={report.customerAddress} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Exact Site Location Details" />
+                                            <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold outline-none resize-none" value={report.customerAddress} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Exact Site Location Details" />
                                         </div>
                                     </div>
                                 </section>
@@ -310,11 +356,11 @@ export const InstallationReportModule: React.FC = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Persons Trained</label>
-                                            <textarea rows={3} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none resize-none" value={report.trainedPersons} onChange={e => setReport({...report, trainedPersons: e.target.value})} placeholder="List of doctors/technicians trained" />
+                                            <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none resize-none" value={report.trainedPersons} onChange={e => setReport({...report, trainedPersons: e.target.value})} placeholder="List of doctors/technicians trained" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Serial No. of Machine</label>
-                                            <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.serialNumber} onChange={e => setReport({...report, serialNumber: e.target.value})} placeholder="Serial Number" />
+                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={report.serialNumber} onChange={e => setReport({...report, serialNumber: e.target.value})} placeholder="Serial Number" />
                                         </div>
                                     </div>
                                 </section>

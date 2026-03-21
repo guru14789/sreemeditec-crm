@@ -3,8 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
-    X, Save, Edit, Eye, List as ListIcon, PenTool, 
-    History, FileText
+    Save, Edit, Eye, List as ListIcon, PenTool, 
+    History, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -46,11 +46,12 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, addNotification, currentUser } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -73,7 +74,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                 invoiceNumber: `SM/25-26/${String(invoices.filter(i => i.documentType === 'PO' || !i.documentType).length + 135).padStart(4, '0')}`
             }));
         }
-    }, [viewState, editingId, invoices]);
+    }, [viewState, editingId, invoices.length]);
+
+    useEffect(() => {
+        const handleGlobalClick = () => setActiveMenuId(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
 
     const totals = useMemo(() => calculateDetailedTotals(invoice), [invoice]);
 
@@ -290,7 +297,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.save(`Invoice_${data.invoiceNumber || 'New'}.pdf`);
     };
 
-    const handleSave = (status: 'Draft' | 'Finalized') => {
+    const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!invoice.customerName || !invoice.items?.length) {
             alert("Please fill customer details and add at least one item.");
             return;
@@ -308,19 +315,41 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             createdBy: currentUser?.name || 'System'
         };
 
-        if (editingId) updateInvoice(editingId, finalData);
-        else addInvoice(finalData);
+        try {
+            if (editingId) {
+                await updateInvoice(editingId, finalData);
+            } else {
+                await addInvoice(finalData);
+            }
 
-        if (status === 'Finalized') {
-            (invoice.items || []).forEach(item => {
-                const product = products.find(p => p.name === item.description);
-                if (product) updateProduct(product.id, { stock: Math.max(0, product.stock - item.quantity) });
-            });
+            if (status === 'Finalized') {
+                for (const item of finalData.items) {
+                    const product = products.find(p => p.name === item.description);
+                    if (product) {
+                        const newStock = Math.max(0, product.stock - item.quantity);
+                        await updateProduct(product.id, { stock: newStock });
+                        
+                        await recordStockMovement({
+                            id: `MOV-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                            productId: product.id,
+                            productName: product.name,
+                            type: 'Out',
+                            quantity: item.quantity,
+                            date: finalData.date,
+                            reference: finalData.invoiceNumber,
+                            purpose: 'Sale'
+                        });
+                    }
+                }
+            }
+
+            setViewState('history');
+            setEditingId(null);
+            addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
+        } catch (err) {
+            console.error("Save error:", err);
+            addNotification('Save Failed', 'Could not persist invoice.', 'alert');
         }
-
-        setViewState('history');
-        setEditingId(null);
-        addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
     };
 
     const handleAddItem = (prod?: any) => {
@@ -361,42 +390,75 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 w-fit shrink-0 shadow-sm">
+            <div className="flex bg-white p-1.5 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
                 <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai' }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Invoice</button>
             </div>
 
             {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50/30">
                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Financial Archive</h3>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[9px] text-slate-400 border-b">
+                        <table className="w-full text-left text-[11px]">
+                            <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-8 py-5">Invoice #</th>
-                                    <th className="px-8 py-5">Customer</th>
-                                    <th className="px-8 py-5 text-center">Date</th>
-                                    <th className="px-8 py-5 text-right">Value</th>
-                                    <th className="px-8 py-5 text-center">Status</th>
-                                    <th className="px-8 py-5 text-right">Action</th>
+                                    <th className="px-6 py-4">Invoice #</th>
+                                    <th className="px-6 py-4">Consignee</th>
+                                    <th className="px-6 py-4">Author</th>
+                                    <th className="px-6 py-4 text-right">Grand Total</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {invoices.filter(i => i.documentType === 'PO' || !i.documentType).map(inv => (
-                                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-8 py-5 font-black text-medical-700">{inv.invoiceNumber}</td>
-                                        <td className="px-8 py-5 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-8 py-5 text-center text-slate-400 text-xs">{formatDateDDMMYYYY(inv.date)}</td>
-                                        <td className="px-8 py-5 text-right font-black">₹{(inv.grandTotal || 0).toLocaleString()}</td>
-                                        <td className="px-8 py-5 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span>
+                                    <tr key={inv.id} onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
+                                        <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
+                                        <td className="px-6 py-4">
+                                            <div 
+                                                title={inv.createdBy || 'System'}
+                                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
+                                            >
+                                                {inv.createdBy?.charAt(0) || 'S'}
+                                            </div>
                                         </td>
-                                        <td className="px-8 py-5 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="p-2 text-slate-300 hover:text-indigo-600"><Edit size={18}/></button>
-                                                <button onClick={() => handleDownloadPDF(inv)} className="p-2 text-slate-300 hover:text-emerald-500"><Download size={18}/></button>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="relative flex justify-end">
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setActiveMenuId(activeMenuId === inv.id ? null : inv.id); 
+                                                    }} 
+                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                >
+                                                    <MoreVertical size={18} />
+                                                </button>
+                                                
+                                                {activeMenuId === inv.id && (
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Edit Invoice"
+                                                        >
+                                                            <Edit size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Download PDF"
+                                                        >
+                                                            <Download size={18} />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -406,8 +468,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
+                <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
+                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
                         <button onClick={() => setBuilderTab('form')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
                         <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
                         <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Catalog</button>
@@ -419,10 +481,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                 <section className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                                        <FormRow label="Invoice No."><input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
-                                        <FormRow label="Dated"><input type="date" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
-                                        <FormRow label="Buyer Order No"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})} /></FormRow>
-                                        <FormRow label="Destination"><input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
+                                        <FormRow label="Invoice No."><input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
+                                        <FormRow label="Dated"><input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-5 py-3 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
+                                        <FormRow label="Buyer Order No"><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})} /></FormRow>
+                                        <FormRow label="Destination"><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
                                     </div>
                                 </section>
 
@@ -431,7 +493,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-6">
                                             <FormRow label="Consignee Name *">
-                                                <input type="text" list="client-list" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={invoice.customerName || ''} onChange={e => {
+                                                <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={invoice.customerName || ''} onChange={e => {
                                                     const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
                                                     setInvoice(prev => ({
                                                         ...prev,
@@ -442,17 +504,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 }} placeholder="Search registry..." />
                                             </FormRow>
                                             <FormRow label="Consignee GSTIN">
-                                                <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
                                             </FormRow>
                                         </div>
                                         <FormRow label="Site / Billing Address">
-                                            <textarea rows={5} className="w-full bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full site address details..." />
+                                            <textarea rows={5} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full site address details..." />
                                         </FormRow>
                                     </div>
                                 </section>
 
                                 <section className="space-y-6">
-                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                    <div className="flex justify-between items-center border-b border-slate-300 pb-2">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">3. Manifest Items</h3>
                                         <div className="flex gap-2">
                                             <button onClick={() => setBuilderTab('catalog')} className="text-[9px] font-black text-teal-600 bg-teal-50 px-4 py-2 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all uppercase tracking-widest">+ Store</button>
@@ -461,28 +523,28 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                     </div>
                                     <div className="space-y-4">
                                         {invoice.items?.map((item) => (
-                                            <div key={item.id} className="p-6 bg-slate-50 border border-slate-200 rounded-[1.5rem] relative group hover:bg-white hover:border-medical-200 transition-all">
+                                            <div key={item.id} className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative group hover:bg-white hover:border-medical-200 transition-all">
                                                 <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
                                                 <div className="grid grid-cols-12 gap-6">
                                                     <div className="col-span-12 md:col-span-6">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-4 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-4 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
                                                     </div>
                                                     <div className="col-span-4 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
+                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
                                                     </div>
                                                     <div className="col-span-12 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -578,7 +640,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 {(invoice.items || []).map((it, idx) => {
                                                     const base = it.quantity * it.unitPrice;
                                                     return (
-                                                        <tr key={`${idx}-m`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-b border-slate-100">
+                                                        <tr key={`${idx}-m`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-b border-slate-300">
                                                             <td className="border-r border-black p-2 flex items-center justify-center">{idx + 1}</td>
                                                             <td className="border-r border-black p-2 text-left font-bold uppercase truncate flex items-center">{it.description}</td>
                                                             <td className="border-r border-black p-2 flex items-center justify-center">{it.hsn}</td>
@@ -699,17 +761,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                     <h3 className="font-black text-slate-800 uppercase tracking-tight text-xl">Product Registry</h3>
                                     <div className="relative w-72">
                                         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <input type="text" placeholder="Filter index..." className="pl-12 pr-6 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all w-full" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
+                                        <input type="text" placeholder="Filter index..." className="pl-12 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all w-full" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {products.map(prod => (
-                                        <div key={prod.id} className="p-6 bg-slate-50 border border-slate-200 rounded-[2rem] hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group shadow-sm hover:shadow-xl" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
+                                        <div key={prod.id} className="p-6 bg-slate-50 border border-slate-300 rounded-[2rem] hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group shadow-sm hover:shadow-xl" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors truncate uppercase">{prod.name}</h4>
                                                 <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">₹{(prod.sellingPrice || 0).toLocaleString()} • {prod.sku}</p>
                                             </div>
-                                            <div className="ml-4 p-2.5 bg-white rounded-xl border border-slate-100 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-md active:scale-90"><Plus size={20} /></div>
+                                            <div className="ml-4 p-2.5 bg-white rounded-xl border border-slate-300 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-md active:scale-90"><Plus size={20} /></div>
                                         </div>
                                     ))}
                                 </div>

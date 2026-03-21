@@ -71,7 +71,7 @@ export const Login: React.FC = () => {
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400 rounded-full blur-[120px]"></div>
             </div>
 
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-6 md:p-10 relative z-10 animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-slate-300 dark:border-slate-800 p-6 md:p-10 relative z-10 animate-in fade-in zoom-in-95 duration-500">
                 <div className="text-center mb-6 md:mb-10">
                     <div className="w-14 h-14 md:w-20 md:h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-sm ring-4 ring-emerald-500/5 transition-transform hover:scale-105">
                         <ShieldCheck size={40} className="text-emerald-600 dark:text-emerald-400" />
@@ -119,14 +119,14 @@ export const Login: React.FC = () => {
                             <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Work Email</label>
                             <div className="relative group">
                                 <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500" />
-                                <input type="email" required placeholder="your.name@gmail.com" className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-2xl text-sm font-bold focus:border-emerald-500 outline-none" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                <input type="email" required placeholder="your.name@gmail.com" className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-300 rounded-2xl text-sm font-bold focus:border-emerald-500 outline-none" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Security Key</label>
                             <div className="relative group">
                                 <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-emerald-500" />
-                                <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-2xl text-sm font-bold focus:border-emerald-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
+                                <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-300 rounded-2xl text-sm font-bold focus:border-emerald-500 outline-none" value={password} onChange={(e) => setPassword(e.target.value)} />
                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                             </div>
                         </div>
@@ -136,7 +136,7 @@ export const Login: React.FC = () => {
                     </form>
                 ) : (
                     <div className="space-y-6 pt-4">
-                        <button onClick={handleGoogleLogin} disabled={isAuthenticating} className="w-full flex items-center justify-center gap-4 bg-white dark:bg-slate-800 border-2 border-slate-100 py-4 rounded-2xl font-black text-xs uppercase transition-all active:scale-95 disabled:opacity-50">
+                        <button onClick={handleGoogleLogin} disabled={isAuthenticating} className="w-full flex items-center justify-center gap-4 bg-white dark:bg-slate-800 border-2 border-slate-300 py-4 rounded-2xl font-black text-xs uppercase transition-all active:scale-95 disabled:opacity-50">
                             {isAuthenticating ? <RefreshCw size={20} className="animate-spin text-emerald-600" /> : <Chrome size={20} className="text-emerald-600" />}
                             <span>{isAuthenticating ? 'Verifying...' : 'Login by Google Auth'}</span>
                         </button>
