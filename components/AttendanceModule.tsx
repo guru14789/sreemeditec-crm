@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, User, CheckCircle, Building2, AlertCircle, Timer, ShieldCheck, ClipboardCheck, Lock } from 'lucide-react';
+import { Clock, CheckCircle, Building2, AlertCircle, Timer, ClipboardCheck, Lock } from 'lucide-react';
 import { Task, Employee, AttendanceRecord } from '../types';
 import { useData } from './DataContext';
 
@@ -258,32 +258,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 </div>
             )}
 
-            {/* Requirement Info Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0"><User size={20} /></div>
-                    <div className="min-w-0">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Authenticated</p>
-                        <h4 className="font-black text-slate-800 uppercase tracking-tight truncate text-sm">{me?.name}</h4>
-                    </div>
-                </div>
-                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
-                    <div className="w-10 h-10 bg-medical-50 text-medical-600 rounded-2xl flex items-center justify-center shrink-0"><ShieldCheck size={20} /></div>
-                    <div className="min-w-0">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Work Configuration</p>
-                        <h4 className="font-black text-medical-600 uppercase tracking-tight text-sm">{workMode} Profile</h4>
-                    </div>
-                </div>
-                <div className="bg-white rounded-3xl p-4 border border-slate-300 shadow-sm flex items-center gap-4">
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0"><AlertCircle size={20} /></div>
-                    <div className="min-w-0">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Condition for Day End</p>
-                        <h4 className="font-black text-slate-800 uppercase tracking-tight text-sm">
-                            {workMode === 'Field' ? 'Complete All Tasks' : `Work ${REQUIRED_OFFICE_HOURS} Hours`}
-                        </h4>
-                    </div>
-                </div>
-            </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
                 {/* Left Column: Action Card */}

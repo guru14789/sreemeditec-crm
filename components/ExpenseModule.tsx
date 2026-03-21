@@ -157,58 +157,9 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         : expenses.filter(e => e.employeeName === currentUser);
 
     // Stats Logic per Requirements
-    // Total Claimed = sum of APPROVED amount
-    const totalApprovedClaimed = visibleExpenses.filter(e => e.status === 'Approved').reduce((acc, curr) => acc + curr.amount, 0);
-
-    // Total Rejected = sum of REJECTED amount
-    const totalRejected = visibleExpenses.filter(e => e.status === 'Rejected').reduce((acc, curr) => acc + curr.amount, 0);
-
-    // Pending Approval = sum of NOT APPROVE (Pending) amount
-    const pendingAmount = visibleExpenses.filter(e => e.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
 
     return (
         <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
-            {/* Revised Stats Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 shrink-0">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border-2 border-emerald-500 shadow-xl shadow-emerald-500/10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <CheckCircle2 size={80} className="text-emerald-500" />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-emerald-600 dark:text-emerald-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
-                            <CheckCircle2 size={14} /> Total Claimed (Approved)
-                        </p>
-                        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{totalApprovedClaimed.toLocaleString()}</h3>
-                        <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest">Cleared for Disbursement</p>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-amber-100 dark:border-amber-800/40 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity text-amber-500">
-                        <Clock size={80} />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
-                            <Clock size={14} /> Pending Approval
-                        </p>
-                        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">₹{pendingAmount.toLocaleString()}</h3>
-                        <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest">Awaiting Admin Action</p>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-rose-100 dark:border-rose-800/40 shadow-sm relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity text-rose-500">
-                        <XCircle size={80} />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-rose-600 dark:text-rose-400 text-[8px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
-                            <XCircle size={14} /> Total Rejected
-                        </p>
-                        <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter text-rose-600">₹{totalRejected.toLocaleString()}</h3>
-                        <p className="text-xs text-slate-400 font-bold mt-2 uppercase tracking-widest">Declined Claims</p>
-                    </div>
-                </div>
-            </div>
 
             {/* Main Content Area */}
             <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden min-h-[500px]">

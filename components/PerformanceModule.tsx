@@ -1,19 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { Trophy, Star, TrendingUp, Target, Award, Users, CheckCircle, Zap, Crown, Gift, Info, History, Medal, HelpCircle, Edit2, Check, X } from 'lucide-react';
+import { Trophy, Star, TrendingUp, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X } from 'lucide-react';
 import { useData } from './DataContext';
 
-interface PerformanceModuleProps {
-    userRole?: 'Admin' | 'Employee';
-}
 
-export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole = 'Employee' }) => {
-  const { userStats, pointHistory, prizePool, updatePrizePool, employees, tasks, currentUser: activeUser } = useData();
+export const PerformanceModule: React.FC = () => {
+  const { pointHistory, employees, tasks, currentUser: activeUser } = useData();
   const [showRules, setShowRules] = useState(false);
-  const [isEditingPrize, setIsEditingPrize] = useState(false);
-  const [tempPrize, setTempPrize] = useState(prizePool.toString());
-
-  const isAdmin = userRole === 'Admin';
 
   // FIX: Dynamic Leaderboard Generation
   // Calculates real-time rankings by summing point history for every employee in the registry.
@@ -54,86 +47,10 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
     }
   };
 
-  const handleUpdatePrize = () => {
-      const amount = parseInt(tempPrize);
-      if (!isNaN(amount) && amount >= 0) {
-          updatePrizePool(amount);
-      }
-      setIsEditingPrize(false);
-  };
 
   return (
     <div className="h-full flex flex-col gap-5 overflow-y-auto custom-scrollbar p-2">
       
-      {/* Top Header - Mini Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group">
-               <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg"><Zap size={14} /></div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">My Points</span>
-              </div>
-              <div className="flex justify-between items-end">
-                  <h3 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none">{userStats.points}</h3>
-                  <button onClick={() => setShowRules(true)} className="text-slate-300 hover:text-indigo-600 transition-colors"><Info size={16} /></button>
-              </div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><Target size={14} /></div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tasks Done</span>
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">{userStats.tasksCompleted}</h3>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-              <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg"><CheckCircle size={14} /></div>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Streak</span>
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-none">{userStats.attendanceStreak}D</h3>
-          </div>
-
-          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-[1.5rem] text-white shadow-lg shadow-orange-500/20 flex flex-col justify-between relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-2 opacity-20"><Trophy size={48} /></div>
-              <div className="flex justify-between items-start mb-1 relative z-10">
-                  <p className="text-[9px] font-black text-amber-100 uppercase tracking-widest">Monthly Prize Pool</p>
-                  {isAdmin && !isEditingPrize && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setIsEditingPrize(true); setTempPrize(prizePool.toString()); }} 
-                        className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white shadow-sm"
-                        title="Edit Prize Pool"
-                      >
-                          <Edit2 size={12} />
-                      </button>
-                  )}
-              </div>
-              
-              {isEditingPrize ? (
-                  <div className="flex items-center gap-2 animate-in slide-in-from-right-2 relative z-10">
-                      <span className="text-xl font-black">₹</span>
-                      <input 
-                        autoFocus
-                        type="number" 
-                        className="bg-white/10 border-b-2 border-white/40 text-xl font-black outline-none w-full max-w-[100px] text-white placeholder:text-white/50"
-                        value={tempPrize}
-                        onChange={(e) => setTempPrize(e.target.value)}
-                        onBlur={() => !tempPrize && setIsEditingPrize(false)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleUpdatePrize();
-                            if (e.key === 'Escape') setIsEditingPrize(false);
-                        }}
-                      />
-                      <div className="flex gap-1">
-                          <button onClick={handleUpdatePrize} className="p-1 bg-emerald-500 rounded-md shadow-lg hover:bg-emerald-600 transition-colors"><Check size={12}/></button>
-                          <button onClick={() => setIsEditingPrize(false)} className="p-1 bg-rose-500 rounded-md shadow-lg hover:bg-rose-600 transition-colors"><X size={12}/></button>
-                      </div>
-                  </div>
-              ) : (
-                  <h3 className="text-2xl font-black tracking-tight leading-none relative z-10">₹{prizePool.toLocaleString()}</h3>
-              )}
-          </div>
-      </div>
 
       {/* Main Leaderboard Content */}
       <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0">
@@ -143,9 +60,14 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({ userRole =
                       <Award className="text-amber-500" size={18} />
                       <h2 className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100 uppercase tracking-widest">Team Rankings</h2>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                      <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Live Updates</span>
+                  <div className="flex items-center gap-3">
+                      <button onClick={() => setShowRules(true)} className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-sm">
+                          <Info size={14} /> Rules
+                      </button>
+                      <div className="flex items-center gap-1.5 ml-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Live Updates</span>
+                      </div>
                   </div>
               </div>
 

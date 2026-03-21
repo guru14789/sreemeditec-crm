@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, Bell, Info, AlertTriangle, CheckCircle2
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, Bell, Info, AlertTriangle, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -63,8 +63,40 @@ const SectionHeading = ({ children, isSidebarOpen }: { children?: React.ReactNod
   );
 };
 
+const formatIndianNumber = (num: number) => {
+    const n = num || 0;
+    if (n >= 10000000) {
+        return (n / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
+    }
+    if (n >= 100000) {
+        return (n / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
+    }
+    if (n >= 1000) {
+        return (n / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
+    }
+    return n.toLocaleString('en-IN');
+};
+
+const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { label: string, value: string, icon: any, colorClass: string, subText?: string }) => (
+    <div className={`hidden lg:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:border-${colorClass.split('-')[1]}-200 group`}>
+        <div className={`p-1.5 rounded-xl ${colorClass} text-white group-hover:scale-110 transition-transform`}>
+            <Icon size={14} />
+        </div>
+        <div>
+            <p className="text-[7px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 leading-none mb-1">{label}</p>
+            <div className="flex items-baseline gap-1">
+                <span className="text-xs font-black text-slate-700 dark:text-slate-200 tracking-tight leading-none">{value}</span>
+                {subText && <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter leading-none">{subText}</span>}
+            </div>
+        </div>
+    </div>
+);
+
 export const App: React.FC = () => {
-  const { notifications, markNotificationRead, clearAllNotifications, isAuthenticated, currentUser, logout, tasks } = useData();
+    const { notifications, markNotificationRead, clearAllNotifications, isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats } = useData();
+    const [isEditingPrize, setIsEditingPrize] = useState(false);
+    const [tempPrize, setTempPrize] = useState(prizePool.toString());
+
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -183,7 +215,7 @@ export const App: React.FC = () => {
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
-      case TabView.PERFORMANCE: return <PerformanceModule userRole={userRole} />;
+      case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
       default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
@@ -287,6 +319,175 @@ export const App: React.FC = () => {
               <span className="text-[10px] md:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none whitespace-nowrap">Live Workspace</span>
             </div>
           </div>
+          
+          {activeTab === TabView.INVENTORY && (
+            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+               {/* Valuation Calculations */}
+               {(() => {
+                 const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+                 const assetValuationAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.sellingPrice || 0)), 0);
+                 const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+                 
+                 return (
+                   <>
+                     <HeaderStatCard 
+                        label="Asset Value" 
+                        value={`₹${formatIndianNumber(assetValuationAll)}`} 
+                        icon={Activity} 
+                        colorClass="bg-emerald-500"
+                        subText="(Market)"
+                     />
+                     <HeaderStatCard 
+                        label="Investment" 
+                        value={`₹${formatIndianNumber(equipmentCostAll)}`} 
+                        icon={Building2} 
+                        colorClass="bg-indigo-500"
+                        subText="(Purchase)"
+                     />
+                     <HeaderStatCard 
+                        label="Consumables" 
+                        value={`₹${formatIndianNumber(consumableValue)}`} 
+                        icon={Package} 
+                        colorClass="bg-purple-500"
+                        subText="(Current)"
+                     />
+                   </>
+                 );
+               })()}
+            </div>
+          )}
+
+          {activeTab === TabView.ATTENDANCE && currentUser && (
+            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+               {(() => {
+                 const workMode = (currentUser.department === 'Service' || currentUser.department === 'Sales' || currentUser.department === 'Support') ? 'Field' : (currentUser.department === 'Remote' ? 'Remote' : 'Office');
+                 const goal = workMode === 'Field' ? 'Complete Tasks' : '7 Hours Work';
+                 
+                 return (
+                   <>
+                     <HeaderStatCard 
+                        label="Authenticated" 
+                        value={currentUser.name} 
+                        icon={User} 
+                        colorClass="bg-indigo-500"
+                        subText={`(${currentUser.role})`}
+                     />
+                     <HeaderStatCard 
+                        label="Work Mode" 
+                        value={`${workMode} Profile`} 
+                        icon={ShieldCheck} 
+                        colorClass="bg-medical-600"
+                        subText="Live"
+                     />
+                     <HeaderStatCard 
+                        label="Shift Goal" 
+                        value={goal} 
+                        icon={AlertCircle} 
+                        colorClass="bg-amber-500"
+                        subText="Target"
+                     />
+                   </>
+                 );
+               })()}
+            </div>
+          )}
+
+          {activeTab === TabView.EXPENSES && (
+            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+               {(() => {
+                 const userRole = (currentUser?.department === 'Administration' || currentUser?.role === 'SYSTEM_ADMIN') ? 'Admin' : 'Employee';
+                 const visibleExpenses = userRole === 'Admin' ? expenses : expenses.filter(e => e.employeeName === currentUser?.name);
+                 
+                 const totalApproved = visibleExpenses.filter(e => e.status === 'Approved').reduce((sum, e) => sum + e.amount, 0);
+                 const pendingAmount = visibleExpenses.filter(e => e.status === 'Pending').reduce((sum, e) => sum + e.amount, 0);
+                 const totalRejected = visibleExpenses.filter(e => e.status === 'Rejected').reduce((sum, e) => sum + e.amount, 0);
+                 
+                 return (
+                   <>
+                     <HeaderStatCard 
+                        label="Approved" 
+                        value={`₹${formatIndianNumber(totalApproved)}`} 
+                        icon={CheckCircle2} 
+                        colorClass="bg-emerald-500"
+                        subText="Cleared"
+                     />
+                     <HeaderStatCard 
+                        label="Pending" 
+                        value={`₹${formatIndianNumber(pendingAmount)}`} 
+                        icon={Clock} 
+                        colorClass="bg-amber-500"
+                        subText="Awaiting"
+                     />
+                     <HeaderStatCard 
+                        label="Rejected" 
+                        value={`₹${formatIndianNumber(totalRejected)}`} 
+                        icon={XCircle} 
+                        colorClass="bg-rose-500"
+                        subText="Declined"
+                     />
+                   </>
+                 );
+               })()}
+            </div>
+          )}
+
+          {activeTab === TabView.PERFORMANCE && (
+            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+               <HeaderStatCard 
+                  label="My Points" 
+                  value={userStats.points.toString()} 
+                  icon={Zap} 
+                  colorClass="bg-indigo-500"
+                  subText="Earned"
+               />
+               <HeaderStatCard 
+                  label="Tasks Done" 
+                  value={userStats.tasksCompleted.toString()} 
+                  icon={Target} 
+                  colorClass="bg-blue-500"
+                  subText="Total"
+               />
+               <HeaderStatCard 
+                  label="Streak" 
+                  value={`${userStats.attendanceStreak}D`} 
+                  icon={CheckCircle} 
+                  colorClass="bg-emerald-500"
+                  subText="Active"
+               />
+               
+               <div className={`hidden lg:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-orange-500/10 transition-all group relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 p-1 opacity-20"><Trophy size={24} /></div>
+                  <div className="text-white relative z-10 flex items-center gap-3">
+                      <div>
+                        <p className="text-[7px] font-black uppercase tracking-[0.15em] text-amber-100 leading-none mb-1">Prize Pool</p>
+                        {isEditingPrize ? (
+                          <div className="flex items-center gap-1">
+                             <span className="text-xs font-black">₹</span>
+                             <input 
+                                autoFocus
+                                type="number" 
+                                className="bg-white/20 border-b border-white/40 text-xs font-black outline-none w-16 text-white placeholder:text-white/50"
+                                value={tempPrize}
+                                onChange={(e) => setTempPrize(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { updatePrizePool(Number(tempPrize)); setIsEditingPrize(false); }
+                                    if (e.key === 'Escape') setIsEditingPrize(false);
+                                }}
+                             />
+                          </div>
+                        ) : (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-black tracking-tight leading-none">₹{formatIndianNumber(prizePool)}</span>
+                            {(currentUser?.department === 'Administration' || currentUser?.role === 'SYSTEM_ADMIN') && (
+                              <button onClick={() => { setTempPrize(prizePool.toString()); setIsEditingPrize(true); }} className="p-0.5 hover:bg-white/20 rounded ml-1 transition-colors"><Edit2 size={10} /></button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                  </div>
+               </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-1 md:gap-3 relative">
             {/* Notification Bell */}

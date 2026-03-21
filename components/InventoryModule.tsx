@@ -1,23 +1,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, StockMovement } from '../types';
-import { Package, AlertTriangle, Search, X, CheckCircle, Plus, Save, Wallet, History, ArrowUpRight, ArrowDownLeft, Send, MapPin, ScanBarcode, Trash2, Building2, RefreshCw, Edit2 } from 'lucide-react';
+import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, ChevronDown, MoreVertical, Edit2, Download, RefreshCw, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useData } from './DataContext';
 
-// Helper for Indian Number Formatting (K, L, Cr)
-const formatIndianNumber = (num: number) => {
-    const n = num || 0;
-    if (n >= 10000000) {
-        return (n / 10000000).toFixed(2).replace(/\.00$/, '') + 'Cr';
-    }
-    if (n >= 100000) {
-        return (n / 100000).toFixed(2).replace(/\.00$/, '') + 'L';
-    }
-    if (n >= 1000) {
-        return (n / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
-    }
-    return n.toLocaleString('en-IN');
-};
 
 const InlineInput: React.FC<{ 
     value: string | number, 
@@ -353,58 +339,11 @@ export const InventoryModule: React.FC = () => {
         }, 50);
     };
 
-    // --- REVISED CALCULATION LOGIC ---
-    // Equipment (Cost) - sum of Purchase Price * available stock for all products
-    const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
-
-    // Asset Valuation (Cost) - sum of Selling Price * available stock for all products
-    const assetValuationAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.sellingPrice || 0)), 0);
-
-    // Consumables (Cost) - remains specific to category for more detail
-    const consumableValue = products.filter(p => p.category === 'Consumable').reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
+    // --- REVISED CALCULATION LOGIC REMOVED AND MOVED TO APP HEADER ---
 
     return (
         <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
 
-            {/* Inventory Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-                <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group h-full flex flex-col justify-between">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Wallet size={100} />
-                    </div>
-                    <div className="relative z-10">
-                        <p className="text-emerald-100 text-[8px] font-black uppercase tracking-widest mb-1 flex items-center gap-2">
-                            <Wallet size={14} /> Asset Valuation (Selling Value)
-                        </p>
-                        <h3 className="text-3xl font-black tracking-tight mt-1">₹{formatIndianNumber(assetValuationAll)}</h3>
-                        <p className="text-xs text-emerald-100/60 mt-2 font-medium">Total market value of all stock</p>
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
-                    <div>
-                        <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Equipment (Purchase Cost)</p>
-                        <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(equipmentCostAll)}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Total inventory investment</p>
-                    </div>
-                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:scale-110 transition-transform">
-                        <Building2 size={24} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex items-center justify-between group hover:shadow-md transition-all h-full">
-                    <div>
-                        <p className="text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1">Consumables (Cost)</p>
-                        <h3 className="text-xl font-black text-slate-800">₹{formatIndianNumber(consumableValue)}</h3>
-                        <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tighter">Gels, Spares, etc.</p>
-                    </div>
-                    <div className="bg-purple-50 p-3 rounded-2xl text-purple-600 group-hover:scale-110 transition-transform">
-                        <Package size={24} />
-                    </div>
-                </div>
-
-
-            </div>
 
             {/* Main Inventory Section */}
             <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
