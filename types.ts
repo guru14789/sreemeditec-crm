@@ -51,6 +51,8 @@ export interface Lead {
   email?: string;
   address?: string;
   followUps: FollowUp[];
+  contactPerson?: string;
+  salesTakenBy?: string;
 }
 
 export interface Client {
@@ -191,6 +193,7 @@ export interface Employee {
   permissions: TabView[];
   password?: string;
   isLoginEnabled: boolean;
+  lastSeenWinnerMonth?: string; // Format: YYYY-MM
 }
 
 export interface UserStats {
@@ -229,6 +232,19 @@ export interface AppNotification {
   time: string;
   type: 'alert' | 'warning' | 'success' | 'info';
   read: boolean;
+}
+
+export interface MonthlyWinner {
+  id: string;
+  monthId: string; // YYYY-MM
+  userId: string;
+  userName: string;
+  points: number;
+}
+
+export interface SystemSettings {
+  id: string;
+  lastResetMonth: string; // Format: YYYY-MM
 }
 
 export interface TaskLog {
@@ -367,4 +383,10 @@ export interface DeliveryChallan {
   items: ChallanItem[];
   status: 'Draft' | 'Dispatched';
   subject?: string;
+}
+
+export interface Holiday {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
 }

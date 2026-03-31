@@ -1,8 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Building2, AlertCircle, Timer, ClipboardCheck, Lock } from 'lucide-react';
-import { Task, Employee, AttendanceRecord } from '../types';
+import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X } from 'lucide-react';
+import { Task, Employee, AttendanceRecord, Holiday } from '../types';
 import { useData } from './DataContext';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface AttendanceModuleProps {
     tasks: Task[];
@@ -11,7 +12,7 @@ interface AttendanceModuleProps {
 type WorkMode = 'Office' | 'Field' | 'Remote';
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => {
-    const { addPoints, currentUser: me, attendanceRecords, updateAttendance, employees, addNotification } = useData();
+    const { addPoints, currentUser: me, attendanceRecords, updateAttendance, employees, addNotification, holidays, addHoliday, removeHoliday } = useData();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -22,6 +23,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
     const [workMode, setWorkMode] = useState<WorkMode>('Office');
     const [filterStatus, setFilterStatus] = useState<string>('All');
+    const [showHolidayModal, setShowHolidayModal] = useState(false);
+    const [newHolidayName, setNewHolidayName] = useState('');
+    const [newHolidayDate, setNewHolidayDate] = useState('');
 
     const REQUIRED_OFFICE_HOURS = 7;
 
@@ -31,6 +35,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
     const todayStr = getTodayStr();
+
+    const todayHoliday = holidays.find(h => h.date === todayStr);
+    const isHolidayToday = !!todayHoliday;
 
     const todayRecord: AttendanceRecord | undefined = attendanceRecords.find(r => r.userId === me?.id && r.date === todayStr);
 
@@ -79,8 +86,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     const formatDuration = (ms: number) => {
         const hours = Math.floor(ms / (1000 * 60 * 60));
         const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((ms % (1000 * 60)) / 1000);
-        return `${hours}h ${minutes}m ${seconds}s`; // Added seconds for better visual "running" feedback
+        return `${hours}h ${minutes}m`;
     };
 
     const totalWorkedMs = getTotalWorkedMs();
@@ -91,11 +97,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     const totalTasksCount = myTasksToday.length;
 
     const isOfficeHoursComplete = totalWorkedHours >= REQUIRED_OFFICE_HOURS;
-    const isFieldWorkComplete = totalTasksCount > 0 && completedTasksCount === totalTasksCount;
 
-    const canConfirmAttendance = workMode === 'Field'
-        ? isFieldWorkComplete
-        : isOfficeHoursComplete;
 
     // AUTO-CLOSE LOGIC: automatically close mark attendance after 7 hours
     useEffect(() => {
@@ -140,7 +142,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     };
 
     const handleCheckInOut = async () => {
-        if (isLocked || !me) return;
+        if (isLocked || isHolidayToday || !me) return;
 
         const recordId = `${me.id}_${todayStr}`;
         const now = new Date();
@@ -210,11 +212,96 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         if (record.status === 'CheckedIn' && record.lastSessionStartTime) {
             ms += currentTime.getTime() - new Date(record.lastSessionStartTime).getTime();
         }
-        return formatDuration(ms);
+        const remaining = Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - ms);
+        return remaining === 0 ? "Done" : `${formatDuration(remaining)} Left`;
+    };
+
+    const isAdmin = me?.role === 'SYSTEM_ADMIN';
+
+    const handleExportMonthlyReport = () => {
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const now = new Date();
+        const monthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Monthly Attendance Report: ${monthYear}`, 14, 20);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
+        doc.text(`Organization: Sree Meditec Enterprise`, 14, 30);
+
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentDate = now.getDate();
+        
+        const tableData = employees.map(emp => {
+            const currentYearMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+            const empRecords = attendanceRecords.filter(r => 
+                r.userId === emp.id && 
+                r.date.startsWith(currentYearMonth)
+            );
+
+            let totalDaysPresent = 0;
+            let totalWorkedMs = 0;
+
+            for (let i = 1; i <= currentDate; i++) {
+                const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
+                const dateObj = new Date(currentYear, currentMonth, i);
+                const dayRecord = empRecords.find(r => r.date === dateStr && (r.status === 'Completed' || r.status === 'CheckedIn'));
+                const isHoliday = holidays.some(h => h.date === dateStr);
+                
+                if (dateObj.getDay() === 0 || isHoliday) {
+                    // Credit day for Sunday or Holiday
+                    totalDaysPresent++;
+                    // Credit 7 hours for Sunday or Holiday
+                    totalWorkedMs += (7 * 3600000);
+                } else if (dayRecord) {
+                    // Credit day for actual work
+                    totalDaysPresent++;
+                    // Credit actual worked hours
+                    totalWorkedMs += (dayRecord.totalWorkedMs || 0);
+                }
+            }
+
+            const totalHours = (totalWorkedMs / (1000 * 60 * 60)).toFixed(1);
+            
+            const empTasks = tasks.filter(t => 
+                t.assignedTo === emp.name && 
+                t.dueDate.startsWith(currentYearMonth) &&
+                t.status === 'Done'
+            ).length;
+
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const targetHours = daysInMonth * REQUIRED_OFFICE_HOURS;
+
+            return [
+                emp.name,
+                emp.department,
+                emp.role,
+                totalDaysPresent,
+                `${totalHours}h / ${targetHours}h`,
+                empTasks > 0 ? empTasks : '-'
+            ];
+        });
+
+        autoTable(doc, {
+            startY: 40,
+            head: [['Staff Name', 'Department', 'Role', 'Days Present', 'Total Hours (Actual/Goal)', 'Tasks Completed']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            alternateRowStyles: { fillColor: [245, 255, 250] }
+        });
+
+        doc.save(`Attendance_Report_${monthYear.replace(' ', '_')}.pdf`);
+        addNotification('Report Generated', `Monthly attendance for ${monthYear} has been exported.`, 'success');
     };
 
     const getStatusBadge = (status: string, empId: string) => {
         const record = attendanceRecords.find(r => r.userId === empId && r.date === todayStr);
+        if (isHolidayToday) return 'bg-amber-100 text-amber-800 border-amber-200';
         if (record?.status === 'Completed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
         if (record?.status === 'CheckedIn') return 'bg-blue-50 text-blue-700 border-blue-100';
         if (record?.status === 'Paused') return 'bg-amber-50 text-amber-700 border-amber-100';
@@ -232,7 +319,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             {/* Confirmation Modal */}
             {showConfirmModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-300 transform transition-all animate-in fade-in zoom-in duration-300">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-300 transform transition-all animate-in fade-in zoom-in duration-300">
                         <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
                             <CheckCircle size={32} />
                         </div>
@@ -258,91 +345,183 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 </div>
             )}
 
-
-            <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-                {/* Left Column: Action Card */}
-                <div className="w-full lg:w-1/3 flex flex-col gap-6 shrink-0">
-                    {/* Primary Action Card */}
-                    <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-300 p-6 flex flex-col relative overflow-hidden group shrink-0">
-                        <div className={`absolute top-0 left-0 w-full h-2 ${isLocked ? 'bg-indigo-500' : isCheckedIn ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
-
-                        <div className="text-center mb-6">
-                            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-1">Time Registry</h3>
-                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+            {/* Holiday Management Modal */}
+            {showHolidayModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-300 animate-in fade-in zoom-in duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Organization Holidays</h3>
+                            <button onClick={() => setShowHolidayModal(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
                         </div>
-
-                        <div className="flex flex-col items-center mb-6">
-                            <div className="text-5xl font-black text-slate-800 tracking-tighter font-mono mb-4 tabular-nums">
-                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Holiday Name</label>
+                                <input 
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-medical-500 transition-all"
+                                    placeholder="e.g. Independence Day"
+                                    value={newHolidayName}
+                                    onChange={(e) => setNewHolidayName(e.target.value)}
+                                />
                             </div>
-
-                            <div className="w-full bg-slate-50 rounded-[2rem] p-4 border border-slate-300 flex flex-col items-center justify-center">
-                                <div className={`flex items-center gap-2 font-black text-2xl transition-all ${isLocked ? 'text-indigo-600' : isCheckedIn ? 'text-emerald-600' : 'text-slate-300'}`}>
-                                    {isLocked ? <Lock size={24} /> : workMode === 'Field' ? <ClipboardCheck size={24} /> : <Timer size={24} className={isCheckedIn ? "animate-pulse" : ""} />}
-                                    <span>{workMode === 'Field' ? `${completedTasksCount}/${totalTasksCount}` : formatDuration(totalWorkedMs)}</span>
-                                </div>
-                                <span className="text-[9px] font-black text-slate-400 mt-1 uppercase tracking-widest">
-                                    {isLocked ? 'Attendance Locked for Today' : workMode === 'Field' ? 'Worked Today (Tasks Ratio)' : 'Shift Running (Total Time)'}
-                                </span>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Date</label>
+                                <input 
+                                    type="date"
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-medical-500 transition-all font-mono"
+                                    value={newHolidayDate}
+                                    onChange={(e) => setNewHolidayDate(e.target.value)}
+                                />
                             </div>
-                        </div>
-
-                        {!isLocked ? (
-                            <button
-                                onClick={handleCheckInOut}
-                                className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-3 relative z-10 ${isCheckedIn
-                                    ? 'bg-emerald-600 text-white shadow-emerald-500/30'
-                                    : 'bg-medical-600 text-white shadow-medical-500/30'
-                                    }`}
+                            <button 
+                                onClick={() => {
+                                    if(!newHolidayName || !newHolidayDate) return;
+                                    addHoliday({ id: `HOL-${Date.now()}`, name: newHolidayName, date: newHolidayDate });
+                                    setNewHolidayName('');
+                                    setNewHolidayDate('');
+                                    addNotification('Holiday Added', `${newHolidayName} has been scheduled.`, 'success');
+                                }}
+                                className="col-span-2 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
                             >
-                                {isCheckedIn ? (
-                                    <><CheckCircle size={18} /> Finish Shift & Confirm</>
-                                ) : (
-                                    <><Clock size={18} /> {accumulatedMs > 0 ? 'Resume Shift' : 'Check In Now'}</>
-                                )}
+                                Schedule Holiday
                             </button>
-                        ) : (
-                            <div className="w-full flex-col gap-3">
-                                <div className="w-full py-4 bg-slate-50 border border-slate-300 rounded-2xl flex flex-col items-center justify-center text-slate-400">
-                                    <Lock size={24} className="mb-2" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Shift Completed & Locked</span>
-                                    <span className="text-[8px] font-bold mt-1">See you tomorrow!</span>
-                                </div>
-                                <button
-                                    onClick={logActualDeparture}
-                                    className="w-full mt-3 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700 shadow-md flex items-center justify-center gap-2"
-                                >
-                                    <Clock size={14} /> Log Actual Departure Time
-                                </button>
-                            </div>
-                        )}
+                        </div>
 
-                        {isCheckedIn && !canConfirmAttendance && !isLocked && (
-                            <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
-                                <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                                <p className="text-[9px] font-bold text-amber-800 uppercase leading-tight">
-                                    {workMode === 'Field'
-                                        ? totalTasksCount === 0 ? 'No tasks assigned for today' : `Goal: Complete ${totalTasksCount - completedTasksCount} pending tasks`
-                                        : `Goal: Work ${formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))} more`}
-                                </p>
+                        <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
+                            {holidays.sort((a,b) => a.date.localeCompare(b.date)).map(h => (
+                                <div key={h.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 group">
+                                    <div>
+                                        <div className="text-sm font-black text-slate-800">{h.name}</div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(h.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                                    </div>
+                                    <button 
+                                        onClick={() => removeHoliday(h.id)}
+                                        className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            ))}
+                            {holidays.length === 0 && (
+                                <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">No holidays scheduled</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
+                {/* Top Section: Action Card (Centered with max-width) */}
+                <div className="w-full flex justify-center">
+                    <div className="w-full max-w-3xl">
+                        {/* Primary Action Card */}
+                        <div className="bg-white rounded-3xl shadow-sm border border-slate-300 p-4 flex flex-col relative overflow-hidden group">
+                            <div className={`absolute top-0 left-0 w-full h-1.5 ${isHolidayToday ? 'bg-amber-500' : isLocked ? 'bg-indigo-500' : isCheckedIn ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+
+                            <div className="flex items-center justify-between mb-4 px-2">
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Time Registry</h3>
+                                    <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest leading-none">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                                </div>
+                                {isHolidayToday && (
+                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-200">Holiday Credited</span>
+                                )}
                             </div>
-                        )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                <div className="w-full bg-slate-50 rounded-2xl p-4 border border-slate-200 flex items-center gap-5">
+                                    <div className={`aspect-square w-12 rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-indigo-50 text-indigo-600' : isCheckedIn ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-300 border border-slate-200'}`}>
+                                        {isLocked ? <Lock size={20} /> : workMode === 'Field' ? <ClipboardCheck size={20} /> : <Timer size={20} className={isCheckedIn ? "animate-pulse" : ""} />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className={`font-black text-2xl transition-all tabular-nums leading-none ${isLocked ? 'text-indigo-600' : isCheckedIn ? 'text-emerald-600' : 'text-slate-300'}`}>
+                                            {workMode === 'Field' 
+                                                ? `${completedTasksCount}/${totalTasksCount}` 
+                                                : isOfficeHoursComplete ? 'Goal Met' : formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}
+                                        </div>
+                                        <span className="text-[8px] font-black text-slate-400 mt-1 uppercase tracking-widest">
+                                            {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Time Remaining (7h Goal)'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    {!isLocked && !isHolidayToday ? (
+                                        <button
+                                            onClick={handleCheckInOut}
+                                            className={`w-full py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 shadow-sm flex items-center justify-center gap-2 relative z-10 ${isCheckedIn
+                                                ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                                : 'bg-medical-600 text-white shadow-medical-500/20'
+                                                }`}
+                                        >
+                                            {isCheckedIn ? (
+                                                <><CheckCircle size={14} /> Finish & Confirm</>
+                                            ) : (
+                                                <><Clock size={14} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
+                                            )}
+                                        </button>
+                                    ) : isHolidayToday ? (
+                                        <div className="w-full bg-amber-50/50 border border-amber-200/50 rounded-xl px-4 py-3 flex items-center gap-3">
+                                            <Calendar size={18} className="text-amber-500" />
+                                            <div>
+                                                <div className="text-[10px] font-black uppercase text-amber-900 leading-none">{todayHoliday?.name || 'Holiday'}</div>
+                                                <div className="text-[8px] font-bold text-amber-700/60 uppercase tracking-widest mt-1">System Locked</div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <div className="flex-1 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center gap-2 text-slate-400">
+                                                <Lock size={14} />
+                                                <span className="text-[9px] font-black uppercase tracking-widest leading-none">Locked</span>
+                                            </div>
+                                            <button
+                                                onClick={logActualDeparture}
+                                                className="flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700"
+                                            >
+                                                Log Departure
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Column: Staff Registry (Attendance Sheet) */}
-                <div className="flex-1 bg-white rounded-[2.5rem] shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
-                    <div className="p-6 border-b border-slate-300 flex flex-wrap gap-4 justify-between items-center bg-slate-50/50">
-                        <h3 className="font-black text-base text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                            <Building2 size={20} className="text-slate-400" /> Attendance Sheet
-                        </h3>
-                        <div className="flex bg-white p-1 rounded-xl border border-slate-300 shadow-sm">
+                {/* Bottom Section: Staff Registry (Attendance Sheet) - Full Width */}
+                <div className="w-full bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
+                    <div className="p-4 border-b border-slate-300 flex flex-wrap gap-3 justify-between items-center bg-slate-50/25">
+                        <div className="flex items-center gap-3">
+                            <h3 className="font-black text-sm text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                                <Building2 size={18} className="text-slate-400" /> Attendance Sheet
+                            </h3>
+                            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+                            {isAdmin && (
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => setShowHolidayModal(true)}
+                                        className="p-1 px-3 bg-white text-indigo-600 rounded-lg border border-slate-200 hover:bg-indigo-50 transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-widest shadow-sm"
+                                        title="Manage Holidays"
+                                    >
+                                        <Calendar size={13} /> Holidays
+                                    </button>
+                                    <button 
+                                        onClick={handleExportMonthlyReport}
+                                        className="p-1 px-3 bg-white text-emerald-600 rounded-lg border border-slate-200 hover:bg-emerald-50 transition-all flex items-center gap-2 text-[9px] font-black uppercase tracking-widest shadow-sm"
+                                        title="Export Monthly Report"
+                                    >
+                                        <Download size={13} /> Export
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
                             {['All', 'Service', 'Administration', 'Support'].map(dept => (
                                 <button
                                     key={dept}
                                     onClick={() => setFilterStatus(dept)}
-                                    className={`text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-lg transition-all ${filterStatus === dept
-                                        ? 'bg-medical-600 text-white'
+                                    className={`text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-md transition-all ${filterStatus === dept
+                                        ? 'bg-white shadow-sm text-medical-700'
                                         : 'text-slate-400 hover:text-slate-600'
                                         }`}
                                 >
@@ -353,57 +532,56 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                     </div>
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 text-[9px] uppercase font-black tracking-widest text-slate-400">
+                        <table className="w-full text-left text-[11px] text-slate-600">
+                            <thead className="bg-[#fcfdfd] border-b border-slate-200 sticky top-0 z-10 text-[8px] uppercase font-black tracking-widest text-slate-400">
                                 <tr>
-                                    <th className="px-6 py-4">Staff Member</th>
-                                    <th className="px-6 py-4">Department</th>
-                                    <th className="px-6 py-4">Progress / Time</th>
-                                    <th className="px-6 py-4 hidden md:table-cell">Check In</th>
-                                    <th className="px-6 py-4 hidden md:table-cell">Check Out</th>
-                                    <th className="px-6 py-4 text-right">Day Status</th>
+                                    <th className="px-5 py-3">Staff Member</th>
+                                    <th className="px-5 py-3">Department</th>
+                                    <th className="px-5 py-3">Progress / Time</th>
+                                    <th className="px-5 py-3 hidden md:table-cell">Check In</th>
+                                    <th className="px-5 py-3 hidden md:table-cell">Check Out</th>
+                                    <th className="px-5 py-3 text-right">Day Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50 bg-white">
+                            <tbody className="divide-y divide-slate-100 bg-white">
                                 {employees.filter(e => filterStatus === 'All' || e.department === filterStatus).map((emp) => {
                                     const rec = attendanceRecords.find(r => r.userId === emp.id && r.date === todayStr);
                                     return (
-                                        <tr key={emp.id} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-300">
+                                        <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group cursor-default">
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center font-black text-[10px] text-slate-400 border border-slate-200">
                                                         {emp.name.charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <div className="font-black text-slate-800 text-sm leading-none">{emp.name}</div>
-                                                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-1.5">{emp.role}</div>
+                                                        <div className="font-black text-slate-800 text-[11px] leading-none">{emp.name}</div>
+                                                        <div className="text-[8px] text-slate-400 font-bold uppercase mt-1">{emp.role}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                                            <td className="px-5 py-3">
+                                                <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest">
                                                     {emp.department}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-2 text-slate-800 font-black text-[11px]">
-                                                    {(emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') ? <ClipboardCheck size={14} className="text-blue-500" /> : <Timer size={14} className="text-emerald-500" />}
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center gap-2 text-slate-800 font-black text-[10px]">
                                                     {getEmpAttendanceDisplay(emp)}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5 hidden md:table-cell">
-                                                <span className="text-[11px] font-bold text-slate-600">
+                                            <td className="px-5 py-3 hidden md:table-cell">
+                                                <span className="text-[10px] font-bold text-slate-500">
                                                     {formatTime(rec?.checkInTime)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5 hidden md:table-cell">
-                                                <span className="text-[11px] font-bold text-slate-600">
+                                            <td className="px-5 py-3 hidden md:table-cell">
+                                                <span className="text-[10px] font-bold text-slate-500">
                                                     {formatTime(rec?.checkOutTime)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-5 text-right">
-                                                <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
-                                                    {rec?.status === 'Completed' ? 'Locked' : rec?.status || emp.status}
+                                            <td className="px-5 py-3 text-right">
+                                                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
+                                                    {isHolidayToday ? 'Holiday' : rec?.status === 'Completed' ? 'Locked' : rec?.status || emp.status}
                                                 </span>
                                             </td>
                                         </tr>

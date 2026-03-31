@@ -49,7 +49,9 @@ export const ClientModule: React.FC = () => {
     const normalize = (str: string) => (str || '').toLowerCase().trim();
     const getClientTotalRevenue = (clientName: string) => {
         const target = normalize(clientName);
-        return invoices.filter(inv => normalize(inv.customerName) === target).reduce((sum, inv) => sum + inv.grandTotal, 0);
+        return invoices
+            .filter(inv => normalize(inv.customerName) === target && inv.documentType !== 'Quotation')
+            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
     };
 
     const filteredClients = clients.filter(c => normalize(c.name).includes(normalize(searchQuery)) || normalize(c.id).includes(normalize(searchQuery)));

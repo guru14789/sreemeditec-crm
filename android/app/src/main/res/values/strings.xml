@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sree Meditec CRM</string>
+    <string name="title_activity_main">Sree Meditec CRM</string>
+    <string name="package_name">com.sreemeditec.crm</string>
+    <string name="custom_url_scheme">com.sreemeditec.crm</string>
+    <string name="server_client_id">376656303612-ld1mm6bh4tn30b9qhv78ggi49rkbsfnu.apps.googleusercontent.com</string>
+</resources>

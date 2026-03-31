@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, SystemSettings } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -28,9 +28,16 @@ export interface DataContextType {
     leads: Lead[];
     serviceTickets: ServiceTicket[];
     attendanceRecords: AttendanceRecord[];
+    serviceReports: ServiceReport[];
+    holidays: Holiday[];
     deliveryChallans: DeliveryChallan[];
     installationReports: ServiceReport[];
-    serviceReports: ServiceReport[];
+    monthlyWinners: MonthlyWinner[];
+    showWinnerPopup: boolean;
+    setShowWinnerPopup: (show: boolean) => void;
+    latestWinner: MonthlyWinner | null;
+    setLatestWinner: (winner: MonthlyWinner | null) => void;
+    acknowledgeWinner: () => Promise<void>;
 
 
     pendingQuoteData: Partial<Invoice> | null;
@@ -71,6 +78,7 @@ export interface DataContextType {
     updateTaskRemote: (id: string, updates: Partial<Task>) => Promise<void>;
     addLead: (lead: Lead) => Promise<void>;
     updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
+    removeLead: (id: string) => Promise<void>;
     addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
     updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
     addExpense: (expense: ExpenseRecord) => Promise<void>;
@@ -91,6 +99,9 @@ export interface DataContextType {
     addServiceReport: (report: ServiceReport) => Promise<void>;
     updateServiceReport: (id: string, updates: Partial<ServiceReport>) => Promise<void>;
     removeServiceReport: (id: string) => Promise<void>;
+    addHoliday: (holiday: Holiday) => Promise<void>;
+    removeHoliday: (id: string) => Promise<void>;
+    checkAndPerformMonthReset: () => Promise<void>;
 }
 
 
@@ -138,6 +149,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [deliveryChallans, setDeliveryChallans] = useState<DeliveryChallan[]>([]);
     const [installationReports, setInstallationReports] = useState<ServiceReport[]>([]);
     const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
+    const [holidays, setHolidays] = useState<Holiday[]>([]);
+    const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
+    const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+    const [showWinnerPopup, setShowWinnerPopup] = useState(false);
+    const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
 
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
@@ -322,7 +338,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
                 setServiceReports(data);
             }, handleError),
-            onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError)
+            onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError),
+            onSnapshot(collection(db, "holidays"), (s) => setHolidays(mapDocs(s)), handleError),
+            onSnapshot(collection(db, "monthlyWinners"), (s) => {
+                const data = mapDocs(s);
+                data.sort((a: any, b: any) => (b.monthId || '').localeCompare(a.monthId || ''));
+                setMonthlyWinners(data);
+            }, handleError),
+            onSnapshot(doc(db, "settings", "performance"), (d) => {
+                if (d.exists()) setSystemSettings({ ...sanitizeData(d.data()), id: d.id } as SystemSettings);
+            }, handleError)
 
         ];
 
@@ -353,10 +378,130 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 ...prev,
                 points: myPoints,
                 tasksCompleted: myTasks,
-                salesRevenue: invoices.filter(i => i.customerName === currentUser.name && i.status === 'Paid').reduce((acc, i) => acc + i.grandTotal, 0)
+                salesRevenue: invoices
+                    .filter(i => i.customerName === currentUser.name && (i.documentType === 'PO' || !i.documentType) && i.status === 'Paid')
+                    .reduce((acc, i) => acc + (i.grandTotal || 0), 0)
             }));
         }
     }, [pointHistory, tasks, currentUser, invoices]);
+
+    // Monthly Reset and Winner Popup Logic
+    useEffect(() => {
+        if (!currentUser || !systemSettings) return;
+
+        const currentMonthId = new Date().toISOString().slice(0, 7);
+        const prevMonthId = (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 1);
+            return d.toISOString().slice(0, 7);
+        })();
+
+        // 1. Initial Reset Check (If 1st of month and system hasn't reset yet)
+        if (systemSettings.lastResetMonth !== currentMonthId) {
+            // Only perform reset if the data is loaded
+            if (employees.length > 0) {
+                checkAndPerformMonthReset();
+            }
+        }
+
+        // 2. Winner Popup Logic
+        const winner = monthlyWinners.find(w => w.monthId === prevMonthId);
+        if (winner && currentUser.lastSeenWinnerMonth !== currentMonthId) {
+            setLatestWinner(winner);
+            setShowWinnerPopup(true);
+        }
+    }, [currentUser, systemSettings, monthlyWinners, employees.length]);
+
+    const checkAndPerformMonthReset = async () => {
+        const currentMonthId = new Date().toISOString().slice(0, 7);
+        const prevMonthId = (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 1);
+            return d.toISOString().slice(0, 7);
+        })();
+
+        console.log(`[Performance] Checking for month reset: ${systemSettings?.lastResetMonth} -> ${currentMonthId}`);
+        
+        // Find top performer for previous month
+        // Points are calculated from pointHistory
+        const userPoints: Record<string, { id: string, name: string, points: number }> = {};
+        
+        // Initialize with all current employees
+        employees.forEach(emp => {
+            userPoints[emp.id] = { id: emp.id, name: emp.name, points: 0 };
+        });
+
+        // Sum points for previous month only
+        pointHistory.filter(p => p.date.startsWith(prevMonthId)).forEach(p => {
+            if (userPoints[p.userId]) {
+                userPoints[p.userId].points += p.points;
+            }
+        });
+
+        const sorted = Object.values(userPoints).sort((a, b) => b.points - a.points);
+        const winner = sorted[0];
+
+        const batch = writeBatch(db);
+
+        // a. Save Winner if any points existed
+        if (winner && winner.points > 0) {
+            const winnerDoc = doc(collection(db, "monthlyWinners"));
+            batch.set(winnerDoc, {
+                monthId: prevMonthId,
+                userId: winner.id,
+                userName: winner.name,
+                points: winner.points,
+                createdAt: serverTimestamp()
+            });
+            console.log(`[Performance] Saved winner for ${prevMonthId}: ${winner.name} with ${winner.points} pts`);
+        } else {
+             // Save "No Winner" entry if requested, or just skip
+             const winnerDoc = doc(collection(db, "monthlyWinners"));
+             batch.set(winnerDoc, {
+                 monthId: prevMonthId,
+                 userId: 'NONE',
+                 userName: 'No winner last month',
+                 points: 0,
+                 createdAt: serverTimestamp()
+             });
+        }
+
+        // b. Reset pointHistory (Clean slate for new month)
+        // Note: For large datasets, this might exceed batch limits (500). 
+        // But employee performance log entries shouldn't exceed this monthly for small teams.
+        pointHistory.forEach(p => {
+            batch.delete(doc(db, "pointHistory", p.id));
+        });
+
+        // c. Update System Settings
+        batch.set(doc(db, "settings", "performance"), {
+            lastResetMonth: currentMonthId
+        }, { merge: true });
+
+        try {
+            await batch.commit();
+            console.log(`[Performance] Global Monthly Reset Complete for ${currentMonthId}`);
+            addNotification('Monthly Reset', 'Employee performance points have been cleared for a new month.', 'info');
+        } catch (err) {
+            console.error("[Performance] Monthly Reset Error:", err);
+        }
+    };
+
+    const acknowledgeWinner = async () => {
+        if (!currentUser) return;
+        const currentMonthId = new Date().toISOString().slice(0, 7);
+        
+        try {
+            await updateDoc(doc(db, "employees", currentUser.id), {
+                lastSeenWinnerMonth: currentMonthId
+            });
+            // Also update local state to avoid re-triggering before sync
+            setCurrentUser(prev => prev ? { ...prev, lastSeenWinnerMonth: currentMonthId } : null);
+            setShowWinnerPopup(false);
+        } catch (err) {
+            console.error("Failed to acknowledge winner:", err);
+        }
+    };
 
     const seedDatabase = async () => {
         const batch = writeBatch(db);
@@ -425,10 +570,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsAuthenticating(true);
         setAuthError(null);
         try {
-            await signInWithPopup(auth, googleProvider);
+            const isNative = (window as any).Capacitor?.isNativePlatform();
+            
+            if (isNative) {
+                // NATIVE GOOGLE LOGIN (Capacitor)
+                const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+                const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
+                
+                const user = await GoogleAuth.signIn();
+                const credential = GoogleAuthProvider.credential(user.authentication.idToken);
+                await signInWithCredential(auth, credential);
+            } else {
+                // WEB LOGIN
+                await signInWithPopup(auth, googleProvider);
+            }
             return true;
         } catch (err) {
             setIsAuthenticating(false);
+            console.error("Google Login Error:", err);
             throw err;
         }
     };
@@ -476,6 +635,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (isRedundant(existing, updates)) return;
         await updateDoc(doc(db, "leads", id), updates);
     };
+    const removeLead = async (id: string) => { if (id) await deleteDoc(doc(db, "leads", id.trim())); };
 
     const addServiceTicket = async (t: ServiceTicket) => await setDoc(doc(db, "serviceTickets", t.id), t);
     const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => {
@@ -579,13 +739,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setPrizePool(amount);
     };
 
+    const addHoliday = async (h: Holiday) => await setDoc(doc(db, "holidays", h.id), h);
+    const removeHoliday = async (id: string) => await deleteDoc(doc(db, "holidays", id));
+
     return (
         <DataContext.Provider value={{
             clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets,
             pendingQuoteData, setPendingQuoteData,
             currentUser, isAuthenticated: setIsAuthenticatedState, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
-            addProduct, updateProduct, removeProduct, addLead, updateLead, addServiceTicket, updateServiceTicket,
+            addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
             addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             setTasks, addTask, removeTask, updateTaskRemote,
@@ -594,10 +757,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
             attendanceRecords, updateAttendance,
+            holidays, addHoliday, removeHoliday,
             deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan,
             installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
-            prizePool, updatePrizePool
+            prizePool, updatePrizePool,
+            monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset
 
         }}>
             {children}

@@ -26,6 +26,7 @@ import { ClientModule } from './components/ClientModule';
 import { VendorModule } from './components/VendorModule';
 import { ExpenseModule } from './components/ExpenseModule';
 import { PerformanceModule } from './components/PerformanceModule';
+import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { TabView, AppNotification } from './types';
 import { useData } from './components/DataContext';
@@ -566,6 +567,7 @@ export const App: React.FC = () => {
           <div className="h-full w-full animate-in fade-in duration-500">{renderContent()}</div>
         </div>
       </main>
+      <WinnerPopup />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, CreditCard, DollarSign, Activity, Calendar, Receipt, ArrowUpRight, Clock, User, Zap } from 'lucide-react';
+import { TrendingUp, Wallet, DollarSign, Activity, Calendar, ArrowUpRight, Clock, Zap } from 'lucide-react';
 import { useData } from './DataContext';
 
 const COLORS = ['#ef4444', '#f59e0b', '#10b981'];
@@ -20,18 +20,23 @@ export const Dashboard: React.FC = () => {
     // Start of month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const todayInvoices = invoices.filter(inv => inv.date === today && inv.status !== 'Draft');
+    // Filter valid invoices (PO) and exclude Quotations/SupplierPO
+    const validInvoices = invoices.filter(inv => 
+        (inv.documentType === 'PO' || !inv.documentType) && inv.status !== 'Draft'
+    );
+
+    const todayInvoices = validInvoices.filter(inv => inv.date === today);
     const todayRevenue = todayInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    const weekInvoices = invoices.filter(inv => {
+    const weekInvoices = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
-      return invDate >= startOfWeek && inv.status !== 'Draft';
+      return invDate >= startOfWeek;
     });
     const weekRevenue = weekInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    const monthInvoices = invoices.filter(inv => {
+    const monthInvoices = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
-      return invDate >= startOfMonth && inv.status !== 'Draft';
+      return invDate >= startOfMonth;
     });
     const monthRevenue = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
@@ -42,8 +47,8 @@ export const Dashboard: React.FC = () => {
       d.setDate(now.getDate() - i);
       const dStr = d.toISOString().split('T')[0];
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      const dayRev = invoices
-        .filter(inv => inv.date === dStr && inv.status !== 'Draft')
+      const dayRev = validInvoices
+        .filter(inv => inv.date === dStr)
         .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
       dailySales.push({ name: dayName, sales: dayRev });
     }

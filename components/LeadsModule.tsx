@@ -1,27 +1,36 @@
-
 import React, { useState } from 'react';
 import { Lead, LeadStatus, FollowUp, TabView } from '../types';
-import { Mail, Phone, Plus, Wand2, RefreshCw, ShoppingBag, Globe, DownloadCloud, Box, CreditCard, MapPin, Printer, ArrowUpRight, User, Calendar, CheckSquare, MessageSquare, Clock, X, Save, UserPlus, FileText } from 'lucide-react';
+import { Phone, Plus, Wand2, RefreshCw, Box, ArrowUpRight, Calendar, CheckSquare, X, FileText, Trash2, MoreVertical, Edit2 } from 'lucide-react';
 import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
 
-export const LeadsModule: React.FC = () => {
-    const { leads, addLead, updateLead, addNotification, setPendingQuoteData } = useData();
+export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({ onNavigate }) => {
+    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees } = useData();
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeTab, setActiveTab] = useState<'details' | 'followup'>('details');
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
+    const [showEmpDropdown, setShowEmpDropdown] = useState(false);
     const [newFollowUp, setNewFollowUp] = useState<Partial<FollowUp>>({ type: 'Call', date: new Date().toISOString().split('T')[0] });
     const [showAddFollowUp, setShowAddFollowUp] = useState(false);
 
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [newLeadData, setNewLeadData] = useState<Partial<Lead>>({
         source: 'Website',
         status: LeadStatus.NEW,
         value: 0
     });
+    const [editingLeadData, setEditingLeadData] = useState<Partial<Lead>>({});
+
+    React.useEffect(() => {
+        const handleGlobalClick = () => setActiveMenuId(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
 
     const handleDraftEmail = async (lead: Lead) => {
         setEmailDraft('');
@@ -55,6 +64,7 @@ export const LeadsModule: React.FC = () => {
         };
         setPendingQuoteData(quoteSeed);
         addNotification('Lead Conversion', `Lead data for ${lead.name} prepared for Quotation.`, 'success');
+        if (onNavigate) onNavigate(TabView.QUOTES);
     };
 
     const handleSyncLeads = () => {
@@ -106,28 +116,52 @@ export const LeadsModule: React.FC = () => {
         updateLead(leadId, { followUps: updated });
     };
 
-    const handleSaveNewLead = () => {
-        if (!newLeadData.name || !newLeadData.hospital) {
-            alert("Fill Name and Hospital.");
-            return;
-        }
-        const leadToAdd: Lead = {
+    const handleSaveNewLead = async () => {
+        if (!newLeadData.name || !newLeadData.hospital) return;
+        const lead: Lead = {
             id: `L-${Date.now()}`,
-            name: newLeadData.name!,
-            hospital: newLeadData.hospital!,
-            source: (newLeadData.source as any) || 'Website',
-            status: (newLeadData.status as any) || LeadStatus.NEW,
-            value: Number(newLeadData.value) || 0,
-            lastContact: new Date().toISOString().split('T')[0],
+            name: newLeadData.name,
+            hospital: newLeadData.hospital,
+            source: newLeadData.source as any || 'Website',
+            status: newLeadData.status as any || LeadStatus.NEW,
+            value: newLeadData.value || 0,
             productInterest: newLeadData.productInterest || '',
-            phone: newLeadData.phone,
-            email: newLeadData.email,
-            address: newLeadData.address,
+            phone: newLeadData.phone || '',
+            email: newLeadData.email || '',
+            address: newLeadData.address || '',
+            contactPerson: newLeadData.contactPerson || '',
+            salesTakenBy: newLeadData.salesTakenBy || '',
+            lastContact: new Date().toISOString().split('T')[0],
             followUps: []
         };
-        addLead(leadToAdd);
+        await addLead(lead);
         setShowAddModal(false);
         setNewLeadData({ source: 'Website', status: LeadStatus.NEW, value: 0 });
+        addNotification('Lead Captured', `${lead.name} added to pipeline.`, 'success');
+    };
+
+    const handleSaveEditLead = async () => {
+        if (!editingLeadData.id || !editingLeadData.name || !editingLeadData.hospital) return;
+        const updates: Partial<Lead> = {
+            name: editingLeadData.name,
+            hospital: editingLeadData.hospital,
+            source: editingLeadData.source,
+            status: editingLeadData.status,
+            value: editingLeadData.value,
+            productInterest: editingLeadData.productInterest,
+            phone: editingLeadData.phone,
+            email: editingLeadData.email,
+            address: editingLeadData.address,
+            contactPerson: editingLeadData.contactPerson,
+            salesTakenBy: editingLeadData.salesTakenBy,
+        };
+        await updateLead(editingLeadData.id, updates);
+        if (selectedLead?.id === editingLeadData.id) {
+            setSelectedLead({ ...selectedLead, ...updates });
+        }
+        setShowEditModal(false);
+        setEditingLeadData({});
+        addNotification('Lead Updated', `${editingLeadData.name} details saved.`, 'success');
     };
 
     const getNextFollowUp = (lead: Lead) => {
@@ -155,13 +189,21 @@ export const LeadsModule: React.FC = () => {
                     <div className="overflow-x-auto flex-1 custom-scrollbar">
                         <table className="w-full text-left text-sm text-slate-600">
                             <thead className="bg-slate-50/80 border-b border-slate-300 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10 backdrop-blur-sm">
-                                <tr><th className="px-6 py-4">Lead / Hospital</th><th className="px-6 py-4">Source</th><th className="px-6 py-4">Interest</th><th className="px-6 py-4">Next Action</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
+                                <tr><th className="px-6 py-4">Lead / Hospital</th><th className="px-6 py-4">Source</th><th className="px-6 py-4">Sales</th><th className="px-6 py-4">Interest</th><th className="px-6 py-4">Next Action</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {leads.map((lead) => (
                                     <tr key={lead.id} onClick={() => setSelectedLead(lead)} className={`cursor-pointer transition-all ${selectedLead?.id === lead.id ? 'bg-medical-50/60 border-l-4 border-medical-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}`}>
                                         <td className="px-6 py-4"><div className="font-bold text-slate-800">{lead.name}</div><div className="text-[10px] text-slate-400 font-bold mt-0.5">{lead.hospital}</div></td>
                                         <td className="px-6 py-4"><span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">{lead.source}</span></td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
+                                                    {lead.salesTakenBy?.charAt(0) || 'S'}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[80px] uppercase">{lead.salesTakenBy || 'Direct'}</span>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 truncate max-w-[150px] font-medium">{lead.productInterest}</td>
                                         <td className="px-6 py-4">
                                             {getNextFollowUp(lead) ? (
@@ -171,7 +213,58 @@ export const LeadsModule: React.FC = () => {
                                             ) : <span className="text-[10px] text-slate-300 font-bold">---</span>}
                                         </td>
                                         <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${lead.status === 'Won' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{lead.status}</span></td>
-                                        <td className="px-6 py-4 text-right"><ArrowUpRight size={18} className="text-slate-300 ml-auto" /></td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="relative flex justify-end">
+                                                <button 
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setActiveMenuId(activeMenuId === lead.id ? null : lead.id); 
+                                                    }} 
+                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === lead.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                >
+                                                    <MoreVertical size={18} />
+                                                </button>
+                                                
+                                                {activeMenuId === lead.id && (
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[120px] border-slate-300">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="View Details"
+                                                        >
+                                                            <ArrowUpRight size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                setEditingLeadData(lead);
+                                                                setShowEditModal(true);
+                                                                setActiveMenuId(null); 
+                                                            }} 
+                                                            className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Edit Lead"
+                                                        >
+                                                            <Edit2 size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={async (e) => { 
+                                                                e.stopPropagation(); 
+                                                                if (window.confirm(`Delete lead "${lead.name}"?`)) {
+                                                                    await removeLead(lead.id);
+                                                                    addNotification('Lead Deleted', `${lead.name} removed from registry.`, 'warning');
+                                                                    if (selectedLead?.id === lead.id) setSelectedLead(null);
+                                                                }
+                                                                setActiveMenuId(null); 
+                                                            }} 
+                                                            className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Delete Lead"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -183,7 +276,18 @@ export const LeadsModule: React.FC = () => {
                     <div className="w-full lg:w-[420px] bg-white rounded-3xl shadow-2xl border border-slate-300 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 duration-300">
                         <div className="p-6 border-b border-slate-300 bg-slate-50/50">
                             <div className="flex justify-between items-start mb-4">
-                                <div><h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{selectedLead.name}</h3><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedLead.hospital}</p></div>
+                                <div className="flex items-start gap-3">
+                                    <div>
+                                        <h3 className="font-black text-xl text-slate-800 uppercase tracking-tight">{selectedLead.name}</h3>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedLead.hospital}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => { setEditingLeadData(selectedLead); setShowEditModal(true); }}
+                                        className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all shadow-sm border border-amber-200"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                </div>
                                 <button onClick={() => setSelectedLead(null)}><X size={24} className="text-slate-400 hover:text-slate-600" /></button>
                             </div>
                             <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -200,6 +304,8 @@ export const LeadsModule: React.FC = () => {
                                         <div className="text-sm font-bold text-slate-700">{selectedLead.phone || 'No Phone'}</div>
                                         <div className="text-sm font-bold text-slate-700">{selectedLead.email || 'No Email'}</div>
                                         <div className="text-xs text-slate-500 leading-relaxed italic">{selectedLead.address || 'No Address indexed'}</div>
+                                        {selectedLead.contactPerson && <div className="text-[10px] font-bold text-indigo-600 uppercase mt-1">Contact: {selectedLead.contactPerson}</div>}
+                                        {selectedLead.salesTakenBy && <div className="text-[10px] font-bold text-medical-600 uppercase">Sales: {selectedLead.salesTakenBy}</div>}
                                     </div>
                                     <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
                                         <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Box size={12} /> Item Interest</h4>
@@ -282,7 +388,7 @@ export const LeadsModule: React.FC = () => {
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Source</label>
                                     <select className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold appearance-none outline-none focus:border-medical-500 transition-all" value={newLeadData.source} onChange={e => setNewLeadData({ ...newLeadData, source: e.target.value as any })}>
-                                        <option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Walk-in</option>
+                                        <option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Direct</option><option>Sales</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1">
@@ -306,6 +412,45 @@ export const LeadsModule: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Person</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="Primary Contact" value={newLeadData.contactPerson || ''} onChange={e => setNewLeadData({ ...newLeadData, contactPerson: e.target.value })} />
+                                </div>
+                                <div className="space-y-1 relative">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sales Taken By</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" 
+                                        placeholder="Sales Executive Name" 
+                                        value={newLeadData.salesTakenBy || ''} 
+                                        onChange={e => {
+                                            setNewLeadData({ ...newLeadData, salesTakenBy: e.target.value });
+                                            setShowEmpDropdown(true);
+                                        }}
+                                        onFocus={() => setShowEmpDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowEmpDropdown(false), 200)}
+                                    />
+                                    {showEmpDropdown && newLeadData.salesTakenBy && (
+                                        <div className="absolute z-[130] top-full left-0 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                            {employees.filter(emp => emp.name.toLowerCase().includes(newLeadData.salesTakenBy!.toLowerCase())).slice(0, 5).map(emp => (
+                                                <button 
+                                                    key={emp.id} 
+                                                    className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-medical-50 border-b border-slate-100 last:border-0 transition-colors"
+                                                    onClick={() => {
+                                                        setNewLeadData({ ...newLeadData, salesTakenBy: emp.name });
+                                                        setShowEmpDropdown(false);
+                                                    }}
+                                                >
+                                                    <div className="text-slate-800">{emp.name}</div>
+                                                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{emp.department}</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
                                     <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="+91..." value={newLeadData.phone || ''} onChange={e => setNewLeadData({ ...newLeadData, phone: e.target.value })} />
                                 </div>
@@ -323,6 +468,117 @@ export const LeadsModule: React.FC = () => {
                         <div className="p-6 border-t border-slate-300 flex gap-3 bg-slate-50/30">
                             <button onClick={() => setShowAddModal(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 active:scale-95">Discard</button>
                             <button onClick={handleSaveNewLead} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all hover:bg-medical-700 active:scale-95">Complete Sync</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showEditModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 min-h-screen">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
+                        <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
+                            <div>
+                                <h2 className="font-black text-2xl text-slate-800 uppercase tracking-tight">Edit Lead Profile</h2>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Update existing registry data</p>
+                            </div>
+                            <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={24} /></button>
+                        </div>
+                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entity Name</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Full Name" value={editingLeadData.name || ''} onChange={e => setEditingLeadData({ ...editingLeadData, name: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Clinic</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Facility Name" value={editingLeadData.hospital || ''} onChange={e => setEditingLeadData({ ...editingLeadData, hospital: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Acquisition Source</label>
+                                    <select className="w-full border border-slate-300 bg-emerald-50 rounded-xl px-4 py-3 text-[11px] font-black uppercase outline-none focus:border-emerald-500 transition-all appearance-none" value={editingLeadData.source} onChange={e => setEditingLeadData({ ...editingLeadData, source: e.target.value as any })}>
+                                        <option>Website</option><option>Reference</option><option>Indiamart</option><option>Amazon</option><option>Flipkart</option><option>Cold Call</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pipeline Status</label>
+                                    <select className="w-full border border-slate-300 bg-blue-50 rounded-xl px-4 py-3 text-[11px] font-black uppercase outline-none focus:border-blue-500 transition-all appearance-none" value={editingLeadData.status} onChange={e => setEditingLeadData({ ...editingLeadData, status: e.target.value as any })}>
+                                        {Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Item Interest</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={editingLeadData.productInterest || ''} onChange={e => setEditingLeadData({ ...editingLeadData, productInterest: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estimated Value (₹)</label>
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Value" value={editingLeadData.value || ''} onChange={e => setEditingLeadData({ ...editingLeadData, value: Number(e.target.value) })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Person</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="Primary Contact" value={editingLeadData.contactPerson || ''} onChange={e => setEditingLeadData({ ...editingLeadData, contactPerson: e.target.value })} />
+                                </div>
+                                <div className="space-y-1 relative">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sales Taken By</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" 
+                                        placeholder="Sales Executive Name" 
+                                        value={editingLeadData.salesTakenBy || ''} 
+                                        onChange={e => {
+                                            setEditingLeadData({ ...editingLeadData, salesTakenBy: e.target.value });
+                                            setShowEmpDropdown(true);
+                                        }}
+                                        onFocus={() => setShowEmpDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowEmpDropdown(false), 200)}
+                                    />
+                                    {showEmpDropdown && editingLeadData.salesTakenBy && (
+                                        <div className="absolute z-[130] top-full left-0 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                            {employees.filter(emp => emp.name.toLowerCase().includes(editingLeadData.salesTakenBy!.toLowerCase())).slice(0, 5).map(emp => (
+                                                <button 
+                                                    key={emp.id} 
+                                                    className="w-full text-left px-4 py-2.5 text-xs font-bold hover:bg-medical-50 border-b border-slate-100 last:border-0 transition-colors"
+                                                    onClick={() => {
+                                                        setEditingLeadData({ ...editingLeadData, salesTakenBy: emp.name });
+                                                        setShowEmpDropdown(false);
+                                                    }}
+                                                >
+                                                    <div className="text-slate-800">{emp.name}</div>
+                                                    <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{emp.department}</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="+91..." value={editingLeadData.phone || ''} onChange={e => setEditingLeadData({ ...editingLeadData, phone: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                                    <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none" placeholder="example@mail.com" value={editingLeadData.email || ''} onChange={e => setEditingLeadData({ ...editingLeadData, email: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Address</label>
+                                <textarea className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px]" placeholder="Location details..." value={editingLeadData.address || ''} onChange={e => setEditingLeadData({ ...editingLeadData, address: e.target.value })} />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-300 flex gap-3 bg-slate-50/30">
+                            <button onClick={() => setShowEditModal(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-slate-50 active:scale-95">Cancel</button>
+                            <button onClick={handleSaveEditLead} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all hover:bg-medical-700 active:scale-95">Update Changes</button>
                         </div>
                     </div>
                 </div>
