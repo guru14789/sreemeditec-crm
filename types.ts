@@ -214,6 +214,13 @@ export interface AttendanceRecord {
   lastSessionStartTime: string | null;
   status: 'CheckedIn' | 'Paused' | 'Completed';
   workMode: 'Office' | 'Field' | 'Remote';
+  editHistory?: {
+    editedAt: string;
+    editedBy: string;
+    reason: string;
+    prevIn: string | null;
+    prevOut: string | null;
+  }[];
 }
 
 export interface PointHistory {

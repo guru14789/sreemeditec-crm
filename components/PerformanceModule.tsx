@@ -5,15 +5,25 @@ import { useData } from './DataContext';
 
 
 export const PerformanceModule: React.FC = () => {
-  const { pointHistory, employees, tasks, currentUser: activeUser, setShowWinnerPopup, setLatestWinner } = useData();
+  const { 
+    pointHistory, 
+    employees, 
+    tasks, 
+    currentUser: activeUser, 
+    setShowWinnerPopup, 
+    setLatestWinner, 
+    checkAndPerformMonthReset 
+  } = useData();
   const [showRules, setShowRules] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // FIX: Dynamic Leaderboard Generation
-  // Calculates real-time rankings by summing point history for every employee in the registry.
+  // Calculates real-time rankings by summing point history for the CURRENT month only.
   const dynamicLeaderboard = useMemo(() => {
+      const currentMonthId = new Date().toISOString().slice(0, 7);
       const list = employees.map(emp => {
           const empPoints = pointHistory
-              .filter(p => p.userId === emp.id)
+              .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
               .reduce((sum, p) => sum + p.points, 0);
           
           const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.status === 'Done').length;
@@ -23,16 +33,13 @@ export const PerformanceModule: React.FC = () => {
               name: emp.name,
               points: empPoints,
               tasks: empTasks,
-              attendance: '95%', // Baseline mock for attendance logic
+              attendance: '95%',
               badge: empPoints > 1000 ? 'gold' : 'none',
-              rank: 0 // Placeholder
+              rank: 0
           };
       });
 
-      // Sort by points descending
       const sorted = [...list].sort((a, b) => b.points - a.points);
-      
-      // Assign ranks
       return sorted.map((user, index) => ({ ...user, rank: index + 1 }));
   }, [employees, pointHistory, tasks]);
 
@@ -65,16 +72,49 @@ export const PerformanceModule: React.FC = () => {
                           <Info size={12} /> Rules
                       </button>
                       {activeUser?.role === 'SYSTEM_ADMIN' && (
-                          <button 
-                            onClick={() => {
-                                // @ts-ignore (for quick demo)
-                                setLatestWinner({ id: 'demo', monthId: '2026-03', userId: activeUser.id, userName: activeUser.name, points: 1250 });
-                                setShowWinnerPopup(true);
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm"
-                          >
-                              <PartyPopper size={12} /> Demo Popup
-                          </button>
+                          <div className="flex gap-2">
+                              <button 
+                                onClick={async () => {
+                                    setIsResetting(true);
+                                    await checkAndPerformMonthReset();
+                                    setIsResetting(false);
+                                }}
+                                disabled={isResetting}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-sm disabled:opacity-50"
+                              >
+                                  <History size={12} className={isResetting ? "animate-spin" : ""} /> {isResetting ? "Running..." : "Manual Sync"}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                    const prevMonthId = (() => {
+                                        const d = new Date();
+                                        d.setDate(0);
+                                        return d.toISOString().slice(0, 7);
+                                    })();
+                                    
+                                    // Try to find top from MARCH (Previous Month)
+                                    const userPoints: Record<string, number> = {};
+                                    pointHistory.filter(p => p.date?.startsWith(prevMonthId)).forEach(p => {
+                                        userPoints[p.userId] = (userPoints[p.userId] || 0) + p.points;
+                                    });
+                                    const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
+                                    const top = sorted[0];
+                                    const winnerName = employees.find(e => e.id === top?.[0])?.name || 'Top Performer';
+
+                                    setLatestWinner({ 
+                                        id: 'demo-' + Date.now(), 
+                                        monthId: prevMonthId, 
+                                        userId: top?.[0] || 'demo', 
+                                        userName: winnerName, 
+                                        points: top?.[1] || 1500 
+                                    });
+                                    setShowWinnerPopup(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-sm"
+                              >
+                                  <PartyPopper size={12} /> Test Celebration
+                              </button>
+                          </div>
                       )}
                       <div className="flex items-center gap-1.5 ml-1">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>

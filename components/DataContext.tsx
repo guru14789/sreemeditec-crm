@@ -372,7 +372,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     useEffect(() => {
         if (currentUser) {
-            const myPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((acc, curr) => acc + curr.points, 0);
+            const currentMonthId = new Date().toISOString().slice(0, 7);
+            const myPoints = pointHistory
+                .filter(p => p.userId === currentUser.id && p.date?.startsWith(currentMonthId))
+                .reduce((acc, curr) => acc + curr.points, 0);
             const myTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
             setUserStats(prev => ({
                 ...prev,
@@ -387,24 +390,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Monthly Reset and Winner Popup Logic
     useEffect(() => {
-        if (!currentUser || !systemSettings) return;
-
-        const currentMonthId = new Date().toISOString().slice(0, 7);
-        const prevMonthId = (() => {
-            const d = new Date();
-            d.setMonth(d.getMonth() - 1);
-            return d.toISOString().slice(0, 7);
-        })();
-
         // 1. Initial Reset Check (If 1st of month and system hasn't reset yet)
-        if (systemSettings.lastResetMonth !== currentMonthId) {
-            // Only perform reset if the data is loaded
-            if (employees.length > 0) {
+        const currentMonthId = new Date().toISOString().slice(0, 7);
+        const isFirstDay = new Date().getDate() === 1;
+
+        if (isFirstDay && systemSettings && systemSettings.lastResetMonth !== currentMonthId) {
+             if (employees.length > 0) {
                 checkAndPerformMonthReset();
             }
         }
 
         // 2. Winner Popup Logic
+        if (!currentUser || monthlyWinners.length === 0) return;
+
+        const prevMonthId = (() => {
+            const d = new Date();
+            d.setDate(0); // Last day of previous month
+            return d.toISOString().slice(0, 7);
+        })();
+
         const winner = monthlyWinners.find(w => w.monthId === prevMonthId);
         if (winner && currentUser.lastSeenWinnerMonth !== currentMonthId) {
             setLatestWinner(winner);

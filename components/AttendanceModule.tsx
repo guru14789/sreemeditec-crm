@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X } from 'lucide-react';
+import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2 } from 'lucide-react';
 import { Task, Employee, AttendanceRecord, Holiday } from '../types';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -23,9 +23,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
     const [workMode, setWorkMode] = useState<WorkMode>('Office');
     const [filterStatus, setFilterStatus] = useState<string>('All');
+    const isAdmin = me?.role === 'SYSTEM_ADMIN';
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [newHolidayName, setNewHolidayName] = useState('');
     const [newHolidayDate, setNewHolidayDate] = useState('');
+
+    // Admin Overwrite States
+    const [showEditAttendanceModal, setShowEditAttendanceModal] = useState(false);
+    const [editingAttendanceRecord, setEditingAttendanceRecord] = useState<AttendanceRecord | null>(null);
+    const [editCheckIn, setEditCheckIn] = useState('');
+    const [editCheckOut, setEditCheckOut] = useState('');
+    const [editReason, setEditReason] = useState('');
 
     const REQUIRED_OFFICE_HOURS = 7;
 
@@ -141,6 +149,52 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const handleAdminOverwriteAttendance = async () => {
+        if (!editingAttendanceRecord || !editReason) return;
+        
+        try {
+            const checkInDate = new Date(editCheckIn);
+            const checkOutDate = new Date(editCheckOut);
+            
+            if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+                alert("Invalid Date or Time");
+                return;
+            }
+
+            const diffMs = checkOutDate.getTime() - checkInDate.getTime();
+            if (diffMs < 0) {
+                alert("Check-out cannot be earlier than Check-in.");
+                return;
+            }
+
+            const updates: Partial<AttendanceRecord> = {
+                checkInTime: checkInDate.toISOString(),
+                checkOutTime: checkOutDate.toISOString(),
+                totalWorkedMs: diffMs,
+                status: 'Completed',
+                editHistory: [
+                    ...(editingAttendanceRecord.editHistory || []),
+                    { 
+                        editedAt: new Date().toISOString(),
+                        editedBy: me?.name || 'Admin',
+                        reason: editReason,
+                        prevIn: editingAttendanceRecord.checkInTime,
+                        prevOut: editingAttendanceRecord.checkOutTime 
+                    }
+                ]
+            } as any;
+
+            await updateAttendance({ id: editingAttendanceRecord.id, ...updates });
+            addNotification('Attendance Corrected', `Record for ${editingAttendanceRecord.userName} updated.`, 'success');
+            setShowEditAttendanceModal(false);
+            setEditingAttendanceRecord(null);
+            setEditReason('');
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update record.");
+        }
+    };
+
     const handleCheckInOut = async () => {
         if (isLocked || isHolidayToday || !me) return;
 
@@ -216,7 +270,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         return remaining === 0 ? "Done" : `${formatDuration(remaining)} Left`;
     };
 
-    const isAdmin = me?.role === 'SYSTEM_ADMIN';
+
 
     const handleExportMonthlyReport = () => {
         const doc = new jsPDF('l', 'mm', 'a4');
@@ -580,9 +634,25 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                 </span>
                                             </td>
                                             <td className="px-5 py-3 text-right">
-                                                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
-                                                    {isHolidayToday ? 'Holiday' : rec?.status === 'Completed' ? 'Locked' : rec?.status || emp.status}
-                                                </span>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
+                                                        {isHolidayToday ? 'Holiday' : rec?.status === 'Completed' ? 'Locked' : rec?.status || emp.status}
+                                                    </span>
+                                                    {isAdmin && rec && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingAttendanceRecord(rec);
+                                                                setEditCheckIn(rec.checkInTime ? rec.checkInTime.slice(0, 16) : '');
+                                                                setEditCheckOut(rec.checkOutTime ? rec.checkOutTime.slice(0, 16) : '');
+                                                                setShowEditAttendanceModal(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                        >
+                                                            <Edit2 size={13} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -592,6 +662,58 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                     </div>
                 </div>
             </div>
+            {showEditAttendanceModal && editingAttendanceRecord && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
+                        <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
+                            <div>
+                                <h2 className="font-black text-xl text-slate-800 uppercase tracking-tight">Correct Attendance</h2>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{editingAttendanceRecord.userName}</p>
+                            </div>
+                            <button onClick={() => setShowEditAttendanceModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
+                        </div>
+                        <div className="p-8 space-y-5">
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-In</label>
+                                <input 
+                                    type="datetime-local" 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                    value={editCheckIn} 
+                                    onChange={e => setEditCheckIn(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-Out</label>
+                                <input 
+                                    type="datetime-local" 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                    value={editCheckOut} 
+                                    onChange={e => setEditCheckOut(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reason for Adjustment</label>
+                                <textarea 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px]" 
+                                    placeholder="e.g. Forgot to punch out, system error..." 
+                                    value={editReason} 
+                                    onChange={e => setEditReason(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-300 flex gap-3 bg-slate-50/30">
+                            <button onClick={() => setShowEditAttendanceModal(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
+                            <button 
+                                onClick={handleAdminOverwriteAttendance} 
+                                disabled={!editReason}
+                                className="flex-[2] bg-indigo-600 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                Apply Correction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
