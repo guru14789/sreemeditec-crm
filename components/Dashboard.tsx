@@ -20,9 +20,9 @@ export const Dashboard: React.FC = () => {
     // Start of month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Filter valid invoices (PO) and exclude Quotations/SupplierPO
+    // Filter valid sales (Profit) and exclude Quotations/SupplierPOs (Loss)
     const validInvoices = invoices.filter(inv => 
-        (inv.documentType === 'PO' || !inv.documentType) && inv.status !== 'Draft'
+        (inv.documentType === 'PO' || !inv.documentType || inv.documentType === 'ServiceOrder') && inv.status !== 'Draft'
     );
 
     const todayInvoices = validInvoices.filter(inv => inv.date === today);
@@ -74,7 +74,7 @@ export const Dashboard: React.FC = () => {
       {/* Revenue Section */}
       <div className="space-y-3">
         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
-            <DollarSign size={14} /> Revenue Snapshot
+            <DollarSign size={14} /> Sales Snapshot (Profits)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-[2.5rem] shadow-lg shadow-emerald-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
@@ -84,7 +84,7 @@ export const Dashboard: React.FC = () => {
                     <span className="flex items-center gap-1 text-xs font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> Live</span>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[10px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Revenue</p>
+                    <p className="text-[10px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Profit (Sales)</p>
                     <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
                     <p className="text-xs text-emerald-200/60 mt-1 font-medium italic underline decoration-emerald-500/30">Synced with Registry</p>
                 </div>
@@ -181,7 +181,7 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-300 dark:border-slate-800 h-96 flex flex-col">
             <div className="flex justify-between items-center mb-8 shrink-0">
-                <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-xs tracking-widest">Revenue Forecast</h3>
+                <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-xs tracking-widest">Sales Forecast (Internal)</h3>
                 <select className="text-[10px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-600 dark:text-slate-300 outline-none uppercase">
                     <option>Last 7 Days</option>
                 </select>

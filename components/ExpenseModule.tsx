@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ExpenseRecord } from '../types';
-import { Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, Check, X, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare } from 'lucide-react';
+import { Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, Check, X, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare, Download } from 'lucide-react';
 import { useData } from './DataContext';
 
 interface ExpenseModuleProps {
@@ -39,6 +39,27 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         description: '',
         status: 'Pending'
     });
+
+    const handleExportCSV = () => {
+        if (visibleExpenses.length === 0) return;
+        const headers = ["Date", "Personnel", "Category", "Description", "Value", "Status"];
+        const rows = visibleExpenses.map(e => [
+            e.date,
+            `"${e.employeeName.replace(/"/g, '""')}"`,
+            e.category,
+            `"${e.description.replace(/"/g, '""')}"`,
+            e.amount,
+            e.status
+        ]);
+        
+        const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Enterprise_Vouchers_${new Date().toISOString().split('T')[0]}.csv`);
+        link.click();
+    };
 
     const compressImage = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
@@ -171,11 +192,20 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{userRole === 'Admin' ? 'Enterprise Ledger' : 'My Reimbursement Log'}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 flex items-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
-                        <Plus size={18} /> Submit Claim
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {userRole === 'Admin' && (
+                            <button
+                                onClick={handleExportCSV}
+                                className="bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm">
+                                <Download size={16} /> Export
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-500/20 flex items-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
+                            <Plus size={18} /> Submit Claim
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-auto custom-scrollbar p-0">

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Product, StockMovement } from '../types';
-import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, ChevronDown, MoreVertical, Edit2, Download, RefreshCw, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Product } from '../types';
+import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useData } from './DataContext';
 
 
@@ -31,7 +31,7 @@ const InlineInput: React.FC<{
 };
 
 export const InventoryModule: React.FC = () => {
-    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification } = useData();
+    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog } = useData();
     const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
 
 
@@ -135,6 +135,7 @@ export const InventoryModule: React.FC = () => {
             lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
         };
         await addProduct(productToAdd);
+        await addLog('Inventory', 'Product Initialization', `New product master record created: ${productToAdd.name} (${productToAdd.sku}) with initial stock of ${productToAdd.stock} ${productToAdd.unit}.`);
 
         if ((newProduct.stock || 0) > 0) {
             await recordStockMovement({
@@ -218,7 +219,7 @@ export const InventoryModule: React.FC = () => {
         setInlineEdit(null);
     };
 
-    const handleSendForDemo = () => {
+    const handleSendForDemo = async () => {
         if (!demoData.productId || demoData.quantity <= 0 || !demoData.clientName) {
             alert("Please fill all details.");
             return;
@@ -244,7 +245,8 @@ export const InventoryModule: React.FC = () => {
             });
         }
 
-        updateProduct(product.id, { stock: (product.stock || 0) - demoData.quantity });
+        await updateProduct(product.id, { stock: (product.stock || 0) - demoData.quantity });
+        await addLog('Inventory', 'Demo Dispatch', `Dispatched ${demoData.quantity} units of ${product.name} for demo to ${demoData.clientName} at ${demoData.location}.`);
 
         recordStockMovement({
             id: `MOV-DEMO-${Date.now()}`,
@@ -295,7 +297,7 @@ export const InventoryModule: React.FC = () => {
         }
     };
 
-    const handleStockUpdate = () => {
+    const handleStockUpdate = async () => {
         if (!scannedProduct || quickStockAmount <= 0) return;
 
         let newStock = scannedProduct.stock || 0;
@@ -312,7 +314,8 @@ export const InventoryModule: React.FC = () => {
             newStock -= quickStockAmount;
         }
 
-        updateProduct(scannedProduct.id, { stock: newStock, lastRestocked });
+        await updateProduct(scannedProduct.id, { stock: newStock, lastRestocked });
+        await addLog('Inventory', scanOperation === 'In' ? 'Stock Restock' : 'Stock Dispatch', `${quickStockAmount} ${scannedProduct.unit} of ${scannedProduct.name} ${scanOperation === 'In' ? 'received into' : 'dispatched from'} central registry via scan.`);
 
         recordStockMovement({
             id: `MOV-SCAN-${Date.now()}`,

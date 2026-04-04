@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   ComposedChart, Line, Area, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -9,6 +8,7 @@ import {
   DollarSign, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, 
   Filter, MoreHorizontal, Users 
 } from 'lucide-react';
+import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
 const formatIndianNumber = (num: number) => {
@@ -24,47 +24,152 @@ const formatIndianNumber = (num: number) => {
   return num.toString();
 };
 
-// Mock Data for Charts
-const MONTHLY_PERFORMANCE = [
-  { month: 'Jan', revenue: 45000, expenses: 32000, profit: 13000 },
-  { month: 'Feb', revenue: 52000, expenses: 34000, profit: 18000 },
-  { month: 'Mar', revenue: 48000, expenses: 31000, profit: 17000 },
-  { month: 'Apr', revenue: 61000, expenses: 42000, profit: 19000 },
-  { month: 'May', revenue: 55000, expenses: 38000, profit: 17000 },
-  { month: 'Jun', revenue: 67000, expenses: 44000, profit: 23000 },
-  { month: 'Jul', revenue: 72000, expenses: 46000, profit: 26000 },
-  { month: 'Aug', revenue: 69000, expenses: 45000, profit: 24000 },
-  { month: 'Sep', revenue: 78000, expenses: 49000, profit: 29000 },
-  { month: 'Oct', revenue: 85000, expenses: 52000, profit: 33000 },
-];
-
-const CATEGORY_DATA = [
-  { name: 'Medical Equipment', value: 45 },
-  { name: 'Consumables', value: 30 },
-  { name: 'Spare Parts', value: 15 },
-  { name: 'Service & AMC', value: 10 },
-];
-
-const TOP_PRODUCTS = [
-  { name: 'Philips MRI Coil', sales: 120, revenue: 1800000 },
-  { name: 'Ultrasound Gel', sales: 850, revenue: 212500 },
-  { name: 'ECG Monitor X12', sales: 45, revenue: 540000 },
-  { name: 'Surgical Gloves', sales: 2000, revenue: 300000 },
-];
-
-const LEAD_SOURCE_DATA = [
-  { source: 'Website', leads: 150, converted: 45 },
-  { source: 'Referral', leads: 80, converted: 50 },
-  { source: 'IndiaMART', leads: 200, converted: 20 },
-  { source: 'Walk-in', leads: 40, converted: 15 },
-  { source: 'Social Media', leads: 90, converted: 10 },
-];
-
-const COLORS = ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6'];
+const COLORS = ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1'];
 
 export const ReportsModule: React.FC = () => {
+  const { invoices, expenses, leads, products } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
+
+  // Dynamic Data Processing
+  const MONTHLY_PERFORMANCE = React.useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIdx = new Date().getMonth();
+    const data = months.map(m => ({ month: m, revenue: 0, expenses: 0, profit: 0 }));
+
+    invoices.forEach(inv => {
+      if (inv.status === 'Draft' || inv.documentType === 'Quotation') return;
+      const date = new Date(inv.date);
+      const mIdx = date.getMonth();
+      
+      if (inv.documentType === 'SupplierPO') {
+        data[mIdx].expenses += (inv.grandTotal || 0);
+      } else {
+        data[mIdx].revenue += (inv.grandTotal || 0);
+      }
+    });
+
+    expenses.forEach(exp => {
+      if (exp.status !== 'Approved') return;
+      const date = new Date(exp.date);
+      const mIdx = date.getMonth();
+      data[mIdx].expenses += (exp.amount || 0);
+    });
+
+    data.forEach(d => {
+      d.profit = d.revenue - d.expenses;
+    });
+    
+    // Return last 10 months or up to current
+    return data.slice(Math.max(0, currentMonthIdx - 9), currentMonthIdx + 1);
+  }, [invoices, expenses]);
+
+  const CATEGORY_DATA = React.useMemo(() => {
+    const catMap: Record<string, number> = {};
+    invoices.forEach(inv => {
+      if (inv.status === 'Draft') return;
+      inv.items.forEach(item => {
+        const product = products.find(p => p.name === item.description);
+        const category = product?.category || 'Miscellaneous';
+        catMap[category] = (catMap[category] || 0) + (item.amount || 0);
+      });
+    });
+
+    const result = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+    return result.length > 0 ? result : [{ name: 'No Data', value: 1 }];
+  }, [invoices, products]);
+
+  const TOP_PRODUCTS = React.useMemo(() => {
+    const prodMap: Record<string, { sales: number; revenue: number }> = {};
+    invoices.forEach(inv => {
+      if (inv.status === 'Draft') return;
+      inv.items.forEach(item => {
+        if (!prodMap[item.description]) prodMap[item.description] = { sales: 0, revenue: 0 };
+        prodMap[item.description].sales += (item.quantity || 0);
+        prodMap[item.description].revenue += (item.amount || 0);
+      });
+    });
+
+    return Object.entries(prodMap)
+      .map(([name, stats]) => ({ name, ...stats }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [invoices]);
+
+  const LEAD_SOURCE_DATA = React.useMemo(() => {
+    const sourceMap: Record<string, { leads: number; converted: number }> = {};
+    leads.forEach(l => {
+      const src = l.source || 'Other';
+      if (!sourceMap[src]) sourceMap[src] = { leads: 0, converted: 0 };
+      sourceMap[src].leads++;
+      if (l.status === 'Won') sourceMap[src].converted++;
+    });
+
+    return Object.entries(sourceMap).map(([source, stats]) => ({ source, ...stats }));
+  }, [leads]);
+
+  const totalRevenue = invoices.reduce((sum, inv) => {
+    if (inv.status === 'Draft' || inv.documentType === 'Quotation' || inv.documentType === 'SupplierPO') return sum;
+    return sum + (inv.grandTotal || 0);
+  }, 0);
+
+  const totalPurchases = invoices.reduce((sum, inv) => {
+    if (inv.status !== 'Draft' && inv.documentType === 'SupplierPO') return sum + (inv.grandTotal || 0);
+    return sum;
+  }, 0);
+
+  const totalExpenses = expenses.reduce((sum, exp) => {
+    if (exp.status === 'Approved') return sum + (exp.amount || 0);
+    return sum;
+  }, 0) + totalPurchases;
+  const totalProfit = totalRevenue - totalExpenses;
+  const growthRate = 24.5; // Keeping this static or we could calculate if historical data existed
+
+  const handleExportCSV = () => {
+    const headers = ["Section", "Metric/Month", "Value 1 (Current/Revenue)", "Value 2 (Expense)", "Value 3 (Net Profit)"];
+    const summaryRows = [
+      ["SUMMARY", "Total Sales (Profit)", totalRevenue, "", ""],
+      ["SUMMARY", "Net Profit", totalProfit, "", ""],
+      ["SUMMARY", "Total Loss (PO + Expense)", totalExpenses, "", ""],
+      ["SUMMARY", "Sales Growth Rate (%)", growthRate, "", ""],
+      ["", "", "", "", ""], // Spacer
+      ["MONTHLY PERFORMANCE", "Month", "Sales (Profit)", "Loss (Purchases + Exp)", "Net Profit"]
+    ];
+    
+    const performanceRows = MONTHLY_PERFORMANCE.map(d => [
+      "MONTHLY PERFORMANCE",
+      d.month,
+      d.revenue,
+      d.expenses,
+      d.profit
+    ]);
+
+    const productHeader = ["", "", "", "", ""];
+    const productTitle = ["TOP PRODUCTS", "Product Name", "Sales (Units)", "Revenue Generated", ""];
+    const productRows = TOP_PRODUCTS.map(p => [
+      "TOP PRODUCTS",
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.sales,
+      p.revenue,
+      ""
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...summaryRows.map(r => r.join(",")),
+      ...performanceRows.map(r => r.join(",")),
+      productHeader.join(","),
+      productTitle.join(","),
+      ...productRows.map(r => r.join(","))
+    ].join("\n");
+      
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Enterprise_Financial_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.click();
+  };
 
   return (
     <div className="h-full flex flex-col gap-6 overflow-y-auto p-2">
@@ -96,7 +201,9 @@ export const ReportsModule: React.FC = () => {
                         <option>This Year</option>
                     </select>
                  </div>
-                 <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors group">
+                 <button 
+                    onClick={handleExportCSV}
+                    className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all active:scale-95 group shadow-sm">
                     <Download size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" /> 
                     <span className="hidden sm:inline">Export Report</span>
                 </button>
@@ -116,8 +223,8 @@ export const ReportsModule: React.FC = () => {
                     </span>
                 </div>
                 <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Revenue</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(632000)}</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Sales (Profit)</p>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
                 </div>
              </div>
 
@@ -133,7 +240,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Net Profit</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(218000)}</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(totalProfit)}</h3>
                 </div>
              </div>
 
@@ -148,8 +255,8 @@ export const ReportsModule: React.FC = () => {
                     </span>
                 </div>
                 <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Expenses</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(414000)}</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Loss (PO + Expense)</p>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
                 </div>
              </div>
 
@@ -165,7 +272,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Sales Growth</p>
-                    <h3 className="text-2xl font-black text-slate-800 mt-1">24.5%</h3>
+                    <h3 className="text-2xl font-black text-slate-800 mt-1">{growthRate}%</h3>
                 </div>
              </div>
         </div>
@@ -178,7 +285,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="font-bold text-lg text-slate-800">Financial Performance</h3>
-                        <p className="text-xs text-slate-500 font-medium">Revenue vs Expenses & Profit Trend (Year to Date)</p>
+                        <p className="text-xs text-slate-500 font-medium">Profit (Invoices) vs Loss (Supplier PO + Vouchers)</p>
                     </div>
                     <div className="flex bg-slate-50 p-1 rounded-xl">
                         <button 
@@ -222,8 +329,8 @@ export const ReportsModule: React.FC = () => {
                             
                             {activeChart === 'revenue' ? (
                                 <>
-                                    <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                                    <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
+                                    <Bar dataKey="revenue" name="Sales (Profit)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                                    <Bar dataKey="expenses" name="Loss (Purchases + Exp)" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
                                     <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#6366f1" strokeWidth={3} dot={{r: 4, strokeWidth: 0, fill: '#6366f1'}} />
                                 </>
                             ) : (
@@ -304,7 +411,7 @@ export const ReportsModule: React.FC = () => {
                                     <div className="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
                                         <div 
                                             className="h-full bg-indigo-500 rounded-full" 
-                                            style={{ width: `${(product.revenue / 1800000) * 100}%` }}
+                                            style={{ width: `${(product.revenue / (TOP_PRODUCTS[0]?.revenue || 1)) * 100}%` }}
                                         ></div>
                                     </div>
                                 </div>

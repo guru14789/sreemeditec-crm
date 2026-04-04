@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2 } from 'lucide-react';
-import { Task, Employee, AttendanceRecord, Holiday } from '../types';
+import { Task, Employee, AttendanceRecord } from '../types';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,7 +12,7 @@ interface AttendanceModuleProps {
 type WorkMode = 'Office' | 'Field' | 'Remote';
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => {
-    const { addPoints, currentUser: me, attendanceRecords, updateAttendance, employees, addNotification, holidays, addHoliday, removeHoliday } = useData();
+    const { addPoints, currentUser: me, attendanceRecords, updateAttendance, employees, addNotification, holidays, addHoliday, removeHoliday, addLog } = useData();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -35,7 +35,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     const [editCheckOut, setEditCheckOut] = useState('');
     const [editReason, setEditReason] = useState('');
 
-    const REQUIRED_OFFICE_HOURS = 7;
+    const REQUIRED_OFFICE_HOURS = 8;
 
     // Use local date for todayStr to ensure consistency across refreshes/timezones
     const getTodayStr = () => {
@@ -125,7 +125,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                     checkOutTime: new Date().toISOString()
                 });
                 addPoints(50, 'Attendance', 'Daily Shift Completed (Auto-Logged)');
-                addNotification('Shift Completed', 'Your 7-hour office shift has been automatically logged.', 'success');
+                addNotification('Shift Completed', 'Your 8-hour office shift has been automatically logged.', 'success');
             };
             autoClose();
         }
@@ -185,6 +185,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             } as any;
 
             await updateAttendance({ id: editingAttendanceRecord.id, ...updates });
+            await addLog('Attendance', 'Admin Overwrite', `Attendance corrected for ${editingAttendanceRecord.userName} on ${editingAttendanceRecord.date}. Reason: ${editReason}`);
             addNotification('Attendance Corrected', `Record for ${editingAttendanceRecord.userName} updated.`, 'success');
             setShowEditAttendanceModal(false);
             setEditingAttendanceRecord(null);
@@ -308,8 +309,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 if (dateObj.getDay() === 0 || isHoliday) {
                     // Credit day for Sunday or Holiday
                     totalDaysPresent++;
-                    // Credit 7 hours for Sunday or Holiday
-                    totalWorkedMs += (7 * 3600000);
+                    // Credit 8 hours for Sunday or Holiday
+                    totalWorkedMs += (REQUIRED_OFFICE_HOURS * 3600000);
                 } else if (dayRecord) {
                     // Credit day for actual work
                     totalDaysPresent++;
@@ -494,48 +495,67 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                 : isOfficeHoursComplete ? 'Goal Met' : formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}
                                         </div>
                                         <span className="text-[8px] font-black text-slate-400 mt-1 uppercase tracking-widest">
-                                            {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Time Remaining (7h Goal)'}
+                                            {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Time Remaining (8h Goal)'}
                                         </span>
                                     </div>
                                 </div>
 
                                 <div className="flex flex-col gap-2">
-                                    {!isLocked && !isHolidayToday ? (
-                                        <button
-                                            onClick={handleCheckInOut}
-                                            className={`w-full py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 shadow-sm flex items-center justify-center gap-2 relative z-10 ${isCheckedIn
-                                                ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                                                : 'bg-medical-600 text-white shadow-medical-500/20'
-                                                }`}
-                                        >
-                                            {isCheckedIn ? (
-                                                <><CheckCircle size={14} /> Finish & Confirm</>
-                                            ) : (
-                                                <><Clock size={14} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
-                                            )}
-                                        </button>
-                                    ) : isHolidayToday ? (
-                                        <div className="w-full bg-amber-50/50 border border-amber-200/50 rounded-xl px-4 py-3 flex items-center gap-3">
-                                            <Calendar size={18} className="text-amber-500" />
-                                            <div>
-                                                <div className="text-[10px] font-black uppercase text-amber-900 leading-none">{todayHoliday?.name || 'Holiday'}</div>
-                                                <div className="text-[8px] font-bold text-amber-700/60 uppercase tracking-widest mt-1">System Locked</div>
+                                    {(() => {
+                                        const isAfter7PM = currentTime.getHours() >= 19;
+
+                                        if (!isLocked && !isHolidayToday) {
+                                            return (
+                                                <button
+                                                    onClick={handleCheckInOut}
+                                                    className={`w-full py-3.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 shadow-sm flex items-center justify-center gap-2 relative z-10 ${isCheckedIn
+                                                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                                        : 'bg-medical-600 text-white shadow-medical-500/20'
+                                                        }`}
+                                                >
+                                                    {isCheckedIn ? (
+                                                        <><CheckCircle size={14} /> Finish & Confirm</>
+                                                    ) : (
+                                                        <><Clock size={14} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
+                                                    )}
+                                                </button>
+                                            );
+                                        }
+
+                                        if (isHolidayToday) {
+                                            return (
+                                                <div className="w-full bg-amber-50/50 border border-amber-200/50 rounded-xl px-4 py-3 flex items-center gap-3">
+                                                    <Calendar size={18} className="text-amber-500" />
+                                                    <div>
+                                                        <div className="text-[10px] font-black uppercase text-amber-900 leading-none">{todayHoliday?.name || 'Holiday'}</div>
+                                                        <div className="text-[8px] font-bold text-amber-700/60 uppercase tracking-widest mt-1">System Locked</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center gap-2 text-slate-400">
+                                                    <Lock size={14} />
+                                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none">Locked</span>
+                                                </div>
+                                                {!isAfter7PM ? (
+                                                    <button
+                                                        onClick={logActualDeparture}
+                                                        className="flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700 scale-100 animate-in fade-in slide-in-from-right-2"
+                                                    >
+                                                        Log Departure
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex-1 py-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-center gap-2 text-rose-400 italic">
+                                                        <Clock size={12} />
+                                                        <span className="text-[8px] font-black uppercase tracking-widest leading-none text-center">Closed (7PM)</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center gap-2 text-slate-400">
-                                                <Lock size={14} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest leading-none">Locked</span>
-                                            </div>
-                                            <button
-                                                onClick={logActualDeparture}
-                                                className="flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700"
-                                            >
-                                                Log Departure
-                                            </button>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, Bell, Info, AlertTriangle, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -26,9 +26,11 @@ import { ClientModule } from './components/ClientModule';
 import { VendorModule } from './components/VendorModule';
 import { ExpenseModule } from './components/ExpenseModule';
 import { PerformanceModule } from './components/PerformanceModule';
+import { LogsModule } from './components/LogsModule';
+import { ArchiveModule } from './components/ArchiveModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
-import { TabView, AppNotification } from './types';
+import { TabView } from './types';
 import { useData } from './components/DataContext';
 
 const NavItem: React.FC<{
@@ -94,16 +96,12 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
 );
 
 export const App: React.FC = () => {
-    const { notifications, markNotificationRead, clearAllNotifications, isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats } = useData();
+    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
 
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  const notifRef = useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     const handleResize = () => {
@@ -114,18 +112,6 @@ export const App: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifications(false);
-      }
-    };
-    if (showNotifications) {
-      document.addEventListener('mousedown', handleOutsideClick);
-    }
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showNotifications]);
 
   // AUTH GUARD: If not logged in, show Login screen
   if (!isAuthenticated || !currentUser) {
@@ -178,6 +164,9 @@ export const App: React.FC = () => {
       title: 'Control',
       items: [
         { tab: TabView.HR, icon: ShieldCheck, label: 'Staff Management' },
+        { tab: TabView.REPORTS, icon: ClipboardList, label: 'Reports Centre' },
+        { tab: TabView.LOGS, icon: Activity, label: 'Audit Logs' },
+        { tab: TabView.ARCHIVE, icon: FileText, label: 'Finance Archive' },
       ]
     }
   ];
@@ -215,21 +204,16 @@ export const App: React.FC = () => {
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.REPORTS: return <ReportsModule />;
+      case TabView.LOGS: return <LogsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
+      case TabView.ARCHIVE: return <ArchiveModule />;
       default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };
 
-  const getNotifIcon = (type: AppNotification['type']) => {
-    switch (type) {
-      case 'alert': return <AlertTriangle size={18} className="text-rose-500" />;
-      case 'warning': return <AlertTriangle size={18} className="text-amber-500" />;
-      case 'success': return <CheckCircle2 size={18} className="text-emerald-500" />;
-      default: return <Info size={18} className="text-blue-500" />;
-    }
-  };
+  /* Notifications icons removed */
 
   const handleSignOut = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -491,73 +475,7 @@ export const App: React.FC = () => {
           )}
 
           <div className="flex items-center gap-1 md:gap-3 relative">
-            {/* Notification Bell */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-2.5 rounded-xl transition-all relative ${showNotifications ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-emerald-600'}`}>
-                <Bell size={22} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full ring-2 ring-white dark:ring-slate-900 animate-in zoom-in">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotifications && (
-                <div className="absolute top-full right-0 mt-3 w-[320px] sm:w-[420px] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="p-5 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                    <h3 className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-slate-100">System Alerts</h3>
-                    <div className="flex gap-3">
-                      <button onClick={clearAllNotifications} className="text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-tighter">Clear All</button>
-                    </div>
-                  </div>
-                  <div className="max-h-[480px] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800">
-                    {notifications.length > 0 ? (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        {notifications.map((notif) => (
-                          <div
-                            key={notif.id}
-                            onClick={() => markNotificationRead(notif.id)}
-                            className={`px-5 py-6 flex items-start gap-5 transition-all cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 ${notif.read ? 'opacity-60' : 'bg-emerald-50/10 dark:bg-emerald-500/5'}`}
-                          >
-                            <div className={`p-3 rounded-2xl shrink-0 ${notif.type === 'alert' ? 'bg-rose-100 text-rose-600' :
-                              notif.type === 'warning' ? 'bg-amber-100 text-amber-600' :
-                                notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
-                                  'bg-blue-100 text-blue-600'
-                              }`}>
-                              {getNotifIcon(notif.type)}
-                            </div>
-                            <div className="flex-1 min-w-0 flex flex-col">
-                              <div className="flex justify-between items-center mb-1">
-                                <p className="font-black text-slate-800 dark:text-slate-100 text-[12px] leading-none uppercase tracking-tight">{notif.title}</p>
-                                <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0 whitespace-nowrap ml-4">{notif.time}</span>
-                              </div>
-                              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{notif.message}</p>
-                              {!notif.read && (
-                                <div className="mt-3 flex items-center gap-1.5">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"></div>
-                                  <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">New Update</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-16 flex flex-col items-center justify-center opacity-30 text-center px-10">
-                        <Bell size={48} className="mb-4 text-slate-300" />
-                        <p className="text-[11px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">No Active Notifications</p>
-                        <p className="text-[10px] font-medium mt-1 text-slate-500 dark:text-slate-400">Smart scanner is monitoring system health</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4 border-t border-slate-50 dark:border-slate-700 text-center bg-slate-50/20 dark:bg-slate-900/50">
-                    <button onClick={() => setShowNotifications(false)} className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] hover:underline">Close Terminal</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* System Alerts Removed */}
 
             <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black">{currentUserName.charAt(0)}</div></div>
           </div>

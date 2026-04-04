@@ -36,17 +36,21 @@ const numberToWords = (num: number): string => {
 
 const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const items = invoice.items || [];
-    const taxableValue = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
-    const taxTotal = items.reduce((sum, p) => sum + ((p.quantity * p.unitPrice) * (p.taxRate / 100)), 0);
+    const freight = invoice.freightAmount || 0;
+    const freightTax = (freight * (invoice.freightTaxRate || 0)) / 100;
+    
+    const taxableValue = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0) + freight;
+    const taxTotal = items.reduce((sum, p) => sum + ((p.quantity * p.unitPrice) * (p.taxRate / 100)), 0) + freightTax;
+    
     const cgst = taxTotal / 2;
     const sgst = taxTotal / 2;
     const totalQty = items.reduce((sum, p) => sum + p.quantity, 0);
     const grandTotal = taxableValue + taxTotal;
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty };
+    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax };
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -85,6 +89,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
     const totals = useMemo(() => calculateDetailedTotals(invoice), [invoice]);
 
     const handleDownloadPDF = (data: Partial<Invoice>) => {
+        addLog('Billing', 'Downloaded PDF', `Exported document ${data.invoiceNumber || 'New'} as PDF`);
         const doc = new jsPDF();
         const docTotals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -207,6 +212,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         });
 
         itemsBody.push(
+            ['', { content: 'Freight', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', `${data.freightTaxRate || 0}%`, '', '', '', '', docTotals.freight.toFixed(2)],
             ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.cgst.toFixed(2)],
             ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.sgst.toFixed(2)]
         );
@@ -549,6 +555,23 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                             </div>
                                         ))}
+
+                                        <div className="p-6 bg-medical-50/30 border border-medical-200 rounded-[1.5rem] mt-6">
+                                            <div className="grid grid-cols-12 gap-6 items-center">
+                                                <div className="col-span-12 md:col-span-6">
+                                                    <label className="text-[9px] font-black text-medical-600 uppercase block mb-1">Additional Charges (Freight / Packing)</label>
+                                                    <p className="text-[10px] text-slate-400 font-bold italic">Leave 0 if not applicable</p>
+                                                </div>
+                                                <div className="col-span-6 md:col-span-3">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Amount (₹)</label>
+                                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.freightAmount || 0} onChange={e => setInvoice({...invoice, freightAmount: Number(e.target.value)})} />
+                                                </div>
+                                                <div className="col-span-6 md:col-span-3">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
+                                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={invoice.freightTaxRate || 0} onChange={e => setInvoice({...invoice, freightTaxRate: Number(e.target.value)})} />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </section>
 

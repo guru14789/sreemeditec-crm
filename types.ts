@@ -21,7 +21,9 @@ export enum TabView {
   PERFORMANCE = 'PERFORMANCE',
   HR = 'HR',
   PROFILE = 'PROFILE',
-  REPORTS = 'REPORTS'
+  REPORTS = 'REPORTS',
+  LOGS = 'LOGS',
+  ARCHIVE = 'ARCHIVE'
 }
 
 export enum LeadStatus {
@@ -396,4 +398,16 @@ export interface Holiday {
   id: string;
   date: string; // YYYY-MM-DD
   name: string;
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  details: string;
+  category: 'Attendance' | 'Inventory' | 'Leads' | 'Auth' | 'System' | 'Tasks' | 'Billing';
+  beforeValues?: any;
+  afterValues?: any;
 }

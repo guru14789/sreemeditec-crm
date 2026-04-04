@@ -1,0 +1,38 @@
+[
+  {
+    "id": "LOG-1775205563062-vvkzl",
+    "timestamp": "2026-04-03T08:39:23.062Z",
+    "userName": "Sreekumar",
+    "userRole": "SYSTEM_ADMIN",
+    "category": "Auth",
+    "action": "System Login",
+    "details": "Security handshake: Sreekumar initiated secure enterprise session from local access node."
+  },
+  {
+    "id": "LOG-1775205554870-0j8zt",
+    "timestamp": "2026-04-03T08:39:14.870Z",
+    "userName": "Sreekumar",
+    "userRole": "SYSTEM_ADMIN",
+    "category": "Auth",
+    "action": "System Login",
+    "details": "Security handshake: Sreekumar initiated secure enterprise session from local access node."
+  },
+  {
+    "id": "LOG-1775205548617-nwawu",
+    "timestamp": "2026-04-03T08:39:08.617Z",
+    "userName": "Sreekumar",
+    "userRole": "SYSTEM_ADMIN",
+    "category": "Auth",
+    "action": "System Login",
+    "details": "Security handshake: Sreekumar initiated secure enterprise session from local access node."
+  },
+  {
+    "id": "LOG-1775205524617-wknpp",
+    "timestamp": "2026-04-03T08:38:44.617Z",
+    "userName": "Sreekumar",
+    "userRole": "SYSTEM_ADMIN",
+    "category": "Auth",
+    "action": "System Login",
+    "details": "Security handshake: Sreekumar initiated secure enterprise session from local access node."
+  }
+]

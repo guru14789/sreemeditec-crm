@@ -5,7 +5,7 @@ import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
 
 export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({ onNavigate }) => {
-    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees } = useData();
+    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees, addLog } = useData();
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -135,6 +135,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             followUps: []
         };
         await addLead(lead);
+        await addLog('Leads', 'Lead Acquisition', `Registered new opportunity: ${lead.name} (${lead.hospital}) for ${lead.productInterest}.`);
         setShowAddModal(false);
         setNewLeadData({ source: 'Website', status: LeadStatus.NEW, value: 0 });
         addNotification('Lead Captured', `${lead.name} added to pipeline.`, 'success');
@@ -156,6 +157,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             salesTakenBy: editingLeadData.salesTakenBy,
         };
         await updateLead(editingLeadData.id, updates);
+        await addLog('Leads', 'Lead Evolution', `Updated details for ${editingLeadData.name} (${editingLeadData.hospital}). Status/Details changed.`);
         if (selectedLead?.id === editingLeadData.id) {
             setSelectedLead({ ...selectedLead, ...updates });
         }
@@ -250,6 +252,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                                             onClick={async (e) => { 
                                                                 e.stopPropagation(); 
                                                                 if (window.confirm(`Delete lead "${lead.name}"?`)) {
+                                                                    await addLog('Leads', 'Lead Deletion', `Purged lead record: ${lead.name} from the database.`);
                                                                     await removeLead(lead.id);
                                                                     addNotification('Lead Deleted', `${lead.name} removed from registry.`, 'warning');
                                                                     if (selectedLead?.id === lead.id) setSelectedLead(null);

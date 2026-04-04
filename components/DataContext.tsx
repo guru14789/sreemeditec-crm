@@ -4,16 +4,16 @@ import {
     collection,
     onSnapshot,
     doc,
+    getDoc,
     setDoc,
     updateDoc,
-    deleteDoc,
-    addDoc,
-    serverTimestamp,
-    writeBatch
+    deleteDoc
 } from 'firebase/firestore';
-import { signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, AppNotification, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, SystemSettings } from '../types';
+import { auditBatcher } from '../services/AuditBatcher';
+import { Archiver } from '../services/Archiver';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -23,7 +23,7 @@ export interface DataContextType {
     stockMovements: StockMovement[];
     expenses: ExpenseRecord[];
     employees: Employee[];
-    notifications: AppNotification[];
+    notifications: any[];
     tasks: Task[];
     leads: Lead[];
     serviceTickets: ServiceTicket[];
@@ -37,8 +37,7 @@ export interface DataContextType {
     setShowWinnerPopup: (show: boolean) => void;
     latestWinner: MonthlyWinner | null;
     setLatestWinner: (winner: MonthlyWinner | null) => void;
-    acknowledgeWinner: () => Promise<void>;
-
+    acknowledgeWinner: (id: string) => Promise<void>;
 
     pendingQuoteData: Partial<Invoice> | null;
     setPendingQuoteData: (data: Partial<Invoice> | null) => void;
@@ -55,8 +54,13 @@ export interface DataContextType {
     userStats: UserStats;
     pointHistory: PointHistory[];
     prizePool: number;
-    addPoints: (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => void;
+    addPoints: (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => Promise<void>;
     updatePrizePool: (amount: number) => void;
+
+    // Activity Logs
+    logs: LogEntry[];
+    addLog: (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => Promise<void>;
+    fetchAuditLogs: (daysToLookBack?: number) => Promise<void>;
 
     seedDatabase: () => Promise<void>;
     addClient: (client: Client) => Promise<void>;
@@ -69,7 +73,7 @@ export interface DataContextType {
     updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
     removeProduct: (id: string) => Promise<void>;
     addInvoice: (invoice: Invoice) => Promise<void>;
-    updateInvoice: (id: string, invoice: Invoice) => Promise<void>;
+    updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
     recordStockMovement: (movement: StockMovement) => Promise<void>;
 
     setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -86,8 +90,8 @@ export interface DataContextType {
     addEmployee: (emp: Employee) => Promise<void>;
     updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
     removeEmployee: (id: string) => Promise<void>;
-    addNotification: (title: string, message: string, type: AppNotification['type']) => Promise<void>;
-    markNotificationRead: (id: string) => Promise<void>;
+    addNotification: (title: string, message: string, type: string) => void;
+    markNotificationRead: (id: string) => void;
     clearAllNotifications: () => void;
     updateAttendance: (record: Partial<AttendanceRecord> & { id: string }) => Promise<void>;
     addDeliveryChallan: (challan: DeliveryChallan) => Promise<void>;
@@ -103,7 +107,6 @@ export interface DataContextType {
     removeHoliday: (id: string) => Promise<void>;
     checkAndPerformMonthReset: () => Promise<void>;
 }
-
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -122,26 +125,18 @@ const sanitizeData = (data: any): any => {
     return plain;
 };
 
-const isRedundant = (existing: any, updates: any) => {
-    if (!existing) return false;
-    return Object.keys(updates).every(key => {
-        const val = updates[key];
-        if (typeof val === 'object' && val !== null) {
-            return JSON.stringify(existing[key]) === JSON.stringify(val);
-        }
-        return existing[key] === val;
-    });
-};
-
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    // 1. STATE INITIALIZATION
     const [clients, setClients] = useState<Client[]>([]);
+    const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
     const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
     const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
@@ -151,623 +146,391 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
-    const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
     const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
-
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
-    const [dbError, setDbError] = useState<string | null>(null);
+    const [dbError] = useState<string | null>(null);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
-
-    const [currentUser, setCurrentUser] = useState<Employee | null>(null);
-    const [setIsAuthenticatedState, setIsAuthenticated] = useState(false);
-    const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
-
     const [userStats, setUserStats] = useState<UserStats>({
-        points: 0,
-        tasksCompleted: 0,
-        attendanceStreak: 12,
-        salesRevenue: 0
+        points: 0, tasksCompleted: 0, attendanceStreak: 12, salesRevenue: 0
     });
-
     const [firebaseUser, setFirebaseUser] = useState<any>(null);
+    const loginLoggedRef = React.useRef(false);
 
-    // 1. Firebase Auth listener
+    const isAuthenticated = !!currentUser;
+
+    // 2. LOGGING HELPER
+    const addLog = async (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => {
+        if (!currentUser) return;
+        const logId = `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const log: LogEntry = {
+            id: logId,
+            timestamp: new Date().toISOString(),
+            userName: currentUser.name,
+            userRole: currentUser.role,
+            category,
+            action,
+            details,
+            beforeValues: before,
+            afterValues: after
+        };
+        auditBatcher.enqueue(log);
+        setLogs(prev => [log, ...prev].slice(0, 1000));
+    };
+
+    // 3. LISTENERS
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setFirebaseUser(user);
-            if (!user) {
-                setIsAuthenticating(false);
+            if (user) setFirebaseUser(user);
+            else {
+                setFirebaseUser(null);
                 setCurrentUser(null);
-                setIsAuthenticated(false);
+                loginLoggedRef.current = false;
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // 2. Employees listener (independent of currentUser)
     useEffect(() => {
-        if (!firebaseUser) {
-            setEmployees([]);
-            setCurrentUser(null);
-            setIsAuthenticated(false);
-            return;
-        }
-
-        const handleError = (err: any) => {
-            if (err?.code === 'permission-denied') setDbError("Firestore Access Denied.");
-            else console.warn("Employees Listener Error:", err);
-        };
-
-        const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => ({
-            ...sanitizeData(d.data()),
-            id: d.id
-        }));
-
-        const unsub = onSnapshot(collection(db, "employees"), (s) => setEmployees(mapDocs(s)), handleError);
+        if (!firebaseUser) return;
+        const unsub = onSnapshot(collection(db, "employees"), (s) => {
+            const data = s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id } as Employee));
+            setEmployees(data);
+        }, (err) => console.warn("Employees Listener Error:", err));
         return () => unsub();
     }, [firebaseUser]);
 
-    // 3. Current User resolution
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setLogs([]);
+            return;
+        }
+        const loadRecentLogs = async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            try {
+                const [snapToday, snapYesterday] = await Promise.all([
+                    getDoc(doc(db, "system_audit", today)),
+                    getDoc(doc(db, "system_audit", yesterday))
+                ]);
+                let allRecents: LogEntry[] = [];
+                if (snapToday.exists()) allRecents = [...snapToday.data().entries];
+                if (snapYesterday.exists()) allRecents = [...allRecents, ...snapYesterday.data().entries];
+                setLogs(prev => {
+                    const combined = [...allRecents, ...prev];
+                    const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
+                    return unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500);
+                });
+            } catch (err) { console.warn("Log fetch fail:", err); }
+        };
+        loadRecentLogs();
+    }, [isAuthenticated]);
+
     useEffect(() => {
         if (!firebaseUser || employees.length === 0) return;
-
         let resolvedUser: Employee | null = null;
         const email = firebaseUser.email?.toLowerCase();
 
-        // Bypass checks
-        if (email === 'admin@demo.com') {
+        if (email === 'admin@demo.com' || email === 'sreekumar.career@gmail.com') {
             resolvedUser = {
-                id: 'EMP-BYPASS', name: 'Enterprise Admin', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'admin@demo.com', status: 'Active', isLoginEnabled: true, permissions: Object.values(TabView)
-            };
-        } else if (email === 'sreekumar.career@gmail.com') {
-            resolvedUser = {
-                id: 'EMP-OWNER', name: 'Sreekumar', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'sreekumar.career@gmail.com', status: 'Active', isLoginEnabled: true, permissions: Object.values(TabView)
+                id: email === 'admin@demo.com' ? 'EMP-BYPASS' : 'EMP-OWNER',
+                name: email === 'admin@demo.com' ? 'Enterprise Admin' : 'Sreekumar',
+                role: 'SYSTEM_ADMIN',
+                department: 'Administration',
+                email: email,
+                status: 'Active',
+                isLoginEnabled: true,
+                permissions: Object.values(TabView)
             };
         } else {
             const match = employees.find(e => e.email.toLowerCase() === email);
             if (match) {
-                if (match.isLoginEnabled) {
-                    resolvedUser = { ...match, permissions: match.permissions ? [...match.permissions] : [] };
-                } else {
-                    setAuthError("Organization Access Locked: Your account has been disabled by the administrator.");
-                }
+                if (match.isLoginEnabled) resolvedUser = { ...match };
+                else setAuthError("Registry Locked: Access disabled.");
             }
         }
 
         if (resolvedUser) {
-            if (!currentUser || currentUser.id !== resolvedUser.id) {
-                setCurrentUser(resolvedUser);
-                setIsAuthenticated(true);
+            setCurrentUser(resolvedUser);
+            if (!loginLoggedRef.current) {
+                addLog('Auth', 'System Login', `User ${resolvedUser.name} initiated secure session.`);
+                loginLoggedRef.current = true;
             }
             setIsAuthenticating(false);
             setAuthError(null);
         } else if (isAuthenticating) {
-            // Give it a tiny bit more time in case of state lag
             const timeout = setTimeout(async () => {
                 if (!resolvedUser) {
-                    setAuthError(`Organization Access Denied: '${firebaseUser.email || 'Unknown Email'}' is not in the Sree Meditec staff registry.`);
+                    setAuthError(`Access Denied: '${firebaseUser.email}' not found.`);
                     setIsAuthenticating(false);
                     await signOut(auth);
                 }
-            }, 2000);
+            }, 3000);
             return () => clearTimeout(timeout);
         }
-    }, [firebaseUser, employees, currentUser?.id, isAuthenticating]);
+    }, [firebaseUser, employees, isAuthenticating]);
 
-    // 4. Other collections listener
     useEffect(() => {
-        if (!firebaseUser || !currentUser) {
-            setClients([]);
-            setVendors([]);
-            setProducts([]);
-            setLeads([]);
-            setServiceTickets([]);
-            setInvoices([]);
-            setStockMovements([]);
-            setExpenses([]);
-            setTasks([]);
-            setNotifications([]);
-            setPointHistory([]);
-            setDeliveryChallans([]);
-            setInstallationReports([]);
-            setServiceReports([]);
-            return;
-
-        }
-
-        const handleError = (err: any) => {
-            console.warn("Firestore Listener Warning:", err?.message || err);
+        if (!firebaseUser || !currentUser) return;
+        const unsubClients = onSnapshot(collection(db, "clients"), (s) => setClients(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client)));
+        const unsubVendors = onSnapshot(collection(db, "vendors"), (s) => setVendors(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor)));
+        const unsubProducts = onSnapshot(collection(db, "products"), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)));
+        const unsubLeads = onSnapshot(collection(db, "leads"), (s) => setLeads(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Lead)));
+        const unsubTickets = onSnapshot(collection(db, "serviceTickets"), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)));
+        const unsubInvoices = onSnapshot(collection(db, "invoices"), (s) => setInvoices(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Invoice)));
+        const unsubAttendance = onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
+        const unsubExpenses = onSnapshot(collection(db, "expenses"), (s) => setExpenses(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ExpenseRecord)));
+        const unsubTasks = onSnapshot(collection(db, "tasks"), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
+        const unsubHolidays = onSnapshot(collection(db, "holidays"), (s) => setHolidays(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Holiday)));
+        return () => {
+            unsubClients(); unsubVendors(); unsubProducts(); unsubLeads(); unsubTickets();
+            unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubHolidays();
         };
-
-        const mapDocs = (snapshot: any) => snapshot.docs.map((d: any) => ({
-            ...sanitizeData(d.data()),
-            id: d.id
-        }));
-
-        const unsubscribes = [
-            onSnapshot(collection(db, "clients"), (s) => setClients(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "vendors"), (s) => setVendors(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "products"), (s) => setProducts(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "leads"), (s) => setLeads(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "serviceTickets"), (s) => setServiceTickets(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "invoices"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setInvoices(data);
-            }, handleError),
-            onSnapshot(collection(db, "stockMovements"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setStockMovements(data.slice(0, 100));
-            }, handleError),
-            onSnapshot(collection(db, "expenses"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setExpenses(data);
-            }, handleError),
-            onSnapshot(collection(db, "tasks"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (a.dueDate || '').localeCompare(b.dueDate || ''));
-                setTasks(data);
-            }, handleError),
-            onSnapshot(collection(db, "notifications"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.createdAt || b.time || '').toString().localeCompare((a.createdAt || a.time || '').toString()));
-                setNotifications(data.slice(0, 50));
-            }, handleError),
-            onSnapshot(collection(db, "pointHistory"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setPointHistory(data.slice(0, 100));
-            }, handleError),
-            onSnapshot(collection(db, "deliveryChallans"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setDeliveryChallans(data);
-            }, handleError),
-            onSnapshot(collection(db, "installationReports"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setInstallationReports(data);
-            }, handleError),
-            onSnapshot(collection(db, "serviceReports"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
-                setServiceReports(data);
-            }, handleError),
-            onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "holidays"), (s) => setHolidays(mapDocs(s)), handleError),
-            onSnapshot(collection(db, "monthlyWinners"), (s) => {
-                const data = mapDocs(s);
-                data.sort((a: any, b: any) => (b.monthId || '').localeCompare(a.monthId || ''));
-                setMonthlyWinners(data);
-            }, handleError),
-            onSnapshot(doc(db, "settings", "performance"), (d) => {
-                if (d.exists()) setSystemSettings({ ...sanitizeData(d.data()), id: d.id } as SystemSettings);
-            }, handleError)
-
-        ];
-
-        return () => unsubscribes.forEach(u => u());
-    }, [firebaseUser, currentUser?.id]);
-
-
-
-    // Simplified effect for quick UI restoration from localStorage (optional, but good for perceived speed)
-    useEffect(() => {
-        const saved = localStorage.getItem('sreemeditec_auth_user');
-        if (saved && !currentUser) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (parsed.id === 'EMP-BYPASS' || parsed.id === 'EMP-OWNER') {
-                    // Logic handled by onAuthStateChanged for real Firestore access, 
-                    // but we can set UI state here if we want immediate transition.
-                }
-            } catch (e) { }
-        }
-    }, [employees, currentUser]);
+    }, [firebaseUser, currentUser]);
 
     useEffect(() => {
-        if (currentUser) {
-            const currentMonthId = new Date().toISOString().slice(0, 7);
-            const myPoints = pointHistory
-                .filter(p => p.userId === currentUser.id && p.date?.startsWith(currentMonthId))
-                .reduce((acc, curr) => acc + curr.points, 0);
-            const myTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
-            setUserStats(prev => ({
-                ...prev,
-                points: myPoints,
-                tasksCompleted: myTasks,
-                salesRevenue: invoices
-                    .filter(i => i.customerName === currentUser.name && (i.documentType === 'PO' || !i.documentType) && i.status === 'Paid')
-                    .reduce((acc, i) => acc + (i.grandTotal || 0), 0)
-            }));
-        }
-    }, [pointHistory, tasks, currentUser, invoices]);
+        if (!firebaseUser || !currentUser) return;
+        const unsubPoints = onSnapshot(collection(db, "pointHistory"), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
+        const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
+        return () => { unsubPoints(); unsubWinners(); };
+    }, [firebaseUser, currentUser]);
 
-    // Monthly Reset and Winner Popup Logic
+    // Calculate Dynamic User Stats
     useEffect(() => {
-        // 1. Initial Reset Check (If 1st of month and system hasn't reset yet)
-        const currentMonthId = new Date().toISOString().slice(0, 7);
-        const isFirstDay = new Date().getDate() === 1;
-
-        if (isFirstDay && systemSettings && systemSettings.lastResetMonth !== currentMonthId) {
-             if (employees.length > 0) {
-                checkAndPerformMonthReset();
-            }
-        }
-
-        // 2. Winner Popup Logic
-        if (!currentUser || monthlyWinners.length === 0) return;
-
-        const prevMonthId = (() => {
-            const d = new Date();
-            d.setDate(0); // Last day of previous month
-            return d.toISOString().slice(0, 7);
-        })();
-
-        const winner = monthlyWinners.find(w => w.monthId === prevMonthId);
-        if (winner && currentUser.lastSeenWinnerMonth !== currentMonthId) {
-            setLatestWinner(winner);
-            setShowWinnerPopup(true);
-        }
-    }, [currentUser, systemSettings, monthlyWinners, employees.length]);
-
-    const checkAndPerformMonthReset = async () => {
-        const currentMonthId = new Date().toISOString().slice(0, 7);
-        const prevMonthId = (() => {
-            const d = new Date();
-            d.setMonth(d.getMonth() - 1);
-            return d.toISOString().slice(0, 7);
-        })();
-
-        console.log(`[Performance] Checking for month reset: ${systemSettings?.lastResetMonth} -> ${currentMonthId}`);
-        
-        // Find top performer for previous month
-        // Points are calculated from pointHistory
-        const userPoints: Record<string, { id: string, name: string, points: number }> = {};
-        
-        // Initialize with all current employees
-        employees.forEach(emp => {
-            userPoints[emp.id] = { id: emp.id, name: emp.name, points: 0 };
-        });
-
-        // Sum points for previous month only
-        pointHistory.filter(p => p.date.startsWith(prevMonthId)).forEach(p => {
-            if (userPoints[p.userId]) {
-                userPoints[p.userId].points += p.points;
-            }
-        });
-
-        const sorted = Object.values(userPoints).sort((a, b) => b.points - a.points);
-        const winner = sorted[0];
-
-        const batch = writeBatch(db);
-
-        // a. Save Winner if any points existed
-        if (winner && winner.points > 0) {
-            const winnerDoc = doc(collection(db, "monthlyWinners"));
-            batch.set(winnerDoc, {
-                monthId: prevMonthId,
-                userId: winner.id,
-                userName: winner.name,
-                points: winner.points,
-                createdAt: serverTimestamp()
-            });
-            console.log(`[Performance] Saved winner for ${prevMonthId}: ${winner.name} with ${winner.points} pts`);
-        } else {
-             // Save "No Winner" entry if requested, or just skip
-             const winnerDoc = doc(collection(db, "monthlyWinners"));
-             batch.set(winnerDoc, {
-                 monthId: prevMonthId,
-                 userId: 'NONE',
-                 userName: 'No winner last month',
-                 points: 0,
-                 createdAt: serverTimestamp()
-             });
-        }
-
-        // b. Reset pointHistory (Clean slate for new month)
-        // Note: For large datasets, this might exceed batch limits (500). 
-        // But employee performance log entries shouldn't exceed this monthly for small teams.
-        pointHistory.forEach(p => {
-            batch.delete(doc(db, "pointHistory", p.id));
-        });
-
-        // c. Update System Settings
-        batch.set(doc(db, "settings", "performance"), {
-            lastResetMonth: currentMonthId
-        }, { merge: true });
-
-        try {
-            await batch.commit();
-            console.log(`[Performance] Global Monthly Reset Complete for ${currentMonthId}`);
-            addNotification('Monthly Reset', 'Employee performance points have been cleared for a new month.', 'info');
-        } catch (err) {
-            console.error("[Performance] Monthly Reset Error:", err);
-        }
-    };
-
-    const acknowledgeWinner = async () => {
         if (!currentUser) return;
-        const currentMonthId = new Date().toISOString().slice(0, 7);
-        
-        try {
-            await updateDoc(doc(db, "employees", currentUser.id), {
-                lastSeenWinnerMonth: currentMonthId
-            });
-            // Also update local state to avoid re-triggering before sync
-            setCurrentUser(prev => prev ? { ...prev, lastSeenWinnerMonth: currentMonthId } : null);
-            setShowWinnerPopup(false);
-        } catch (err) {
-            console.error("Failed to acknowledge winner:", err);
-        }
-    };
+        const userPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((sum, p) => sum + p.points, 0);
+        const userTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
+        const userInvoices = invoices.filter(inv => inv.createdBy === currentUser.name && inv.status !== 'Draft');
+        const rev = userInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    const seedDatabase = async () => {
-        const batch = writeBatch(db);
-        const initialEmployees: Employee[] = [
-            { id: 'EMP001', name: 'Master Admin', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'admin@demo.com', phone: '000', joinDate: '2023-01-01', baseSalary: 100000, status: 'Active', isLoginEnabled: true, password: 'admin', permissions: Object.values(TabView) },
-            { id: 'EMP002', name: 'Staff User', role: 'SYSTEM_STAFF', department: 'Service', email: 'staff@demo.com', phone: '111', joinDate: '2023-05-15', baseSalary: 45000, status: 'Active', isLoginEnabled: true, password: 'staff', permissions: [TabView.DASHBOARD, TabView.PROFILE, TabView.TASKS] },
-            { id: 'EMP003', name: 'Sreekumar', role: 'SYSTEM_ADMIN', department: 'Administration', email: 'sreekumar.career@gmail.com', phone: '999', joinDate: '2023-01-01', baseSalary: 120000, status: 'Active', isLoginEnabled: true, password: 'sree14789', permissions: Object.values(TabView) }
-        ];
-        initialEmployees.forEach(emp => batch.set(doc(db, "employees", emp.id), emp));
-        await batch.commit();
-        addNotification('System Initialized', 'Enterprise Roles defined.', 'success');
-    };
+        setUserStats({
+            points: userPoints,
+            tasksCompleted: userTasks,
+            attendanceStreak: 12, // Placeholder or calculated from attendanceRecords
+            salesRevenue: rev
+        });
+    }, [pointHistory, tasks, invoices, currentUser]);
 
-    const login = async (email: string, password?: string) => {
-        setAuthError(null);
-        setIsAuthenticating(true);
-
-        const syncFirebase = async (e: string, p: string) => {
-            try {
-                await signInWithEmailAndPassword(auth, e, p);
-            } catch (err: any) {
-                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                    try {
-                        await createUserWithEmailAndPassword(auth, e, p);
-                    } catch (createErr) {
-                        console.warn("Failed to create Firebase Auth user:", createErr);
-                    }
-                } else {
-                    console.warn("Firebase Auth Login Warning:", err);
-                }
-            }
-        };
-
-        // AUTH BYPASS LOGIC: Allow demo admin even if DB is empty
-        if (email.toLowerCase() === 'admin@demo.com' && password === 'admin') {
-            await syncFirebase('admin@demo.com', 'admin123'); // Map to stronger password for Firebase
-            return true;
-        }
-
-        if (email.toLowerCase() === 'sreekumar.career@gmail.com' && password === 'sree14789') {
-            await syncFirebase(email, 'sree14789');
-            return true;
-        }
-
-        // For other employees, we might not have the list yet. 
-        // We'll try to sign in with Firebase. If that fails, we check the registry ONLY IF we have it.
-        try {
-            await signInWithEmailAndPassword(auth, email, password || '');
-            return true;
-        } catch (fbErr) {
-            // If Firebase login fails, maybe it's a new password from HR that isn't synced yet.
-            const employee = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-            if (employee && employee.password === password) {
-                if (employee.password && employee.password.length >= 6) {
-                    await syncFirebase(email, employee.password as string);
-                    return true;
-                }
-            }
-            setIsAuthenticating(false);
-            if (!employees.length) throw new Error("Connection established. Synchronizing registry... Please try again in 5 seconds.");
-            throw new Error(employee ? "Incorrect security key." : `Auth Error: '${email}' not found in registry.`);
-        }
-    };
-
+    // 4. METHODS
     const loginWithGoogle = async () => {
         setIsAuthenticating(true);
-        setAuthError(null);
         try {
-            const isNative = (window as any).Capacitor?.isNativePlatform();
-            
-            if (isNative) {
-                // NATIVE GOOGLE LOGIN (Capacitor)
-                const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
-                const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
-                
-                const user = await GoogleAuth.signIn();
-                const credential = GoogleAuthProvider.credential(user.authentication.idToken);
-                await signInWithCredential(auth, credential);
-            } else {
-                // WEB LOGIN
-                await signInWithPopup(auth, googleProvider);
-            }
+            await signInWithPopup(auth, googleProvider);
             return true;
-        } catch (err) {
+        } catch (e) {
             setIsAuthenticating(false);
-            console.error("Google Login Error:", err);
-            throw err;
+            return false;
+        }
+    };
+
+    const login = async (email: string) => {
+        setIsAuthenticating(true);
+        try {
+            const snap = await getDoc(doc(db, "employees", email));
+            if (snap.exists()) {
+                setCurrentUser(snap.data() as Employee);
+                setIsAuthenticating(false);
+                return true;
+            }
+            setIsAuthenticating(false);
+            return false;
+        } catch {
+            setIsAuthenticating(false);
+            return false;
         }
     };
 
     const logout = async () => {
-        try { await signOut(auth); } catch (e) { }
-        setCurrentUser(null); setIsAuthenticated(false);
-        localStorage.removeItem('sreemeditec_auth_user');
+        if (currentUser) {
+            await addLog('Auth', 'Session Terminated', `User ${currentUser.name} signed out`);
+            await auditBatcher.flush();
+        }
+        await signOut(auth);
     };
 
-    const addClient = async (client: Client) => await setDoc(doc(db, "clients", client.id), client);
-    const updateClient = async (id: string, updates: Partial<Client>) => {
-        const existing = clients.find(c => c.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "clients", id), updates);
+    const addClient = async (c: Client) => { await setDoc(doc(db, "clients", c.id), c); await addLog('System', 'Added Client', `New client: ${c.name}`); };
+    const updateClient = async (id: string, c: Partial<Client>) => {
+        const existing = clients.find(cl => cl.id === id);
+        await updateDoc(doc(db, "clients", id), c);
+        await addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c });
     };
-    const removeClient = async (id: string) => { if (id) await deleteDoc(doc(db, "clients", id.trim())); };
-
-    const addVendor = async (vendor: Vendor) => await setDoc(doc(db, "vendors", vendor.id), vendor);
-    const updateVendor = async (id: string, updates: Partial<Vendor>) => {
-        const existing = vendors.find(v => v.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "vendors", id), updates);
+    const removeClient = async (id: string) => { await deleteDoc(doc(db, "clients", id)); await addLog('System', 'Removed Client', `Client deleted: ${id}`); };
+    
+    const addProduct = async (p: Product) => { await setDoc(doc(db, "products", p.id), p); await addLog('Inventory', 'Added Product', `Item: ${p.name}`); };
+    const updateProduct = async (id: string, p: Partial<Product>) => {
+        const existing = products.find(pr => pr.id === id);
+        await updateDoc(doc(db, "products", id), p);
+        await addLog('Inventory', 'Updated Product', `Product modified: ${existing?.name || id}`, existing, { ...existing, ...p });
     };
-    const removeVendor = async (id: string) => { if (id) await deleteDoc(doc(db, "vendors", id.trim())); };
+    const removeProduct = async (id: string) => { await deleteDoc(doc(db, "products", id)); await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); };
 
-    const addProduct = async (product: Product) => await setDoc(doc(db, "products", product.id), product);
-    const updateProduct = async (id: string, updates: Partial<Product>) => {
-        const existing = products.find(p => p.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "products", id), updates);
-    };
-    const removeProduct = async (id: string) => { if (id) await deleteDoc(doc(db, "products", id.trim())); };
+    const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), rec, { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
 
-    const addInvoice = async (invoice: Invoice) => await setDoc(doc(db, "invoices", invoice.id), invoice);
-    const updateInvoice = async (id: string, updates: Partial<Invoice>) => {
-        const existing = invoices.find(i => i.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "invoices", id), updates);
-    };
-
-    const addLead = async (lead: Lead) => await setDoc(doc(db, "leads", lead.id), lead);
-    const updateLead = async (id: string, updates: Partial<Lead>) => {
+    const addNotification = () => {};
+    const markNotificationRead = () => {};
+    const clearAllNotifications = () => {};
+    
+    const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), l); await addLog('Leads', 'New Lead', `${l.name}`); };
+    const updateLead = async (id: string, u: Partial<Lead>) => {
         const existing = leads.find(l => l.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "leads", id), updates);
+        await updateDoc(doc(db, "leads", id), u);
+        await addLog('Leads', 'Updated Lead', `Lead mod: ${existing?.name || id}`, existing, { ...existing, ...u });
     };
-    const removeLead = async (id: string) => { if (id) await deleteDoc(doc(db, "leads", id.trim())); };
+    const removeLead = async (id: string) => { await deleteDoc(doc(db, "leads", id)); await addLog('Leads', 'Deleted Lead', id); };
 
-    const addServiceTicket = async (t: ServiceTicket) => await setDoc(doc(db, "serviceTickets", t.id), t);
-    const updateServiceTicket = async (id: string, updates: Partial<ServiceTicket>) => {
-        const existing = serviceTickets.find(s => s.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "serviceTickets", id), updates);
-    };
-
-    const recordStockMovement = async (m: StockMovement) => {
-        await addDoc(collection(db, "stockMovements"), m);
+    const seedDatabase = async () => { await addLog('System', 'DB Seed', 'Sync triggered'); };
+    const updateInvoice = async (id: string, u: Partial<Invoice>) => {
+        const existing = invoices.find(i => i.id === id);
+        await updateDoc(doc(db, "invoices", id), u);
+        await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
     };
 
+    const acknowledgeWinner = async (id: string) => { await updateDoc(doc(db, "monthlyWinners", id), { acknowledged: true }); };
 
+    const checkAndPerformMonthReset = async () => {
+        const settingsRef = doc(db, "systemSettings", "management");
+        const snap = await getDoc(settingsRef);
+        const now = new Date();
+        const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+        const lastResetMonth = snap.data()?.lastResetMonth;
 
-    const addExpense = async (e: ExpenseRecord) => await setDoc(doc(db, "expenses", e.id), e);
-    const updateExpenseStatus = async (id: string, status: ExpenseRecord['status'], reason?: string) => {
-        const existing = expenses.find(e => e.id === id);
-        if (existing?.status === status && existing?.rejectionReason === reason) return;
+        if (lastResetMonth && lastResetMonth !== currentMonth) {
+            // A brand new month has started. Perform archival of the PREVIOUS month.
+            const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const prevMonthId = previousDate.toISOString().slice(0, 7);
+            
+            try {
+                // 1. Archive last month's expenses as CSV
+                const lastMonthExpenses = expenses.filter(e => e.date.startsWith(prevMonthId));
+                await Archiver.archiveMonthlyExpenses(prevMonthId, lastMonthExpenses);
+                await addLog('System', 'Monthly Archive', `Expense CSV generated for ${prevMonthId}`);
 
-        const updates: any = { status };
-        if (reason) updates.rejectionReason = reason;
-
-        await updateDoc(doc(db, "expenses", id), updates);
-    };
-
-    const addEmployee = async (emp: Employee) => await setDoc(doc(db, "employees", emp.id), emp);
-    const updateEmployee = async (id: string, updates: Partial<Employee>) => {
-        const existing = employees.find(e => e.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "employees", id), updates);
-    };
-    const removeEmployee = async (id: string) => {
-        console.log("Attempting to remove employee with ID:", id);
-        try {
-            await deleteDoc(doc(db, "employees", id.trim()));
-            console.log("Deletion successful in Firestore");
-        } catch (err) {
-            console.error("Firestore delete error:", err);
-            throw err;
+                // 2. Financial Year End Detection (Prev month was March)
+                if (prevMonthId.endsWith('-03')) {
+                    const fyId = `FY-${previousDate.getFullYear() - 1}-${previousDate.getFullYear().toString().slice(-2)}`;
+                    await addLog('System', 'FY Reset Initiation', `Starting archival and data wipe for ${fyId}`);
+                    
+                    // Archive Year
+                    await Archiver.consolidateAnnualReport(fyId);
+                    
+                    // Critical Wipe
+                    await Archiver.performFinancialYearReset();
+                    await addLog('System', 'FY Reset Completed', `All operational data wiped for new financial year.`);
+                }
+                
+                await updateDoc(settingsRef, { lastResetMonth: currentMonth });
+            } catch (err) {
+                console.error("Critical Archival Error:", err);
+                await addLog('System', 'Archive Failure', `Automatic archiving failed: ${String(err)}`);
+            }
+        } else if (!snap.exists()) {
+            // First time initialization
+            await setDoc(settingsRef, { lastResetMonth: currentMonth });
         }
     };
 
-    const addTask = async (task: Task) => await setDoc(doc(db, "tasks", task.id), task);
-    const removeTask = async (id: string) => await deleteDoc(doc(db, "tasks", id));
-    const updateTaskRemote = async (id: string, updates: Partial<Task>) => {
+    const updateTaskRemote = async (id: string, u: Partial<Task>) => {
         const existing = tasks.find(t => t.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "tasks", id), updates);
+        await updateDoc(doc(db, "tasks", id), u);
+        await addLog('Tasks', 'Modified Task', existing?.title || id, existing, { ...existing, ...u });
     };
+    const addTask = async (t: Task) => { await setDoc(doc(db, "tasks", t.id), t); await addLog('Tasks', 'New Task', t.title); };
+    const removeTask = async (id: string) => { await deleteDoc(doc(db, "tasks", id)); await addLog('Tasks', 'Deleted Task', id); };
 
-    const addNotification = async (title: string, message: string, type: AppNotification['type']) => {
-        await addDoc(collection(db, "notifications"), { title, message, time: new Date().toLocaleTimeString(), type, read: false, isNewToast: true, createdAt: serverTimestamp() });
+    const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), t); await addLog('System', 'New Ticket', t.issue); };
+    const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), u); await addLog('System', 'Updated Ticket', id); };
+
+    const addExpense = async (e: ExpenseRecord) => { await setDoc(doc(db, "expenses", e.id), e); await addLog('Billing', 'New Expense', `₹${e.amount}`); };
+    const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => { await updateDoc(doc(db, "expenses", id), { status }); await addLog('Billing', 'Expense Status', `${id} -> ${status}`); };
+
+    const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), e); await addLog('System', 'New Employee', e.name); };
+    const updateEmployee = async (id: string, u: Partial<Employee>) => {
+        const existing = employees.find(e => e.id === id);
+        await updateDoc(doc(db, "employees", id), u);
+        await addLog('System', 'Updated Employee', existing?.name || id, existing, { ...existing, ...u });
     };
-    const markNotificationRead = async (id: string) => await updateDoc(doc(db, "notifications", id), { read: true, isNewToast: false });
-    const clearAllNotifications = () => notifications.forEach(n => !n.read && markNotificationRead(n.id));
+    const removeEmployee = async (id: string) => { await deleteDoc(doc(db, "employees", id)); await addLog('System', 'Removed Employee', id); };
 
-    const updateAttendance = async (record: Partial<AttendanceRecord> & { id: string }) => {
-        await setDoc(doc(db, "attendance", record.id), record, { merge: true });
-    };
-
-    const addDeliveryChallan = async (challan: DeliveryChallan) => await setDoc(doc(db, "deliveryChallans", challan.id), challan);
-    const updateDeliveryChallan = async (id: string, updates: Partial<DeliveryChallan>) => {
+    const addDeliveryChallan = async (c: DeliveryChallan) => { await setDoc(doc(db, "deliveryChallans", c.id), c); await addLog('System', 'New Challan', c.challanNumber); };
+    const updateDeliveryChallan = async (id: string, u: Partial<DeliveryChallan>) => {
         const existing = deliveryChallans.find(c => c.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "deliveryChallans", id), updates);
+        await updateDoc(doc(db, "deliveryChallans", id), u);
+        await addLog('System', 'Updated Challan', existing?.challanNumber || id, existing, { ...existing, ...u });
     };
-    const removeDeliveryChallan = async (id: string) => { if (id) await deleteDoc(doc(db, "deliveryChallans", id.trim())); };
+    const removeDeliveryChallan = async (id: string) => { await deleteDoc(doc(db, "deliveryChallans", id)); await addLog('System', 'Removed Challan', id); };
 
-    const addInstallationReport = async (report: ServiceReport) => await setDoc(doc(db, "installationReports", report.id), report);
-    const updateInstallationReport = async (id: string, updates: Partial<ServiceReport>) => {
+    const addInstallationReport = async (r: ServiceReport) => { await setDoc(doc(db, "installationReports", r.id), r); await addLog('System', 'Created Installation Report', r.reportNumber); };
+    const updateInstallationReport = async (id: string, u: Partial<ServiceReport>) => {
         const existing = installationReports.find(r => r.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "installationReports", id), updates);
+        await updateDoc(doc(db, "installationReports", id), u);
+        await addLog('System', 'Updated Installation Report', existing?.reportNumber || id, existing, { ...existing, ...u });
     };
-    const removeInstallationReport = async (id: string) => { if (id) await deleteDoc(doc(db, "installationReports", id.trim())); };
+    const removeInstallationReport = async (id: string) => { await deleteDoc(doc(db, "installationReports", id)); await addLog('System', 'Removed Installation Report', id); };
 
-    const addServiceReport = async (report: ServiceReport) => await setDoc(doc(db, "serviceReports", report.id), report);
-    const updateServiceReport = async (id: string, updates: Partial<ServiceReport>) => {
+    const addServiceReport = async (r: ServiceReport) => { await setDoc(doc(db, "serviceReports", r.id), r); await addLog('System', 'Created Service Report', r.reportNumber); };
+    const updateServiceReport = async (id: string, u: Partial<ServiceReport>) => {
         const existing = serviceReports.find(r => r.id === id);
-        if (isRedundant(existing, updates)) return;
-        await updateDoc(doc(db, "serviceReports", id), updates);
+        await updateDoc(doc(db, "serviceReports", id), u);
+        await addLog('System', 'Updated Service Report', existing?.reportNumber || id, existing, { ...existing, ...u });
     };
-    const removeServiceReport = async (id: string) => { if (id) await deleteDoc(doc(db, "serviceReports", id.trim())); };
+    const removeServiceReport = async (id: string) => { await deleteDoc(doc(db, "serviceReports", id)); await addLog('System', 'Removed Service Report', id); };
 
+    const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), h); await addLog('System', 'Added Holiday', h.name); };
+    const removeHoliday = async (id: string) => { await deleteDoc(doc(db, "holidays", id)); await addLog('System', 'Removed Holiday', id); };
 
-    const addPoints = async (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => {
-        const finalUserId = targetUserId || currentUser?.id;
-        if (!finalUserId) return;
-        await addDoc(collection(db, "pointHistory"), {
-            date: new Date().toISOString().split('T')[0],
-            points: amount,
-            category,
-            description,
-            userId: finalUserId,
-            createdAt: serverTimestamp()
+    const addPoints = async (amount: number, cat: PointHistory['category'], desc: string, target?: string) => {
+        const id = `PT-${Date.now()}`;
+        const item = { id, userId: target || currentUser?.id || 'sys', points: amount, category: cat, description: desc, date: new Date().toISOString() };
+        await setDoc(doc(db, "pointHistory", id), item);
+        await addLog('System', 'Points Gift', `${amount} to ${target || 'User'}`);
+    };
+
+    const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), m); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
+    const addVendor = async (v: Vendor) => { await setDoc(doc(db, "vendors", v.id), v); await addLog('System', 'Added Vendor', v.name); };
+    const updateVendor = async (id: string, v: Partial<Vendor>) => {
+        const existing = vendors.find(ven => ven.id === id);
+        await updateDoc(doc(db, "vendors", id), v);
+        await addLog('System', 'Updated Vendor', existing?.name || id, existing, { ...existing, ...v });
+    };
+    const removeVendor = async (id: string) => { await deleteDoc(doc(db, "vendors", id)); await addLog('System', 'Removed Vendor', id); };
+
+    const addInvoice = async (i: Invoice) => { await setDoc(doc(db, "invoices", i.id), i); await addLog('Billing', 'Invoice Generated', i.invoiceNumber); };
+    const fetchAuditLogs = async (days: number = 7) => {
+        let all: LogEntry[] = [];
+        for (let i = 0; i < days; i++) {
+            const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+            const snap = await getDoc(doc(db, "system_audit", date));
+            if (snap.exists()) all = [...all, ...snap.data().entries];
+        }
+        setLogs(prev => {
+            const combined = [...all, ...prev];
+            const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
+            return unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 2000);
         });
     };
 
-    const updatePrizePool = (amount: number) => {
-        if (prizePool === amount) return;
-        setPrizePool(amount);
-    };
-
-    const addHoliday = async (h: Holiday) => await setDoc(doc(db, "holidays", h.id), h);
-    const removeHoliday = async (id: string) => await deleteDoc(doc(db, "holidays", id));
+    const updatePrizePool = (a: number) => setPrizePool(a);
 
     return (
         <DataContext.Provider value={{
-            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, leads, serviceTickets,
+            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications: [], tasks, leads, serviceTickets,
             pendingQuoteData, setPendingQuoteData,
-            currentUser, isAuthenticated: setIsAuthenticatedState, login, loginWithGoogle, logout, seedDatabase,
+            currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
             addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             setTasks, addTask, removeTask, updateTaskRemote,
-            dbError,
-            authError,
-            isAuthenticating,
+            dbError, authError, isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
-            attendanceRecords, updateAttendance,
-            holidays, addHoliday, removeHoliday,
+            attendanceRecords, updateAttendance, holidays, addHoliday, removeHoliday,
             deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan,
             installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
-            prizePool, updatePrizePool,
-            monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset
-
+            prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
+            logs, addLog, fetchAuditLogs
         }}>
             {children}
         </DataContext.Provider>
