@@ -199,16 +199,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     const handleCheckInOut = async () => {
         if (isLocked || isHolidayToday || !me) return;
 
-        const recordId = `${me.id}_${todayStr}`;
         const now = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        const istDate = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + istOffset);
+        const hours = istDate.getHours();
+        const minutes = istDate.getMinutes();
 
+        // Check if within 9:30 AM - 9:45 AM IST
+        const isWithinWindow = (hours === 9 && minutes >= 30 && minutes <= 45);
+        
+        // If not checked in, check the window
+        if (!isCheckedIn && !isWithinWindow && !isAdmin) {
+            alert("Mandatory Check-in window is 9:30 AM - 9:45 AM IST. You have missed this window. Please contact Admin to log your attendance manually.");
+            return;
+        }
+
+        const recordId = `${me.id}_${todayStr}`;
         try {
             if (isCheckedIn) {
-                // If the user clicks button while checked in, show confirmation modal to COMPLETE day
-                // regardless of whether they hit 7 hours, as requested "can done manually by confirmming"
                 setShowConfirmModal(true);
             } else {
-                // Checking In / Resuming
                 await updateAttendance({
                     id: recordId,
                     userId: me.id,
@@ -670,6 +680,30 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                                                         >
                                                             <Edit2 size={13} />
+                                                        </button>
+                                                    )}
+                                                    {isAdmin && !rec && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const newRec: AttendanceRecord = {
+                                                                    id: `${emp.id}_${todayStr}`,
+                                                                    userId: emp.id,
+                                                                    userName: emp.name,
+                                                                    date: todayStr,
+                                                                    status: 'Completed',
+                                                                    checkInTime: new Date().toISOString(),
+                                                                    totalWorkedMs: 0,
+                                                                    workMode: 'Office'
+                                                                };
+                                                                setEditingAttendanceRecord(newRec);
+                                                                setEditCheckIn(newRec.checkInTime.slice(0, 16));
+                                                                setEditCheckOut(newRec.checkInTime.slice(0, 16));
+                                                                setShowEditAttendanceModal(true);
+                                                            }}
+                                                            className="text-[8px] font-black uppercase text-indigo-600 hover:text-indigo-700 underline underline-offset-2 ml-1"
+                                                        >
+                                                            Manual Entry
                                                         </button>
                                                     )}
                                                 </div>

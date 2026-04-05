@@ -9,9 +9,9 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [activeTab, setActiveTab] = useState<'details' | 'followup'>('details');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [showEmpDropdown, setShowEmpDropdown] = useState(false);
     const [newFollowUp, setNewFollowUp] = useState<Partial<FollowUp>>({ type: 'Call', date: new Date().toISOString().split('T')[0] });
@@ -67,29 +67,6 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         if (onNavigate) onNavigate(TabView.QUOTES);
     };
 
-    const handleSyncLeads = () => {
-        setIsSyncing(true);
-        setTimeout(() => {
-            const today = new Date().toISOString().split('T')[0];
-            const newIncomingLead: Lead = {
-                id: `ORD-AMZ-${Date.now()}`,
-                name: 'MediCare Supplies',
-                hospital: 'Online Order',
-                source: 'Amazon',
-                status: LeadStatus.NEW,
-                value: 850,
-                lastContact: today,
-                productInterest: 'Digital Thermometer (Bulk)',
-                phone: '+91 88800 11223',
-                email: 'orders@medicare.com',
-                address: 'Tech Park, Hyderabad',
-                followUps: []
-            };
-            addLead(newIncomingLead);
-            addNotification('Cloud Sync', `Imported new orders from Amazon.`, 'success');
-            setIsSyncing(false);
-        }, 1200);
-    };
 
     const handleAddFollowUp = () => {
         if (!selectedLead || !newFollowUp.date || !newFollowUp.notes) return;
@@ -172,14 +149,29 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         return pending.length > 0 ? pending[0] : null;
     };
 
+    const filteredLeads = leads.filter(lead => 
+        lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.hospital.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.productInterest?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lead.phone?.includes(searchQuery)
+    );
+
     return (
         <div className="h-full flex flex-col gap-6 overflow-y-auto lg:overflow-hidden p-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl shadow-sm border border-slate-300">
-                <div className="flex gap-3">
-                    <button onClick={handleSyncLeads} disabled={isSyncing} className="bg-slate-50 border border-slate-300 text-slate-700 hover:text-medical-600 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm flex items-center gap-2">
-                        <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
-                        {isSyncing ? 'Syncing...' : 'Sync Cloud'}
-                    </button>
+                <div className="flex flex-1 gap-3 items-center">
+                    <div className="relative flex-1 max-w-md hidden md:block">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            <Plus size={16} className="rotate-45" /> 
+                        </div>
+                        <input 
+                            type="text" 
+                            placeholder="Search leads, hospitals or items..." 
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold outline-none focus:border-medical-500 focus:ring-4 focus:ring-medical-500/5 transition-all shadow-inner"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                 </div>
                 <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-medical-500/30 flex items-center gap-2 hover:bg-medical-700 transition-all">
                     <Plus size={18} /> Add Lead
@@ -194,7 +186,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                 <tr><th className="px-6 py-4">Lead / Hospital</th><th className="px-6 py-4">Source</th><th className="px-6 py-4">Sales</th><th className="px-6 py-4">Interest</th><th className="px-6 py-4">Next Action</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {leads.map((lead) => (
+                                {filteredLeads.map((lead) => (
                                     <tr key={lead.id} onClick={() => setSelectedLead(lead)} className={`cursor-pointer transition-all ${selectedLead?.id === lead.id ? 'bg-medical-50/60 border-l-4 border-medical-500' : 'hover:bg-slate-50 border-l-4 border-transparent'}`}>
                                         <td className="px-6 py-4"><div className="font-bold text-slate-800">{lead.name}</div><div className="text-[10px] text-slate-400 font-bold mt-0.5">{lead.hospital}</div></td>
                                         <td className="px-6 py-4"><span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">{lead.source}</span></td>

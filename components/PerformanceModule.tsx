@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Trophy, Star, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X, PartyPopper } from 'lucide-react';
 import { useData } from './DataContext';
+import ReactConfetti from 'react-confetti';
 
 
 export const PerformanceModule: React.FC = () => {
@@ -9,13 +9,11 @@ export const PerformanceModule: React.FC = () => {
     pointHistory, 
     employees, 
     tasks, 
-    currentUser: activeUser, 
-    setShowWinnerPopup, 
-    setLatestWinner, 
-    checkAndPerformMonthReset 
+    currentUser: activeUser
   } = useData();
+  
   const [showRules, setShowRules] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // FIX: Dynamic Leaderboard Generation
   // Calculates real-time rankings by summing point history for the CURRENT month only.
@@ -56,7 +54,8 @@ export const PerformanceModule: React.FC = () => {
 
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-y-auto custom-scrollbar p-1">
+    <div className="h-full flex flex-col gap-4 overflow-y-auto custom-scrollbar p-1 relative">
+      {showConfetti && <ReactConfetti numberOfPieces={200} recycle={false} style={{ position: 'fixed', zIndex: 1000 }} />}
       
 
       {/* Main Leaderboard Content */}
@@ -74,45 +73,13 @@ export const PerformanceModule: React.FC = () => {
                       {activeUser?.role === 'SYSTEM_ADMIN' && (
                           <div className="flex gap-2">
                               <button 
-                                onClick={async () => {
-                                    setIsResetting(true);
-                                    await checkAndPerformMonthReset();
-                                    setIsResetting(false);
-                                }}
-                                disabled={isResetting}
-                                className="flex items-center gap-1.5 px-3 py-1 bg-rose-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-sm disabled:opacity-50"
-                              >
-                                  <History size={12} className={isResetting ? "animate-spin" : ""} /> {isResetting ? "Running..." : "Manual Sync"}
-                              </button>
-                              <button 
                                 onClick={() => {
-                                    const prevMonthId = (() => {
-                                        const d = new Date();
-                                        d.setDate(0);
-                                        return d.toISOString().slice(0, 7);
-                                    })();
-                                    
-                                    // Try to find top from MARCH (Previous Month)
-                                    const userPoints: Record<string, number> = {};
-                                    pointHistory.filter(p => p.date?.startsWith(prevMonthId)).forEach(p => {
-                                        userPoints[p.userId] = (userPoints[p.userId] || 0) + p.points;
-                                    });
-                                    const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
-                                    const top = sorted[0];
-                                    const winnerName = employees.find(e => e.id === top?.[0])?.name || 'Top Performer';
-
-                                    setLatestWinner({ 
-                                        id: 'demo-' + Date.now(), 
-                                        monthId: prevMonthId, 
-                                        userId: top?.[0] || 'demo', 
-                                        userName: winnerName, 
-                                        points: top?.[1] || 1500 
-                                    });
-                                    setShowWinnerPopup(true);
+                                    setShowConfetti(true);
+                                    setTimeout(() => setShowConfetti(false), 5000);
                                 }}
-                                className="flex items-center gap-1.5 px-3 py-1 bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-sm"
+                                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm group"
                               >
-                                  <PartyPopper size={12} /> Test Celebration
+                                  <PartyPopper size={12} className="group-hover:rotate-12 transition-transform" /> Test Celebration
                               </button>
                           </div>
                       )}

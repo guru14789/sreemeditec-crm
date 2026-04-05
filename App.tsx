@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -96,7 +96,7 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
 );
 
 export const App: React.FC = () => {
-    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats } = useData();
+    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats, attendanceRecords } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
 
@@ -173,7 +173,10 @@ export const App: React.FC = () => {
 
 
 
-  const renderContent = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isCheckedInToday = attendanceRecords.some(r => r.userId === currentUser?.id && r.date === todayStr && (r.status === 'CheckedIn' || r.status === 'Completed'));
+
+    const renderContent = () => {
     if (!hasAccess(activeTab)) return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-full flex items-center justify-center text-rose-500 mb-4">
@@ -184,6 +187,23 @@ export const App: React.FC = () => {
         <button onClick={() => setActiveTab(TabView.DASHBOARD)} className="mt-6 px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl text-sm font-bold">Go to Dashboard</button>
       </div>
     );
+
+    // GATING: Lock tasks and dashboard if not checked in (except for Admin)
+    const isTaskOrDashboard = activeTab === TabView.TASKS || activeTab === TabView.DASHBOARD;
+    if (isTaskOrDashboard && !isCheckedInToday && userRole !== 'Admin') {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
+                <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse border-4 border-amber-200">
+                    <Lock size={48} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Day Not Started</h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm max-w-[320px] text-center font-medium">Tasks are synchronized only after a successful check-in. Please log your attendance to continue.</p>
+                <div className="flex gap-4 mt-8">
+                    <button onClick={() => setActiveTab(TabView.ATTENDANCE)} className="px-8 py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all active:scale-95">Go to Check-In</button>
+                </div>
+            </div>
+        );
+    }
 
     switch (activeTab) {
       case TabView.DASHBOARD:
