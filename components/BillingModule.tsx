@@ -206,6 +206,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
         autoTable(doc, {
             startY: startY + totalHeaderH,
+            margin: { left: margin, right: margin },
             head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
             body: itemsBody,
             foot: [[
@@ -259,6 +260,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY + 12,
+            margin: { left: margin, right: margin },
             head: [
                 [
                     { content: 'HSN/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any },
@@ -799,7 +801,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </tfoot>
                                         </table>
 
-                                        <div className="mt-4 px-2 space-y-1">
+                                        <div className="mt-4 space-y-1">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="font-bold text-[9px]">Amount Chargeable (in words)</p>
@@ -809,8 +811,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 px-2">
+                                        <div className="mt-4">
                                             <table className="w-full border border-black text-[9px] table-fixed">
+
                                                 <thead>
                                                     <tr className="border-b border-black font-bold">
                                                         <th rowSpan={2} className="border-r border-black p-1 align-middle text-center w-[20%]">HSN/SAC</th>
