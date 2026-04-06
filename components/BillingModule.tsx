@@ -176,29 +176,33 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.setFont('helvetica', 'bold');
         doc.text(data.specialNote || 'Chennai', innerMid + 1, startY + (rowH * 5) + 9);
 
-        doc.line(margin, 46, midX, 46);
+        // Draw Party Details Side-by-Side (Consignee Left, Buyer Right)
+        doc.line(margin, 68, midX, 68);
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
-        doc.text('Consignee (Ship to)', margin + 2, 49);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 53);
-        doc.setFont('helvetica', 'normal');
-        const addrLines = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(addrLines, margin + 2, 57);
         
-        let partyCurrentY = 62 + (addrLines.length * 2);
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, partyCurrentY);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, partyCurrentY + 4);
-
-        doc.line(margin, 68, midX, 68);
-        doc.text('Buyer (Bill to)', margin + 2, 71);
+        // Consignee (Left Side of the Party Row)
+        doc.text('Consignee (Ship to)', margin + 2, 71);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.buyerName || data.customerName || '', margin + 2, 75);
+        doc.text(data.customerName || '', margin + 2, 75);
         doc.setFont('helvetica', 'normal');
-        const buyerAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
-        doc.text(buyerAddrLines, margin + 2, 79);
-        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, partyCurrentY + 20);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, partyCurrentY + 24);
+        const cAddrLines = doc.splitTextToSize(data.customerAddress || '', (midX - margin) / 2 - 5);
+        doc.text(cAddrLines, margin + 2, 79);
+        const cGstY = 79 + (cAddrLines.length * 3) + 2;
+        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, Math.min(cGstY, 86));
+
+        // Buyer (Right Side of the Party Row)
+        const buyerX = margin + (midX - margin) / 2;
+        doc.line(buyerX, 68, buyerX, 90);
+        doc.text('Buyer (Bill to)', buyerX + 2, 71);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.buyerName || data.customerName || '', buyerX + 2, 75);
+        doc.setFont('helvetica', 'normal');
+        const bAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', (midX - margin) / 2 - 5);
+        doc.text(bAddrLines, buyerX + 2, 79);
+        const bGstY = 79 + (bAddrLines.length * 3) + 2;
+        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, buyerX + 2, Math.min(bGstY, 86));
+
 
         const itemsBody = (data.items || []).map((it, idx) => {
             const base = it.quantity * it.unitPrice;
@@ -663,38 +667,44 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
                                                 <div className="border-r border-b border-black p-2 h-[45px]">Delivery Note<br/><span className="font-bold"></span></div>
                                                 <div className="border-b border-black p-2 h-[45px]">Mode/Terms of Payment<br/><span className="font-bold text-[10px]">{invoice.deliveryTime}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Other References<br/><span className="font-bold"></span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[10px]">{invoice.smcpoNumber}</span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold"></span></div>
-                                                <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
-                                                <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[10px]">{invoice.specialNote}</span></div>
+                                                <div className="border-r border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold"></span></div>
+                                                <div className="border-black p-2 h-[45px]">Other References<br/><span className="font-bold"></span></div>
                                             </div>
                                         </div>
 
                                         <div className="flex border-x border-b border-black min-h-[120px] w-full">
-                                            <div className="w-1/2 border-r border-black p-3 flex flex-col justify-between overflow-hidden">
+                                            <div className="w-[25%] border-r border-black p-3 flex flex-col justify-between overflow-hidden">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
-                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.customerAddress}</p>
+                                                    <p className="font-bold uppercase text-[10px] leading-tight mb-1">{invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap text-[9px]">{invoice.customerAddress}</p>
                                                 </div>
                                                 <div className="mt-4">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.customerGstin}</p>
-                                                    <p>State Name : Tamil Nadu, Code : 33</p>
+                                                    <p className="font-black text-[9px]">GSTIN/UIN : {invoice.customerGstin}</p>
                                                 </div>
                                             </div>
-                                            <div className="w-1/2 p-3 flex flex-col justify-between overflow-hidden">
+                                            <div className="w-[25%] border-r border-black p-3 flex flex-col justify-between overflow-hidden">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
-                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.buyerAddress || invoice.customerAddress}</p>
+                                                    <p className="font-bold uppercase text-[10px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap text-[9px]">{invoice.buyerAddress || invoice.customerAddress}</p>
                                                 </div>
                                                 <div className="mt-4">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
-                                                    <p>State Name : Tamil Nadu, Code : 33</p>
+                                                    <p className="font-black text-[9px]">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
+                                                </div>
+                                            </div>
+                                            <div className="w-[50%] flex flex-col">
+                                                <div className="grid grid-cols-2 text-[9px] border-b border-black flex-1">
+                                                     <div className="border-r border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[10px]">{invoice.smcpoNumber}</span></div>
+                                                     <div className="p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 text-[9px] border-b border-black flex-1">
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold text-[10px]"></span></div>
+                                                     <div className="p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[10px]"></span></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 text-[9px] flex-1">
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
+                                                     <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[10px]">{invoice.specialNote}</span></div>
                                                 </div>
                                             </div>
                                         </div>
