@@ -39,14 +39,19 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const freight = invoice.freightAmount || 0;
     const freightTax = (freight * (invoice.freightTaxRate || 0)) / 100;
     
-    const taxableValue = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0) + freight;
-    const taxTotal = items.reduce((sum, p) => sum + ((p.quantity * p.unitPrice) * (p.taxRate / 100)), 0) + freightTax;
+    const itemsTaxable = items.reduce((sum, p) => sum + ((p.quantity || 0) * (p.unitPrice || 0)), 0);
+    const itemsTax = items.reduce((sum, p) => sum + (((p.quantity || 0) * (p.unitPrice || 0)) * ((p.taxRate || 0) / 100)), 0);
+    
+    const taxableValue = itemsTaxable + freight;
+    const taxTotal = itemsTax + freightTax;
     
     const cgst = taxTotal / 2;
     const sgst = taxTotal / 2;
-    const totalQty = items.reduce((sum, p) => sum + p.quantity, 0);
+    const totalQty = items.reduce((sum, p) => sum + (p.quantity || 0), 0);
     const grandTotal = taxableValue + taxTotal;
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax };
+    const freightTotal = freight + freightTax;
+    
+    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax, itemsTax, freightTotal };
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
@@ -743,18 +748,28 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                         </tr>
                                                     );
                                                 })}
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-4 bg-slate-50/20 italic">
-                                                    <td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-1 text-left flex items-center">Output CGST</td>
-                                                    <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-1 text-right font-bold flex items-center justify-end">{totals.cgst.toFixed(2)}</td>
-                                                </tr>
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-4 bg-slate-50/20 italic">
-                                                    <td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-1 text-left flex items-center">Output SGST</td>
-                                                    <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-1 text-right font-bold flex items-center justify-end">{totals.sgst.toFixed(2)}</td>
-                                                </tr>
+                                                 {(invoice.freightAmount || 0) > 0 && (
+                                                    <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                        <td className="border-r border-black"></td>
+                                                        <td className="border-r border-black p-1 text-left flex items-center">Freight</td>
+                                                        <td className="border-r border-black"></td>
+                                                        <td className="border-r border-black p-1 text-center flex items-center justify-center">{(invoice.freightTaxRate || 0)}%</td>
+                                                        <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold">{totals.freightTotal.toFixed(2)}</td>
+                                                    </tr>
+                                                 )}
+                                                 <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                     <td className="border-r border-black"></td>
+                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output CGST (9%)</td>
+                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold">{totals.cgst.toFixed(2)}</td>
+                                                 </tr>
+                                                 <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                     <td className="border-r border-black"></td>
+                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output SGST (9%)</td>
+                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold">{totals.sgst.toFixed(2)}</td>
+                                                 </tr>
                                                 {Array.from({ length: Math.max(0, 8 - (invoice.items?.length || 0)) }).map((_, i) => (
                                                     <tr key={`f-${i}`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-8 border-b border-slate-50 opacity-10">
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td>
@@ -763,11 +778,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </tbody>
                                             <tfoot>
                                                 <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-t border-black font-black bg-slate-50 text-[11px]">
-                                                    <td colSpan={2} className="border-r border-black p-2 text-right flex items-center justify-end">Total</td>
+                                                    <td className="border-r border-black"></td>
+                                                    <td className="border-r border-black p-2 text-right flex items-center justify-end font-bold">Total</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-2 text-right font-black flex items-center justify-end">{totals.totalQty.toFixed(2)} nos</td>
+                                                    <td className="border-r border-black p-2 text-center flex items-center justify-center">{totals.totalQty.toFixed(2)} nos</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-2 text-right flex items-center justify-end">₹ {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td className="p-2 text-right flex items-center justify-end font-bold text-teal-800">₹ {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
