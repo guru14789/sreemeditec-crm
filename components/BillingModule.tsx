@@ -133,8 +133,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('Rajakilpakkam, Chennai -73', margin + 2, startY + 15);
         doc.text('Ph.9884818398/ 7200025642', margin + 2, startY + 19);
         doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, startY + 23);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, startY + 27);
-        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, startY + 31);
+        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, startY + 27);
+
 
         doc.line(margin, startY + 35, midX, startY + 35);
         doc.setFontSize(7);
@@ -146,7 +146,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text(cAddr, margin + 2, startY + 47);
         const cGstY = startY + 47 + (cAddr.length * 3) + 2;
         doc.text(`GSTIN/UIN       : ${data.customerGstin || ''}`, margin + 2, cGstY);
-        doc.text('State Name      : Tamil Nadu, Code : 33', margin + 2, cGstY + 3);
+
 
         doc.line(margin, startY + 67, midX, startY + 67);
         doc.text('Buyer (Bill to)', margin + 2, startY + 71);
@@ -157,8 +157,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text(bAddr, margin + 2, startY + 79);
         const bGstY = startY + 79 + (bAddr.length * 3) + 2;
         doc.text(`GSTIN/UIN       : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, bGstY);
-        doc.text('State Name      : Tamil Nadu, Code : 33', margin + 2, bGstY + 3);
-        doc.text('Place of Supply : Tamil Nadu', margin + 2, bGstY + 6);
+        doc.text('Place of Supply : Tamil Nadu', margin + 2, bGstY + 3);
+
 
         // RIGHT COLUMN (Metadata)
         const innerMid = midX + ((pageWidth - margin - midX) / 2);
@@ -700,8 +700,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>
                                                     <p className="text-[10px]">Ph.9884818398/ 7200025642</p>
                                                     <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: 33APGPS4675G2ZL</p>
-                                                    <p className="text-[9px]">State Name : Tamil Nadu, Code : 33</p>
                                                     <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
+
                                                 </div>
                                                 <div className="p-2 border-b border-black min-h-[85px] flex flex-col text-[10px] leading-tight">
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
@@ -709,8 +709,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="whitespace-pre-wrap flex-1">{invoice.customerAddress}</p>
                                                     <div className="mt-2 pt-1 border-t border-slate-50">
                                                         <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.customerGstin}</p>
-                                                        <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
                                                     </div>
+
                                                 </div>
                                                 <div className="p-2 flex flex-col text-[10px] leading-tight flex-1">
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
@@ -718,7 +718,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="whitespace-pre-wrap flex-1">{invoice.buyerAddress || invoice.customerAddress}</p>
                                                     <div className="mt-2 pt-1 border-t border-slate-50">
                                                         <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.buyerGstin || invoice.customerGstin}</p>
-                                                        <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
                                                         <p>Place of Supply : Tamil Nadu</p>
                                                     </div>
                                                 </div>
