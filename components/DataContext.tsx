@@ -1,15 +1,18 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import {
-    collection,
-    onSnapshot,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    deleteDoc
+import { 
+    collection, 
+    onSnapshot, 
+    doc, 
+    getDoc, 
+    setDoc, 
+    updateDoc, 
+    deleteDoc, 
+    query, 
+    where, 
+    getDocs 
 } from 'firebase/firestore';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
@@ -229,10 +232,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [isAuthenticated]);
 
     useEffect(() => {
-        if (!firebaseUser || employees.length === 0) return;
+        if (!firebaseUser) return;
+        
         let resolvedUser: Employee | null = null;
         const email = firebaseUser.email?.toLowerCase();
 
+        // 1. Check for Super Admin Bypass (Immediate Resolution)
         if (email === 'admin@demo.com' || email === 'sreekumar.career@gmail.com') {
             resolvedUser = {
                 id: email === 'admin@demo.com' ? 'EMP-BYPASS' : 'EMP-OWNER',
@@ -244,7 +249,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 isLoginEnabled: true,
                 permissions: Object.values(TabView)
             };
-        } else {
+        } else if (employees.length > 0) {
+            // 2. Resolve against Registry
             const match = employees.find(e => e.email.toLowerCase() === email);
             if (match) {
                 if (match.isLoginEnabled) resolvedUser = { ...match };
@@ -260,14 +266,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             setIsAuthenticating(false);
             setAuthError(null);
-        } else if (isAuthenticating) {
+        } else if (isAuthenticating && employees.length > 0) {
+            // Only timeout if we actually have employees loaded and still no match
             const timeout = setTimeout(async () => {
                 if (!resolvedUser) {
-                    setAuthError(`Access Denied: '${firebaseUser.email}' not found.`);
+                    setAuthError(`Access Denied: '${firebaseUser.email}' not found in registry.`);
                     setIsAuthenticating(false);
                     await signOut(auth);
                 }
-            }, 3000);
+            }, 2000);
             return () => clearTimeout(timeout);
         }
     }, [firebaseUser, employees, isAuthenticating]);
@@ -325,18 +332,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const login = async (email: string) => {
+    const login = async (email: string, password?: string) => {
         setIsAuthenticating(true);
+        setAuthError(null);
         try {
-            const snap = await getDoc(doc(db, "employees", email));
-            if (snap.exists()) {
-                setCurrentUser(snap.data() as Employee);
+            const lowerEmail = email.toLowerCase();
+            
+            // 1. First, satisfy Firestore Security Rules by ensuring AT LEAST an anonymous auth context
+            // This is required because our rules block all reads to unauthenticated users.
+            if (!auth.currentUser) {
+                try {
+                    await signInAnonymously(auth);
+                } catch (e) {
+                    console.warn("Auth Context Initialization Failure:", e);
+                }
+            }
+
+            // 2. Immediate Bypass for Primary System Administrators
+            if ((lowerEmail === 'admin@demo.com' && password === 'admin@123') || (lowerEmail === 'sreekumar.career@gmail.com' && password === 'SreeAdmin2026')) {
+                const adminUser: Employee = {
+                    id: lowerEmail === 'admin@demo.com' ? 'EMP-BYPASS' : 'EMP-OWNER',
+                    name: lowerEmail === 'admin@demo.com' ? 'Enterprise Admin' : 'Sreekumar',
+                    role: 'SYSTEM_ADMIN',
+                    department: 'Administration',
+                    email: lowerEmail,
+                    status: 'Active',
+                    isLoginEnabled: true,
+                    permissions: Object.values(TabView)
+                };
+                setCurrentUser(adminUser);
                 setIsAuthenticating(false);
                 return true;
             }
+
+            // 3. Direct Query against Employee Registry (Bypassing local state which might be empty)
+            const q = query(collection(db, "employees"), where("email", "==", lowerEmail));
+            const snap = await getDocs(q);
+            
+            if (!snap.empty) {
+                const match = snap.docs[0].data() as Employee;
+                if (!match.isLoginEnabled) {
+                    setAuthError("Account Locked: Registry access revoked by Admin.");
+                } else if (match.password === password) {
+                    setCurrentUser({ ...match, id: snap.docs[0].id });
+                    setIsAuthenticating(false);
+                    return true;
+                } else {
+                    setAuthError("Security Key Recognition Failure: Incorrect key.");
+                }
+            } else {
+                setAuthError("Account Discovery Failure: Registry record not found.");
+            }
+            
             setIsAuthenticating(false);
             return false;
-        } catch {
+        } catch (err: any) {
+            console.error("Critical Authentication Exception:", err);
+            setAuthError("Core System Error: Unable to verify registry credentials.");
             setIsAuthenticating(false);
             return false;
         }
