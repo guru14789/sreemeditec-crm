@@ -204,7 +204,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             const base = it.quantity * it.unitPrice;
             return [
                 idx + 1, 
-                { content: it.description, styles: { fontStyle: 'bold' } as any }, 
+                { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' } as any }, 
                 it.hsn || '', 
                 `${it.taxRate}%`, 
                 `${it.quantity.toFixed(2)} nos`, 
@@ -367,6 +367,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
+            features: prod?.description || '',
             quantity: 1,
             unitPrice: prod?.sellingPrice || 0, // USE sellingPrice for outward Invoice
             taxRate: prod?.taxRate || 18,
@@ -387,9 +388,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                         if (masterProd) {
                             updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
                             updated.hsn = masterProd.hsn || '';
+                            updated.features = masterProd.description || '';
+                            updated.taxRate = masterProd.taxRate || 18;
                         }
                     }
                     updated.amount = updated.quantity * updated.unitPrice;
+                    updated.gstValue = updated.amount * (updated.taxRate / 100);
+                    updated.priceWithGst = updated.amount + updated.gstValue;
                     return updated;
                 }
                 return item;
@@ -572,7 +577,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <div key={item.id} className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative group hover:bg-white hover:border-medical-200 transition-all">
                                                 <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
                                                 <div className="grid grid-cols-12 gap-6">
-                                                    <div className="col-span-12 md:col-span-6">
+                                                    <div className="col-span-12 md:col-span-5">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
                                                         <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
                                                     </div>
@@ -580,17 +585,21 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
                                                         <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
                                                     </div>
-                                                    <div className="col-span-4 md:col-span-1">
+                                                    <div className="col-span-3 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
                                                         <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
                                                     </div>
-                                                    <div className="col-span-4 md:col-span-2">
+                                                    <div className="col-span-3 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
                                                         <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
                                                     </div>
-                                                    <div className="col-span-12 md:col-span-1">
+                                                    <div className="col-span-2 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
                                                         <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                    </div>
+                                                    <div className="col-span-12">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
+                                                        <textarea rows={2} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-[11px] font-bold outline-none resize-none" placeholder="Detailed specifications..." value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} />
                                                     </div>
                                                 </div>
                                             </div>
@@ -705,7 +714,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     return (
                                                         <tr key={`${idx}-m`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-b border-slate-300">
                                                             <td className="border-r border-black p-2 flex items-center justify-center">{idx + 1}</td>
-                                                            <td className="border-r border-black p-2 text-left font-bold uppercase truncate flex items-center">{it.description}</td>
+                                                            <td className="border-r border-black p-2 text-left flex flex-col justify-center">
+                                                                <span className="font-bold uppercase truncate">{it.description}</span>
+                                                                {it.features && <span className="text-[7px] italic text-slate-500 whitespace-pre-wrap mt-0.5 leading-tight">{it.features}</span>}
+                                                             </td>
                                                             <td className="border-r border-black p-2 flex items-center justify-center">{it.hsn}</td>
                                                             <td className="border-r border-black p-2 flex items-center justify-center">{it.taxRate}%</td>
                                                             <td className="border-r border-black p-2 text-right font-bold flex items-center justify-end">{it.quantity.toFixed(2)} nos</td>
