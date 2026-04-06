@@ -76,8 +76,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         buyerGstin: '',
         deliveryTime: 'Immediately',
         specialNote: 'Chennai',
+        dispatchedThrough: 'Person',
         documentType: 'PO'
     });
+
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !invoice.invoiceNumber) {
@@ -166,9 +168,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             { l: 'Reference No. & Date.', v: '', r: 'Other References', rv: '' },
             { l: 'Buyer\'s Order No.', v: data.smcpoNumber, r: 'Dated', rv: formatDateDDMMYYYY(data.date) },
             { l: 'Dispatch Doc No.', v: '', r: 'Delivery Note Date', rv: '' },
-            { l: 'Dispatched through', v: 'Person', r: 'Destination', rv: data.specialNote || 'Chennai' },
+            { l: 'Dispatched through', v: data.dispatchedThrough || 'Person', r: 'Destination', rv: data.specialNote || 'Chennai' },
             { l: 'Terms of Delivery', v: '', r: '', rv: '' }
         ];
+
 
         metadataRows.forEach((row, i) => {
             const y = startY + (i * 14);
@@ -241,9 +244,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         const wordsY = tableFinalY + 8;
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text('Amount Chargeable (in words)', margin, wordsY);
-        doc.text('INR ' + numberToWords(docTotals.grandTotal), margin, wordsY + 5);
+        doc.text(`Amount Chargeable (in words): INR ${numberToWords(docTotals.grandTotal)}`, margin, wordsY);
         doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
+
 
         const taxBody = [
             [
@@ -267,7 +270,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         ];
 
         autoTable(doc, {
-            startY: wordsY + 12,
+            startY: wordsY + 6,
             margin: { left: margin, right: margin },
             head: [
                 [
@@ -300,7 +303,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
         const footerH = 60;
         const bottomY = taxY + 8;
-
         doc.rect(margin, bottomY, pageWidth - (margin * 2), footerH);
         doc.setFont('helvetica', 'bold');
         doc.text('Declaration', margin + 2, bottomY + 5);
@@ -310,6 +312,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text(declLines, margin + 2, bottomY + 10);
 
         doc.line(midX, bottomY, midX, bottomY + footerH);
+        doc.line(margin, bottomY + 25, pageWidth - margin, bottomY + 25);
+        
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
@@ -324,6 +328,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 55);
         doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 35, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 55, { align: 'right' });
+
 
 
         doc.setFontSize(7);
@@ -499,7 +504,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} 
                                                             className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
-                                                            title="Download PDF"
                                                         >
                                                             <Download size={18} />
                                                         </button>
@@ -526,11 +530,25 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                             <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar bg-white">
                                 <section className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                                        <FormRow label="Invoice No."><input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
-                                        <FormRow label="Dated"><input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-5 py-3 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
-                                        <FormRow label="Buyer Order No"><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})} /></FormRow>
-                                        <FormRow label="Destination"><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
+                                        <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
+                                        <FormRow label="Buyer Order #">
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
+                                                <option value="Mail confirmation">Mail confirmation</option>
+                                                <option value="Verbal">Verbal</option>
+                                                <option value="PO">PO</option>
+                                                <option value="Telephonic">Telephonic</option>
+                                            </select>
+                                        </FormRow>
+                                        <FormRow label="Dispatch Mode">
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.dispatchedThrough} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})}>
+                                                <option value="Person">Person</option>
+                                                <option value="Courier">Courier</option>
+                                                <option value="Transport">Transport</option>
+                                            </select>
+                                        </FormRow>
+                                        <FormRow label="Destination"><input type="text" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
                                     </div>
                                 </section>
 
@@ -729,9 +747,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                      <div className="p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[9px]"></span></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
-                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold text-[9px]">Person</span></div>
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold text-[9px]">{invoice.dispatchedThrough}</span></div>
                                                      <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[9px]">{invoice.specialNote}</span></div>
                                                 </div>
+
                                                 <div className="p-2 flex-1 min-h-[45px] text-[8px] font-bold">Terms of Delivery</div>
                                             </div>
                                         </div>
@@ -810,19 +829,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </tfoot>
                                         </table>
 
-                                        <div className="mt-4 space-y-1">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="font-bold text-[9px]">Amount Chargeable (in words)</p>
-                                                    <p className="font-black text-[10px] uppercase">INR {numberToWords(totals.grandTotal)}</p>
-                                                </div>
+                                        <div className="mt-4">
+                                            <div className="flex justify-between items-baseline">
+                                                <p className="text-[10px]"><span className="font-bold">Amount Chargeable (in words) :</span> <span className="font-black uppercase">INR {numberToWords(totals.grandTotal)}</span></p>
                                                 <p className="font-black text-[10px]">E. & O.E</p>
                                             </div>
                                         </div>
 
-                                        <div className="mt-4">
+                                        <div className="mt-2">
                                             <table className="w-full border border-black text-[9px] table-fixed">
-
                                                 <thead>
                                                     <tr className="border-b border-black font-bold">
                                                         <th rowSpan={2} className="border-r border-black p-1 align-middle text-center w-[20%]">HSN/SAC</th>
@@ -862,8 +877,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <p className="mt-2 text-[9px] font-bold">Tax Amount (in words) : INR {numberToWords(totals.cgst + totals.sgst)}</p>
                                         </div>
 
-                                        <div className="mt-6 border border-black p-2 flex flex-col gap-4 text-[9px]">
-                                            <div className="grid grid-cols-2">
+                                        <div className="mt-6 border border-black flex flex-col text-[9px]">
+                                            <div className="grid grid-cols-2 p-2">
                                                 <div className="space-y-1">
                                                     <p className="font-bold border-b border-black w-fit pb-0.5">Declaration</p>
                                                     <p className="leading-tight text-[8px]">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
@@ -878,8 +893,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                             </div>
                                             
-                                            <div className="grid grid-cols-2 pt-20">
-                                                <div className="flex flex-col justify-end pt-24 text-slate-400 font-bold border-t border-black w-fit">
+                                            <div className="grid grid-cols-2 pt-20 border-t border-black p-2">
+                                                <div className="flex flex-col justify-end pt-2 text-slate-400 font-bold">
                                                     <p className="text-[8px] uppercase">Customer's Seal and Signature</p>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end">
@@ -888,7 +903,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="font-bold border-t border-black w-fit pt-1">Authorised Signatory</p>
                                                 </div>
                                             </div>
-
                                         </div>
                                         <p className="mt-auto pt-4 text-center text-[8px] italic text-slate-500 w-full font-bold">This is a Computer Generated Invoice</p>
                                     </div>
@@ -928,8 +942,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 };
 
 const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
-    <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{label}</label>
+    <div className="flex flex-col gap-1.5 w-full">
+        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[14px]">{label}</label>
         {children}
     </div>
 );

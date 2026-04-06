@@ -160,6 +160,7 @@ export interface Invoice {
   buyerAddress?: string;
   buyerGstin?: string;
   warrantyTerms?: string;
+  dispatchedThrough?: string;
 }
 
 export interface StockMovement {
