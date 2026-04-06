@@ -296,26 +296,32 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('INR ' + numberToWords(docTotals.grandTotal), margin, wordsY + 5);
         doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
 
+        const footerH = 60;
         const bottomY = wordsY + 15;
-        doc.rect(margin, bottomY, pageWidth - (margin * 2), 40);
+        doc.rect(margin, bottomY, pageWidth - (margin * 2), footerH);
         doc.setFont('helvetica', 'bold');
         doc.text('Declaration', margin + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
-        doc.text('We declare that this invoice shows the actual price of the goods \ndescribed and that all particulars are true and correct.', margin + 2, bottomY + 10);
+        doc.setFontSize(7);
+        const declLines = doc.splitTextToSize('We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', (midX - margin) - 4);
+        doc.text(declLines, margin + 2, bottomY + 10);
 
+        doc.line(midX, bottomY, midX, bottomY + footerH);
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
-        doc.text('Bank Name   : KVB Bank', midX + 2, bottomY + 10);
-        doc.text('A/c No.         : 1617135000000754', midX + 2, bottomY + 15);
-        doc.text('Branch & IFS Code : Selaiyur & KVBL0001617', midX + 2, bottomY + 20);
+        doc.setFontSize(7);
+        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(': KVB Bank', midX + 30, bottomY + 10);
+        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(': 1617135000000754', midX + 30, bottomY + 14);
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(': Selaiyur & KVBL0001617', midX + 30, bottomY + 18);
 
-        doc.rect(margin, bottomY + 25, pageWidth - (margin * 2), 25);
-        doc.line(midX, bottomY + 25, midX, bottomY + 50);
-        doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 30);
+        doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 30, { align: 'right' });
-        doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 47, { align: 'right' });
+        doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 55);
+        doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 35, { align: 'right' });
+        doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 55, { align: 'right' });
+
 
         doc.setFontSize(7);
         doc.setFont('helvetica', 'italic');
@@ -869,16 +875,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                             </div>
                                             
-                                            <div className="grid grid-cols-2 pt-8">
-                                                <div className="flex flex-col justify-end pt-12">
-                                                    <p className="font-bold border-t border-black w-fit pt-1">Customer's Seal and Signature</p>
+                                            <div className="grid grid-cols-2 pt-20">
+                                                <div className="flex flex-col justify-end pt-24 text-slate-400 font-bold border-t border-black w-fit">
+                                                    <p className="text-[8px] uppercase">Customer's Seal and Signature</p>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end">
-                                                    <p className="font-bold">for SREE MEDITEC</p>
-                                                    <div className="h-16"></div>
-                                                    <p className="font-bold">Authorised Signatory</p>
+                                                    <p className="font-bold text-[10px]">for SREE MEDITEC</p>
+                                                    <div className="h-32"></div>
+                                                    <p className="font-bold border-t border-black w-fit pt-1">Authorised Signatory</p>
                                                 </div>
                                             </div>
+
                                         </div>
                                         <p className="mt-auto pt-4 text-center text-[8px] italic text-slate-500 w-full font-bold">This is a Computer Generated Invoice</p>
                                     </div>
