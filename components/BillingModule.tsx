@@ -192,21 +192,24 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text(data.customerName || '', margin + 2, 75);
         doc.setFont('helvetica', 'normal');
         const cAddrLines = doc.splitTextToSize(data.customerAddress || '', (midX - margin) / 2 - 5);
-        doc.text(cAddrLines, margin + 2, 79);
-        const cGstY = 79 + (cAddrLines.length * 3) + 2;
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, Math.min(cGstY, 86));
+        doc.text(cAddrLines, margin + 2, 78);
+        const cGstY = 78 + (cAddrLines.length * 3) + 2;
+        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, cGstY);
+        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, cGstY + 3);
 
         // Buyer (Right Side of the Party Row)
         const buyerX = margin + (midX - margin) / 2;
-        doc.line(buyerX, 68, buyerX, 90);
+        doc.line(buyerX, 68, buyerX, 98); // Extend divider
         doc.text('Buyer (Bill to)', buyerX + 2, 71);
         doc.setFont('helvetica', 'bold');
         doc.text(data.buyerName || data.customerName || '', buyerX + 2, 75);
         doc.setFont('helvetica', 'normal');
         const bAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', (midX - margin) / 2 - 5);
-        doc.text(bAddrLines, buyerX + 2, 79);
-        const bGstY = 79 + (bAddrLines.length * 3) + 2;
-        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, buyerX + 2, Math.min(bGstY, 86));
+        doc.text(bAddrLines, buyerX + 2, 78);
+        const bGstY = 78 + (bAddrLines.length * 3) + 2;
+        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, buyerX + 2, bGstY);
+        doc.text('State Name : Tamil Nadu, Code : 33', buyerX + 2, bGstY + 3);
+
 
 
         const itemsBody = (data.items || []).map((it, idx) => {
@@ -231,34 +234,34 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         );
 
         autoTable(doc, {
-            startY: 90,
-            head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST\nRate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
+            startY: 98,
+            head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
             body: itemsBody,
             foot: [[
                 '', 
                 { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' } as any }, 
                 '', 
                 '', 
-                { content: `${docTotals.totalQty.toFixed(2)} nos`, styles: { halign: 'right', fontStyle: 'bold' } as any }, 
+                { content: `${docTotals.totalQty.toFixed(2)} nos`, styles: { halign: 'center', fontStyle: 'bold' } as any }, 
                 '', 
                 '', 
                 '', 
                 { content: `Rs. ${docTotals.grandTotal.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } as any }
             ]],
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7 },
-            footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 8 },
-            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7, cellPadding: 1 },
+            footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 8, cellPadding: 1 },
+            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
             columnStyles: { 
-                0: { cellWidth: 10, halign: 'center' },
-                1: { cellWidth: 70 },
+                0: { cellWidth: 8, halign: 'center' },
+                1: { cellWidth: 85 },
                 2: { cellWidth: 15, halign: 'center' },
-                3: { cellWidth: 15, halign: 'center' },
-                4: { cellWidth: 20, halign: 'right' },
-                5: { cellWidth: 20, halign: 'right' },
+                3: { cellWidth: 12, halign: 'center' },
+                4: { cellWidth: 20, halign: 'center' },
+                5: { cellWidth: 15, halign: 'right' },
                 6: { cellWidth: 10, halign: 'center' },
-                7: { cellWidth: 10, halign: 'center' },
-                8: { cellWidth: 20, halign: 'right' }
+                7: { cellWidth: 8, halign: 'center' },
+                8: { cellWidth: 17, halign: 'right' }
             }
         });
 
@@ -658,14 +661,14 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                         </div>
 
                                         <div className="grid grid-cols-2 border border-black">
-                                            <div className="border-r border-black p-3 flex flex-col h-full">
+                                            <div className="border-r border-black p-3 flex flex-col">
                                                 <h1 className="text-xl font-bold text-black mb-1">SREE MEDITEC</h1>
-                                                <p>Old No.2 New No.18, Bajanai Koil Street,</p>
-                                                <p>Rajakilpakkam, Chennai -73</p>
-                                                <p>Ph.9884818398/ 7200025642</p>
-                                                <p className="font-bold mt-2">GSTIN/UIN: 33APGPS4675G2ZL</p>
-                                                <p>State Name : Tamil Nadu, Code : 33</p>
-                                                <p>E-Mail : sreemeditec@gmail.com</p>
+                                                <p className="text-[10px]">Old No.2 New No.18, Bajanai Koil Street,</p>
+                                                <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>
+                                                <p className="text-[10px]">Ph.9884818398/ 7200025642</p>
+                                                <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: 33APGPS4675G2ZL</p>
+                                                <p className="text-[9px]">State Name : Tamil Nadu, Code : 33</p>
+                                                <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
                                             </div>
                                             <div className="grid grid-cols-2 text-[9px]">
                                                 <div className="border-r border-b border-black p-2 h-[45px]">Invoice No.<br/><span className="font-bold text-[10px]">{invoice.invoiceNumber}</span></div>
@@ -677,113 +680,111 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </div>
                                         </div>
 
-                                        <div className="flex border-x border-b border-black min-h-[120px] w-full">
-                                            <div className="w-[25%] border-r border-black p-3 flex flex-col justify-between overflow-hidden">
-                                                <div>
-                                                    <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
-                                                    <p className="font-bold uppercase text-[10px] leading-tight mb-1">{invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[9px]">{invoice.customerAddress}</p>
-                                                </div>
-                                                <div className="mt-4">
-                                                    <p className="font-black text-[9px]">GSTIN/UIN : {invoice.customerGstin}</p>
+                                        <div className="flex border-x border-b border-black w-full min-h-[90px]">
+                                            <div className="w-[25%] border-r border-black p-2 flex flex-col overflow-hidden text-[9px] leading-tight">
+                                                <p className="text-[7px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
+                                                <p className="font-bold uppercase mb-1">{invoice.customerName}</p>
+                                                <p className="whitespace-pre-wrap flex-1">{invoice.customerAddress}</p>
+                                                <div className="mt-2 border-t border-slate-100 pt-1">
+                                                    <p className="font-bold">GSTIN/UIN : {invoice.customerGstin}</p>
+                                                    <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>
-                                            <div className="w-[25%] border-r border-black p-3 flex flex-col justify-between overflow-hidden">
-                                                <div>
-                                                    <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
-                                                    <p className="font-bold uppercase text-[10px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[9px]">{invoice.buyerAddress || invoice.customerAddress}</p>
-                                                </div>
-                                                <div className="mt-4">
-                                                    <p className="font-black text-[9px]">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
+                                            <div className="w-[25%] border-r border-black p-2 flex flex-col overflow-hidden text-[9px] leading-tight">
+                                                <p className="text-[7px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
+                                                <p className="font-bold uppercase mb-1">{invoice.buyerName || invoice.customerName}</p>
+                                                <p className="whitespace-pre-wrap flex-1">{invoice.buyerAddress || invoice.customerAddress}</p>
+                                                <div className="mt-2 border-t border-slate-100 pt-1">
+                                                    <p className="font-bold">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
+                                                    <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>
                                             <div className="w-[50%] flex flex-col">
-                                                <div className="grid grid-cols-2 text-[9px] border-b border-black flex-1">
-                                                     <div className="border-r border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[10px]">{invoice.smcpoNumber}</span></div>
-                                                     <div className="p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-1.5 h-[35px]">Buyer's Order No.<br/><span className="font-bold text-[9px]">{invoice.smcpoNumber}</span></div>
+                                                     <div className="p-1.5 h-[35px]">Dated<br/><span className="font-bold text-[9px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
                                                 </div>
-                                                <div className="grid grid-cols-2 text-[9px] border-b border-black flex-1">
-                                                     <div className="border-r border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold text-[10px]"></span></div>
-                                                     <div className="p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[10px]"></span></div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-1.5 h-[35px]">Dispatch Doc No.<br/><span className="font-bold text-[9px]"></span></div>
+                                                     <div className="p-1.5 h-[35px]">Delivery Note Date<br/><span className="font-bold text-[9px]"></span></div>
                                                 </div>
-                                                <div className="grid grid-cols-2 text-[9px] flex-1">
-                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
-                                                     <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[10px]">{invoice.specialNote}</span></div>
+                                                <div className="grid grid-cols-2 text-[8px]">
+                                                     <div className="border-r border-black p-1.5 h-[35px]">Dispatched through<br/><span className="font-bold">Person</span></div>
+                                                     <div className="p-1.5 h-[35px]">Destination<br/><span className="font-bold text-[9px]">{invoice.specialNote}</span></div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <table className="w-full border-x border-b border-black text-center text-[10px]">
+                                        <table className="w-full border-x border-b border-black text-center text-[10px] mt-0 table-fixed">
                                             <thead className="bg-slate-50 font-bold border-b border-black">
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm]">
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Sl No.</th>
-                                                    <th className="border-r border-black p-2 text-left flex items-center">Description of Goods</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">HSN/SAC</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">GST Rate</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Qty</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Rate</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">per</th>
-                                                    <th className="border-r border-black p-2 flex items-center justify-center">Disc. %</th>
-                                                    <th className="p-2 text-right flex items-center justify-end">Amount</th>
+                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm]">
+                                                    <th className="border-r border-black p-1 flex items-center justify-center">Sl No.</th>
+                                                    <th className="border-r border-black p-1 text-left flex items-center">Description of Goods</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center">HSN/SAC</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center">GST Rate</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center font-black">Qty</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center font-black">Rate</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center font-black">per</th>
+                                                    <th className="border-r border-black p-1 flex items-center justify-center font-black">Disc.%</th>
+                                                    <th className="p-1 text-right flex items-center justify-end font-black pr-2">Amount</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {(invoice.items || []).map((it, idx) => {
-                                                    const base = it.quantity * it.unitPrice;
+                                                    const base = (it.quantity || 0) * (it.unitPrice || 0);
                                                     return (
-                                                        <tr key={`${idx}-m`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-b border-slate-300">
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{idx + 1}</td>
-                                                            <td className="border-r border-black p-2 text-left flex flex-col justify-center">
-                                                                <span className="font-bold uppercase truncate">{it.description}</span>
+                                                        <tr key={`${idx}-m`} className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] border-b border-slate-300">
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center">{idx + 1}</td>
+                                                            <td className="border-r border-black p-1.5 text-left flex flex-col justify-center overflow-hidden">
+                                                                <span className="font-bold uppercase truncate text-[9px]">{it.description}</span>
                                                                 {it.features && <span className="text-[7px] italic text-slate-500 whitespace-pre-wrap mt-0.5 leading-tight">{it.features}</span>}
                                                              </td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{it.hsn}</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">{it.taxRate}%</td>
-                                                            <td className="border-r border-black p-2 text-right font-bold flex items-center justify-end">{it.quantity.toFixed(2)} nos</td>
-                                                            <td className="border-r border-black p-2 text-right flex items-center justify-end">{it.unitPrice.toFixed(2)}</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center">nos</td>
-                                                            <td className="border-r border-black p-2 flex items-center justify-center"></td>
-                                                            <td className="p-2 text-right font-black flex items-center justify-end">₹ {base.toFixed(2)}</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.hsn}</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.taxRate}%</td>
+                                                            <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toFixed(2)} nos</td>
+                                                            <td className="border-r border-black p-1.5 text-right flex items-center justify-end text-[10px]">{(it.unitPrice || 0).toFixed(2)}</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">nos</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center"></td>
+                                                            <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {base.toFixed(2)}</td>
                                                         </tr>
                                                     );
                                                 })}
                                                  {(invoice.freightAmount || 0) > 0 && (
-                                                    <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
                                                         <td className="border-r border-black"></td>
                                                         <td className="border-r border-black p-1 text-left flex items-center">Freight</td>
                                                         <td className="border-r border-black"></td>
                                                         <td className="border-r border-black p-1 text-center flex items-center justify-center">{(invoice.freightTaxRate || 0)}%</td>
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                        <td className="p-1 text-right flex items-center justify-end font-bold">{totals.freightTotal.toFixed(2)}</td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.freightTotal.toFixed(2)}</td>
                                                     </tr>
                                                  )}
-                                                 <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
                                                      <td className="border-r border-black p-1 text-left flex items-center font-bold">Output CGST (9%)</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                     <td className="p-1 text-right flex items-center justify-end font-bold">{totals.cgst.toFixed(2)}</td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.cgst.toFixed(2)}</td>
                                                  </tr>
-                                                 <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-5 italic border-b border-slate-50">
+                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
                                                      <td className="border-r border-black p-1 text-left flex items-center font-bold">Output SGST (9%)</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                     <td className="p-1 text-right flex items-center justify-end font-bold">{totals.sgst.toFixed(2)}</td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.sgst.toFixed(2)}</td>
                                                  </tr>
                                                 {Array.from({ length: Math.max(0, 8 - (invoice.items?.length || 0)) }).map((_, i) => (
-                                                    <tr key={`f-${i}`} className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] h-8 border-b border-slate-50 opacity-10">
+                                                    <tr key={`f-${i}`} className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-6 border-b border-slate-50 opacity-10">
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="grid grid-cols-[10mm_1fr_15mm_15mm_20mm_20mm_10mm_10mm_20mm] border-t border-black font-black bg-slate-50 text-[11px]">
+                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] border-t border-black font-black bg-slate-50 text-[11px]">
                                                     <td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-2 text-right flex items-center justify-end font-bold">Total</td>
+                                                    <td className="border-r border-black p-1.5 text-right flex items-center justify-end font-bold">Total</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-2 text-center flex items-center justify-center">{totals.totalQty.toFixed(2)} nos</td>
+                                                    <td className="border-r border-black p-1.5 text-center flex items-center justify-center font-black">{(totals.totalQty || 0).toFixed(2)} nos</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="p-2 text-right flex items-center justify-end font-bold text-teal-800">₹ {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td className="p-1.5 text-right flex items-center justify-end font-black text-teal-800 pr-2">Rs. {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
