@@ -30,4 +30,17 @@
     content: "Quick Edit";
     @apply absolute top-1 right-2 text-[6px] font-black uppercase text-indigo-400 opacity-50;
   }
+
+  /* Remove spin buttons from number inputs */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }

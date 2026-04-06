@@ -382,7 +382,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         setInvoice(prev => {
             const updatedItems = (prev.items || []).map(item => {
                 if (item.id === id) {
-                    const updated = { ...item, [field]: value };
+                    let finalVal = value;
+                    if (field === 'quantity' || field === 'unitPrice' || field === 'taxRate') {
+                        finalVal = value === '' ? 0 : (isNaN(Number(value)) ? item[field] : Number(value));
+                    }
+                    
+                    const updated = { ...item, [field]: finalVal };
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
@@ -392,8 +397,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                             updated.taxRate = masterProd.taxRate || 18;
                         }
                     }
-                    updated.amount = updated.quantity * updated.unitPrice;
-                    updated.gstValue = updated.amount * (updated.taxRate / 100);
+                    updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
+                    updated.gstValue = updated.amount * ((updated.taxRate || 0) / 100);
                     updated.priceWithGst = updated.amount + updated.gstValue;
                     return updated;
                 }
@@ -587,15 +592,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     </div>
                                                     <div className="col-span-3 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-3 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-2 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                        <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
@@ -613,11 +618,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                                 <div className="col-span-6 md:col-span-3">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Amount (₹)</label>
-                                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.freightAmount || 0} onChange={e => setInvoice({...invoice, freightAmount: Number(e.target.value)})} />
+                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.freightAmount || 0} onChange={e => setInvoice({...invoice, freightAmount: Number(e.target.value) || 0})} />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-3">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={invoice.freightTaxRate || 0} onChange={e => setInvoice({...invoice, freightTaxRate: Number(e.target.value)})} />
+                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={invoice.freightTaxRate || 0} onChange={e => setInvoice({...invoice, freightTaxRate: Number(e.target.value) || 0})} />
                                                 </div>
                                             </div>
                                         </div>
@@ -669,8 +674,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 border-x border-b border-black min-h-[120px]">
-                                            <div className="border-r border-black p-3 flex flex-col justify-between">
+                                        <div className="flex border-x border-b border-black min-h-[120px] w-full">
+                                            <div className="w-1/2 border-r border-black p-3 flex flex-col justify-between overflow-hidden">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
                                                     <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.customerName}</p>
@@ -681,7 +686,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>
-                                            <div className="p-3 flex flex-col justify-between">
+                                            <div className="w-1/2 p-3 flex flex-col justify-between overflow-hidden">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
                                                     <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
