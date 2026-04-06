@@ -101,8 +101,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         const doc = new jsPDF();
         const docTotals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
-        const midX = pageWidth / 2;
         const margin = 10;
+        
+        // Align top divider with the first major vertical line in the table (after Description of Goods)
+        const col0W = 10;
+        const col1W = 80;
+        const midX = margin + col0W + col1W; // This is the vertical line after Description column
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
@@ -201,7 +205,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         );
 
         autoTable(doc, {
-            startY: 98,
+            startY: startY + totalHeaderH,
             head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
             body: itemsBody,
             foot: [[
@@ -220,15 +224,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 8, cellPadding: 1 },
             styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
             columnStyles: { 
-                0: { cellWidth: 8, halign: 'center' },
-                1: { cellWidth: 85 },
+                0: { cellWidth: col0W, halign: 'center' },
+                1: { cellWidth: col1W },
                 2: { cellWidth: 15, halign: 'center' },
                 3: { cellWidth: 12, halign: 'center' },
                 4: { cellWidth: 20, halign: 'center' },
                 5: { cellWidth: 15, halign: 'right' },
                 6: { cellWidth: 10, halign: 'center' },
                 7: { cellWidth: 8, halign: 'center' },
-                8: { cellWidth: 17, halign: 'right' }
+                8: { cellWidth: pageWidth - (margin * 2) - col0W - col1W - 15 - 12 - 20 - 15 - 10 - 8, halign: 'right' }
             }
         });
 
@@ -658,10 +662,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <span className="uppercase text-xs tracking-tighter">Tax Invoice</span>
                                             <span className="italic text-[8px]">(ORIGINAL FOR RECIPIENT)</span>
                                         </div>
-
                                         <div className="grid grid-cols-[1.5fr_1fr] border border-black overflow-hidden">
                                             {/* LEFT COLUMN */}
-                                            <div className="flex flex-col border-r border-black">
+                                            <div className="flex flex-col border-r border-black overflow-hidden">
                                                 <div className="p-3 border-b border-black">
                                                     <h1 className="text-xl font-bold text-black mb-1 leading-none">SREE MEDITEC</h1>
                                                     <p className="text-[10px]">Old No.2 New No.18, Bajanai Koil Street,</p>
@@ -671,11 +674,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="text-[9px]">State Name : Tamil Nadu, Code : 33</p>
                                                     <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
                                                 </div>
-                                                <div className="p-2 border-b border-black min-h-[80px] flex flex-col text-[10px] leading-tight">
+                                                <div className="p-2 border-b border-black min-h-[85px] flex flex-col text-[10px] leading-tight">
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
                                                     <p className="font-bold uppercase mb-1">{invoice.customerName}</p>
                                                     <p className="whitespace-pre-wrap flex-1">{invoice.customerAddress}</p>
-                                                    <div className="mt-2 pt-1">
+                                                    <div className="mt-2 pt-1 border-t border-slate-50">
                                                         <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.customerGstin}</p>
                                                         <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
                                                     </div>
@@ -684,7 +687,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
                                                     <p className="font-bold uppercase mb-1">{invoice.buyerName || invoice.customerName}</p>
                                                     <p className="whitespace-pre-wrap flex-1">{invoice.buyerAddress || invoice.customerAddress}</p>
-                                                    <div className="mt-2 pt-1">
+                                                    <div className="mt-2 pt-1 border-t border-slate-50">
                                                         <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.buyerGstin || invoice.customerGstin}</p>
                                                         <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
                                                         <p>Place of Supply : Tamil Nadu</p>
@@ -708,17 +711,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
                                                      <div className="border-r border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[9px]">{invoice.smcpoNumber}</span></div>
-                                                     <div className="p-2 h-[45px]">Dated<br/><span className="font-bold text-[9px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
+                                                     <div className="p-1.5 h-[45px]">Dated<br/><span className="font-bold text-[9px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
                                                      <div className="border-r border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold text-[9px]"></span></div>
                                                      <div className="p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[9px]"></span></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
-                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold text-[9px]">Person</span></div>
                                                      <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[9px]">{invoice.specialNote}</span></div>
                                                 </div>
-                                                <div className="p-2 flex-1 min-h-[45px] text-[8px]">Terms of Delivery</div>
+                                                <div className="p-2 flex-1 min-h-[45px] text-[8px] font-bold">Terms of Delivery</div>
                                             </div>
                                         </div>
 
