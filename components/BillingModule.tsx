@@ -537,7 +537,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                                 <div className="space-y-4">
                                                     <FormRow label="Buyer Name">
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.buyerName || ''} onChange={e => setInvoice({...invoice, buyerName: e.target.value})} placeholder="Billing Entity Name" />
+                                                        <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.buyerName || ''} onChange={e => {
+                                                            const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
+                                                            setInvoice(prev => ({
+                                                                ...prev,
+                                                                buyerName: e.target.value,
+                                                                buyerAddress: client ? client.address : prev.buyerAddress,
+                                                                buyerGstin: client ? client.gstin : prev.buyerGstin
+                                                            }));
+                                                        }} placeholder="Billing Entity Name" />
                                                     </FormRow>
                                                     <FormRow label="Buyer GSTIN">
                                                         <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.buyerGstin || ''} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value})} placeholder="33XXXXX" />
