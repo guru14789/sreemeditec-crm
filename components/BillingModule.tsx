@@ -232,33 +232,65 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             }
         });
 
-        const tableFinalY = (doc as any).lastAutoTable.finalY;
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.text('Amount Chargeable (in words)', margin + 2, tableFinalY + 8);
-        doc.setFont('helvetica', 'bold');
-        doc.text(numberToWords(docTotals.grandTotal), margin + 2, tableFinalY + 12);
-        doc.text('E. & O.E', pageWidth - margin - 2, tableFinalY + 8, { align: 'right' });
+        const taxBody = [
+            [
+                '9402', 
+                docTotals.taxableValue.toFixed(2), 
+                '9%', 
+                docTotals.cgst.toFixed(2), 
+                '9%', 
+                docTotals.sgst.toFixed(2), 
+                (docTotals.cgst + docTotals.sgst).toFixed(2)
+            ],
+            [
+                { content: 'Total', styles: { fontStyle: 'bold', halign: 'right' } as any },
+                { content: docTotals.taxableValue.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
+                '',
+                { content: docTotals.cgst.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
+                '',
+                { content: docTotals.sgst.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
+                { content: (docTotals.cgst + docTotals.sgst).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }
+            ]
+        ];
 
         autoTable(doc, {
-            startY: tableFinalY + 18,
-            head: [['HSN/SAC', 'Taxable\nValue', 'Central Tax', '', 'State Tax', '', 'Total\nTax Amount'], ['', '', 'Rate', 'Amount', 'Rate', 'Amount', '']],
-            body: [
-                ['---', docTotals.taxableValue.toFixed(2), '9%', docTotals.cgst.toFixed(2), '9%', docTotals.sgst.toFixed(2), docTotals.taxTotal.toFixed(2)],
-                [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxableValue.toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: docTotals.cgst.toFixed(2), styles: { fontStyle: 'bold' } as any }, '', { content: docTotals.sgst.toFixed(2), styles: { fontStyle: 'bold' } as any }, { content: docTotals.taxTotal.toFixed(2), styles: { fontStyle: 'bold' } as any }]
+            startY: (doc as any).lastAutoTable.finalY + 12,
+            head: [
+                [
+                    { content: 'HSN/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any },
+                    { content: 'Taxable\nValue', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any },
+                    { content: 'CGST', colSpan: 2, styles: { halign: 'center' } as any },
+                    { content: 'SGST/UTGST', colSpan: 2, styles: { halign: 'center' } as any },
+                    { content: 'Total\nTax Amount', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any }
+                ],
+                ['Rate', 'Amount', 'Rate', 'Amount']
             ],
+            body: taxBody,
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 6.5 },
-            styles: { fontSize: 6.5, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1, halign: 'center' }
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 7, fontStyle: 'bold' },
+            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            columnStyles: {
+                0: { halign: 'center' },
+                1: { halign: 'right' },
+                2: { halign: 'center' },
+                3: { halign: 'right' },
+                4: { halign: 'center' },
+                5: { halign: 'right' },
+                6: { halign: 'right' }
+            }
         });
 
-        const taxFinalY = (doc as any).lastAutoTable.finalY;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.text(`Tax Amount (in words) : ${numberToWords(docTotals.taxTotal)}`, margin + 2, taxFinalY + 6);
+        const taxY = (doc as any).lastAutoTable.finalY + 5;
+        doc.setFontSize(8);
+        doc.text(`Tax Amount (in words) : INR ${numberToWords(docTotals.cgst + docTotals.sgst)}`, margin, taxY);
 
-        const bottomY = taxFinalY + 12;
+        const wordsY = taxY + 10;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Amount Chargeable (in words)', margin, wordsY);
+        doc.text('INR ' + numberToWords(docTotals.grandTotal), margin, wordsY + 5);
+        doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
+
+        const bottomY = wordsY + 15;
         doc.rect(margin, bottomY, pageWidth - (margin * 2), 40);
         doc.setFont('helvetica', 'bold');
         doc.text('Declaration', margin + 2, bottomY + 5);
@@ -279,9 +311,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 30, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 47, { align: 'right' });
 
-        doc.setFontSize(6);
+        doc.setFontSize(7);
         doc.setFont('helvetica', 'italic');
-        doc.text('This is a Computer Generated Invoice', pageWidth / 2, bottomY + 56, { align: 'center' });
+        doc.text('This is a Computer Generated Invoice', pageWidth / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
 
         doc.save(`Invoice_${data.invoiceNumber || 'New'}.pdf`);
     };
@@ -764,74 +796,85 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             </tfoot>
                                         </table>
 
-                                        <div className="flex justify-between items-start border-x border-b border-black p-3">
-                                            <div>
-                                                <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Amount Chargeable (in words)</p>
-                                                <p className="font-black text-xs">{numberToWords(totals.grandTotal)}</p>
+                                        <div className="mt-4 px-2 space-y-1">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-[9px]">Amount Chargeable (in words)</p>
+                                                    <p className="font-black text-[10px] uppercase">INR {numberToWords(totals.grandTotal)}</p>
+                                                </div>
+                                                <p className="font-black text-[10px]">E. & O.E</p>
                                             </div>
-                                            <div className="text-[9px] font-black italic">E. & O.E</div>
                                         </div>
 
-                                        <div className="mt-2 border border-black">
-                                            <table className="w-full text-[8px] text-center border-collapse">
-                                                <thead className="bg-slate-100 border-b border-black font-black">
-                                                    <tr>
-                                                        <th rowSpan={2} className="border-r border-black p-1">HSN/SAC</th>
-                                                        <th rowSpan={2} className="border-r border-black p-1">Taxable Value</th>
-                                                        <th colSpan={2} className="border-r border-black p-1">Central Tax</th>
-                                                        <th colSpan={2} className="border-r border-black p-1">State Tax</th>
-                                                        <th rowSpan={2} className="p-1">Total Tax Amount</th>
+                                        <div className="mt-4 px-2">
+                                            <table className="w-full border border-black text-[9px] table-fixed">
+                                                <thead>
+                                                    <tr className="border-b border-black font-bold">
+                                                        <th rowSpan={2} className="border-r border-black p-1 align-middle text-center w-[20%]">HSN/SAC</th>
+                                                        <th rowSpan={2} className="border-r border-black p-1 align-middle text-center w-[15%]">Taxable Value</th>
+                                                        <th colSpan={2} className="border-r border-black p-1 text-center w-[25%]">CGST</th>
+                                                        <th colSpan={2} className="border-r border-black p-1 text-center w-[25%]">SGST/UTGST</th>
+                                                        <th rowSpan={2} className="p-1 align-middle text-center w-[15%]">Total Tax Amount</th>
                                                     </tr>
-                                                    <tr className="border-t border-black">
-                                                        <th className="border-r border-black p-1">Rate</th><th className="border-r border-black p-1">Amount</th>
-                                                        <th className="border-r border-black p-1">Rate</th><th className="border-r border-black p-1">Amount</th>
+                                                    <tr className="border-b border-black font-bold">
+                                                        <th className="border-r border-black p-1 text-center">Rate</th>
+                                                        <th className="border-r border-black p-1 text-center">Amount</th>
+                                                        <th className="border-r border-black p-1 text-center">Rate</th>
+                                                        <th className="border-r border-black p-1 text-center">Amount</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <tr className="border-b border-black">
-                                                        <td className="border-r border-black p-1.5">---</td>
-                                                        <td className="border-r border-black p-1.5">{totals.taxableValue.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{totals.cgst.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5">9%</td><td className="border-r border-black p-1.5">{totals.sgst.toFixed(2)}</td>
-                                                        <td className="p-1.5 font-bold">{totals.taxTotal.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-center">9402</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-center">9%</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-center">9%</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toFixed(2)}</td>
+                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toFixed(2)}</td>
                                                     </tr>
-                                                    <tr className="font-black bg-slate-50">
-                                                        <td className="border-r border-black p-1.5 text-right">Total</td>
-                                                        <td className="border-r border-black p-1.5">{totals.taxableValue.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{totals.cgst.toFixed(2)}</td>
-                                                        <td className="border-r border-black p-1.5"></td><td className="border-r border-black p-1.5">{totals.sgst.toFixed(2)}</td>
-                                                        <td className="p-1.5">₹ {totals.taxTotal.toFixed(2)}</td>
+                                                    <tr className="font-bold bg-slate-50/50">
+                                                        <td className="border-r border-black p-1 text-right">Total</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1"></td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1"></td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toFixed(2)}</td>
+                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toFixed(2)}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
+                                            <p className="mt-2 text-[9px] font-bold">Tax Amount (in words) : INR {numberToWords(totals.cgst + totals.sgst)}</p>
                                         </div>
-                                        <p className="text-[9px] font-black mt-1 uppercase">Tax Amount (in words) : {numberToWords(totals.taxTotal)}</p>
 
-                                        <div className="grid grid-cols-2 border border-black min-h-[100px] mt-2">
-                                            <div className="border-r border-black p-3 flex flex-col">
-                                                <p className="font-black text-[10px] underline mb-1 uppercase">Declaration</p>
-                                                <p className="text-[9px] mt-1 text-slate-600 leading-tight">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+                                        <div className="mt-6 border border-black p-2 flex flex-col gap-4 text-[9px]">
+                                            <div className="grid grid-cols-2">
+                                                <div className="space-y-1">
+                                                    <p className="font-bold border-b border-black w-fit pb-0.5">Declaration</p>
+                                                    <p className="leading-tight text-[8px]">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+                                                </div>
+                                                <div className="space-y-1 border-l border-black pl-4">
+                                                    <p className="font-bold">Company's Bank Details</p>
+                                                    <div className="grid grid-cols-[80px_1fr] text-[8px]">
+                                                        <span>Bank Name</span><span className="font-bold">: KVB Bank</span>
+                                                        <span>A/c No.</span><span className="font-bold">: 1617135000000754</span>
+                                                        <span>Branch & IFS Code</span><span className="font-bold">: Selaiyur & KVBL0001617</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="p-3">
-                                                <p className="font-black text-[10px] uppercase mb-2">Company's Bank Details</p>
-                                                <div className="grid grid-cols-[80px_1fr] mt-1 gap-y-1 text-[9px]">
-                                                    <span className="font-bold text-slate-400">Bank Name</span><span className="font-black">: KVB Bank</span>
-                                                    <span className="font-bold text-slate-400">A/c No.</span><span className="font-black">: 1617135000000754</span>
-                                                    <span className="font-bold text-slate-400">Branch & IFS</span><span className="font-black">: Selaiyur & KVBL0001617</span>
+                                            
+                                            <div className="grid grid-cols-2 pt-8">
+                                                <div className="flex flex-col justify-end pt-12">
+                                                    <p className="font-bold border-t border-black w-fit pt-1">Customer's Seal and Signature</p>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <p className="font-bold">for SREE MEDITEC</p>
+                                                    <div className="h-16"></div>
+                                                    <p className="font-bold">Authorised Signatory</p>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        <div className="grid grid-cols-2 border-x border-b border-black min-h-[80px]">
-                                            <div className="border-r border-black p-3 flex flex-col justify-between">
-                                                <p className="font-black text-[9px] uppercase text-slate-400">Customer Seal and Signature</p>
-                                            </div>
-                                            <div className="p-3 flex flex-col text-right justify-between">
-                                                <p className="font-black text-[11px] uppercase">for SREE MEDITEC</p>
-                                                <p className="font-black text-[10px] uppercase mt-10">Authorised Signatory</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-center italic text-[7px] mt-2 text-slate-300 font-bold uppercase tracking-[0.4em]">This is a Computer Generated Invoice</div>
+                                        <p className="mt-auto pt-4 text-center text-[8px] italic text-slate-500 w-full font-bold">This is a Computer Generated Invoice</p>
                                     </div>
                                 </div>
                             </div>
