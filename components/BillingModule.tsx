@@ -66,6 +66,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         customerAddress: '',
         customerGstin: '',
         smcpoNumber: 'verbal',
+        buyerName: '',
+        buyerAddress: '',
+        buyerGstin: '',
         deliveryTime: 'Immediately',
         specialNote: 'Chennai',
         documentType: 'PO'
@@ -190,10 +193,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.line(margin, 68, midX, 68);
         doc.text('Buyer (Bill to)', margin + 2, 71);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 75);
+        doc.text(data.buyerName || data.customerName || '', margin + 2, 75);
         doc.setFont('helvetica', 'normal');
-        doc.text(addrLines, margin + 2, 79);
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, partyCurrentY + 20);
+        const buyerAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
+        doc.text(buyerAddrLines, margin + 2, 79);
+        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, partyCurrentY + 20);
         doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, partyCurrentY + 24);
 
         const itemsBody = (data.items || []).map((it, idx) => {
@@ -498,24 +502,52 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">2. Party Details</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-6">
-                                            <FormRow label="Consignee Name *">
-                                                <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={invoice.customerName || ''} onChange={e => {
-                                                    const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
-                                                    setInvoice(prev => ({
-                                                        ...prev,
-                                                        customerName: e.target.value,
-                                                        customerAddress: client ? client.address : prev.customerAddress,
-                                                        customerGstin: client ? client.gstin : prev.customerGstin
-                                                    }));
-                                                }} placeholder="Search registry..." />
-                                            </FormRow>
-                                            <FormRow label="Consignee GSTIN">
-                                                <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
-                                            </FormRow>
+                                            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200">
+                                                <h4 className="text-[9px] font-black text-slate-400 uppercase mb-4 tracking-wider flex items-center gap-2">Consignee (Ship to)</h4>
+                                                <div className="space-y-4">
+                                                    <FormRow label="Consignee Name *">
+                                                        <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.customerName || ''} onChange={e => {
+                                                            const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
+                                                            setInvoice(prev => ({
+                                                                ...prev,
+                                                                customerName: e.target.value,
+                                                                customerAddress: client ? client.address : prev.customerAddress,
+                                                                customerGstin: client ? client.gstin : prev.customerGstin,
+                                                                buyerName: prev.buyerName || (client ? client.name : ''),
+                                                                buyerAddress: prev.buyerAddress || (client ? client.address : ''),
+                                                                buyerGstin: prev.buyerGstin || (client ? client.gstin : '')
+                                                            }));
+                                                        }} placeholder="Search registry..." />
+                                                    </FormRow>
+                                                    <FormRow label="Consignee GSTIN">
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                    </FormRow>
+                                                    <FormRow label="Site / Shipping Address">
+                                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full shipping address..." />
+                                                    </FormRow>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <FormRow label="Site / Billing Address">
-                                            <textarea rows={5} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full site address details..." />
-                                        </FormRow>
+
+                                        <div className="space-y-6">
+                                            <div className="p-6 bg-medical-50/10 rounded-2xl border border-medical-100">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-wider">Buyer (Bill to)</h4>
+                                                    <button onClick={() => setInvoice(prev => ({ ...prev, buyerName: prev.customerName, buyerAddress: prev.customerAddress, buyerGstin: prev.customerGstin }))} className="text-[8px] font-bold text-medical-500 underline uppercase tracking-tighter">Copy Consignee</button>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <FormRow label="Buyer Name">
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.buyerName || ''} onChange={e => setInvoice({...invoice, buyerName: e.target.value})} placeholder="Billing Entity Name" />
+                                                    </FormRow>
+                                                    <FormRow label="Buyer GSTIN">
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.buyerGstin || ''} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                    </FormRow>
+                                                    <FormRow label="Billing Address">
+                                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.buyerAddress || ''} onChange={e => setInvoice({...invoice, buyerAddress: e.target.value})} placeholder="Full billing address..." />
+                                                    </FormRow>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </section>
 
@@ -635,11 +667,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <div className="p-3 flex flex-col justify-between">
                                                 <div>
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
-                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.customerName}</p>
-                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.customerAddress}</p>
+                                                    <p className="font-bold uppercase text-[11px] leading-tight mb-1">{invoice.buyerName || invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap text-[10px]">{invoice.buyerAddress || invoice.customerAddress}</p>
                                                 </div>
                                                 <div className="mt-4">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.customerGstin}</p>
+                                                    <p className="font-bold">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
                                                     <p>State Name : Tamil Nadu, Code : 33</p>
                                                 </div>
                                             </div>

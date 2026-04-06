@@ -156,6 +156,9 @@ export interface Invoice {
   freightTaxRate?: number;
   paymentTerms?: string;
   deliveryTerms?: string;
+  buyerName?: string;
+  buyerAddress?: string;
+  buyerGstin?: string;
   warrantyTerms?: string;
 }
 
