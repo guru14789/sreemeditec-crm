@@ -237,6 +237,14 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             }
         });
 
+        const tableFinalY = (doc as any).lastAutoTable.finalY;
+        const wordsY = tableFinalY + 8;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Amount Chargeable (in words)', margin, wordsY);
+        doc.text('INR ' + numberToWords(docTotals.grandTotal), margin, wordsY + 5);
+        doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
+
         const taxBody = [
             [
                 '9402', 
@@ -259,7 +267,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         ];
 
         autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 12,
+            startY: wordsY + 12,
             margin: { left: margin, right: margin },
             head: [
                 [
@@ -290,14 +298,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.setFontSize(8);
         doc.text(`Tax Amount (in words) : INR ${numberToWords(docTotals.cgst + docTotals.sgst)}`, margin, taxY);
 
-        const wordsY = taxY + 10;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Amount Chargeable (in words)', margin, wordsY);
-        doc.text('INR ' + numberToWords(docTotals.grandTotal), margin, wordsY + 5);
-        doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
-
         const footerH = 60;
-        const bottomY = wordsY + 15;
+        const bottomY = taxY + 8;
+
         doc.rect(margin, bottomY, pageWidth - (margin * 2), footerH);
         doc.setFont('helvetica', 'bold');
         doc.text('Declaration', margin + 2, bottomY + 5);
