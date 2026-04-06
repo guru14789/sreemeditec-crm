@@ -112,105 +112,72 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
 
         doc.setLineWidth(0.1);
-        doc.rect(margin, 12, pageWidth - (margin * 2), 78);
-        doc.line(midX, 12, midX, 90);
+        const startY = 12;
+        const totalHeaderH = 100;
+        doc.rect(margin, startY, pageWidth - (margin * 2), totalHeaderH);
+        doc.line(midX, startY, midX, startY + totalHeaderH);
 
+        // LEFT COLUMN (Company, Consignee, Buyer)
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text('SREE MEDITEC', margin + 2, 18);
+        doc.text('SREE MEDITEC', margin + 2, startY + 6);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('Old No.2 New No.18, Bajanai Koil Street,', margin + 2, 23);
-        doc.text('Rajakilpakkam, Chennai -73', margin + 2, 27);
-        doc.text('Ph.9884818398/ 7200025642', margin + 2, 31);
-        doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, 35);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, 39);
-        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, 43);
+        doc.text('Old No.2 New No.18, Bajanai Koil Street,', margin + 2, startY + 11);
+        doc.text('Rajakilpakkam, Chennai -73', margin + 2, startY + 15);
+        doc.text('Ph.9884818398/ 7200025642', margin + 2, startY + 19);
+        doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, startY + 23);
+        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, startY + 27);
+        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, startY + 31);
 
-        const rowH = 13;
-        const startY = 12;
-        doc.line(midX, startY + rowH, pageWidth - margin, startY + rowH);
-        doc.line(midX, startY + (rowH * 2), pageWidth - margin, startY + (rowH * 2));
-        doc.line(midX, startY + (rowH * 3), pageWidth - margin, startY + (rowH * 3));
-        doc.line(midX, startY + (rowH * 4), pageWidth - margin, startY + (rowH * 4));
-        doc.line(midX, startY + (rowH * 5), pageWidth - margin, startY + (rowH * 5));
-        
+        doc.line(margin, startY + 35, midX, startY + 35);
+        doc.setFontSize(7);
+        doc.text('Consignee (Ship to)', margin + 2, startY + 39);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.customerName || '', margin + 2, startY + 43);
+        doc.setFont('helvetica', 'normal');
+        const cAddr = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
+        doc.text(cAddr, margin + 2, startY + 47);
+        const cGstY = startY + 47 + (cAddr.length * 3) + 2;
+        doc.text(`GSTIN/UIN       : ${data.customerGstin || ''}`, margin + 2, cGstY);
+        doc.text('State Name      : Tamil Nadu, Code : 33', margin + 2, cGstY + 3);
+
+        doc.line(margin, startY + 67, midX, startY + 67);
+        doc.text('Buyer (Bill to)', margin + 2, startY + 71);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.buyerName || data.customerName || '', margin + 2, startY + 75);
+        doc.setFont('helvetica', 'normal');
+        const bAddr = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
+        doc.text(bAddr, margin + 2, startY + 79);
+        const bGstY = startY + 79 + (bAddr.length * 3) + 2;
+        doc.text(`GSTIN/UIN       : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, bGstY);
+        doc.text('State Name      : Tamil Nadu, Code : 33', margin + 2, bGstY + 3);
+        doc.text('Place of Supply : Tamil Nadu', margin + 2, bGstY + 6);
+
+        // RIGHT COLUMN (Metadata)
         const innerMid = midX + ((pageWidth - margin - midX) / 2);
-        doc.line(innerMid, startY, innerMid, startY + (rowH * 2));
-        doc.line(innerMid, startY + (rowH * 3), innerMid, startY + (rowH * 5));
+        const metadataRows = [
+            { l: 'Invoice No.', v: data.invoiceNumber, r: 'Dated', rv: formatDateDDMMYYYY(data.date) },
+            { l: 'Delivery Note', v: '', r: 'Mode/Terms of Payment', rv: data.deliveryTime || 'Immediately' },
+            { l: 'Reference No. & Date.', v: '', r: 'Other References', rv: '' },
+            { l: 'Buyer\'s Order No.', v: data.smcpoNumber, r: 'Dated', rv: formatDateDDMMYYYY(data.date) },
+            { l: 'Dispatch Doc No.', v: '', r: 'Delivery Note Date', rv: '' },
+            { l: 'Dispatched through', v: 'Person', r: 'Destination', rv: data.specialNote || 'Chennai' },
+            { l: 'Terms of Delivery', v: '', r: '', rv: '' }
+        ];
 
-        doc.setFontSize(7);
-        doc.text('Invoice No.', midX + 1, startY + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.invoiceNumber || '', midX + 1, startY + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Dated', innerMid + 1, startY + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(formatDateDDMMYYYY(data.date), innerMid + 1, startY + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Delivery Note', midX + 1, startY + rowH + 4);
-        doc.text('Mode/Terms of Payment', innerMid + 1, startY + rowH + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.deliveryTime || 'Immediately', innerMid + 1, startY + rowH + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Reference No. & Date.', midX + 1, startY + (rowH * 2) + 4);
-        doc.text('Other References', innerMid + 1, startY + (rowH * 2) + 4);
-
-        doc.text('Buyer\'s Order No.', midX + 1, startY + (rowH * 3) + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.smcpoNumber || 'verbal', midX + 1, startY + (rowH * 3) + 9);
-        
-        doc.setFont('helvetica', 'normal');
-        doc.text('Dated', innerMid + 1, startY + (rowH * 3) + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(formatDateDDMMYYYY(data.date), innerMid + 1, startY + (rowH * 3) + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Dispatch Doc No.', midX + 1, startY + (rowH * 4) + 4);
-        doc.text('Delivery Note Date', innerMid + 1, startY + (rowH * 4) + 4);
-
-        doc.text('Dispatched through', midX + 1, startY + (rowH * 5) + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Person', midX + 1, startY + (rowH * 5) + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Destination', innerMid + 1, startY + (rowH * 5) + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.specialNote || 'Chennai', innerMid + 1, startY + (rowH * 5) + 9);
-
-        // Draw Party Details Side-by-Side (Consignee Left, Buyer Right)
-        doc.line(margin, 68, midX, 68);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        
-        // Consignee (Left Side of the Party Row)
-        doc.text('Consignee (Ship to)', margin + 2, 71);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 75);
-        doc.setFont('helvetica', 'normal');
-        const cAddrLines = doc.splitTextToSize(data.customerAddress || '', (midX - margin) / 2 - 5);
-        doc.text(cAddrLines, margin + 2, 78);
-        const cGstY = 78 + (cAddrLines.length * 3) + 2;
-        doc.text(`GSTIN/UIN : ${data.customerGstin || ''}`, margin + 2, cGstY);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, cGstY + 3);
-
-        // Buyer (Right Side of the Party Row)
-        const buyerX = margin + (midX - margin) / 2;
-        doc.line(buyerX, 68, buyerX, 98); // Extend divider
-        doc.text('Buyer (Bill to)', buyerX + 2, 71);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.buyerName || data.customerName || '', buyerX + 2, 75);
-        doc.setFont('helvetica', 'normal');
-        const bAddrLines = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', (midX - margin) / 2 - 5);
-        doc.text(bAddrLines, buyerX + 2, 78);
-        const bGstY = 78 + (bAddrLines.length * 3) + 2;
-        doc.text(`GSTIN/UIN : ${data.buyerGstin || data.customerGstin || ''}`, buyerX + 2, bGstY);
-        doc.text('State Name : Tamil Nadu, Code : 33', buyerX + 2, bGstY + 3);
-
-
+        metadataRows.forEach((row, i) => {
+            const y = startY + (i * 14);
+            if (i > 0) doc.line(midX, y, pageWidth - margin, y);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.text(row.l, midX + 1, y + 4);
+            doc.text(row.r, innerMid + 1, y + 4);
+            doc.setFont('helvetica', 'bold');
+            doc.text(row.v || '', midX + 1, y + 9);
+            doc.text(row.rv || '', innerMid + 1, y + 9);
+            if (i < 6) doc.line(innerMid, y, innerMid, y + 14);
+        });
 
         const itemsBody = (data.items || []).map((it, idx) => {
             const base = it.quantity * it.unitPrice;
@@ -660,58 +627,66 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                             <span className="italic text-[8px]">(ORIGINAL FOR RECIPIENT)</span>
                                         </div>
 
-                                        <div className="grid grid-cols-2 border border-black">
-                                            <div className="border-r border-black p-3 flex flex-col">
-                                                <h1 className="text-xl font-bold text-black mb-1">SREE MEDITEC</h1>
-                                                <p className="text-[10px]">Old No.2 New No.18, Bajanai Koil Street,</p>
-                                                <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>
-                                                <p className="text-[10px]">Ph.9884818398/ 7200025642</p>
-                                                <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: 33APGPS4675G2ZL</p>
-                                                <p className="text-[9px]">State Name : Tamil Nadu, Code : 33</p>
-                                                <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
+                                        <div className="grid grid-cols-[1.5fr_1fr] border border-black overflow-hidden">
+                                            {/* LEFT COLUMN */}
+                                            <div className="flex flex-col border-r border-black">
+                                                <div className="p-3 border-b border-black">
+                                                    <h1 className="text-xl font-bold text-black mb-1 leading-none">SREE MEDITEC</h1>
+                                                    <p className="text-[10px]">Old No.2 New No.18, Bajanai Koil Street,</p>
+                                                    <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>
+                                                    <p className="text-[10px]">Ph.9884818398/ 7200025642</p>
+                                                    <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: 33APGPS4675G2ZL</p>
+                                                    <p className="text-[9px]">State Name : Tamil Nadu, Code : 33</p>
+                                                    <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
+                                                </div>
+                                                <div className="p-2 border-b border-black min-h-[80px] flex flex-col text-[10px] leading-tight">
+                                                    <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
+                                                    <p className="font-bold uppercase mb-1">{invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap flex-1">{invoice.customerAddress}</p>
+                                                    <div className="mt-2 pt-1">
+                                                        <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.customerGstin}</p>
+                                                        <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
+                                                    </div>
+                                                </div>
+                                                <div className="p-2 flex flex-col text-[10px] leading-tight flex-1">
+                                                    <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
+                                                    <p className="font-bold uppercase mb-1">{invoice.buyerName || invoice.customerName}</p>
+                                                    <p className="whitespace-pre-wrap flex-1">{invoice.buyerAddress || invoice.customerAddress}</p>
+                                                    <div className="mt-2 pt-1">
+                                                        <p className="font-bold">GSTIN/UIN &nbsp; : {invoice.buyerGstin || invoice.customerGstin}</p>
+                                                        <p>State Name &nbsp; : Tamil Nadu, Code : 33</p>
+                                                        <p>Place of Supply : Tamil Nadu</p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-2 text-[9px]">
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Invoice No.<br/><span className="font-bold text-[10px]">{invoice.invoiceNumber}</span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
-                                                <div className="border-r border-b border-black p-2 h-[45px]">Delivery Note<br/><span className="font-bold"></span></div>
-                                                <div className="border-b border-black p-2 h-[45px]">Mode/Terms of Payment<br/><span className="font-bold text-[10px]">{invoice.deliveryTime}</span></div>
-                                                <div className="border-r border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold"></span></div>
-                                                <div className="border-black p-2 h-[45px]">Other References<br/><span className="font-bold"></span></div>
-                                            </div>
-                                        </div>
 
-                                        <div className="flex border-x border-b border-black w-full min-h-[90px]">
-                                            <div className="w-[25%] border-r border-black p-2 flex flex-col overflow-hidden text-[9px] leading-tight">
-                                                <p className="text-[7px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
-                                                <p className="font-bold uppercase mb-1">{invoice.customerName}</p>
-                                                <p className="whitespace-pre-wrap flex-1">{invoice.customerAddress}</p>
-                                                <div className="mt-2 border-t border-slate-100 pt-1">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.customerGstin}</p>
-                                                    <p>State Name : Tamil Nadu, Code : 33</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-[25%] border-r border-black p-2 flex flex-col overflow-hidden text-[9px] leading-tight">
-                                                <p className="text-[7px] font-black uppercase text-slate-400 mb-1 tracking-widest">Buyer (Bill to)</p>
-                                                <p className="font-bold uppercase mb-1">{invoice.buyerName || invoice.customerName}</p>
-                                                <p className="whitespace-pre-wrap flex-1">{invoice.buyerAddress || invoice.customerAddress}</p>
-                                                <div className="mt-2 border-t border-slate-100 pt-1">
-                                                    <p className="font-bold">GSTIN/UIN : {invoice.buyerGstin || invoice.customerGstin}</p>
-                                                    <p>State Name : Tamil Nadu, Code : 33</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-[50%] flex flex-col">
+                                            {/* RIGHT COLUMN */}
+                                            <div className="flex flex-col bg-slate-50/10">
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
-                                                     <div className="border-r border-black p-1.5 h-[35px]">Buyer's Order No.<br/><span className="font-bold text-[9px]">{invoice.smcpoNumber}</span></div>
-                                                     <div className="p-1.5 h-[35px]">Dated<br/><span className="font-bold text-[9px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
+                                                     <div className="border-r border-black p-2 h-[45px]">Invoice No.<br/><span className="font-bold text-[10px]">{invoice.invoiceNumber}</span></div>
+                                                     <div className="p-2 h-[45px]">Dated<br/><span className="font-bold text-[10px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
                                                 </div>
                                                 <div className="grid grid-cols-2 text-[8px] border-b border-black">
-                                                     <div className="border-r border-black p-1.5 h-[35px]">Dispatch Doc No.<br/><span className="font-bold text-[9px]"></span></div>
-                                                     <div className="p-1.5 h-[35px]">Delivery Note Date<br/><span className="font-bold text-[9px]"></span></div>
+                                                     <div className="border-r border-black p-2 h-[45px]">Delivery Note<br/><span className="font-bold text-[9px]"></span></div>
+                                                     <div className="p-2 h-[45px]">Mode/Terms of Payment<br/><span className="font-bold text-[9px]">{invoice.deliveryTime}</span></div>
                                                 </div>
-                                                <div className="grid grid-cols-2 text-[8px]">
-                                                     <div className="border-r border-black p-1.5 h-[35px]">Dispatched through<br/><span className="font-bold">Person</span></div>
-                                                     <div className="p-1.5 h-[35px]">Destination<br/><span className="font-bold text-[9px]">{invoice.specialNote}</span></div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-2 h-[45px]">Reference No. & Date.<br/><span className="font-bold text-[9px]"></span></div>
+                                                     <div className="p-2 h-[45px]">Other References<br/><span className="font-bold text-[9px]"></span></div>
                                                 </div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-2 h-[45px]">Buyer's Order No.<br/><span className="font-bold text-[9px]">{invoice.smcpoNumber}</span></div>
+                                                     <div className="p-2 h-[45px]">Dated<br/><span className="font-bold text-[9px]">{formatDateDDMMYYYY(invoice.date)}</span></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatch Doc No.<br/><span className="font-bold text-[9px]"></span></div>
+                                                     <div className="p-2 h-[45px]">Delivery Note Date<br/><span className="font-bold text-[9px]"></span></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 text-[8px] border-b border-black">
+                                                     <div className="border-r border-black p-2 h-[45px]">Dispatched through<br/><span className="font-bold">Person</span></div>
+                                                     <div className="p-2 h-[45px]">Destination<br/><span className="font-bold text-[9px]">{invoice.specialNote}</span></div>
+                                                </div>
+                                                <div className="p-2 flex-1 min-h-[45px] text-[8px]">Terms of Delivery</div>
                                             </div>
                                         </div>
 
