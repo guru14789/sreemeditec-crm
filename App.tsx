@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
-  Receipt, ShoppingCart,
+  Receipt, ShoppingCart, Wallet,
   Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
@@ -96,7 +96,7 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
 );
 
 export const App: React.FC = () => {
-    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats, attendanceRecords } = useData();
+    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats, attendanceRecords, invoices } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
 
@@ -325,6 +325,25 @@ export const App: React.FC = () => {
             </div>
           </div>
           
+          {activeTab === TabView.BILLING && (
+            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+               {(() => {
+                 const outstanding = invoices
+                    .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status !== 'Cancelled')
+                    .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0);
+                 
+                 return (
+                   <HeaderStatCard 
+                      label="Pending Balance" 
+                      value={`₹${formatIndianNumber(outstanding)}`} 
+                      icon={Wallet} 
+                      colorClass="bg-rose-500"
+                      subText="Outstanding"
+                   />
+                 );
+               })()}
+            </div>
+          )}
           {activeTab === TabView.INVENTORY && (
             <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
                {/* Valuation Calculations */}

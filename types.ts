@@ -127,7 +127,7 @@ export interface Invoice {
   invoiceNumber: string;
   date: string;
   items: InvoiceItem[];
-  status: 'Pending' | 'Paid' | 'Draft' | 'Finalized';
+  status: 'Pending' | 'Paid' | 'Draft' | 'Finalized' | 'Cancelled';
   customerName: string;
   customerHospital?: string;
   customerAddress?: string;
@@ -161,6 +161,7 @@ export interface Invoice {
   buyerGstin?: string;
   warrantyTerms?: string;
   dispatchedThrough?: string;
+  paidAmount?: number;
 }
 
 export interface StockMovement {

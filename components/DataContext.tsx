@@ -333,7 +333,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!currentUser) return;
         const userPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((sum, p) => sum + p.points, 0);
         const userTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
-        const userInvoices = invoices.filter(inv => inv.createdBy === currentUser.name && inv.status !== 'Draft');
+        const userInvoices = invoices.filter(inv => inv.createdBy === currentUser.name && inv.status !== 'Draft' && inv.status !== 'Cancelled');
         const rev = userInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
         setUserStats({

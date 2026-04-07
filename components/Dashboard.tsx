@@ -22,7 +22,9 @@ export const Dashboard: React.FC = () => {
 
     // Filter valid sales (Profit) and exclude Quotations/SupplierPOs (Loss)
     const validInvoices = invoices.filter(inv => 
-        (inv.documentType === 'PO' || !inv.documentType || inv.documentType === 'ServiceOrder') && inv.status !== 'Draft'
+        (inv.documentType === 'PO' || !inv.documentType || inv.documentType === 'ServiceOrder') && 
+        inv.status !== 'Draft' && 
+        inv.status !== 'Cancelled'
     );
 
     const todayInvoices = validInvoices.filter(inv => inv.date === today);
