@@ -184,7 +184,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 ]
             } as any;
 
-            await updateAttendance({ id: editingAttendanceRecord.id, ...updates });
+            await updateAttendance({ ...editingAttendanceRecord, ...updates });
             await addLog('Attendance', 'Admin Overwrite', `Attendance corrected for ${editingAttendanceRecord.userName} on ${editingAttendanceRecord.date}. Reason: ${editReason}`);
             addNotification('Attendance Corrected', `Record for ${editingAttendanceRecord.userName} updated.`, 'success');
             setShowEditAttendanceModal(false);
@@ -267,17 +267,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
         if (record.status === 'Completed') return "Day Locked";
 
-        if (emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') {
-            const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.dueDate === todayStr);
-            const done = empTasks.filter(t => t.status === 'Done').length;
-            return `${done}/${empTasks.length} Tasks`;
-        }
-
-        let ms = record.totalWorkedMs;
+        // If day is locked, or it's a holiday, or they are checked in/started, calculate time
+        let ms = record.totalWorkedMs || 0;
         if (record.status === 'CheckedIn' && record.lastSessionStartTime) {
             ms += currentTime.getTime() - new Date(record.lastSessionStartTime).getTime();
         }
+        
         const remaining = Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - ms);
+        
+        // Show tasks as secondary info for field-inclined roles
+        if (emp.department === 'Service' || emp.department === 'Sales' || emp.department === 'Support') {
+            const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.dueDate === todayStr);
+            const done = empTasks.filter(t => t.status === 'Done').length;
+            const taskInfo = empTasks.length > 0 ? ` (${done}/${empTasks.length} Tasks)` : '';
+            return remaining === 0 ? `Done${taskInfo}` : `${formatDuration(remaining)} Left${taskInfo}`;
+        }
+
         return remaining === 0 ? "Done" : `${formatDuration(remaining)} Left`;
     };
 
@@ -600,7 +605,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                             )}
                         </div>
                         <div className="flex bg-slate-100 p-1 rounded-lg">
-                            {['All', 'Service', 'Administration', 'Support'].map(dept => (
+                            {['All', 'Service', 'Administration', 'Support', 'Sales'].map(dept => (
                                 <button
                                     key={dept}
                                     onClick={() => setFilterStatus(dept)}
@@ -693,12 +698,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                                     date: todayStr,
                                                                     status: 'Completed',
                                                                     checkInTime: new Date().toISOString(),
+                                                                    checkOutTime: null,
                                                                     totalWorkedMs: 0,
+                                                                    lastSessionStartTime: null,
                                                                     workMode: 'Office'
                                                                 };
                                                                 setEditingAttendanceRecord(newRec);
-                                                                setEditCheckIn(newRec.checkInTime.slice(0, 16));
-                                                                setEditCheckOut(newRec.checkInTime.slice(0, 16));
+                                                                setEditCheckIn(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
+                                                                setEditCheckOut(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
                                                             className="text-[8px] font-black uppercase text-indigo-600 hover:text-indigo-700 underline underline-offset-2 ml-1"

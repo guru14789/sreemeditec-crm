@@ -114,17 +114,36 @@ export interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const sanitizeData = (data: any): any => {
-    if (data === undefined) return null;
-    if (data === null || typeof data !== 'object') return data;
+    // Immediate escape for simple null/undefined
+    if (data === null || data === undefined) return null;
+    
+    // Handle Primitive types
+    if (typeof data !== 'object') return data;
+    
+    // Handle Firestore Timestamps / Dates
     if (typeof data.toDate === 'function') return data.toDate().toISOString();
-    if (data instanceof Date) return data.toISOString();
-    if (Array.isArray(data)) return data.map(sanitizeData);
+    if (data instanceof Date) return isNaN(data.getTime()) ? null : data.toISOString();
 
+    // Handle Arrays
+    if (Array.isArray(data)) {
+        return data
+            .map(sanitizeData)
+            .filter(item => item !== undefined && item !== null);
+    }
+
+    // Handle Objects
     const plain: any = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
+        
+        // Explicitly skip functions and undefined values
         if (typeof value === 'function' || value === undefined) return;
-        plain[key] = sanitizeData(value);
+        
+        const sanitizedValue = sanitizeData(value);
+        // Only add key if the sanitized value is also not undefined
+        if (sanitizedValue !== undefined) {
+            plain[key] = sanitizedValue;
+        }
     });
     return plain;
 };
@@ -169,22 +188,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const addLog = async (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => {
         if (!currentUser) return;
         const logId = `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-        const log: LogEntry = {
+        const baseLog: LogEntry = {
             id: logId,
             timestamp: new Date().toISOString(),
-            userName: currentUser.name,
-            userRole: currentUser.role,
+            userName: currentUser.name || 'Unknown',
+            userRole: currentUser.role || 'User',
             category,
             action,
             details,
         };
         
-        // Only add if explicitly provided
+        const log: LogEntry = { ...baseLog };
         if (before !== undefined) log.beforeValues = sanitizeData(before);
         if (after !== undefined) log.afterValues = sanitizeData(after);
 
-        auditBatcher.enqueue(log);
-        setLogs(prev => [log, ...prev].slice(0, 1000));
+        const cleanLog = sanitizeData(log);
+        auditBatcher.enqueue(cleanLog);
+        setLogs(prev => [cleanLog, ...prev].slice(0, 1000));
     };
 
     // 3. LISTENERS

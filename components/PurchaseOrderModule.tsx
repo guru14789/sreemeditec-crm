@@ -66,7 +66,7 @@ export const PurchaseOrderModule: React.FC = () => {
         if (viewState === 'builder' && !editingId && !order.invoiceNumber) {
             setOrder(prev => ({
                 ...prev,
-                invoiceNumber: `SMCPO ${String(invoices.filter(i => i.documentType === 'PO').length + 151).padStart(3, '0')}`
+                invoiceNumber: `SMCPO/26-27/${String(invoices.filter(i => (i.invoiceNumber || '').startsWith('SMCPO')).length + 1)}`
             }));
         }
     }, [viewState, editingId, invoices]);
@@ -474,7 +474,10 @@ export const PurchaseOrderModule: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {invoices.filter(i => i.documentType === 'PO').map(inv => (
+                                {invoices
+                                    .filter(i => (i.invoiceNumber || '').startsWith('SMCPO'))
+                                    .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
+                                    .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>

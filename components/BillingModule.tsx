@@ -36,18 +36,18 @@ const numberToWords = (num: number): string => {
 
 const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const items = invoice.items || [];
-    const freight = invoice.freightAmount || 0;
-    const freightTax = (freight * (invoice.freightTaxRate || 0)) / 100;
+    const freight = Number(invoice.freightAmount) || 0;
+    const freightTax = (freight * (Number(invoice.freightTaxRate) || 0)) / 100;
     
-    const itemsTaxable = items.reduce((sum, p) => sum + ((p.quantity || 0) * (p.unitPrice || 0)), 0);
-    const itemsTax = items.reduce((sum, p) => sum + (((p.quantity || 0) * (p.unitPrice || 0)) * ((p.taxRate || 0) / 100)), 0);
+    const itemsTaxable = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
+    const itemsTax = items.reduce((sum, p) => sum + (((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)) * ((Number(p.taxRate) || 0) / 100)), 0);
     
     const taxableValue = itemsTaxable + freight;
     const taxTotal = itemsTax + freightTax;
     
     const cgst = taxTotal / 2;
     const sgst = taxTotal / 2;
-    const totalQty = items.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
     const grandTotal = taxableValue + taxTotal;
     const freightTotal = freight + freightTax;
     
@@ -77,7 +77,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         deliveryTime: 'Immediately',
         specialNote: 'Chennai',
         dispatchedThrough: 'Person',
-        documentType: 'PO'
+        documentType: 'Invoice'
     });
 
 
@@ -85,7 +85,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         if (viewState === 'builder' && !editingId && !invoice.invoiceNumber) {
             setInvoice(prev => ({
                 ...prev,
-                invoiceNumber: `SM/25-26/${String(invoices.filter(i => i.documentType === 'PO' || !i.documentType).length + 135).padStart(4, '0')}`
+                invoiceNumber: `SM/26-27/${String(invoices.filter(i => (i.invoiceNumber || '').startsWith('SM/')).length + 135).padStart(4, '0')}`
             }));
         }
     }, [viewState, editingId, invoices.length]);
@@ -348,6 +348,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         const finalData: Invoice = {
             ...invoice as Invoice,
             id: editingId || `INV-${Date.now()}`,
+            items: (invoice.items || []).map(item => ({
+                ...item,
+                quantity: Number(item.quantity) || 0,
+                unitPrice: Number(item.unitPrice) || 0,
+                taxRate: Number(item.taxRate) || 0,
+                amount: Number(item.amount) || 0,
+                gstValue: Number(item.gstValue) || 0,
+                priceWithGst: Number(item.priceWithGst) || 0
+            })),
+            freightAmount: Number(invoice.freightAmount) || 0,
+            freightTaxRate: Number(invoice.freightTaxRate) || 0,
             subtotal: invTotals.taxableValue,
             taxTotal: invTotals.taxTotal,
             grandTotal: invTotals.grandTotal,
@@ -415,21 +426,24 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                 if (item.id === id) {
                     let finalVal = value;
                     if (field === 'quantity' || field === 'unitPrice' || field === 'taxRate') {
-                        finalVal = value === '' ? 0 : (isNaN(Number(value)) ? item[field] : Number(value));
+                        // Allow typing decimals by only converting if it is a safe complete number strings
+                        // we keep the raw string so user can type "10."
+                        finalVal = value === '' ? '' : (isNaN(Number(value)) ? item[field] : value);
                     }
                     
                     const updated = { ...item, [field]: finalVal };
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
-                            updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
+                            updated.unitPrice = masterProd.sellingPrice;
                             updated.hsn = masterProd.hsn || '';
                             updated.features = masterProd.description || '';
                             updated.taxRate = masterProd.taxRate || 18;
                         }
                     }
-                    updated.amount = (updated.quantity || 0) * (updated.unitPrice || 0);
-                    updated.gstValue = updated.amount * ((updated.taxRate || 0) / 100);
+                    // Calculations work with strings automatically in JS math
+                    updated.amount = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
+                    updated.gstValue = updated.amount * ((Number(updated.taxRate) || 0) / 100);
                     updated.priceWithGst = updated.amount + updated.gstValue;
                     return updated;
                 }
@@ -464,7 +478,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {invoices.filter(i => i.documentType === 'PO' || !i.documentType).map(inv => (
+                                {invoices
+                                    .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
+                                    .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
+                                    .map(inv => (
                                     <tr key={inv.id} onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
@@ -662,11 +679,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                                 </div>
                                                 <div className="col-span-6 md:col-span-3">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Amount (₹)</label>
-                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.freightAmount || 0} onChange={e => setInvoice({...invoice, freightAmount: Number(e.target.value) || 0})} />
+                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.freightAmount ?? 0} onChange={e => setInvoice({...invoice, freightAmount: e.target.value as any})} />
                                                 </div>
                                                 <div className="col-span-6 md:col-span-3">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={invoice.freightTaxRate || 0} onChange={e => setInvoice({...invoice, freightTaxRate: Number(e.target.value) || 0})} />
+                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={invoice.freightTaxRate ?? 0} onChange={e => setInvoice({...invoice, freightTaxRate: e.target.value as any})} />
                                                 </div>
                                             </div>
                                         </div>

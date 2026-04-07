@@ -135,7 +135,7 @@ export interface Invoice {
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
-  documentType?: 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
+  documentType?: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   createdBy?: string;
   smcpoNumber?: string;
   deliveryTime?: string;
