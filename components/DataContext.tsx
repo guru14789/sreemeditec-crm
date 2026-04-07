@@ -114,6 +114,7 @@ export interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const sanitizeData = (data: any): any => {
+    if (data === undefined) return null;
     if (data === null || typeof data !== 'object') return data;
     if (typeof data.toDate === 'function') return data.toDate().toISOString();
     if (data instanceof Date) return data.toISOString();
@@ -122,7 +123,7 @@ const sanitizeData = (data: any): any => {
     const plain: any = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
-        if (typeof value === 'function') return;
+        if (typeof value === 'function' || value === undefined) return;
         plain[key] = sanitizeData(value);
     });
     return plain;
@@ -176,9 +177,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             category,
             action,
             details,
-            beforeValues: before,
-            afterValues: after
         };
+        
+        // Only add if explicitly provided
+        if (before !== undefined) log.beforeValues = sanitizeData(before);
+        if (after !== undefined) log.afterValues = sanitizeData(after);
+
         auditBatcher.enqueue(log);
         setLogs(prev => [log, ...prev].slice(0, 1000));
     };
@@ -402,32 +406,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await signOut(auth);
     };
 
-    const addClient = async (c: Client) => { await setDoc(doc(db, "clients", c.id), c); await addLog('System', 'Added Client', `New client: ${c.name}`); };
+    const addClient = async (c: Client) => { await setDoc(doc(db, "clients", c.id), sanitizeData(c)); await addLog('System', 'Added Client', `New client: ${c.name}`); };
     const updateClient = async (id: string, c: Partial<Client>) => {
         const existing = clients.find(cl => cl.id === id);
-        await updateDoc(doc(db, "clients", id), c);
+        await updateDoc(doc(db, "clients", id), sanitizeData(c));
         await addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c });
     };
     const removeClient = async (id: string) => { await deleteDoc(doc(db, "clients", id)); await addLog('System', 'Removed Client', `Client deleted: ${id}`); };
     
-    const addProduct = async (p: Product) => { await setDoc(doc(db, "products", p.id), p); await addLog('Inventory', 'Added Product', `Item: ${p.name}`); };
+    const addProduct = async (p: Product) => { await setDoc(doc(db, "products", p.id), sanitizeData(p)); await addLog('Inventory', 'Added Product', `Item: ${p.name}`); };
     const updateProduct = async (id: string, p: Partial<Product>) => {
         const existing = products.find(pr => pr.id === id);
-        await updateDoc(doc(db, "products", id), p);
+        await updateDoc(doc(db, "products", id), sanitizeData(p));
         await addLog('Inventory', 'Updated Product', `Product modified: ${existing?.name || id}`, existing, { ...existing, ...p });
     };
     const removeProduct = async (id: string) => { await deleteDoc(doc(db, "products", id)); await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); };
 
-    const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), rec, { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
+    const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
 
     const addNotification = () => {};
     const markNotificationRead = () => {};
     const clearAllNotifications = () => {};
     
-    const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), l); await addLog('Leads', 'New Lead', `${l.name}`); };
+    const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), sanitizeData(l)); await addLog('Leads', 'New Lead', `${l.name}`); };
     const updateLead = async (id: string, u: Partial<Lead>) => {
         const existing = leads.find(l => l.id === id);
-        await updateDoc(doc(db, "leads", id), u);
+        await updateDoc(doc(db, "leads", id), sanitizeData(u));
         await addLog('Leads', 'Updated Lead', `Lead mod: ${existing?.name || id}`, existing, { ...existing, ...u });
     };
     const removeLead = async (id: string) => { await deleteDoc(doc(db, "leads", id)); await addLog('Leads', 'Deleted Lead', id); };
@@ -435,7 +439,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const seedDatabase = async () => { await addLog('System', 'DB Seed', 'Sync triggered'); };
     const updateInvoice = async (id: string, u: Partial<Invoice>) => {
         const existing = invoices.find(i => i.id === id);
-        await updateDoc(doc(db, "invoices", id), u);
+        await updateDoc(doc(db, "invoices", id), sanitizeData(u));
         await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
     };
 
@@ -485,70 +489,70 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updateTaskRemote = async (id: string, u: Partial<Task>) => {
         const existing = tasks.find(t => t.id === id);
-        await updateDoc(doc(db, "tasks", id), u);
+        await updateDoc(doc(db, "tasks", id), sanitizeData(u));
         await addLog('Tasks', 'Modified Task', existing?.title || id, existing, { ...existing, ...u });
     };
-    const addTask = async (t: Task) => { await setDoc(doc(db, "tasks", t.id), t); await addLog('Tasks', 'New Task', t.title); };
+    const addTask = async (t: Task) => { await setDoc(doc(db, "tasks", t.id), sanitizeData(t)); await addLog('Tasks', 'New Task', t.title); };
     const removeTask = async (id: string) => { await deleteDoc(doc(db, "tasks", id)); await addLog('Tasks', 'Deleted Task', id); };
 
-    const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), t); await addLog('System', 'New Ticket', t.issue); };
-    const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), u); await addLog('System', 'Updated Ticket', id); };
+    const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t)); await addLog('System', 'New Ticket', t.issue); };
+    const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
 
-    const addExpense = async (e: ExpenseRecord) => { await setDoc(doc(db, "expenses", e.id), e); await addLog('Billing', 'New Expense', `₹${e.amount}`); };
+    const addExpense = async (e: ExpenseRecord) => { await setDoc(doc(db, "expenses", e.id), sanitizeData(e)); await addLog('Billing', 'New Expense', `₹${e.amount}`); };
     const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => { await updateDoc(doc(db, "expenses", id), { status }); await addLog('Billing', 'Expense Status', `${id} -> ${status}`); };
 
-    const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), e); await addLog('System', 'New Employee', e.name); };
+    const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), sanitizeData(e)); await addLog('System', 'New Employee', e.name); };
     const updateEmployee = async (id: string, u: Partial<Employee>) => {
         const existing = employees.find(e => e.id === id);
-        await updateDoc(doc(db, "employees", id), u);
+        await updateDoc(doc(db, "employees", id), sanitizeData(u));
         await addLog('System', 'Updated Employee', existing?.name || id, existing, { ...existing, ...u });
     };
     const removeEmployee = async (id: string) => { await deleteDoc(doc(db, "employees", id)); await addLog('System', 'Removed Employee', id); };
 
-    const addDeliveryChallan = async (c: DeliveryChallan) => { await setDoc(doc(db, "deliveryChallans", c.id), c); await addLog('System', 'New Challan', c.challanNumber); };
+    const addDeliveryChallan = async (c: DeliveryChallan) => { await setDoc(doc(db, "deliveryChallans", c.id), sanitizeData(c)); await addLog('System', 'New Challan', c.challanNumber); };
     const updateDeliveryChallan = async (id: string, u: Partial<DeliveryChallan>) => {
         const existing = deliveryChallans.find(c => c.id === id);
-        await updateDoc(doc(db, "deliveryChallans", id), u);
+        await updateDoc(doc(db, "deliveryChallans", id), sanitizeData(u));
         await addLog('System', 'Updated Challan', existing?.challanNumber || id, existing, { ...existing, ...u });
     };
     const removeDeliveryChallan = async (id: string) => { await deleteDoc(doc(db, "deliveryChallans", id)); await addLog('System', 'Removed Challan', id); };
 
-    const addInstallationReport = async (r: ServiceReport) => { await setDoc(doc(db, "installationReports", r.id), r); await addLog('System', 'Created Installation Report', r.reportNumber); };
+    const addInstallationReport = async (r: ServiceReport) => { await setDoc(doc(db, "installationReports", r.id), sanitizeData(r)); await addLog('System', 'Created Installation Report', r.reportNumber); };
     const updateInstallationReport = async (id: string, u: Partial<ServiceReport>) => {
         const existing = installationReports.find(r => r.id === id);
-        await updateDoc(doc(db, "installationReports", id), u);
+        await updateDoc(doc(db, "installationReports", id), sanitizeData(u));
         await addLog('System', 'Updated Installation Report', existing?.reportNumber || id, existing, { ...existing, ...u });
     };
     const removeInstallationReport = async (id: string) => { await deleteDoc(doc(db, "installationReports", id)); await addLog('System', 'Removed Installation Report', id); };
 
-    const addServiceReport = async (r: ServiceReport) => { await setDoc(doc(db, "serviceReports", r.id), r); await addLog('System', 'Created Service Report', r.reportNumber); };
+    const addServiceReport = async (r: ServiceReport) => { await setDoc(doc(db, "serviceReports", r.id), sanitizeData(r)); await addLog('System', 'Created Service Report', r.reportNumber); };
     const updateServiceReport = async (id: string, u: Partial<ServiceReport>) => {
         const existing = serviceReports.find(r => r.id === id);
-        await updateDoc(doc(db, "serviceReports", id), u);
+        await updateDoc(doc(db, "serviceReports", id), sanitizeData(u));
         await addLog('System', 'Updated Service Report', existing?.reportNumber || id, existing, { ...existing, ...u });
     };
     const removeServiceReport = async (id: string) => { await deleteDoc(doc(db, "serviceReports", id)); await addLog('System', 'Removed Service Report', id); };
 
-    const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), h); await addLog('System', 'Added Holiday', h.name); };
+    const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), sanitizeData(h)); await addLog('System', 'Added Holiday', h.name); };
     const removeHoliday = async (id: string) => { await deleteDoc(doc(db, "holidays", id)); await addLog('System', 'Removed Holiday', id); };
 
     const addPoints = async (amount: number, cat: PointHistory['category'], desc: string, target?: string) => {
         const id = `PT-${Date.now()}`;
         const item = { id, userId: target || currentUser?.id || 'sys', points: amount, category: cat, description: desc, date: new Date().toISOString() };
-        await setDoc(doc(db, "pointHistory", id), item);
+        await setDoc(doc(db, "pointHistory", id), sanitizeData(item));
         await addLog('System', 'Points Gift', `${amount} to ${target || 'User'}`);
     };
 
-    const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), m); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
-    const addVendor = async (v: Vendor) => { await setDoc(doc(db, "vendors", v.id), v); await addLog('System', 'Added Vendor', v.name); };
+    const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
+    const addVendor = async (v: Vendor) => { await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); await addLog('System', 'Added Vendor', v.name); };
     const updateVendor = async (id: string, v: Partial<Vendor>) => {
         const existing = vendors.find(ven => ven.id === id);
-        await updateDoc(doc(db, "vendors", id), v);
+        await updateDoc(doc(db, "vendors", id), sanitizeData(v));
         await addLog('System', 'Updated Vendor', existing?.name || id, existing, { ...existing, ...v });
     };
     const removeVendor = async (id: string) => { await deleteDoc(doc(db, "vendors", id)); await addLog('System', 'Removed Vendor', id); };
 
-    const addInvoice = async (i: Invoice) => { await setDoc(doc(db, "invoices", i.id), i); await addLog('Billing', 'Invoice Generated', i.invoiceNumber); };
+    const addInvoice = async (i: Invoice) => { await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); await addLog('Billing', 'Invoice Generated', i.invoiceNumber); };
     const fetchAuditLogs = async (days: number = 7) => {
         let all: LogEntry[] = [];
         for (let i = 0; i < days; i++) {
