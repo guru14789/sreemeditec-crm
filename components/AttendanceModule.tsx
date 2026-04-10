@@ -153,25 +153,62 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         if (!editingAttendanceRecord || !editReason) return;
         
         try {
-            const checkInDate = new Date(editCheckIn);
-            const checkOutDate = new Date(editCheckOut);
+            const checkInDate = editCheckIn ? new Date(editCheckIn) : null;
+            const checkOutDate = editCheckOut ? new Date(editCheckOut) : null;
             
-            if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
-                alert("Invalid Date or Time");
+            if (!checkInDate && !checkOutDate) {
+                alert("Please provide at least a Check-In or Check-Out time.");
                 return;
             }
 
-            const diffMs = checkOutDate.getTime() - checkInDate.getTime();
-            if (diffMs < 0) {
-                alert("Check-out cannot be earlier than Check-in.");
+            if (checkInDate && isNaN(checkInDate.getTime())) {
+                alert("Invalid Check-In Date or Time");
                 return;
+            }
+
+            if (checkOutDate && isNaN(checkOutDate.getTime())) {
+                alert("Invalid Check-Out Date or Time");
+                return;
+            }
+
+            let diffMs = 0;
+            let status: AttendanceRecord['status'] = 'CheckedIn';
+            let lastSession: string | null = null;
+
+            if (checkInDate && checkOutDate) {
+                diffMs = checkOutDate.getTime() - checkInDate.getTime();
+                if (diffMs < 0) {
+                    alert("Check-out cannot be earlier than Check-in.");
+                    return;
+                }
+                status = 'Completed';
+                lastSession = null;
+            } else if (checkInDate) {
+                status = 'CheckedIn';
+                lastSession = checkInDate.toISOString();
+                diffMs = 0;
+            } else if (checkOutDate) {
+                // If only checkout given, we try to use existing checkin if any
+                const existingIn = editingAttendanceRecord.checkInTime ? new Date(editingAttendanceRecord.checkInTime) : null;
+                if (!existingIn) {
+                    alert("Cannot log Check-Out without a Check-In record.");
+                    return;
+                }
+                diffMs = checkOutDate.getTime() - existingIn.getTime();
+                if (diffMs < 0) {
+                    alert("Check-out cannot be earlier than Check-in.");
+                    return;
+                }
+                status = 'Completed';
+                lastSession = null;
             }
 
             const updates: Partial<AttendanceRecord> = {
-                checkInTime: checkInDate.toISOString(),
-                checkOutTime: checkOutDate.toISOString(),
+                checkInTime: checkInDate ? checkInDate.toISOString() : editingAttendanceRecord.checkInTime,
+                checkOutTime: checkOutDate ? checkOutDate.toISOString() : null,
                 totalWorkedMs: diffMs,
-                status: 'Completed',
+                status: status,
+                lastSessionStartTime: lastSession,
                 editHistory: [
                     ...(editingAttendanceRecord.editHistory || []),
                     { 
@@ -691,21 +728,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                const newRec: AttendanceRecord = {
+                                                                 const newRec: AttendanceRecord = {
                                                                     id: `${emp.id}_${todayStr}`,
                                                                     userId: emp.id,
                                                                     userName: emp.name,
                                                                     date: todayStr,
-                                                                    status: 'Completed',
+                                                                    status: 'CheckedIn',
                                                                     checkInTime: new Date().toISOString(),
                                                                     checkOutTime: null,
                                                                     totalWorkedMs: 0,
-                                                                    lastSessionStartTime: null,
+                                                                    lastSessionStartTime: new Date().toISOString(),
                                                                     workMode: 'Office'
                                                                 };
                                                                 setEditingAttendanceRecord(newRec);
                                                                 setEditCheckIn(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
-                                                                setEditCheckOut(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
+                                                                setEditCheckOut('');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
                                                             className="text-[8px] font-black uppercase text-indigo-600 hover:text-indigo-700 underline underline-offset-2 ml-1"
