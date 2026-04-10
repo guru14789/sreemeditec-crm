@@ -205,12 +205,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         const hours = istDate.getHours();
         const minutes = istDate.getMinutes();
 
-        // Check if within 9:30 AM - 9:45 AM IST
-        const isWithinWindow = (hours === 9 && minutes >= 30 && minutes <= 45);
+        // Check if within 9:15 AM - 9:50 AM IST
+        const isWithinWindow = (hours === 9 && minutes >= 15 && minutes <= 50);
         
         // If not checked in, check the window
         if (!isCheckedIn && !isWithinWindow && !isAdmin) {
-            alert("Mandatory Check-in window is 9:30 AM - 9:45 AM IST. You have missed this window. Please contact Admin to log your attendance manually.");
+            alert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact Admin to log your attendance manually.");
             return;
         }
 
