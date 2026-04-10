@@ -219,7 +219,8 @@ export interface AttendanceRecord {
   checkOutTime: string | null;
   totalWorkedMs: number;
   lastSessionStartTime: string | null;
-  status: 'CheckedIn' | 'Paused' | 'Completed';
+  status: 'CheckedIn' | 'Paused' | 'Completed' | 'OnLeave';
+  leaveReason?: string;
   workMode: 'Office' | 'Field' | 'Remote';
   editHistory?: {
     editedAt: string;

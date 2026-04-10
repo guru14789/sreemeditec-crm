@@ -34,6 +34,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     const [editCheckIn, setEditCheckIn] = useState('');
     const [editCheckOut, setEditCheckOut] = useState('');
     const [editReason, setEditReason] = useState('');
+    const [editStatus, setEditStatus] = useState<'CheckedIn' | 'Paused' | 'Completed' | 'OnLeave'>('Completed');
+    const [editLeaveReason, setEditLeaveReason] = useState('');
 
     const REQUIRED_OFFICE_HOURS = 8;
 
@@ -172,19 +174,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             }
 
             let diffMs = 0;
-            let status: AttendanceRecord['status'] = 'CheckedIn';
+            let finalStatus: AttendanceRecord['status'] = editStatus;
             let lastSession: string | null = null;
 
-            if (checkInDate && checkOutDate) {
+            if (editStatus === 'OnLeave') {
+                finalStatus = 'OnLeave';
+                lastSession = null;
+                diffMs = 0;
+            } else if (checkInDate && checkOutDate) {
                 diffMs = checkOutDate.getTime() - checkInDate.getTime();
                 if (diffMs < 0) {
                     alert("Check-out cannot be earlier than Check-in.");
                     return;
                 }
-                status = 'Completed';
+                finalStatus = 'Completed';
                 lastSession = null;
             } else if (checkInDate) {
-                status = 'CheckedIn';
+                finalStatus = 'CheckedIn';
                 lastSession = checkInDate.toISOString();
                 diffMs = 0;
             } else if (checkOutDate) {
@@ -199,16 +205,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                     alert("Check-out cannot be earlier than Check-in.");
                     return;
                 }
-                status = 'Completed';
+                finalStatus = 'Completed';
                 lastSession = null;
             }
 
             const updates: Partial<AttendanceRecord> = {
-                checkInTime: checkInDate ? checkInDate.toISOString() : editingAttendanceRecord.checkInTime,
-                checkOutTime: checkOutDate ? checkOutDate.toISOString() : null,
-                totalWorkedMs: diffMs,
-                status: status,
-                lastSessionStartTime: lastSession,
+                checkInTime: finalStatus === 'OnLeave' ? null : (checkInDate ? checkInDate.toISOString() : editingAttendanceRecord.checkInTime),
+                checkOutTime: finalStatus === 'OnLeave' ? null : (checkOutDate ? checkOutDate.toISOString() : null),
+                totalWorkedMs: finalStatus === 'OnLeave' ? 0 : diffMs,
+                status: finalStatus,
+                leaveReason: finalStatus === 'OnLeave' ? editLeaveReason : '',
+                lastSessionStartTime: finalStatus === 'OnLeave' ? null : lastSession,
                 editHistory: [
                     ...(editingAttendanceRecord.editHistory || []),
                     { 
@@ -245,9 +252,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         // Check if within 9:15 AM - 9:50 AM IST
         const isWithinWindow = (hours === 9 && minutes >= 15 && minutes <= 50);
         
-        // If not checked in, check the window
-        if (!isCheckedIn && !isWithinWindow && !isAdmin) {
-            alert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact Admin to log your attendance manually.");
+        // If not checked in, check the window (Applies to all users including Admin)
+        if (!isCheckedIn && !isWithinWindow) {
+            alert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact an Admin to log your attendance manually.");
             return;
         }
 
@@ -406,9 +413,121 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         addNotification('Report Generated', `Monthly attendance for ${monthYear} has been exported.`, 'success');
     };
 
+    const handleExportIndividualReport = (emp: Employee) => {
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const now = new Date();
+        const monthYear = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(16, 185, 129); // Emerald-600
+        doc.text(`Individual Performance Report`, 14, 25);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100, 116, 139); // Slate-500
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Staff: ${emp.name} (${emp.department})`, 14, 32);
+        doc.text(`Period: ${monthYear}`, 14, 38);
+        
+        doc.setDrawColor(226, 232, 240); // Slate-200
+        doc.line(14, 45, 196, 45);
+
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const currentDate = now.getDate();
+        const currentYearMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        
+        const empRecords = attendanceRecords.filter(r => 
+            r.userId === emp.id && 
+            r.date.startsWith(currentYearMonth)
+        );
+
+        const tableData = [];
+        let totalWorkedMs = 0;
+        let daysPresent = 0;
+        let daysOnLeave = 0;
+
+        for (let i = 1; i <= currentDate; i++) {
+            const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
+            const dateObj = new Date(currentYear, currentMonth, i);
+            const dayRecord = empRecords.find(r => r.date === dateStr);
+            const isHoliday = holidays.find(h => h.date === dateStr);
+            const isSunday = dateObj.getDay() === 0;
+
+            let status = 'Absent';
+            let duration = '0h 0m';
+            let remarks = '';
+
+            if (isHoliday) {
+                status = 'Holiday';
+                duration = '8h 0m';
+                remarks = isHoliday.name;
+                totalWorkedMs += (8 * 3600000);
+                daysPresent++;
+            } else if (isSunday) {
+                status = 'Sunday';
+                duration = '8h 0m';
+                remarks = 'Weekend Credit';
+                totalWorkedMs += (8 * 3600000);
+                daysPresent++;
+            } else if (dayRecord) {
+                if (dayRecord.status === 'OnLeave') {
+                    status = 'On Leave';
+                    duration = '-';
+                    remarks = dayRecord.leaveReason || 'Reason Not Specified';
+                    daysOnLeave++;
+                } else {
+                    status = 'Present';
+                    duration = formatDuration(dayRecord.totalWorkedMs || 0);
+                    totalWorkedMs += (dayRecord.totalWorkedMs || 0);
+                    daysPresent++;
+                    remarks = dayRecord.workMode;
+                }
+            }
+
+            tableData.push([
+                dateStr,
+                dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
+                status,
+                duration,
+                remarks
+            ]);
+        }
+
+        autoTable(doc, {
+            startY: 55,
+            head: [['Date', 'Day', 'Status', 'Work Duration', 'Remarks / Reason']],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+            columnStyles: {
+                0: { cellWidth: 25 },
+                1: { cellWidth: 15 },
+                2: { cellWidth: 25 },
+                3: { cellWidth: 30 },
+                4: { cellWidth: 'auto' }
+            }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Summary Statistics`, 14, finalY);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Total Days Present: ${daysPresent}`, 14, finalY + 8);
+        doc.text(`Total Days on Leave: ${daysOnLeave}`, 14, finalY + 14);
+        doc.text(`Total Worked Hours: ${(totalWorkedMs / 3600000).toFixed(1)}h`, 14, finalY + 20);
+
+        doc.save(`Attendance_Report_${emp.name.replace(' ', '_')}_${monthYear.replace(' ', '_')}.pdf`);
+        addNotification('Report Generated', `Individual report for ${emp.name} has been exported.`, 'success');
+    };
+
     const getStatusBadge = (status: string, empId: string) => {
         const record = attendanceRecords.find(r => r.userId === empId && r.date === todayStr);
         if (isHolidayToday) return 'bg-amber-100 text-amber-800 border-amber-200';
+        if (record?.status === 'OnLeave') return 'bg-rose-100 text-rose-800 border-rose-200';
         if (record?.status === 'Completed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
         if (record?.status === 'CheckedIn') return 'bg-blue-50 text-blue-700 border-blue-100';
         if (record?.status === 'Paused') return 'bg-amber-50 text-amber-700 border-amber-100';
@@ -717,6 +836,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                                 setEditingAttendanceRecord(rec);
                                                                 setEditCheckIn(rec.checkInTime ? rec.checkInTime.slice(0, 16) : '');
                                                                 setEditCheckOut(rec.checkOutTime ? rec.checkOutTime.slice(0, 16) : '');
+                                                                setEditStatus(rec.status);
+                                                                setEditLeaveReason(rec.leaveReason || '');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
                                                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -724,11 +845,23 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                             <Edit2 size={13} />
                                                         </button>
                                                     )}
+                                                    {isAdmin && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleExportIndividualReport(emp);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                            title="Download Individual Report"
+                                                        >
+                                                            <Download size={13} />
+                                                        </button>
+                                                    )}
                                                     {isAdmin && !rec && (
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                 const newRec: AttendanceRecord = {
+                                                                const newRec: AttendanceRecord = {
                                                                     id: `${emp.id}_${todayStr}`,
                                                                     userId: emp.id,
                                                                     userName: emp.name,
@@ -743,6 +876,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                                 setEditingAttendanceRecord(newRec);
                                                                 setEditCheckIn(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
                                                                 setEditCheckOut('');
+                                                                setEditStatus('CheckedIn');
+                                                                setEditLeaveReason('');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
                                                             className="text-[8px] font-black uppercase text-indigo-600 hover:text-indigo-700 underline underline-offset-2 ml-1"
@@ -771,29 +906,56 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                             <button onClick={() => setShowEditAttendanceModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
                         </div>
                         <div className="p-8 space-y-5">
-                            <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-In</label>
-                                <input 
-                                    type="datetime-local" 
-                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
-                                    value={editCheckIn} 
-                                    onChange={e => setEditCheckIn(e.target.value)}
-                                />
+                            <div className="flex bg-slate-100 p-1 rounded-2xl mb-4">
+                                {['CheckedIn', 'Completed', 'OnLeave'].map((s) => (
+                                    <button 
+                                        key={s}
+                                        onClick={() => setEditStatus(s as any)}
+                                        className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${editStatus === s ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}
+                                    >
+                                        {s === 'OnLeave' ? 'On Leave' : s}
+                                    </button>
+                                ))}
                             </div>
+
+                            {editStatus !== 'OnLeave' ? (
+                                <>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-In</label>
+                                        <input 
+                                            type="datetime-local" 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                            value={editCheckIn} 
+                                            onChange={e => setEditCheckIn(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-Out</label>
+                                        <input 
+                                            type="datetime-local" 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                            value={editCheckOut} 
+                                            onChange={e => setEditCheckOut(e.target.value)}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="space-y-1 animate-in slide-in-from-top-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Leave Reason</label>
+                                    <textarea 
+                                        className="w-full border border-rose-200 bg-rose-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px] text-rose-800 placeholder:text-rose-300" 
+                                        placeholder="e.g. Sick Leave, Personal Work, Maternity..." 
+                                        value={editLeaveReason} 
+                                        onChange={e => setEditLeaveReason(e.target.value)}
+                                    />
+                                </div>
+                            )}
+
                             <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-Out</label>
-                                <input 
-                                    type="datetime-local" 
-                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
-                                    value={editCheckOut} 
-                                    onChange={e => setEditCheckOut(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reason for Adjustment</label>
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Adjustment Note (Audit)</label>
                                 <textarea 
-                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px]" 
-                                    placeholder="e.g. Forgot to punch out, system error..." 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[60px]" 
+                                    placeholder="Explanation for this manual change..." 
                                     value={editReason} 
                                     onChange={e => setEditReason(e.target.value)}
                                 />
