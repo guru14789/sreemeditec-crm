@@ -358,6 +358,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
             let totalDaysPresent = 0;
             let totalWorkedMs = 0;
+            const absentDates: string[] = [];
+            const leaveDates: string[] = [];
 
             for (let i = 1; i <= currentDate; i++) {
                 const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
@@ -366,15 +368,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 const isHoliday = holidays.some(h => h.date === dateStr);
                 
                 if (dateObj.getDay() === 0 || isHoliday) {
-                    // Credit day for Sunday or Holiday
                     totalDaysPresent++;
-                    // Credit 8 hours for Sunday or Holiday
                     totalWorkedMs += (REQUIRED_OFFICE_HOURS * 3600000);
                 } else if (dayRecord) {
-                    // Credit day for actual work
-                    totalDaysPresent++;
-                    // Credit actual worked hours
-                    totalWorkedMs += (dayRecord.totalWorkedMs || 0);
+                    if (dayRecord.status === 'OnLeave') {
+                        leaveDates.push(`${i} (${dayRecord.leaveReason || 'No Reason'})`);
+                    } else {
+                        totalDaysPresent++;
+                        totalWorkedMs += (dayRecord.totalWorkedMs || 0);
+                    }
+                } else {
+                    absentDates.push(i.toString());
                 }
             }
 
@@ -392,8 +396,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             return [
                 emp.name,
                 emp.department,
-                emp.role,
                 totalDaysPresent,
+                absentDates.length > 0 ? absentDates.join(', ') : '-',
+                leaveDates.length > 0 ? leaveDates.join(', ') : '-',
                 `${totalHours}h / ${targetHours}h`,
                 empTasks > 0 ? empTasks : '-'
             ];
@@ -401,11 +406,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
         autoTable(doc, {
             startY: 40,
-            head: [['Staff Name', 'Department', 'Role', 'Days Present', 'Total Hours (Actual/Goal)', 'Tasks Completed']],
+            head: [['Staff Name', 'Dept', 'Present', 'Absent (Dates)', 'Leaves (Date: Reason)', 'Worked/Goal', 'Tasks']],
             body: tableData,
             theme: 'grid',
             headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold' },
-            styles: { fontSize: 9, cellPadding: 3 },
+            styles: { fontSize: 8, cellPadding: 2 },
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 20 },
+                2: { cellWidth: 15 },
+                3: { cellWidth: 30 },
+                4: { cellWidth: 50 },
+                5: { cellWidth: 25 },
+                6: { cellWidth: 15 }
+            },
             alternateRowStyles: { fillColor: [245, 255, 250] }
         });
 
