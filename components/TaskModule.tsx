@@ -125,6 +125,7 @@ export const TaskModule: React.FC = () => {
             locationName: newTask.locationName || 'Main Office',
             subTasks: [],
             pointsAwarded: false,
+            timestamp: new Date().toISOString(),
             logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleTimeString() }]
         };
 

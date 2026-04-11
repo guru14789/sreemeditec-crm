@@ -252,8 +252,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
         // Check if within 9:15 AM - 9:50 AM IST
         const isWithinWindow = (hours === 9 && minutes >= 15 && minutes <= 50);
         
-        // If not checked in, check the window (Applies to all users including Admin)
-        if (!isCheckedIn && !isWithinWindow) {
+        // If not checked in, check the window (Applies to all users EXCEPT Super Admin)
+        const isSuperAdmin = me.email?.toLowerCase() === 'sreekumar.career@gmail.com' || me.email?.toLowerCase() === 'admin@demo.com';
+        
+        if (!isCheckedIn && !isWithinWindow && !isSuperAdmin) {
             alert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact an Admin to log your attendance manually.");
             return;
         }

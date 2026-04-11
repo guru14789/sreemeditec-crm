@@ -337,7 +337,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)));
         
         // Dynamic Collections (High Growth): Apply strict limits
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('timestamp', 'desc'), limit(100)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(150)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
         
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
