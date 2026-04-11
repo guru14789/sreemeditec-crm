@@ -90,9 +90,22 @@ export class Archiver {
       "installationReports"
     ];
 
+    const fyId = `FY-${new Date().getFullYear()-1}-${new Date().getFullYear().toString().slice(-2)}`;
+
     for (const colName of collectionsToReset) {
       const snap = await getDocs(collection(db, colName));
-      snap.forEach(d => batch.delete(d.ref));
+      snap.forEach(d => {
+        // 1. Copy to archives collection
+        const archiveRef = doc(db, "archives", `${fyId}_${colName}_${d.id}`);
+        batch.set(archiveRef, {
+          ...d.data(),
+          originalCollection: colName,
+          archivedAt: new Date().toISOString(),
+          fiscalYear: fyId
+        });
+        // 2. Queue for deletion from primary
+        batch.delete(d.ref);
+      });
     }
     
     await batch.commit();

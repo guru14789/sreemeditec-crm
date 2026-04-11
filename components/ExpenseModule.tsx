@@ -10,12 +10,13 @@ interface ExpenseModuleProps {
 }
 
 export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userRole }) => {
-    const { expenses, addExpense, updateExpenseStatus, addNotification } = useData();
+    const { expenses, addExpense, updateExpense, updateExpenseStatus, addNotification } = useData();
     const [showAddModal, setShowAddModal] = useState(false);
     const [viewReceiptModal, setViewReceiptModal] = useState<ExpenseRecord | null>(null);
     const [rejectionModal, setRejectionModal] = useState<string | null>(null); // Stores expense ID
     const [rejectionReason, setRejectionReason] = useState('');
     const [isCompressing, setIsCompressing] = useState(false);
+    const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -123,23 +124,40 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             alert("Please enter amount and description");
             return;
         }
-        const record: ExpenseRecord = {
-            id: `EXP-${Date.now()}`,
-            employeeName: currentUser,
-            date: newExpense.date!,
-            category: newExpense.category as any,
-            amount: Number(newExpense.amount),
-            description: newExpense.description!,
-            status: 'Pending'
-        };
-        if (receiptPreview) {
-            record.receiptUrl = receiptPreview;
+
+        if (editingExpenseId) {
+            const updates: Partial<ExpenseRecord> = {
+                date: newExpense.date!,
+                category: newExpense.category as any,
+                amount: Number(newExpense.amount),
+                description: newExpense.description!,
+            };
+            if (receiptPreview) {
+                updates.receiptUrl = receiptPreview;
+            }
+            updateExpense(editingExpenseId, updates);
+            addNotification('Voucher Updated', `Changes to voucher claim ₹${updates.amount} have been saved.`, 'info');
+        } else {
+            const record: ExpenseRecord = {
+                id: `EXP-${Date.now()}`,
+                employeeName: currentUser,
+                date: newExpense.date!,
+                category: newExpense.category as any,
+                amount: Number(newExpense.amount),
+                description: newExpense.description!,
+                status: 'Pending'
+            };
+            if (receiptPreview) {
+                record.receiptUrl = receiptPreview;
+            }
+            addExpense(record);
+            addNotification('Voucher Submitted', `Your claim for ₹${record.amount} is now pending approval.`, 'info');
         }
-        addExpense(record);
+
         setShowAddModal(false);
+        setEditingExpenseId(null);
         setNewExpense({ date: new Date().toISOString().split('T')[0], category: 'Travel', amount: 0, description: '', status: 'Pending' });
         setReceiptPreview(null);
-        addNotification('Voucher Submitted', `Your claim for ₹${record.amount} is now pending approval.`, 'info');
     };
 
     const handleApprove = (id: string) => {
@@ -299,6 +317,26 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                                                 </button>
                                                             </>
                                                         )}
+                                                        {expense.employeeName === currentUser && expense.status === 'Pending' && (
+                                                            <button 
+                                                                onClick={() => { 
+                                                                    setEditingExpenseId(expense.id);
+                                                                    setNewExpense({
+                                                                        date: expense.date,
+                                                                        category: expense.category,
+                                                                        amount: expense.amount,
+                                                                        description: expense.description,
+                                                                        status: expense.status
+                                                                    });
+                                                                    setReceiptPreview(expense.receiptUrl || null);
+                                                                    setShowAddModal(true);
+                                                                    setActiveMenuId(null);
+                                                                }} 
+                                                                className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors"
+                                                            >
+                                                                <FileText size={14} className="text-indigo-500" /> Edit Claim
+                                                            </button>
+                                                        )}
                                                         <button 
                                                             onClick={() => { setActiveMenuId(null); }}
                                                             className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
@@ -332,8 +370,8 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
                         <div className="p-8 border-b border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">New Reimbursement Voucher</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Submit digital expense proof</p>
+                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{editingExpenseId ? 'Edit Reimbursement Voucher' : 'New Reimbursement Voucher'}</h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{editingExpenseId ? 'Modify existing digital proof' : 'Submit digital expense proof'}</p>
                         </div>
                         <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
                             <div className="grid grid-cols-2 gap-6">
@@ -402,8 +440,10 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-                            <button onClick={() => { setShowAddModal(false); setReceiptPreview(null); }} className="flex-1 bg-white dark:bg-slate-700 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">Cancel</button>
-                            <button onClick={handleAddExpense} disabled={isCompressing} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-medical-500/30 active:scale-95 disabled:opacity-50">Authorize Submission</button>
+                            <button onClick={() => { setShowAddModal(false); setEditingExpenseId(null); setReceiptPreview(null); setNewExpense({ date: new Date().toISOString().split('T')[0], category: 'Travel', amount: 0, description: '', status: 'Pending' }); }} className="flex-1 bg-white dark:bg-slate-700 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">Cancel</button>
+                            <button onClick={handleAddExpense} disabled={isCompressing} className="flex-[2] bg-medical-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-medical-500/30 active:scale-95 disabled:opacity-50">
+                                {editingExpenseId ? 'Save Changes' : 'Authorize Submission'}
+                            </button>
                         </div>
                     </div>
                 </div>

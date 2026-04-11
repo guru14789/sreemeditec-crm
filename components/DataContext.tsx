@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { 
     collection, 
     onSnapshot, 
@@ -10,7 +10,13 @@ import {
     deleteDoc, 
     query, 
     where, 
-    getDocs 
+    getDocs,
+    orderBy,
+    limit,
+    increment,
+    runTransaction,
+    startAfter,
+    writeBatch
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
@@ -89,6 +95,7 @@ export interface DataContextType {
     addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
     updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
     addExpense: (expense: ExpenseRecord) => Promise<void>;
+    updateExpense: (id: string, updates: Partial<ExpenseRecord>) => Promise<void>;
     updateExpenseStatus: (id: string, status: ExpenseRecord['status'], reason?: string) => Promise<void>;
     addEmployee: (emp: Employee) => Promise<void>;
     updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
@@ -109,6 +116,9 @@ export interface DataContextType {
     addHoliday: (holiday: Holiday) => Promise<void>;
     removeHoliday: (id: string) => Promise<void>;
     checkAndPerformMonthReset: () => Promise<void>;
+    
+    // Search
+    searchRecords: <T>(collectionName: string, field: string, value: string) => Promise<T[]>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -155,13 +165,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [invoiceSnap, setInvoiceSnap] = useState<Invoice[]>([]);
+    const [pushedInvoices, setPushedInvoices] = useState<Invoice[]>([]);
+    const invoices = useMemo(() => {
+        const ids = new Set(invoiceSnap.map(i => i.id));
+        return [...invoiceSnap, ...pushedInvoices.filter(i => !ids.has(i.id))].sort((a,b) => b.date.localeCompare(a.date));
+    }, [invoiceSnap, pushedInvoices]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
-    const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
+    const [expenseSnap, setExpenseSnap] = useState<ExpenseRecord[]>([]);
+    const [pushedExpenses, setPushedExpenses] = useState<ExpenseRecord[]>([]);
+    const expenses = useMemo(() => {
+        const ids = new Set(expenseSnap.map(e => e.id));
+        return [...expenseSnap, ...pushedExpenses.filter(e => !ids.has(e.id))].sort((a,b) => b.date.localeCompare(a.date));
+    }, [expenseSnap, pushedExpenses]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [leads, setLeads] = useState<Lead[]>([]);
+    const [leadSnap, setLeadSnap] = useState<Lead[]>([]);
+    const [pushedLeads, setPushedLeads] = useState<Lead[]>([]);
+    const leads = useMemo(() => {
+        const ids = new Set(leadSnap.map(l => l.id));
+        return [...leadSnap, ...pushedLeads.filter(l => !ids.has(l.id))].sort((a,b) => b.lastContact.localeCompare(a.lastContact));
+    }, [leadSnap, pushedLeads]);
     const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
     const [deliveryChallans, setDeliveryChallans] = useState<DeliveryChallan[]>([]);
@@ -305,19 +330,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
-        const unsubClients = onSnapshot(collection(db, "clients"), (s) => setClients(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client)));
-        const unsubVendors = onSnapshot(collection(db, "vendors"), (s) => setVendors(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor)));
-        const unsubProducts = onSnapshot(collection(db, "products"), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)));
-        const unsubLeads = onSnapshot(collection(db, "leads"), (s) => setLeads(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Lead)));
-        const unsubTickets = onSnapshot(collection(db, "serviceTickets"), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)));
-        const unsubInvoices = onSnapshot(collection(db, "invoices"), (s) => setInvoices(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Invoice)));
-        const unsubAttendance = onSnapshot(collection(db, "attendance"), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
-        const unsubExpenses = onSnapshot(collection(db, "expenses"), (s) => setExpenses(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ExpenseRecord)));
-        const unsubTasks = onSnapshot(collection(db, "tasks"), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
-        const unsubHolidays = onSnapshot(collection(db, "holidays"), (s) => setHolidays(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Holiday)));
+        
+        // Optimizing Reads: Apply limits and ordering to large collections
+        const unsubClients = onSnapshot(query(collection(db, "clients"), orderBy('name', 'asc')), (s) => setClients(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client)));
+        const unsubVendors = onSnapshot(query(collection(db, "vendors"), orderBy('name', 'asc')), (s) => setVendors(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor)));
+        const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)));
+        
+        // Dynamic Collections (High Growth): Apply strict limits
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('timestamp', 'desc'), limit(100)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
+        
+        // Save last pointers for pagination
+        const handleSnap = (name: string, snap: any, setter: any) => {
+            if (!snap.empty) {
+                setLastDocs(prev => ({ ...prev, [name]: snap.docs[snap.docs.length - 1] }));
+            }
+            setter(snap.docs.map((d: any) => ({...sanitizeData(d.data()), id: d.id})));
+        };
+
+        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(150)), (s) => handleSnap('invoices', s, setInvoiceSnap));
+        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(15)), (s) => handleSnap('leads', s, setLeadSnap));
+        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(150)), (s) => handleSnap('expenses', s, setExpenseSnap));
+        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(100)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
+        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(50)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
+        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(150)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
+        const unsubEmployees = onSnapshot(collection(db, "employees"), (s) => setEmployees(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Employee)));
+        const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(100)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)));
+        const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(100)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
+        const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(100)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
+
         return () => {
             unsubClients(); unsubVendors(); unsubProducts(); unsubLeads(); unsubTickets();
-            unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubHolidays();
+            unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
+            unsubEmployees(); unsubChallans(); unsubServiceReports(); unsubInstallReports();
         };
     }, [firebaseUser, currentUser]);
 
@@ -325,24 +369,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!firebaseUser || !currentUser) return;
         const unsubPoints = onSnapshot(collection(db, "pointHistory"), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
         const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
-        return () => { unsubPoints(); unsubWinners(); };
+        
+        // Cost Optimization: Listen to the user summary for stats instead of raw records
+        const unsubUserSummary = onSnapshot(doc(db, "userSummaries", currentUser.id), (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                setUserStats(prev => ({
+                    ...prev,
+                    points: data.points || 0,
+                    tasksCompleted: data.tasksCompleted || 0,
+                    salesRevenue: data.salesRevenue || 0
+                }));
+            }
+        });
+
+        // Optimization: Use getDocsFromCache for low-churn collections if possible
+        const loadHolidays = async () => {
+            try {
+                // Try cache first
+                const q = collection(db, "holidays");
+                const snap = await getDocs(q); // SDK automatically handles cache/server
+                setHolidays(snap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
+            } catch (err) {
+                console.error("Holiday fetch error:", err);
+            }
+        };
+        loadHolidays();
+
+        return () => { unsubPoints(); unsubWinners(); unsubUserSummary(); };
     }, [firebaseUser, currentUser]);
 
-    // Calculate Dynamic User Stats
+    // User points update effect
     useEffect(() => {
         if (!currentUser) return;
         const userPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((sum, p) => sum + p.points, 0);
-        const userTasks = tasks.filter(t => t.assignedTo === currentUser.name && t.status === 'Done').length;
-        const userInvoices = invoices.filter(inv => inv.createdBy === currentUser.name && inv.status !== 'Draft' && inv.status !== 'Cancelled');
-        const rev = userInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-
-        setUserStats({
-            points: userPoints,
-            tasksCompleted: userTasks,
-            attendanceStreak: 12, // Placeholder or calculated from attendanceRecords
-            salesRevenue: rev
-        });
-    }, [pointHistory, tasks, invoices, currentUser]);
+        setUserStats(prev => ({ ...prev, points: userPoints }));
+    }, [pointHistory, currentUser]);
 
     // 4. METHODS
     const loginWithGoogle = async () => {
@@ -426,6 +488,70 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await signOut(auth);
     };
 
+    // 5. AGGREGATION HELPERS
+    const updateMonthlySummary = async (date: string, amount: number, type: 'revenue' | 'expense') => {
+        const monthId = date.slice(0, 7); // YYYY-MM
+        const summaryRef = doc(db, "summaries", monthId);
+        
+        try {
+            await setDoc(summaryRef, {
+                [type]: increment(amount),
+                lastUpdated: new Date().toISOString(),
+                month: monthId
+            }, { merge: true });
+        } catch (err) {
+            console.error("Summary update failed:", err);
+        }
+    };
+
+    const updateUserSummary = async (userId: string, userName: string, amount: number, taskIncrement: number = 0) => {
+        const summaryRef = doc(db, "userSummaries", userId);
+        try {
+            await setDoc(summaryRef, {
+                name: userName,
+                salesRevenue: increment(amount),
+                tasksCompleted: increment(taskIncrement),
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+        } catch (err) {
+            console.error("User summary update failed:", err);
+        }
+    };
+
+    const searchRecords = async <T,>(collectionName: string, field: string, value: string): Promise<T[]> => {
+        // Basic prefix search implementation
+        const q = query(
+            collection(db, collectionName),
+            where(field, ">=", value),
+            where(field, "<=", value + "\uf8ff"),
+            limit(20)
+        );
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
+    };
+
+    const [lastDocs, setLastDocs] = useState<Record<string, any>>({});
+    const fetchMoreData = async (colName: string, orderByField: string = 'date') => {
+        const lastDoc = lastDocs[colName];
+        if (!lastDoc) return;
+
+        const q = query(
+            collection(db, colName),
+            orderBy(orderByField, 'desc'),
+            startAfter(lastDoc),
+            limit(100)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) return;
+
+        setLastDocs(prev => ({ ...prev, [colName]: snap.docs[snap.docs.length - 1] }));
+        const newData = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+        
+        if (colName === 'invoices') setPushedInvoices(prev => [...prev, ...newData] as Invoice[]);
+        if (colName === 'leads') setPushedLeads(prev => [...prev, ...newData] as Lead[]);
+        if (colName === 'expenses') setPushedExpenses(prev => [...prev, ...newData] as ExpenseRecord[]);
+    };
+
     const addClient = async (c: Client) => { await setDoc(doc(db, "clients", c.id), sanitizeData(c)); await addLog('System', 'Added Client', `New client: ${c.name}`); };
     const updateClient = async (id: string, c: Partial<Client>) => {
         const existing = clients.find(cl => cl.id === id);
@@ -461,6 +587,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const existing = invoices.find(i => i.id === id);
         await updateDoc(doc(db, "invoices", id), sanitizeData(u));
         await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
+
+        // Update Summary if status changed to approved or amount changed
+        if (existing && existing.documentType !== 'Quotation') {
+            const wasValid = existing.status !== 'Draft' && existing.status !== 'Cancelled';
+            const isNowValid = (u.status || existing.status) !== 'Draft' && (u.status || existing.status) !== 'Cancelled';
+            const type = existing.documentType === 'SupplierPO' ? 'expense' : 'revenue';
+            
+            if (!wasValid && isNowValid) {
+                // Newly approved
+                await updateMonthlySummary(existing.date, u.grandTotal || existing.grandTotal || 0, type);
+                if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, u.grandTotal || existing.grandTotal || 0);
+            } else if (wasValid && isNowValid && u.grandTotal !== undefined && u.grandTotal !== existing.grandTotal) {
+                // Amount changed on already approved doc
+                await updateMonthlySummary(existing.date, u.grandTotal - (existing.grandTotal || 0), type);
+                if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, u.grandTotal - (existing.grandTotal || 0));
+            } else if (wasValid && !isNowValid) {
+                // Cancelled or moved to draft
+                await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
+                if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
+            }
+        }
     };
 
     const acknowledgeWinner = async (id: string) => { await updateDoc(doc(db, "monthlyWinners", id), { acknowledged: true }); };
@@ -509,8 +656,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updateTaskRemote = async (id: string, u: Partial<Task>) => {
         const existing = tasks.find(t => t.id === id);
-        await updateDoc(doc(db, "tasks", id), sanitizeData(u));
+        await updateDoc(doc(db, "tasks", id), sanitizeData(u)); 
         await addLog('Tasks', 'Modified Task', existing?.title || id, existing, { ...existing, ...u });
+
+        // User summary trigger for tasks
+        if (existing && currentUser) {
+            const wasDone = existing.status === 'Done';
+            const isNowDone = (u.status || existing.status) === 'Done';
+            if (!wasDone && isNowDone) await updateUserSummary(currentUser.id, currentUser.name, 0, 1);
+            else if (wasDone && !isNowDone) await updateUserSummary(currentUser.id, currentUser.name, 0, -1);
+        }
     };
     const addTask = async (t: Task) => { await setDoc(doc(db, "tasks", t.id), sanitizeData(t)); await addLog('Tasks', 'New Task', t.title); };
     const removeTask = async (id: string) => { await deleteDoc(doc(db, "tasks", id)); await addLog('Tasks', 'Deleted Task', id); };
@@ -518,8 +673,45 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t)); await addLog('System', 'New Ticket', t.issue); };
     const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
 
-    const addExpense = async (e: ExpenseRecord) => { await setDoc(doc(db, "expenses", e.id), sanitizeData(e)); await addLog('Billing', 'New Expense', `₹${e.amount}`); };
-    const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => { await updateDoc(doc(db, "expenses", id), { status }); await addLog('Billing', 'Expense Status', `${id} -> ${status}`); };
+    const addExpense = async (e: ExpenseRecord) => { 
+        await setDoc(doc(db, "expenses", e.id), sanitizeData(e)); 
+        await addLog('Billing', 'New Expense', `₹${e.amount}`); 
+        
+        if (e.status === 'Approved') {
+            await updateMonthlySummary(e.date, e.amount, 'expense');
+        }
+    };
+    const updateExpense = async (id: string, updates: Partial<ExpenseRecord>) => {
+        const existing = expenses.find(e => e.id === id);
+        await updateDoc(doc(db, "expenses", id), sanitizeData(updates));
+        await addLog('Billing', 'Updated Expense', `Voucher modified: ${existing?.id || id}`, existing, { ...existing, ...updates });
+
+        if (existing) {
+            const wasApproved = existing.status === 'Approved';
+            const isNowApproved = (updates.status || existing.status) === 'Approved';
+            
+            if (!wasApproved && isNowApproved) {
+                await updateMonthlySummary(existing.date, updates.amount || existing.amount, 'expense');
+            } else if (wasApproved && isNowApproved && updates.amount !== undefined && updates.amount !== existing.amount) {
+                await updateMonthlySummary(existing.date, updates.amount - existing.amount, 'expense');
+            } else if (wasApproved && !isNowApproved) {
+                await updateMonthlySummary(existing.date, -existing.amount, 'expense');
+            }
+        }
+    };
+    const updateExpenseStatus = async (id: string, status: ExpenseRecord['status']) => { 
+        const existing = expenses.find(e => e.id === id);
+        await updateDoc(doc(db, "expenses", id), { status }); 
+        await addLog('Billing', 'Expense Status', `${id} -> ${status}`); 
+
+        if (existing) {
+            if (existing.status !== 'Approved' && status === 'Approved') {
+                await updateMonthlySummary(existing.date, existing.amount, 'expense');
+            } else if (existing.status === 'Approved' && status !== 'Approved') {
+                await updateMonthlySummary(existing.date, -existing.amount, 'expense');
+            }
+        }
+    };
 
     const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), sanitizeData(e)); await addLog('System', 'New Employee', e.name); };
     const updateEmployee = async (id: string, u: Partial<Employee>) => {
@@ -572,7 +764,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const removeVendor = async (id: string) => { await deleteDoc(doc(db, "vendors", id)); await addLog('System', 'Removed Vendor', id); };
 
-    const addInvoice = async (i: Invoice) => { await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); await addLog('Billing', 'Invoice Generated', i.invoiceNumber); };
+    const addInvoice = async (i: Invoice) => { 
+        await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
+        await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
+        
+        // Aggregation trigger
+        if (i.status !== 'Draft' && i.status !== 'Cancelled' && i.documentType !== 'Quotation') {
+            const type = i.documentType === 'SupplierPO' ? 'expense' : 'revenue';
+            await updateMonthlySummary(i.date, i.grandTotal || 0, type);
+            if (currentUser) {
+                await updateUserSummary(currentUser.id, currentUser.name, i.grandTotal || 0);
+            }
+        }
+    };
     const fetchAuditLogs = async (days: number = 7) => {
         let all: LogEntry[] = [];
         for (let i = 0; i < days; i++) {
@@ -596,7 +800,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
-            addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpenseStatus,
+            addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             setTasks, addTask, removeTask, updateTaskRemote,
             dbError, authError, isAuthenticating,
@@ -606,7 +810,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
-            logs, addLog, fetchAuditLogs
+            logs, addLog, fetchAuditLogs,
+            searchRecords, fetchMoreData
         }}>
             {children}
         </DataContext.Provider>

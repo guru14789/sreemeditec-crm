@@ -369,33 +369,52 @@ export const QuotationModule: React.FC = () => {
                 const getParts = (ref: string) => {
                     const parts = ref.split('/');
                     let quoteNum = 0;
+                    let quoteNumStr = '';
                     let revNum = 0;
                     let fy = '';
                     
                     parts.forEach(p => {
-                        if (p.includes('-') && p.length === 5) {
-                            fy = p;
-                        } else if (p.startsWith('R') && p.length > 1) {
-                            const n = parseInt(p.substring(1));
-                            if (!isNaN(n)) revNum = n;
-                        } else {
-                            const n = parseInt(p);
-                            if (!isNaN(n) && !p.includes('-') && p.length < 5) {
+                        const cleanP = p.trim();
+                        // Match Fiscal Year (e.g., 25-26)
+                        if (cleanP.includes('-') && cleanP.length === 5 && /\d{2}-\d{2}/.test(cleanP)) {
+                            fy = cleanP;
+                        } 
+                        // Match Revision (e.g., R1, R2)
+                        else if (cleanP.startsWith('R') && cleanP.length > 1 && !isNaN(parseInt(cleanP.substring(1)))) {
+                            const n = parseInt(cleanP.substring(1));
+                            revNum = n;
+                        } 
+                        // Match Quotation Number (e.g., 10, 986z) - exclude known prefixes or fragments
+                        else if (cleanP !== 'SMQ' && /^\d+/.test(cleanP)) {
+                            const n = parseInt(cleanP);
+                            if (!isNaN(n)) {
                                 quoteNum = n;
+                                quoteNumStr = cleanP;
                             }
                         }
                     });
-                    return { fy, quoteNum, revNum };
+                    return { fy, quoteNum, quoteNumStr, revNum };
                 };
+
                 const aData = getParts(a.invoiceNumber);
                 const bData = getParts(b.invoiceNumber);
                 
+                // 1. Primary: Fiscal Year (Descending - e.g., 26-27 before 25-26)
                 if (aData.fy !== bData.fy) {
                     return bData.fy.localeCompare(aData.fy);
                 }
+                
+                // 2. Secondary: Numeric Quotation Number (Descending - e.g., 11 before 10)
                 if (aData.quoteNum !== bData.quoteNum) {
                     return bData.quoteNum - aData.quoteNum;
                 }
+                
+                // 3. Tertiary: Full String Match for Alphanumeric Suffixes (Descending - e.g., 986z before 986)
+                if (aData.quoteNumStr !== bData.quoteNumStr) {
+                    return bData.quoteNumStr.localeCompare(aData.quoteNumStr);
+                }
+                
+                // 4. Quaternary: Revision Number (Descending - R2 before R1)
                 return bData.revNum - aData.revNum;
             });
     }, [invoices]);

@@ -6,27 +6,27 @@ import { Wrench, Calendar, MapPin, Clock, AlertTriangle, FileText, Plus, X, Sear
 import { useData } from './DataContext';
 
 export const ServiceModule: React.FC = () => {
-  const { serviceTickets, addServiceTicket, updateServiceTicket, clients, products, addClient } = useData();
+  const { serviceTickets, addServiceTicket, updateServiceTicket, clients, products, serviceReports, addServiceReport } = useData();
   const [activeTab, setActiveTab] = useState<'tickets' | 'amc' | 'reports'>('tickets');
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reports, setReports] = useState<ServiceReport[]>([]);
   const [newReport, setNewReport] = useState<Partial<ServiceReport>>({ date: new Date().toISOString().split('T')[0], status: 'Completed' });
 
-  const handleSaveReport = () => {
+  const handleSaveReport = async () => {
       if(!newReport.customerName || !newReport.equipmentName) return;
-
+  
       const report: ServiceReport = {
           id: `SR-${Date.now()}`,
-          reportNumber: `SRN-${Date.now().toString().slice(-6)}`,
+          reportNumber: `${String(serviceReports.length + 101).padStart(3, '0')}`,
           date: newReport.date!,
           customerName: newReport.customerName!,
           equipmentName: newReport.equipmentName!,
           problemReported: newReport.problemReported || '',
           actionTaken: newReport.actionTaken || '',
           engineerName: newReport.engineerName || 'Field Tech',
-          status: newReport.status as any
+          status: 'Completed',
+          documentType: 'ServiceReport'
       };
-      setReports([report, ...reports]);
+      await addServiceReport(report);
       setShowReportModal(false);
       setNewReport({ date: new Date().toISOString().split('T')[0], status: 'Completed' });
   };
@@ -90,17 +90,16 @@ export const ServiceModule: React.FC = () => {
             
             {activeTab === 'reports' && (
                 <div className="grid grid-cols-1 gap-4">
-                    {reports.map(report => (
+                    {serviceReports.filter(r => r.documentType === 'ServiceReport').map(report => (
                          <div key={report.id} className="bg-white p-5 rounded-2xl border border-slate-300 shadow-sm flex items-center gap-4">
                             <div className="bg-slate-50 p-4 rounded-2xl text-medical-600"><FileText size={24}/></div>
                             <div className="flex-1">
                                 <h4 className="font-black text-slate-800 uppercase tracking-tight">{report.customerName}</h4>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{report.equipmentName} • {report.date}</p>
                             </div>
-                            <button className="p-2 text-slate-300 hover:text-medical-600"><Download size={20}/></button>
                          </div>
                     ))}
-                    {reports.length === 0 && <div className="py-20 text-center text-slate-300 font-black uppercase tracking-widest opacity-30 italic">No Visit Reports indexed</div>}
+                    {serviceReports.filter(r => r.documentType === 'ServiceReport').length === 0 && <div className="py-20 text-center text-slate-300 font-black uppercase tracking-widest opacity-30 italic">No Visit Reports indexed</div>}
                 </div>
             )}
         </div>

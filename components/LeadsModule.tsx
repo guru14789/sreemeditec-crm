@@ -5,13 +5,16 @@ import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
 
 export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({ onNavigate }) => {
-    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees, addLog } = useData();
+    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees, addLog, searchRecords, fetchMoreData } = useData();
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const [activeTab, setActiveTab] = useState<'details' | 'followup'>('details');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [serverLeads, setServerLeads] = useState<Lead[]>([]);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [showEmpDropdown, setShowEmpDropdown] = useState(false);
     const [newFollowUp, setNewFollowUp] = useState<Partial<FollowUp>>({ type: 'Call', date: new Date().toISOString().split('T')[0] });
@@ -31,6 +34,25 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         window.addEventListener('click', handleGlobalClick);
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
+
+    const handleDeepSearch = async () => {
+        if (!searchQuery.trim()) {
+            setServerLeads([]);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            const results = await searchRecords<Lead>("leads", "name", searchQuery);
+            setServerLeads(results);
+            if (results.length === 0) {
+                addNotification('No Results', 'No matching records found in database.', 'info');
+            }
+        } catch (err) {
+            console.error("Search failed", err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
     const handleDraftEmail = async (lead: Lead) => {
         setEmailDraft('');
@@ -109,6 +131,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             contactPerson: newLeadData.contactPerson || '',
             salesTakenBy: newLeadData.salesTakenBy || '',
             lastContact: new Date().toISOString().split('T')[0],
+            timestamp: new Date().toISOString(),
             followUps: []
         };
         await addLead(lead);
@@ -149,7 +172,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         return pending.length > 0 ? pending[0] : null;
     };
 
-    const filteredLeads = leads.filter(lead => 
+    const filteredLeads = serverLeads.length > 0 ? serverLeads : leads.filter(lead => 
         lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.hospital.toLowerCase().includes(searchQuery.toLowerCase()) ||
         lead.productInterest?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -162,16 +185,37 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                 <div className="flex flex-1 gap-3 items-center">
                     <div className="relative flex-1 max-w-md hidden md:block">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                            <Plus size={16} className="rotate-45" /> 
+                            {isSearching ? <RefreshCw size={16} className="animate-spin" /> : <Phone size={16} className="rotate-45" />} 
                         </div>
                         <input 
                             type="text" 
-                            placeholder="Search leads, hospitals or items..." 
+                            placeholder="Type to filter or press Enter for Deep Search..." 
                             className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold outline-none focus:border-medical-500 focus:ring-4 focus:ring-medical-500/5 transition-all shadow-inner"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                if (!e.target.value) setServerLeads([]);
+                            }}
+                            onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
                         />
+                        {searchQuery && (
+                            <button 
+                                onClick={handleDeepSearch}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                                title="Deep Search in Database"
+                            >
+                                <ArrowUpRight size={14} />
+                            </button>
+                        )}
                     </div>
+                    {serverLeads.length > 0 && (
+                        <button 
+                            onClick={() => {setSearchQuery(''); setServerLeads([]);}}
+                            className="text-[10px] font-black text-rose-500 uppercase hover:underline"
+                        >
+                            Clear Results
+                        </button>
+                    )}
                 </div>
                 <button onClick={() => setShowAddModal(true)} className="bg-medical-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-medical-500/30 flex items-center gap-2 hover:bg-medical-700 transition-all">
                     <Plus size={18} /> Add Lead
@@ -264,6 +308,22 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                 ))}
                             </tbody>
                         </table>
+                        {serverLeads.length === 0 && (
+                            <div className="p-8 flex justify-center border-t border-slate-50 bg-slate-50/20">
+                                <button 
+                                    onClick={async () => {
+                                        setIsLoadingMore(true);
+                                        await fetchMoreData('leads', 'lastContact');
+                                        setIsLoadingMore(false);
+                                    }}
+                                    disabled={isLoadingMore}
+                                    className="px-8 py-3 bg-white border border-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                                >
+                                    {isLoadingMore ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} className="rotate-45" />}
+                                    Load Older Leads
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

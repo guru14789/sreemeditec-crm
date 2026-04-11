@@ -3,7 +3,8 @@ import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
-    History, MoreVertical, XCircle, RotateCcw, Wallet
+    History, MoreVertical, XCircle, RotateCcw, Wallet,
+    ChevronDown, ArrowUpRight
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -54,12 +55,16 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [serverInvoices, setServerInvoices] = useState<Invoice[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -95,6 +100,30 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
         window.addEventListener('click', handleGlobalClick);
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
+
+    const handleDeepSearch = async () => {
+        if (!searchQuery.trim()) {
+            setServerInvoices([]);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            // First try searching by Invoice Number
+            let results = await searchRecords<Invoice>("invoices", "invoiceNumber", searchQuery);
+            // If nothing, try searching by Customer Name
+            if (results.length === 0) {
+                results = await searchRecords<Invoice>("invoices", "customerName", searchQuery);
+            }
+            setServerInvoices(results);
+            if (results.length === 0) {
+                addNotification('No Records', 'No matching invoices found in history.', 'info');
+            }
+        } catch (err) {
+            console.error("Deep search failed:", err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
     const totals = useMemo(() => calculateDetailedTotals(invoice), [invoice]);
 
@@ -480,7 +509,36 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                     <div className="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50/30">
-                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Financial Archive</h3>
+                        <div className="flex items-center gap-4 flex-1">
+                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] shrink-0">Financial Archive</h3>
+                            <div className="relative max-w-xs flex-1">
+                                <input 
+                                    type="text" 
+                                    placeholder="Deep search in history..." 
+                                    className="w-full pl-8 pr-12 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-bold outline-none focus:border-medical-500 transition-all"
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        if (!e.target.value) setServerInvoices([]);
+                                    }}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
+                                />
+                                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                    {isSearching ? <RotateCcw size={12} className="animate-spin" /> : <Search size={12} />}
+                                </div>
+                                {searchQuery && (
+                                    <button 
+                                        onClick={handleDeepSearch}
+                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-medical-600 text-white p-1 rounded-md hover:bg-medical-700 transition-colors"
+                                    >
+                                        <ArrowUpRight size={10} />
+                                    </button>
+                                )}
+                            </div>
+                            {serverInvoices.length > 0 && (
+                                <button onClick={() => {setSearchQuery(''); setServerInvoices([]);}} className="text-[9px] font-black text-rose-500 uppercase hover:underline">Clear Search Results</button>
+                            )}
+                        </div>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
@@ -497,7 +555,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {invoices
+                                {(serverInvoices.length > 0 ? serverInvoices : invoices.filter(i => 
+                                    (i.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                    (i.customerName || '').toLowerCase().includes(searchQuery.toLowerCase())
+                                ))
                                     .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
@@ -603,6 +664,22 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
                                 ))}
                             </tbody>
                         </table>
+                        {serverInvoices.length === 0 && (
+                            <div className="p-8 flex justify-center border-t border-slate-50 bg-slate-50/20">
+                                <button 
+                                    onClick={async () => {
+                                        setIsLoadingMore(true);
+                                        await fetchMoreData('invoices', 'date');
+                                        setIsLoadingMore(false);
+                                    }}
+                                    disabled={isLoadingMore}
+                                    className="px-8 py-3 bg-white border border-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                                >
+                                    {isLoadingMore ? <RotateCcw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                                    Load Older Documents
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             ) : (

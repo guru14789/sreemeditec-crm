@@ -31,11 +31,12 @@ const InlineInput: React.FC<{
 };
 
 export const InventoryModule: React.FC = () => {
-    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog } = useData();
+    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog, searchRecords } = useData();
     const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
 
-
     const [searchQuery, setSearchQuery] = useState('');
+    const [serverProducts, setServerProducts] = useState<Product[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
 
@@ -88,10 +89,35 @@ export const InventoryModule: React.FC = () => {
     const [quickStockAmount, setQuickStockAmount] = useState<number>(1);
     const scanInputRef = useRef<HTMLInputElement>(null);
 
+    const handleDeepSearch = async () => {
+        if (!searchQuery.trim()) {
+            setServerProducts([]);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            // First try searching by Product Name
+            let results = await searchRecords<Product>("products", "name", searchQuery);
+            // If nothing, try searching by SKU
+            if (results.length === 0) {
+                results = await searchRecords<Product>("products", "sku", searchQuery);
+            }
+            setServerProducts(results);
+            if (results.length === 0) {
+                addNotification('No Records', 'No matching products found in history.', 'info');
+            }
+        } catch (err) {
+            console.error("Deep search failed:", err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
 
 
     // Filtered Products for Search
     const filteredProducts = useMemo(() => {
+        if (serverProducts.length > 0) return serverProducts;
         return products.filter(p =>
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -99,7 +125,7 @@ export const InventoryModule: React.FC = () => {
             (p.supplier && p.supplier.toLowerCase().includes(searchQuery.toLowerCase())) ||
             (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase()))
         );
-    }, [products, searchQuery]);
+    }, [products, searchQuery, serverProducts]);
 
     // Auto-focus input when scan modal opens and is in idle state
     useEffect(() => {
@@ -380,11 +406,27 @@ export const InventoryModule: React.FC = () => {
                                     <input
                                         type="text"
                                         placeholder="Search inventory..."
-                                        className="block w-full pl-10 pr-4 py-2.5 border border-slate-300 bg-slate-50/50 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
+                                        className="block w-full pl-10 pr-12 py-2.5 border border-slate-300 bg-slate-50/50 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
                                         value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            if (!e.target.value) setServerProducts([]);
+                                        }}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
                                     />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                        {isSearching ? (
+                                            <RotateCcw size={14} className="animate-spin text-medical-600" />
+                                        ) : searchQuery ? (
+                                            <button onClick={handleDeepSearch} title="Deep Search in History" className="p-1 hover:bg-slate-200 rounded-md transition-colors text-medical-600">
+                                                <ArrowUpRight size={14} />
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 </div>
+                                {serverProducts.length > 0 && (
+                                    <button onClick={() => {setSearchQuery(''); setServerProducts([]);}} className="text-[10px] font-black text-rose-500 uppercase hover:underline mr-2">Clear</button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowScanModal(true); handleResetScan(); }}

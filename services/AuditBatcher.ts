@@ -18,7 +18,16 @@ class AuditBatcher {
         // Listen for tab closure/refresh
         if (typeof window !== 'undefined') {
             window.addEventListener('beforeunload', () => this.flush());
+            // Support for Capacitor/Mobile app lifecycle
+            document.addEventListener('pause', () => this.flush());
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') this.flush();
+            });
         }
+    }
+
+    private isApp(): boolean {
+        return !!(window as any).Capacitor || window.location.protocol === 'capacitor:';
     }
 
     private loadFromStorage() {
@@ -43,18 +52,24 @@ class AuditBatcher {
 
     private startTimer() {
         if (this.flushTimer) clearInterval(this.flushTimer);
+        // Mobile apps need more frequent flushing because they get killed faster
+        const interval = this.isApp() ? 10000 : BATCH_FLUSH_INTERVAL; 
+        
         this.flushTimer = setInterval(() => {
             if (this.buffer.length > 0) {
                 this.flush();
             }
-        }, BATCH_FLUSH_INTERVAL);
+        }, interval);
     }
 
     public async enqueue(log: LogEntry) {
         this.buffer.push(log);
         this.saveToStorage();
         
-        if (this.buffer.length >= MAX_BATCH_SIZE) {
+        // If it's an app, flush more aggressively (every 5 logs instead of 20)
+        const limit = this.isApp() ? 5 : MAX_BATCH_SIZE;
+        
+        if (this.buffer.length >= limit) {
             this.flush();
         }
     }

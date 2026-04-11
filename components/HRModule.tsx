@@ -145,7 +145,11 @@ export const HRModule: React.FC = () => {
 
     const togglePermission = (empId: string, tab: TabView) => {
         const emp = employees.find(e => e.id === empId);
-        if (!emp || emp.role === 'SYSTEM_ADMIN') return;
+        if (!emp) return;
+        
+        // Super admin protection
+        if (emp.email?.toLowerCase() === 'sreekumar.career@gmail.com' || emp.email?.toLowerCase() === 'admin@demo.com') return;
+
         const currentPerms = emp.permissions || [];
         const newPerms = currentPerms.includes(tab) ? currentPerms.filter(t => t !== tab) : [...currentPerms, tab];
         updateEmployee(empId, { permissions: newPerms });
@@ -227,27 +231,35 @@ export const HRModule: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-8 py-6">
-                                                {isAdmin ? (
-                                                    <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 w-fit">
-                                                        <ShieldAlert size={16} />
-                                                        <span className="text-[10px] font-black uppercase tracking-[0.15em]">Admin Override Active: All Tabs Accessible</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {MODULE_OPTIONS.map(mod => {
-                                                            const isChecked = emp.permissions?.includes(mod.value);
-                                                            return (
-                                                                <button
-                                                                    key={mod.value}
-                                                                    onClick={() => togglePermission(emp.id, mod.value)}
-                                                                    className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'}`}
-                                                                >
-                                                                    {mod.label}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
+                                                {(() => {
+                                                    const isSuper = emp.email?.toLowerCase() === 'sreekumar.career@gmail.com' || emp.email?.toLowerCase() === 'admin@demo.com';
+                                                    
+                                                    if (isSuper) {
+                                                        return (
+                                                            <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 w-fit">
+                                                                <ShieldAlert size={16} />
+                                                                <span className="text-[10px] font-black uppercase tracking-[0.15em]">Super Admin Override: Unrestricted</span>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {MODULE_OPTIONS.map(mod => {
+                                                                const isChecked = (emp.permissions || []).includes(mod.value);
+                                                                return (
+                                                                    <button
+                                                                        key={mod.value}
+                                                                        onClick={() => togglePermission(emp.id, mod.value)}
+                                                                        className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? (isAdmin ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-medical-600 text-white border-medical-600 shadow-md') : 'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'}`}
+                                                                    >
+                                                                        {mod.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </td>
                                         </tr>
                                     );

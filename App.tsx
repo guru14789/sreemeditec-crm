@@ -118,13 +118,14 @@ export const App: React.FC = () => {
     return <Login />;
   }
 
-  const userRole = (currentUser.department === 'Administration' || currentUser.role === 'SYSTEM_ADMIN') ? 'Admin' : 'Employee';
+  const isSuperAdmin = currentUser.email?.toLowerCase() === 'sreekumar.career@gmail.com' || currentUser.email?.toLowerCase() === 'admin@demo.com';
+  const userRole = currentUser.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
-    if (userRole === 'Admin') return true;
+    if (isSuperAdmin) return true;
     if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
-    return currentUser.permissions?.includes(tab);
+    return (currentUser.permissions || []).includes(tab);
   };
 
   const sidebarSections = [

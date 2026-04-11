@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ComposedChart, Line, Area, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
@@ -8,6 +8,8 @@ import {
   DollarSign, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, 
   Filter, MoreHorizontal, Users 
 } from 'lucide-react';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useData } from './DataContext';
 
 // Helper for Indian Number Formatting (K, L, Cr)
@@ -30,39 +32,35 @@ export const ReportsModule: React.FC = () => {
   const { invoices, expenses, leads, products } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
+  const [summaries, setSummaries] = useState<any[]>([]);
+
+  // 1. Fetch Aggregated Summaries (Optimized)
+  useEffect(() => {
+    const q = query(collection(db, "summaries"), orderBy('month', 'desc'), limit(12));
+    const unsub = onSnapshot(q, (snap) => {
+        setSummaries(snap.docs.map(d => d.data()));
+    });
+    return () => unsub();
+  }, []);
 
   // Dynamic Data Processing
   const MONTHLY_PERFORMANCE = React.useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonthIdx = new Date().getMonth();
-    const data = months.map(m => ({ month: m, revenue: 0, expenses: 0, profit: 0 }));
-
-    invoices.forEach(inv => {
-      if (inv.status === 'Draft' || inv.documentType === 'Quotation') return;
-      const date = new Date(inv.date);
-      const mIdx = date.getMonth();
-      
-      if (inv.documentType === 'SupplierPO') {
-        data[mIdx].expenses += (inv.grandTotal || 0);
-      } else {
-        data[mIdx].revenue += (inv.grandTotal || 0);
-      }
-    });
-
-    expenses.forEach(exp => {
-      if (exp.status !== 'Approved') return;
-      const date = new Date(exp.date);
-      const mIdx = date.getMonth();
-      data[mIdx].expenses += (exp.amount || 0);
-    });
-
-    data.forEach(d => {
-      d.profit = d.revenue - d.expenses;
-    });
+    const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    // Return last 10 months or up to current
-    return data.slice(Math.max(0, currentMonthIdx - 9), currentMonthIdx + 1);
-  }, [invoices, expenses]);
+    // Convert summaries to chart format
+    const data = summaries.map(s => {
+        const [year, month] = s.month.split('-');
+        return {
+            month: `${monthsShort[parseInt(month) - 1]} ${year.slice(2)}`,
+            monthRaw: s.month,
+            revenue: s.revenue || 0,
+            expenses: s.expense || 0,
+            profit: (s.revenue || 0) - (s.expense || 0)
+        };
+    }).sort((a, b) => a.monthRaw.localeCompare(b.monthRaw));
+
+    return data;
+  }, [summaries]);
 
   const CATEGORY_DATA = React.useMemo(() => {
     const catMap: Record<string, number> = {};
