@@ -57,7 +57,7 @@ The Indian HealthTech and ERP market for SMEs is projected to be a **$5 Billion+
 
 ---
 
-## Part 2: Business Plan (WHAT / HOW)
+## Part 2: Business Plan (1/2) - Strategy
 
 ### 9. Value Proposition
 "We provide a zero-leakage enterprise command center that transforms chaotic field service into structured, quantifiable growth, giving leadership 100% visibility into every rupee and every man-hour spent."
@@ -84,21 +84,43 @@ The architecture supports **multi-branch scaling**. A single Super Admin can ove
 
 ---
 
-## Part 3: Additional Context
+## Part 3: Business Plan (2/2) - Financials & Timelines
 
-### Investments (What it takes & Costs)
-*   **Development:** Ongoing iterative development focusing on business logic.
-*   **Infrastructure:** Low-cost cloud footprint with high-scale availability.
+### 15. Investments: What it takes & How much?
+*   **Infrastructure (Cloud):** OPEX-based serverless model (approx. **$50-$200/month**).
+*   **Human Capital:** Internal Admin (5-10 hrs/week) to manage the Access Grid.
+*   **Implementation:** 4-week migration and training phase.
 
-### Returns & Risks
-*   **Quantified Growth:** Target 20% margin improvement through lean inventory management.
-*   **The "What If":** Failure to solve leads to "Summary Drift," revenue leakage, and eventual operational collapse as staff size increases.
+### 16. Returns: Quantify Benefits & The Risk of Inaction
+*   **Revenue Uplift:** Estimated **12-18% increase** in billable events.
+*   **Margin Improvement:** **20% reduction** in stock write-offs; **10-15% margin improvement** in operations.
+*   **Risk of Inaction:** Continued data divergence (Summary Drift), high employee churn, and loss of client trust.
 
-### Timelines
-*   **Deployment:** Real-time benefits starting Day 1 of check-in adoption.
-*   **Full ROI:** Expected within 6 months of complete module integration.
+### 17. Timelines: Time to Realize Benefits
+*   **Month 1:** Immediate visibility into attendance and response metrics.
+*   **Month 6:** Full ROI achieved through administrative and fuel cost savings.
 
-### Future Possibility: Nirva AI
-*   **Predictive Maintenance:** AI algorithms predicting equipment failure patterns.
+---
+
+## Part 4: Idea Evaluation Criteria (Self-Assessment)
+
+### 18. Will the idea deliver business value?
+**YES.** By synchronizing field reports with financial records, the solution directly targets "Revenue Leakage." The quantifiable metrics (Time savings, Margin improvement) provide a direct line to bottom-line growth.
+
+### 19. Is the idea unique?
+**YES.** While CRM and ERP systems exist, the **"Nirva Hybrid Model"**—combining live field feeds, gamified attendance, and a 21-module granular access grid in a single mobile-first interface—is highly specialized for the niche requirements of medical service enterprises.
+
+### 20. Is the idea implementable?
+**YES.** The solution is built on enterprise-grade, proven technologies (React, Capacitor, Firebase). The current deployment at Sree Meditec serves as a "Live Proof of Concept," proving its viability in real-world high-pressure scenarios.
+
+### 21. Is the idea scalable?
+**YES.** The cloud-native architecture allows for the addition of thousands of users and multiple regional branches with zero changes to the underlying code. The "Scoped Admin" logic ensures localized management can scale independently.
+
+---
+
+## Part 5: Future Possibility (Nirva AI)
+
+### 22. Predictive Maintenance & Automation
+*   **AI Forecasting:** Predicting equipment failure before it happens.
 *   **OCR Vouchers:** Zero-entry expense management.
-*   **Voice Tasking:** NLP-based field job dispatching.
+*   **Voice Tasking:** NLP-based field job dispatching via voice.
