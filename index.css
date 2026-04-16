@@ -5,10 +5,7 @@
 
 @layer base {
   body {
-    padding-top: max(env(safe-area-inset-top), 32px);
-    padding-bottom: max(env(safe-area-inset-bottom), 16px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    background-color: theme('colors.slate.950');
   }
 }
 @layer utilities {

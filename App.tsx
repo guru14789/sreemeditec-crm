@@ -302,7 +302,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-[#01261d] dark:bg-slate-950 overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+    <div className="flex h-[100dvh] bg-white dark:bg-slate-950 overflow-hidden relative">
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
       )}
@@ -314,7 +314,7 @@ export const App: React.FC = () => {
         fixed lg:relative h-full shadow-2xl overflow-hidden`}>
 
         {/* Branding Header */}
-        <div className={`p-4 md:p-5 h-16 md:h-20 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
+        <div className={`p-4 md:p-5 flex items-center shrink-0 bg-black/10 pt-[max(env(safe-area-inset-top,24px),24px)] md:pt-[max(env(safe-area-inset-top,20px),20px)] min-h-[4.5rem] ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           {isSidebarOpen ? (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
               <span className="font-black text-white text-xl md:text-2xl tracking-tighter uppercase leading-none">Sree Meditec</span>
@@ -370,7 +370,7 @@ export const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 h-14 md:h-16 z-50 sticky top-0 shadow-sm transition-colors duration-300">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 z-50 sticky top-0 shadow-sm transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] min-h-[4rem] md:min-h-[4.5rem]">
           <div className="w-12 lg:hidden">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
           </div>
