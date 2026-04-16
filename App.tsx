@@ -302,7 +302,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-white dark:bg-slate-950 overflow-hidden relative">
+    <div className="flex h-[100dvh] bg-[#01261d] dark:bg-slate-950 overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
       )}
