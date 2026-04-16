@@ -28,6 +28,9 @@ const MODULE_OPTIONS = [
     { value: TabView.REPORTS, label: 'Reports Centre' },
     { value: TabView.LOGS, label: 'Audit Logs' },
     { value: TabView.ARCHIVE, label: 'Finance Archive' },
+    { value: TabView.CATALOG, label: 'Product Catalog' },
+    { value: TabView.PAYROLL, label: 'Staff Payroll' },
+    { value: TabView.CONFIG, label: 'System Settings' },
     { value: TabView.PROFILE, label: 'My Profile' },
 ];
 
@@ -154,7 +157,7 @@ export const HRModule: React.FC = () => {
         if (!emp) return;
         
         // Super admin protection
-        if (emp.email?.toLowerCase() === 'sreekumar.career@gmail.com' || emp.email?.toLowerCase() === 'admin@demo.com') return;
+        if (emp.email?.toLowerCase() === 'sreekumar.career@gmail.com') return;
 
         const currentPerms = emp.permissions || [];
         const newPerms = currentPerms.includes(tab) ? currentPerms.filter(t => t !== tab) : [...currentPerms, tab];
@@ -238,7 +241,7 @@ export const HRModule: React.FC = () => {
                                             </td>
                                             <td className="px-8 py-6">
                                                 {(() => {
-                                                    const isSuper = emp.email?.toLowerCase() === 'sreekumar.career@gmail.com' || emp.email?.toLowerCase() === 'admin@demo.com';
+                                                    const isSuper = emp.email?.toLowerCase() === 'sreekumar.career@gmail.com';
                                                     
                                                     if (isSuper) {
                                                         return (

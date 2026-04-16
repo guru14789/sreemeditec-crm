@@ -3,7 +3,7 @@ import { DeliveryChallan, StockMovement } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
-    History, FileText, MoreVertical
+    History, FileText, MoreVertical, Truck, Package, User, Info
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -18,7 +18,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const DeliveryChallanModule: React.FC = () => {
-    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, updateProduct, recordStockMovement, addNotification } = useData();
+    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, updateProduct, recordStockMovement, addNotification, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,18 +30,21 @@ export const DeliveryChallanModule: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         items: [],
         status: 'Draft',
-        customerName: '',
-        customerAddress: ''
+        customerAddress: '',
+        terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.',
+        remarks: ''
     });
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !challan.challanNumber) {
+            const currentYearChallans = deliveryChallans.filter(c => c.challanNumber && c.challanNumber.includes(`/${financialYear}/`));
+            const nextNum = currentYearChallans.length + 1;
             setChallan(prev => ({
                 ...prev,
-                challanNumber: `SM/DC/${String(deliveryChallans.length + 101).padStart(3, '0')}`
+                challanNumber: `SM/DC/${financialYear}/${nextNum}`
             }));
         }
-    }, [viewState, deliveryChallans.length, editingId, challan.challanNumber]);
+    }, [viewState, deliveryChallans, editingId, challan.challanNumber, financialYear]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);
@@ -142,8 +145,16 @@ export const DeliveryChallanModule: React.FC = () => {
         doc.setFont('helvetica', 'bold');
         doc.text('Terms & Conditions:', margin, tableFinalY + 10);
         doc.setFont('helvetica', 'normal');
-        doc.text('1. Goods once sold will not be taken back.', margin, tableFinalY + 15);
-        doc.text('2. Our responsibility ceases as soon as the goods leave our premises.', margin, tableFinalY + 20);
+        const termsLines = doc.splitTextToSize(data.terms || '', pageWidth - (margin * 2) - 10);
+        doc.text(termsLines, margin, tableFinalY + 15);
+
+        if (data.remarks) {
+            const remarksY = tableFinalY + 15 + (termsLines.length * 4) + 5;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Remarks:', margin, remarksY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(data.remarks, margin, remarksY + 5);
+        }
 
         doc.setFont('helvetica', 'bold');
         doc.text('for SREE MEDITEC', pageWidth - margin - 5, tableFinalY + 30, { align: 'right' });
@@ -265,7 +276,9 @@ export const DeliveryChallanModule: React.FC = () => {
                             items: [],
                             status: 'Draft',
                             customerName: '',
-                            customerAddress: ''
+                            customerAddress: '',
+                            terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.',
+                            remarks: ''
                         });
                         setViewState('builder');
                     }}
@@ -366,167 +379,202 @@ export const DeliveryChallanModule: React.FC = () => {
 
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-8 space-y-6 custom-scrollbar bg-white">
-                                <div className="grid grid-cols-12 gap-6">
-                                    <div className="col-span-12 lg:col-span-4 space-y-6">
-                                        <div className="bg-white p-6 rounded-[2rem] border border-slate-300 shadow-sm space-y-4">
-                                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Client Identity</h3>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Hospital / Client Name</label>
-                                                    <input 
-                                                        list="client-list"
-                                                        value={challan.customerName}
-                                                        onChange={e => {
-                                                            const name = e.target.value;
-                                                            const client = clients.find(c => c.hospital === name || c.name === name);
-                                                            setChallan(prev => ({ 
-                                                                ...prev, 
-                                                                customerName: name,
-                                                                customerAddress: client?.address || prev.customerAddress 
-                                                            }));
-                                                        }}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 uppercase"
-                                                        placeholder="Search or entry name..."
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Delivery Address</label>
-                                                    <textarea 
-                                                        value={challan.customerAddress}
-                                                        onChange={e => setChallan(prev => ({ ...prev, customerAddress: e.target.value }))}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 min-h-[100px]"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-white p-6 rounded-[2rem] border border-slate-300 shadow-sm space-y-4">
-                                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Metadata</h3>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Date</label>
-                                                    <input 
-                                                        type="date"
-                                                        value={challan.date}
-                                                        onChange={e => setChallan(prev => ({ ...prev, date: e.target.value }))}
-                                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-700 outline-none"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Number</label>
-                                                    <input 
-                                                        value={challan.challanNumber}
-                                                        readOnly
-                                                        className="w-full px-4 py-3 bg-slate-100 border border-slate-300 rounded-xl font-black text-indigo-600 outline-none"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">Subject of Delivery</label>
+                            <div className="h-full overflow-y-auto p-4 md:p-10 space-y-12 custom-scrollbar bg-white">
+                                <div className="max-w-5xl mx-auto space-y-12">
+                                    {/* Section 1: Client & Logistics */}
+                                    <section className="space-y-6">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
+                                            <div className="p-1.5 bg-indigo-50 text-indigo-500 rounded-lg"><User size={14}/></div>
+                                            Consignee Data
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Client Name</label>
                                                 <input 
-                                                    value={challan.subject || ''}
-                                                    onChange={e => setChallan(prev => ({ ...prev, subject: e.target.value }))}
-                                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-700 outline-none"
-                                                    placeholder="e.g. Supply of Spares"
+                                                    list="client-list"
+                                                    value={challan.customerName}
+                                                    onChange={e => {
+                                                        const name = e.target.value;
+                                                        const client = clients.find(c => c.hospital === name || c.name === name);
+                                                        setChallan(prev => ({ 
+                                                            ...prev, 
+                                                            customerName: name,
+                                                            customerAddress: client?.address || prev.customerAddress 
+                                                        }));
+                                                    }}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 uppercase shadow-sm"
+                                                    placeholder="Search client registry..."
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Delivery Destination</label>
+                                                <textarea 
+                                                    value={challan.customerAddress}
+                                                    onChange={e => setChallan(prev => ({ ...prev, customerAddress: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 min-h-[100px] shadow-sm"
+                                                    placeholder="Detailed address..."
                                                 />
                                             </div>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="col-span-12 lg:col-span-8 space-y-6">
-                                        <div className="bg-white rounded-[2rem] border border-slate-300 shadow-sm overflow-hidden min-h-[400px]">
-                                            <div className="px-6 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
-                                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Goods Manifest</h3>
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={() => handleAddItem()}
-                                                        className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1 hover:bg-white px-3 py-1.5 rounded-lg border border-emerald-100 transition-all font-black bg-emerald-50"
-                                                    >
-                                                        <Plus className="w-3 h-3" />
-                                                        Add Manual Row
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => setBuilderTab('catalog')}
-                                                        className="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1 hover:bg-white px-3 py-1.5 rounded-lg border border-indigo-100 transition-all"
-                                                    >
-                                                        <Plus className="w-3 h-3" />
-                                                        Add from Catalog
-                                                    </button>
+                                    {/* Section 2: Document Info */}
+                                    <section className="space-y-6">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
+                                            <div className="p-1.5 bg-amber-50 text-amber-500 rounded-lg"><Info size={14}/></div>
+                                            Challan Metadata
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-2">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Execution Date</label>
+                                                <input 
+                                                    type="date"
+                                                    value={challan.date}
+                                                    onChange={e => setChallan(prev => ({ ...prev, date: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-indigo-500"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Challan Registry ID</label>
+                                                <input 
+                                                    value={challan.challanNumber}
+                                                    onChange={e => setChallan(prev => ({ ...prev, challanNumber: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl font-black text-indigo-600 outline-none shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject / Purpose</label>
+                                                <input 
+                                                    value={challan.subject || ''}
+                                                    onChange={e => setChallan(prev => ({ ...prev, subject: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-indigo-500"
+                                                    placeholder="e.g. Service Exchange"
+                                                />
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Section 3: Goods Manifest */}
+                                    <section className="space-y-6">
+                                        <div className="flex justify-between items-center border-b pb-2">
+                                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                <div className="p-1.5 bg-emerald-50 text-emerald-500 rounded-lg"><Package size={14}/></div>
+                                                Goods Manifest
+                                            </h3>
+                                            <div className="flex gap-2 scale-90 origin-right">
+                                                <button 
+                                                    onClick={() => handleAddItem()}
+                                                    className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Manual Row
+                                                </button>
+                                                <button 
+                                                    onClick={() => setBuilderTab('catalog')}
+                                                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
+                                                >
+                                                    <ListIcon className="w-3 h-3" /> From Catalog
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 px-2">
+                                            {challan.items?.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[2.5rem] text-slate-400 gap-4">
+                                                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-inner"><Plus className="w-6 h-6 opacity-20" /></div>
+                                                    <p className="font-bold uppercase tracking-widest text-[10px] text-center">Manifest is empty<br/><span className="text-[10px] opacity-50">Add items to begin delivery</span></p>
                                                 </div>
-                                            </div>
-                                            <div className="p-6">
-                                                {challan.items?.length === 0 ? (
-                                                    <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4 border-2 border-dashed border-slate-300 rounded-3xl">
-                                                        <FileText className="w-12 h-12 opacity-20" />
-                                                        <p className="font-bold uppercase tracking-widest text-xs opacity-50 text-center">Manifest is empty<br/>Search catalog to add items</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {challan.items?.map((item, idx) => (
-                                                            <div key={item.id} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-300 group">
-                                                                <div className="w-8 h-8 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-[10px] font-black text-slate-400">
-                                                                    {idx + 1}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <input 
-                                                                        list="product-list"
-                                                                        value={item.description}
-                                                                        onChange={e => updateItem(item.id, 'description', e.target.value)}
-                                                                        className="w-full bg-transparent font-bold text-slate-800 outline-none uppercase"
-                                                                        placeholder="Enter product description..."
-                                                                    />
-                                                                    <div className="flex gap-2 items-center mt-1">
-                                                                        <input 
-                                                                            value={item.remarks || ''}
-                                                                            onChange={e => updateItem(item.id, 'remarks', e.target.value)}
-                                                                            placeholder="Add serial or remarks..."
-                                                                            className="flex-1 bg-transparent text-[10px] font-medium text-slate-400 outline-none"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-300">
-                                                                    <input 
-                                                                        type="number"
-                                                                        value={item.quantity}
-                                                                        onChange={e => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
-                                                                        className="w-12 text-center font-black text-indigo-600 outline-none"
-                                                                    />
-                                                                    <input 
-                                                                        value={item.unit || 'Nos'}
-                                                                        onChange={e => updateItem(item.id, 'unit', e.target.value)}
-                                                                        className="w-10 text-[10px] uppercase font-black text-slate-400 outline-none"
-                                                                    />
-                                                                </div>
-                                                                <button 
-                                                                    onClick={() => setChallan(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))}
-                                                                    className="opacity-0 group-hover:opacity-100 p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all"
-                                                                >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {challan.items?.map((item, idx) => (
+                                                        <div key={item.id} className="group relative bg-white hover:bg-slate-50/50 p-6 rounded-[2rem] border border-slate-200 hover:border-indigo-300 transition-all shadow-sm flex items-center gap-6">
+                                                            <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-400 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner shrink-0">
+                                                                {idx + 1}
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <input 
+                                                                    list="product-list"
+                                                                    value={item.description}
+                                                                    onChange={e => updateItem(item.id, 'description', e.target.value)}
+                                                                    className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm"
+                                                                    placeholder="Describe goods..."
+                                                                />
+                                                                <input 
+                                                                    value={item.remarks || ''}
+                                                                    onChange={e => updateItem(item.id, 'remarks', e.target.value)}
+                                                                    placeholder="Add serial numbers or specifications..."
+                                                                    className="w-full bg-transparent text-[10px] font-bold text-slate-400 outline-none mt-1 uppercase"
+                                                                />
+                                                            </div>
+                                                            <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+                                                                <input 
+                                                                    type="number"
+                                                                    value={item.quantity}
+                                                                    onChange={e => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                                    className="w-12 text-center font-black text-indigo-600 outline-none"
+                                                                />
+                                                                <input 
+                                                                    value={item.unit || 'Nos'}
+                                                                    onChange={e => updateItem(item.id, 'unit', e.target.value)}
+                                                                    className="w-12 text-[10px] uppercase font-black text-slate-400 outline-none border-l pl-3 border-slate-100"
+                                                                />
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => setChallan(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))}
+                                                                className="opacity-0 group-hover:opacity-100 p-3 text-rose-400 hover:bg-rose-50 rounded-2xl transition-all"
+                                                            >
+                                                                <Trash2 className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </section>
+
+                                    {/* Section 4: Terms & Footer */}
+                                    <section className="space-y-6">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2">
+                                            <div className="p-1.5 bg-rose-50 text-rose-500 rounded-lg"><FileText size={14}/></div>
+                                            Legal & Remarks
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2">
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Terms & Conditions</label>
+                                                <textarea 
+                                                    value={challan.terms}
+                                                    onChange={e => setChallan(prev => ({ ...prev, terms: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-medium text-slate-600 min-h-[120px] text-xs shadow-sm"
+                                                    placeholder="Standard delivery terms..."
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Internal / External Remarks</label>
+                                                <textarea 
+                                                    value={challan.remarks}
+                                                    onChange={e => setChallan(prev => ({ ...prev, remarks: e.target.value }))}
+                                                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-medium text-slate-600 min-h-[120px] text-xs shadow-sm"
+                                                    placeholder="Additional notes..."
+                                                />
                                             </div>
                                         </div>
+                                    </section>
 
-                                        <div className="flex justify-end gap-3 scale-110 origin-right pr-4">
-                                            <button 
-                                                onClick={() => handleSave('Draft')}
-                                                className="px-8 py-3 bg-white border border-slate-300 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
-                                            >
-                                                <Save className="w-4 h-4" />
-                                                Archive Draft
-                                            </button>
-                                            <button 
-                                                onClick={() => handleSave('Dispatched')}
-                                                className="px-10 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100"
-                                            >
-                                                <ListIcon className="w-4 h-4" />
-                                                Confirm & Dispatch
-                                            </button>
-                                        </div>
+                                    {/* Action Bar */}
+                                    <div className="pt-10 flex justify-center gap-6">
+                                        <button 
+                                            onClick={() => handleSave('Draft')}
+                                            className="px-10 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all flex items-center gap-3 shadow-md border-b-4 border-slate-100 active:border-b-0 active:translate-y-1"
+                                        >
+                                            <Save className="w-5 h-5" />
+                                            Archive Draft
+                                        </button>
+                                        <button 
+                                            onClick={() => handleSave('Dispatched')}
+                                            className="px-12 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-indigo-700 transition-all flex items-center gap-3 shadow-xl shadow-indigo-200 border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
+                                        >
+                                            <Truck className="w-5 h-5" />
+                                            Confirm & Dispatch
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -633,13 +681,17 @@ export const DeliveryChallanModule: React.FC = () => {
 
                                     <div className="pt-20 flex justify-between items-end font-sans">
                                         <div className="max-w-[50%] space-y-4">
-                                            <div className="p-4 bg-slate-50 border border-slate-300 rounded-2xl">
-                                                <h5 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Registry Terms</h5>
-                                                <p className="text-[8px] text-slate-500 font-bold leading-relaxed uppercase">
-                                                    1. Goods once specified and dispatched will not be returned.<br/>
-                                                    2. Our responsibility ceases as soon as the goods leave our premises.<br/>
-                                                    3. Recipient acknowledges conditions of goods upon arrival.
-                                                </p>
+                                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                                                <h5 className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registry Terms</h5>
+                                                <div className="text-[8px] text-slate-500 font-bold leading-relaxed uppercase whitespace-pre-wrap">
+                                                    {challan.terms || 'No terms specified.'}
+                                                </div>
+                                                {challan.remarks && (
+                                                    <div className="mt-2 pt-2 border-t border-slate-200">
+                                                        <h5 className="text-[7px] font-bold text-slate-300 uppercase tracking-widest mb-1">Remarks</h5>
+                                                        <p className="text-[8px] text-slate-400 font-medium italic">{challan.remarks}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="text-right space-y-12">

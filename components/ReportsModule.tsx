@@ -276,59 +276,59 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         {/* Charts Section */}
-        <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+        <div className="flex flex-col lg:flex-row gap-6 mb-4 lg:min-h-[600px]">
             
             {/* Main Financial Chart */}
-            <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col">
-                <div className="flex justify-between items-center mb-6">
+            <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col min-h-[400px]">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
                         <h3 className="font-bold text-lg text-slate-800">Financial Performance</h3>
-                        <p className="text-xs text-slate-500 font-medium">Profit (Invoices) vs Loss (Supplier PO + Vouchers)</p>
+                        <p className="text-xs text-slate-500 font-medium">Profit vs Loss Analysis</p>
                     </div>
-                    <div className="flex bg-slate-50 p-1 rounded-xl">
+                    <div className="flex bg-slate-50 p-1 rounded-xl w-full sm:w-auto">
                         <button 
                             onClick={() => setActiveChart('revenue')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'revenue' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                            Combined View
+                            className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'revenue' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                            Combined
                         </button>
                         <button 
                             onClick={() => setActiveChart('profit')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'profit' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                            Profit Trend
+                            className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'profit' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                            Trend
                         </button>
                     </div>
                 </div>
                 
-                <div className="flex-1 w-full min-h-0">
+                <div className="flex-1 w-full min-h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={MONTHLY_PERFORMANCE} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <ComposedChart data={MONTHLY_PERFORMANCE} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis 
                                 dataKey="month" 
                                 axisLine={false} 
                                 tickLine={false} 
-                                tick={{fontSize: 12, fill: '#64748b'}} 
+                                tick={{fontSize: 10, fill: '#64748b'}} 
                                 dy={10}
                             />
                             <YAxis 
                                 axisLine={false} 
                                 tickLine={false} 
-                                tick={{fontSize: 12, fill: '#64748b'}} 
-                                tickFormatter={(value) => `₹${formatIndianNumber(value)}`}
+                                tick={{fontSize: 10, fill: '#64748b'}} 
+                                tickFormatter={(value) => `${formatIndianNumber(value)}`}
                             />
                             <Tooltip 
                                 cursor={{fill: '#f8fafc'}}
                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                labelStyle={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}
+                                itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
+                                labelStyle={{ fontSize: '10px', color: '#94a3b8', marginBottom: '8px' }}
                                 formatter={(value: number) => [`₹${formatIndianNumber(value)}`, '']}
                             />
-                            <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                            <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
                             
                             {activeChart === 'revenue' ? (
                                 <>
-                                    <Bar dataKey="revenue" name="Sales (Profit)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                                    <Bar dataKey="expenses" name="Loss (Purchases + Exp)" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
+                                    <Bar dataKey="revenue" name="Sales" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                                    <Bar dataKey="expenses" name="Loss" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
                                     <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#6366f1" strokeWidth={3} dot={{r: 4, strokeWidth: 0, fill: '#6366f1'}} />
                                 </>
                             ) : (
@@ -351,7 +351,7 @@ export const ReportsModule: React.FC = () => {
             <div className="w-full lg:w-[350px] flex flex-col gap-6 shrink-0">
                 
                 {/* Category Distribution */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col h-[300px]">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col h-[320px]">
                     <h3 className="font-bold text-lg text-slate-800 mb-2">Sales by Category</h3>
                     <div className="flex-1 w-full min-h-0 relative">
                         <ResponsiveContainer width="100%" height="100%">
@@ -380,18 +380,18 @@ export const ReportsModule: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs mt-2">
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-[10px] mt-2 font-bold uppercase tracking-tight">
                         {CATEGORY_DATA.map((entry, index) => (
                             <div key={index} className="flex items-center gap-1.5">
                                 <div className="w-2 h-2 rounded-full" style={{backgroundColor: COLORS[index]}}></div>
-                                <span className="font-medium text-slate-600">{entry.name}</span>
+                                <span className="text-slate-600">{entry.name}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Top Selling Products */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex-1 flex flex-col">
+                <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm min-h-[400px] flex flex-col">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg text-slate-800">Top Products</h3>
                         <button className="text-slate-400 hover:text-slate-600"><MoreHorizontal size={18} /></button>
@@ -399,14 +399,14 @@ export const ReportsModule: React.FC = () => {
                     
                     <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
                         {TOP_PRODUCTS.map((product, idx) => (
-                            <div key={idx} className="flex items-center justify-between group">
-                                <div>
-                                    <h4 className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">{product.name}</h4>
-                                    <p className="text-xs text-slate-400 font-medium">{product.sales} units sold</p>
+                            <div key={idx} className="flex items-center justify-between group py-1 border-b border-slate-50 last:border-0">
+                                <div className="flex-1 pr-4">
+                                    <h4 className="text-xs font-black text-slate-700 uppercase leading-tight group-hover:text-indigo-600 transition-colors line-clamp-1">{product.name}</h4>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{product.sales} units sold</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-sm font-bold text-slate-800">₹{formatIndianNumber(product.revenue)}</p>
-                                    <div className="w-16 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                                    <p className="text-xs font-black text-slate-800">₹{formatIndianNumber(product.revenue)}</p>
+                                    <div className="w-12 h-1 bg-slate-100 rounded-full mt-1.5 overflow-hidden ml-auto">
                                         <div 
                                             className="h-full bg-indigo-500 rounded-full" 
                                             style={{ width: `${(product.revenue / (TOP_PRODUCTS[0]?.revenue || 1)) * 100}%` }}
@@ -421,8 +421,8 @@ export const ReportsModule: React.FC = () => {
         </div>
 
         {/* Lead Source & Conversion Graph */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col h-[400px] shrink-0">
-             <div className="flex justify-between items-center mb-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col min-h-[420px] shrink-0">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                         <Users size={20} className="text-indigo-600" />

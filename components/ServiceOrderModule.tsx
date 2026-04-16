@@ -30,7 +30,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const ServiceOrderModule: React.FC = () => {
-    const { invoices, addInvoice, updateInvoice, addNotification, currentUser } = useData();
+    const { invoices, addInvoice, updateInvoice, addNotification, currentUser, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -60,12 +60,14 @@ export const ServiceOrderModule: React.FC = () => {
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !order.invoiceNumber) {
+            const currentYearSOs = invoices.filter(i => i.documentType === 'ServiceOrder' && i.invoiceNumber && i.invoiceNumber.includes(`/${financialYear}/`));
+            const nextNum = currentYearSOs.length + 1;
             setOrder(prev => ({
                 ...prev,
-                invoiceNumber: `SMCSO ${String(invoices.filter(i => i.documentType === 'ServiceOrder').length + 201).padStart(3, '0')}`
+                invoiceNumber: `SMCSO/${financialYear}/${nextNum}`
             }));
         }
-    }, [viewState, editingId, invoices]);
+    }, [viewState, editingId, invoices, financialYear, order.invoiceNumber]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);

@@ -43,7 +43,7 @@ export function useRealtimeCollection<T = DocumentData>(
                 
                 setData(items);
                 setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-                setHasMore(snapshot.docs.length >= (initialConstraints.find(c => (c as any).type === 'limit') as any)?.limit || 50);
+                setHasMore(snapshot.docs.length >= ((initialConstraints.find(c => (c as any).type === 'limit') as any)?.limit || 50));
                 setLoading(false);
                 setError(null);
             },

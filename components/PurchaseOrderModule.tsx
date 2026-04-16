@@ -31,7 +31,7 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 export const PurchaseOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,12 +64,14 @@ export const PurchaseOrderModule: React.FC = () => {
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !order.invoiceNumber) {
+            const currentYearPOs = invoices.filter(i => i.invoiceNumber && i.invoiceNumber.includes(`SMCPO/${financialYear}/`));
+            const nextNum = currentYearPOs.length + 1;
             setOrder(prev => ({
                 ...prev,
-                invoiceNumber: `SMCPO/26-27/${String(invoices.filter(i => (i.invoiceNumber || '').startsWith('SMCPO')).length + 1)}`
+                invoiceNumber: `SMCPO/${financialYear}/${nextNum}`
             }));
         }
-    }, [viewState, editingId, invoices]);
+    }, [viewState, editingId, invoices, financialYear, order.invoiceNumber]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);

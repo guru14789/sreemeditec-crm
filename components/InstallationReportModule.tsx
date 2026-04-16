@@ -22,7 +22,7 @@ interface SimpleInstallationReport extends Partial<ServiceReport> {
 }
 
 export const InstallationReportModule: React.FC = () => {
-    const { clients, products, addNotification, installationReports, addInstallationReport, updateInstallationReport } = useData();
+    const { clients, products, addNotification, installationReports, addInstallationReport, updateInstallationReport, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,12 +43,14 @@ export const InstallationReportModule: React.FC = () => {
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !report.smirNo) {
+            const currentYearReports = installationReports.filter(r => (r as any).smirNo && (r as any).smirNo.includes(`/${financialYear}/`));
+            const nextNum = currentYearReports.length + 1;
             setReport(prev => ({
                 ...prev,
-                smirNo: `${String(installationReports.length + 20).padStart(3, '0')}`
+                smirNo: `SMIR/${financialYear}/${nextNum}`
             }));
         }
-    }, [viewState, installationReports.length, editingId, report.smirNo]);
+    }, [viewState, installationReports, editingId, report.smirNo, financialYear]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);

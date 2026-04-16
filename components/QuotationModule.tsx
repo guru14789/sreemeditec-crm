@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem } from '../types';
 import { 
-    Plus, Search, Trash2, PenTool, 
+    Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
     Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User
 } from 'lucide-react';
@@ -34,6 +34,56 @@ const numberToWords = (num: number): string => {
     return result ? '(' + result.trim().charAt(0).toUpperCase() + result.trim().slice(1) + ' only)' : '';
 };
 
+const INITIAL_QUOTE_STATE: Partial<Invoice> = {
+    invoiceNumber: '',
+    date: new Date().toISOString().split('T')[0],
+    items: [],
+    subject: '',
+    status: 'Draft',
+    customerName: '',
+    customerHospital: '',
+    customerAddress: '',
+    customerGstin: '',
+    phone: '',
+    discount: 0,
+    freightAmount: 0,
+    freightTaxRate: 18,
+    paymentTerms: '100% advance before delivery.',
+    deliveryTerms: 'Ex-stock, subject to prior sale.',
+    warrantyTerms: 'Standard 1 year warranty.',
+    bankAndBranch: 'ICICI Bank, Branch: Selaiyur',
+    accountNo: '603705016939'
+};
+
+const getQuoteNumberParts = (ref: string) => {
+    const parts = ref.split('/');
+    let quoteNum = 0;
+    let quoteNumStr = '';
+    let revNum = 0;
+    let fy = '';
+    
+    parts.forEach(p => {
+        const cleanP = p.trim();
+        // Match Fiscal Year (e.g., 25-26)
+        if (cleanP.includes('-') && cleanP.length === 5 && /\d{2}-\d{2}/.test(cleanP)) {
+            fy = cleanP;
+        } 
+        // Match Revision (e.g., R1, R2)
+        else if (cleanP.startsWith('R') && cleanP.length > 1 && !isNaN(parseInt(cleanP.substring(1)))) {
+            revNum = parseInt(cleanP.substring(1));
+        } 
+        // Match Quotation Number (e.g., 10, 986z) - exclude known prefixes or fragments
+        else if (cleanP !== 'SMQ' && /^\d+/.test(cleanP)) {
+            const n = parseInt(cleanP);
+            if (!isNaN(n)) {
+                quoteNum = n;
+                quoteNumStr = cleanP;
+            }
+        }
+    });
+    return { fy, quoteNum, quoteNumStr, revNum };
+};
+
 const calculateDetailedTotals = (quote: Partial<Invoice>) => {
     const items = quote.items || [];
     const subtotal = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
@@ -48,11 +98,12 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 };
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
+    const [quoteSearch, setQuoteSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
     const [logo, setLogo] = useState<string | null>(null);
@@ -61,44 +112,26 @@ export const QuotationModule: React.FC = () => {
     const [repName, setRepName] = useState('S. Suresh Kumar.');
     const [repPhone, setRepPhone] = useState('9884818398');
 
-    const [quote, setQuote] = useState<Partial<Invoice>>({
-        invoiceNumber: '',
-        date: new Date().toISOString().split('T')[0],
-        items: [],
-        subject: '',
-        status: 'Draft',
-        customerName: '',
-        customerHospital: '',
-        customerAddress: '',
-        customerGstin: '',
-        phone: '',
-        discount: 0,
-        freightAmount: 0,
-        freightTaxRate: 18,
-        paymentTerms: '100% advance before delivery.',
-        deliveryTerms: 'Ex-stock, subject to prior sale.',
-        warrantyTerms: 'Standard 1 year warranty.',
-        bankAndBranch: 'ICICI Bank, Branch: Selaiyur',
-        accountNo: '603705016939'
-    });
+    const [quote, setQuote] = useState<Partial<Invoice>>(INITIAL_QUOTE_STATE);
 
-    const currentFY = useMemo(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = d.getMonth() + 1;
-        const fyStart = month >= 4 ? year : year - 1;
-        return `${fyStart.toString().slice(-2)}-${(fyStart + 1).toString().slice(-2)}`;
-    }, []);
+    const currentFY = financialYear;
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !quote.invoiceNumber) {
-            const count = invoices.filter(i => i.documentType === 'Quotation').length + 1;
+            const quotes = invoices.filter(i => i.documentType === 'Quotation');
+            let maxNum = 0;
+            quotes.forEach(q => {
+                const { fy, quoteNum } = getQuoteNumberParts(q.invoiceNumber);
+                if (fy === currentFY) {
+                    if (quoteNum > maxNum) maxNum = quoteNum;
+                }
+            });
             setQuote(prev => ({
                 ...prev,
-                invoiceNumber: `SMQ/${currentFY}/${count}`
+                invoiceNumber: `SMQ/${currentFY}/${maxNum + 1}`
             }));
         }
-    }, [viewState, editingId, invoices, currentFY]);
+    }, [viewState, editingId, invoices, currentFY, quote.invoiceNumber]);
 
     // Handle conversion from Lead
     useEffect(() => {
@@ -363,41 +396,21 @@ export const QuotationModule: React.FC = () => {
     const totals = useMemo(() => calculateDetailedTotals(quote), [quote]);
 
     const sortedQuotes = useMemo(() => {
-        return invoices
-            .filter(i => i.documentType === 'Quotation')
-            .sort((a, b) => {
-                const getParts = (ref: string) => {
-                    const parts = ref.split('/');
-                    let quoteNum = 0;
-                    let quoteNumStr = '';
-                    let revNum = 0;
-                    let fy = '';
-                    
-                    parts.forEach(p => {
-                        const cleanP = p.trim();
-                        // Match Fiscal Year (e.g., 25-26)
-                        if (cleanP.includes('-') && cleanP.length === 5 && /\d{2}-\d{2}/.test(cleanP)) {
-                            fy = cleanP;
-                        } 
-                        // Match Revision (e.g., R1, R2)
-                        else if (cleanP.startsWith('R') && cleanP.length > 1 && !isNaN(parseInt(cleanP.substring(1)))) {
-                            const n = parseInt(cleanP.substring(1));
-                            revNum = n;
-                        } 
-                        // Match Quotation Number (e.g., 10, 986z) - exclude known prefixes or fragments
-                        else if (cleanP !== 'SMQ' && /^\d+/.test(cleanP)) {
-                            const n = parseInt(cleanP);
-                            if (!isNaN(n)) {
-                                quoteNum = n;
-                                quoteNumStr = cleanP;
-                            }
-                        }
-                    });
-                    return { fy, quoteNum, quoteNumStr, revNum };
-                };
+        let filtered = invoices.filter(i => i.documentType === 'Quotation');
+        
+        if (quoteSearch) {
+            const lowSearch = quoteSearch.toLowerCase();
+            filtered = filtered.filter(i => 
+                i.invoiceNumber.toLowerCase().includes(lowSearch) ||
+                (i.customerName || '').toLowerCase().includes(lowSearch) ||
+                (i.subject || '').toLowerCase().includes(lowSearch) ||
+                (i.createdBy || '').toLowerCase().includes(lowSearch)
+            );
+        }
 
-                const aData = getParts(a.invoiceNumber);
-                const bData = getParts(b.invoiceNumber);
+        return filtered.sort((a, b) => {
+                const aData = getQuoteNumberParts(a.invoiceNumber);
+                const bData = getQuoteNumberParts(b.invoiceNumber);
                 
                 // 1. Primary: Fiscal Year (Descending - e.g., 26-27 before 25-26)
                 if (aData.fy !== bData.fy) {
@@ -427,19 +440,58 @@ export const QuotationModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setQuote({...quote, date: new Date().toISOString().split('T')[0], items: [], status: 'Draft'}); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Quote</button>
+                <button 
+                    onClick={() => { 
+                        setEditingId(null); 
+                        setViewState('builder'); 
+                        setBuilderTab('form'); 
+                        setQuote({ ...INITIAL_QUOTE_STATE, invoiceNumber: '' }); 
+                    }} 
+                    className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <Plus size={16} /> New Quote
+                </button>
             </div>
 
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center"><h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Quotations Archive</h3></div>
+                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Quotations Archive</h3>
+                        <div className="relative w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <input 
+                                type="text" 
+                                placeholder="Search quotes..." 
+                                className="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                                value={quoteSearch}
+                                onChange={(e) => setQuoteSearch(e.target.value)}
+                            />
+                            {quoteSearch && (
+                                <button 
+                                    onClick={() => setQuoteSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr><th className="px-6 py-4">Reference</th><th className="px-6 py-4">Consignee</th><th className="px-6 py-4">Author</th><th className="px-6 py-4 text-right">Grand Total</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {sortedQuotes.map(inv => (
+                                {sortedQuotes.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Search size={32} className="opacity-10" />
+                                                <p className="text-[10px] font-black uppercase tracking-widest">No matching quotations found</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : sortedQuotes.map(inv => (
                                     <tr key={inv.id} onClick={() => { setQuote(inv); setEditingId(inv.id); setViewState('builder'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>

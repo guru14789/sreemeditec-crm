@@ -36,7 +36,7 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
 }
 
 export const ServiceReportModule: React.FC = () => {
-    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport } = useData();
+    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,12 +72,14 @@ export const ServiceReportModule: React.FC = () => {
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !report.reportNumber) {
+            const currentYearReports = serviceReports.filter(r => r.reportNumber && r.reportNumber.includes(`/${financialYear}/`));
+            const nextNum = currentYearReports.length + 1;
             setReport(prev => ({
                 ...prev,
-                reportNumber: `${String(serviceReports.length + 101).padStart(3, '0')}`
+                reportNumber: `SR/${financialYear}/${nextNum}`
             }));
         }
-    }, [viewState, serviceReports.length, editingId, report.reportNumber]);
+    }, [viewState, serviceReports, editingId, report.reportNumber, financialYear]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);

@@ -55,7 +55,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -88,12 +88,14 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !invoice.invoiceNumber) {
+            const currentYearInvoices = invoices.filter(i => i.invoiceNumber && i.invoiceNumber.includes(`/${financialYear}/`));
+            const nextNum = currentYearInvoices.length + 1;
             setInvoice(prev => ({
                 ...prev,
-                invoiceNumber: `SM/26-27/${String(invoices.filter(i => (i.invoiceNumber || '').startsWith('SM/')).length + 135).padStart(4, '0')}`
+                invoiceNumber: `SM/${financialYear}/${String(nextNum).padStart(4, '0')}`
             }));
         }
-    }, [viewState, editingId, invoices.length]);
+    }, [viewState, editingId, invoices, financialYear, invoice.invoiceNumber]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);

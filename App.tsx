@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -27,6 +27,8 @@ import { VendorModule } from './components/VendorModule';
 import { ExpenseModule } from './components/ExpenseModule';
 import { PerformanceModule } from './components/PerformanceModule';
 import { LogsModule } from './components/LogsModule';
+import { CatalogModule } from './components/CatalogModule';
+import { PayrollModule } from './components/PayrollModule';
 import { ArchiveModule } from './components/ArchiveModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
@@ -45,21 +47,21 @@ const NavItem: React.FC<{
   return (
     <button
       onClick={() => onSelect(tab)}
-      className={`group w-full flex items-center transition-all relative mb-1.5 ${isActive
+      className={`group w-full flex items-center transition-all relative mb-1 ${isActive
         ? 'bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-950/20'
         : 'text-emerald-50/50 hover:text-white hover:bg-white/5'
-        } ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-3.5' : 'justify-center p-3 rounded-2xl w-14 h-14 mx-auto'}`}
+        } ${isSidebarOpen ? 'px-3 py-2 md:py-2.5 rounded-xl md:rounded-2xl gap-2.5 md:gap-3' : 'justify-center p-2 rounded-xl w-12 h-12 mx-auto'}`}
     >
-      <Icon size={isSidebarOpen ? 18 : 24} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-      {isSidebarOpen && <span className="truncate flex-1 text-left font-bold tracking-tight text-sm">{label}</span>}
+      <Icon size={isSidebarOpen ? 16 : 20} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+      {isSidebarOpen && <span className="truncate flex-1 text-left font-bold tracking-tight text-[13px] md:text-sm">{label}</span>}
     </button>
   );
 };
 
 const SectionHeading = ({ children, isSidebarOpen }: { children?: React.ReactNode; isSidebarOpen: boolean }) => {
-  if (!isSidebarOpen) return <div className="h-px bg-white/5 my-6 mx-4" />;
+  if (!isSidebarOpen) return <div className="h-px bg-white/5 my-4 mx-4" />;
   return (
-    <div className="px-5 mb-3 mt-6 text-[10px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-3">
+    <div className="px-4 mb-2 mt-4 text-[9px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-2">
       <span className="shrink-0">{children}</span>
       <div className="h-[1px] bg-white/5 flex-1"></div>
     </div>
@@ -81,9 +83,9 @@ const formatIndianNumber = (num: number) => {
 };
 
 const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { label: string, value: string, icon: any, colorClass: string, subText?: string }) => (
-    <div className={`hidden lg:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:border-${colorClass.split('-')[1]}-200 group`}>
-        <div className={`p-1.5 rounded-xl ${colorClass} text-white group-hover:scale-110 transition-transform`}>
-            <Icon size={14} />
+    <div className={`hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:border-${colorClass.split('-')[1]}-200 group`}>
+        <div className={`p-1 rounded-lg ${colorClass} text-white group-hover:scale-110 transition-transform`}>
+            <Icon size={12} />
         </div>
         <div>
             <p className="text-[7px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 leading-none mb-1">{label}</p>
@@ -96,7 +98,10 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
 );
 
 export const App: React.FC = () => {
-    const { isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, userStats, attendanceRecords, invoices } = useData();
+    const { 
+        isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
+        userStats, attendanceRecords, invoices, financialYear, updateFinancialYear 
+    } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
 
@@ -118,7 +123,7 @@ export const App: React.FC = () => {
     return <Login />;
   }
 
-  const isSuperAdmin = currentUser.email?.toLowerCase() === 'sreekumar.career@gmail.com' || currentUser.email?.toLowerCase() === 'admin@demo.com';
+  const isSuperAdmin = currentUser.email?.toLowerCase() === 'sreekumar.career@gmail.com';
   const userRole = currentUser.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
   const currentUserName = currentUser.name;
 
@@ -137,6 +142,7 @@ export const App: React.FC = () => {
         { tab: TabView.CLIENTS, icon: Contact, label: 'Client Database' },
         { tab: TabView.VENDORS, icon: Truck, label: 'Vendor Database' },
         { tab: TabView.INVENTORY, icon: Package, label: 'Inventory' },
+        { tab: TabView.CATALOG, icon: ShoppingBag, label: 'Product Catalog' },
       ]
     },
     {
@@ -157,6 +163,7 @@ export const App: React.FC = () => {
       items: [
         { tab: TabView.TASKS, icon: CheckSquare, label: 'Task Manager' },
         { tab: TabView.ATTENDANCE, icon: Clock, label: 'Check-in/Out' },
+        { tab: TabView.PAYROLL, icon: Receipt, label: 'Payroll portal' },
         { tab: TabView.EXPENSES, icon: Receipt, label: 'Vouchers' },
         { tab: TabView.PERFORMANCE, icon: Trophy, label: 'Leaderboard' },
       ]
@@ -166,8 +173,8 @@ export const App: React.FC = () => {
       items: [
         { tab: TabView.HR, icon: ShieldCheck, label: 'Staff Management' },
         { tab: TabView.REPORTS, icon: ClipboardList, label: 'Reports Centre' },
-        { tab: TabView.LOGS, icon: Activity, label: 'Audit Logs' },
         { tab: TabView.ARCHIVE, icon: FileText, label: 'Finance Archive' },
+        { tab: TabView.CONFIG, icon: Settings, label: 'System Config' },
       ]
     }
   ];
@@ -229,7 +236,58 @@ export const App: React.FC = () => {
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
+      case TabView.CATALOG: return <CatalogModule />;
+      case TabView.PAYROLL: return <PayrollModule />;
       case TabView.ARCHIVE: return <ArchiveModule />;
+      case TabView.CONFIG: return (
+        <div className="h-full flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in zoom-in duration-500">
+            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
+                <Settings size={40} className="animate-[spin_4s_linear_infinite]" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Configuration</h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[320px] text-center font-medium">Core system parameters and business rules can be managed from this terminal.</p>
+            <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-lg">
+                <div 
+                    onClick={() => setActiveTab(TabView.LOGS)}
+                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/card"
+                >
+                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/card:text-indigo-500 transition-colors"><Activity size={16}/></div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Audit Mode</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Standard</p>
+                        <ChevronRight size={14} className="text-slate-300 group-hover/card:text-indigo-400 transition-colors" />
+                    </div>
+                </div>
+                <div 
+                    onClick={async () => {
+                        if (userRole !== 'Admin') {
+                            alert("Access Denied: Administrative privileges required.");
+                            return;
+                        }
+                        const pass = window.prompt("Enter Admin Password to modify Fiscal Period:");
+                        if (pass !== 'sree') {
+                            alert("Invalid Password.");
+                            return;
+                        }
+                        const nextFY = window.prompt("Enter New Financial Year (e.g. 26-27):", financialYear);
+                        if (nextFY && nextFY !== financialYear) {
+                            if (window.confirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`)) {
+                                await updateFinancialYear(nextFY);
+                            }
+                        }
+                    }}
+                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-amber-500/5 hover:-translate-y-1 transition-all group/fy"
+                >
+                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/fy:text-amber-500 transition-colors"><Calendar size={16}/></div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Fiscal Period</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{financialYear}</p>
+                        <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm">Active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+      );
       default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };
@@ -244,26 +302,26 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-white dark:bg-slate-950 overflow-hidden relative">
+    <div className="flex h-[100dvh] bg-white dark:bg-slate-950 overflow-hidden relative">
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
       )}
 
       <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 
         ${isSidebarOpen
-          ? 'w-72 translate-x-0'
-          : 'w-24 -translate-x-full lg:translate-x-0'} 
+          ? 'w-64 translate-x-0'
+          : 'w-20 -translate-x-full lg:translate-x-0'} 
         fixed lg:relative h-full shadow-2xl overflow-hidden`}>
 
         {/* Branding Header */}
-        <div className={`p-6 h-24 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
+        <div className={`p-4 md:p-5 h-16 md:h-20 flex items-center shrink-0 bg-black/10 ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           {isSidebarOpen ? (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
-              <span className="font-black text-white text-2xl tracking-tighter uppercase leading-none">Sree Meditec</span>
-              <span className="text-[9px] font-black text-emerald-400/60 uppercase tracking-[0.4em] ml-0.5 mt-1">Enterprise</span>
+              <span className="font-black text-white text-xl md:text-2xl tracking-tighter uppercase leading-none">Sree Meditec</span>
+              <span className="text-[8px] font-black text-emerald-400/60 uppercase tracking-[0.4em] ml-0.5 mt-1">Enterprise</span>
             </div>
           ) : null}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-white/10 rounded-2xl text-white transition-all transform active:scale-90"><Menu size={28} /></button>
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all transform active:scale-90"><Menu size={24} /></button>
         </div>
 
         {/* Scrollable Navigation Area */}
@@ -312,12 +370,12 @@ export const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-3 flex items-center shrink-0 h-20 md:h-24 z-50 sticky top-0 shadow-sm transition-colors duration-300">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 h-14 md:h-16 z-50 sticky top-0 shadow-sm transition-colors duration-300">
           <div className="w-12 lg:hidden">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
           </div>
           <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left min-w-0 px-2">
-            <h2 className="text-lg md:text-[24px] font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
+            <h2 className="text-base md:text-[20px] font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
               {activeTab.replace(/_/g, ' ')}
             </h2>
             <div className="flex items-center gap-1.5 md:mt-1">
@@ -517,12 +575,12 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-1 md:gap-3 relative">
             {/* System Alerts Removed */}
 
-            <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black">{currentUserName.charAt(0)}</div></div>
+            <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-8 h-8 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-xs">{currentUserName.charAt(0)}</div></div>
           </div>
         </header>
 
-        <div className="flex-1 p-4 lg:p-8 overflow-hidden bg-slate-50/40 dark:bg-slate-950">
-          <div className="h-full w-full animate-in fade-in duration-500">{renderContent()}</div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50/40 dark:bg-slate-950">
+          <div className="flex-1 flex flex-col min-h-0 w-full p-2.5 lg:p-5 animate-in fade-in duration-500 overflow-hidden">{renderContent()}</div>
         </div>
       </main>
       <WinnerPopup />

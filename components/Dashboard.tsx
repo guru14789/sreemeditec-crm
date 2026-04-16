@@ -20,9 +20,10 @@ export const Dashboard: React.FC = () => {
     // Start of month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Filter valid sales (Profit) and exclude Quotations/SupplierPOs (Loss)
+    // Filter valid sales (Invoices) - including all non-quote/non-supplier-po documents to find missing value
     const validInvoices = invoices.filter(inv => 
-        (inv.documentType === 'PO' || !inv.documentType || inv.documentType === 'ServiceOrder') && 
+        inv.documentType !== 'Quotation' && 
+        inv.documentType !== 'SupplierPO' &&
         inv.status !== 'Draft' && 
         inv.status !== 'Cancelled'
     );
@@ -32,13 +33,13 @@ export const Dashboard: React.FC = () => {
 
     const weekInvoices = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
-      return invDate >= startOfWeek;
+      return invDate >= startOfWeek && invDate <= now;
     });
     const weekRevenue = weekInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
     const monthInvoices = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
-      return invDate >= startOfMonth;
+      return invDate >= startOfMonth && invDate <= now;
     });
     const monthRevenue = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
@@ -71,75 +72,75 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 pr-1 pb-4 custom-scrollbar">
+    <div className="h-full overflow-y-auto space-y-4 md:space-y-5 pr-1 pb-4 custom-scrollbar">
       
       {/* Revenue Section */}
-      <div className="space-y-3">
-        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
-            <DollarSign size={14} /> Sales Snapshot (Profits)
+      <div className="space-y-2.5">
+        <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
+            <DollarSign size={13} /> Sales Snapshot
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-6 rounded-[2.5rem] shadow-lg shadow-emerald-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity"><Activity size={100} /></div>
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                    <div className="bg-white/10 p-3 rounded-2xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform"><Activity size={24} /></div>
-                    <span className="flex items-center gap-1 text-xs font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> Live</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-emerald-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Activity size={80} /></div>
+                <div className="flex items-center justify-between mb-3 relative z-10">
+                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform"><Activity size={20} /></div>
+                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> Live</span>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[10px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Profit (Sales)</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
-                    <p className="text-xs text-emerald-200/60 mt-1 font-medium italic underline decoration-emerald-500/30">Synced with Registry</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Sales</p>
+                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
+                    <p className="text-[10px] md:text-xs text-emerald-200/60 mt-0.5 md:mt-1 font-medium italic underline decoration-emerald-500/30">Synced with Registry</p>
                 </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-6 rounded-[2.5rem] shadow-lg shadow-blue-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar size={100} /></div>
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                    <div className="bg-white/10 p-3 rounded-2xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Calendar size={24} /></div>
-                    <span className="flex items-center gap-1 text-xs font-bold text-blue-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}% of month</span>
+            <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-blue-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar size={80} /></div>
+                <div className="flex items-center justify-between mb-3 relative z-10">
+                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Calendar size={20} /></div>
+                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-blue-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%</span>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[10px] font-black text-blue-200/80 uppercase tracking-widest">This Week</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.weekRevenue)}</h3>
-                    <p className="text-xs text-blue-200/60 mt-1 font-medium italic tracking-tighter">Current Week Cycle</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-blue-200/80 uppercase tracking-widest">Weekly Goal</p>
+                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.weekRevenue)}</h3>
+                    <p className="text-[10px] md:text-xs text-blue-200/60 mt-0.5 md:mt-1 font-medium italic tracking-tighter">Current Week Cycle</p>
                 </div>
             </div>
 
-            <div className="bg-gradient-to-br from-violet-800 to-purple-900 p-6 rounded-[2.5rem] shadow-lg shadow-purple-900/20 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={100} /></div>
-                <div className="flex items-center justify-between mb-4 relative z-10">
-                    <div className="bg-white/10 p-3 rounded-2xl text-purple-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Wallet size={24} /></div>
-                    <span className="flex items-center gap-1 text-xs font-bold text-purple-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={12} /> Active</span>
+            <div className="bg-gradient-to-br from-violet-800 to-purple-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-purple-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={80} /></div>
+                <div className="flex items-center justify-between mb-3 relative z-10">
+                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-purple-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Wallet size={20} /></div>
+                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-purple-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> Monthly</span>
                 </div>
                 <div className="relative z-10">
-                    <p className="text-[10px] font-black text-purple-200/80 uppercase tracking-widest">This Month</p>
-                    <h3 className="text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
-                    <p className="text-xs text-purple-200/60 mt-1 font-medium italic underline decoration-purple-500/30">MOM Growth Engine</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-purple-200/80 uppercase tracking-widest">Monthly Intake</p>
+                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
+                    <p className="text-[10px] md:text-xs text-purple-200/60 mt-0.5 md:mt-1 font-medium italic underline decoration-purple-500/30">MOM Growth Engine</p>
                 </div>
             </div>
         </div>
       </div>
 
       {/* Operations & Feeds */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
         {/* Real-time Field Feed */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[420px]">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-                <h3 className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Live Field Terminal
+        <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[380px] md:h-[400px]">
+            <div className="flex justify-between items-center mb-4 md:mb-5 shrink-0">
+                <h3 className="font-black text-[10px] md:text-xs text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Field Terminal
                 </h3>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
+            <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 custom-scrollbar pr-1">
                 {tasks.slice(0, 8).map(task => (
-                    <div key={task.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between group hover:bg-white transition-all">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-2 rounded-xl ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm'}`}><Clock size={16} /></div>
+                    <div key={task.id} className="p-3 md:p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between group hover:bg-white transition-all shadow-sm shadow-slate-200/50">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-1.5 md:p-2 rounded-lg md:rounded-xl text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm'}`}><Clock size={14} /></div>
                             <div>
-                                <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{task.title}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">{task.assignedTo}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">{task.status}</span>
+                                <p className="text-[10px] md:text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{task.title}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[7.5px] md:text-[8px] font-black text-indigo-500 uppercase tracking-widest">{task.assignedTo}</span>
+                                    <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
+                                    <span className="text-[7.5px] md:text-[8px] font-bold text-slate-400 uppercase">{task.status}</span>
                                 </div>
                             </div>
                         </div>
@@ -150,23 +151,23 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Performance Feed */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[420px]">
-             <div className="flex justify-between items-center mb-6 shrink-0">
-                <h3 className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div> Recognition Feed
+        <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[380px] md:h-[400px]">
+             <div className="flex justify-between items-center mb-4 md:mb-5 shrink-0">
+                <h3 className="font-black text-[10px] md:text-xs text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div> Recognition
                 </h3>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
+            <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 custom-scrollbar pr-1">
                 {pointHistory.slice(0, 8).map(log => (
-                    <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between">
-                         <div className="flex items-center gap-4">
-                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Zap size={16} fill="currentColor" /></div>
+                    <div key={log.id} className="p-3 md:p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between shadow-sm shadow-slate-200/50 hover:bg-white transition-all">
+                         <div className="flex items-center gap-3">
+                            <div className="p-1.5 md:p-2 bg-indigo-50 text-indigo-600 rounded-lg md:rounded-xl"><Zap size={14} fill="currentColor" /></div>
                             <div>
-                                <p className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight">{log.description}</p>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Awarded to Registry ID: {log.userId}</p>
+                                <p className="text-[10px] md:text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight">{log.description}</p>
+                                <p className="text-[7.5px] md:text-[8px] font-bold text-slate-400 uppercase mt-0.5">Asset ID: {log.userId}</p>
                             </div>
                          </div>
-                         <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg shrink-0">+{log.points}</span>
+                         <span className="text-[9px] md:text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">+{log.points}</span>
                     </div>
                 ))}
                 {pointHistory.length === 0 && (
@@ -180,11 +181,11 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-300 dark:border-slate-800 h-96 flex flex-col">
-            <div className="flex justify-between items-center mb-8 shrink-0">
-                <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-xs tracking-widest">Sales Forecast (Internal)</h3>
-                <select className="text-[10px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-600 dark:text-slate-300 outline-none uppercase">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 h-80 md:h-96 flex flex-col">
+            <div className="flex justify-between items-center mb-5 md:mb-8 shrink-0">
+                <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-[10px] md:text-xs tracking-widest">Internal Forecast</h3>
+                <select className="text-[9px] md:text-[10px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg md:rounded-xl px-2.5 py-1 text-slate-600 dark:text-slate-300 outline-none uppercase">
                     <option>Last 7 Days</option>
                 </select>
             </div>
@@ -196,7 +197,7 @@ export const Dashboard: React.FC = () => {
                         <YAxis tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 900}} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
                         <Tooltip cursor={{fill: '#f0fdf4'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }} />
                         <Bar dataKey="sales" fill="url(#colorSales)" radius={[8, 8, 8, 8]}>
-                            {stats.dailySales.map((entry, index) => (
+                            {stats.dailySales.map((_, index) => (
                                 <Cell key={`cell-${index}`} fill={index === 6 ? '#059669' : '#6366f1'} />
                             ))}
                         </Bar>
@@ -211,7 +212,7 @@ export const Dashboard: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie data={dataTickets} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
-                            {dataTickets.map((entry: any, index: number) => (
+                            {dataTickets.map((_, index: number) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                         </Pie>

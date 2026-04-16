@@ -5,16 +5,26 @@ import { useData } from './DataContext';
 import { LogEntry } from '../types';
 
 export const LogsModule: React.FC = () => {
-    const { logs, fetchAuditLogs, addLog } = useData();
+    const { logs, fetchAuditLogs, addLog, hasMoreLogs } = useData();
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('All');
-    const [daysToFetch, setDaysToFetch] = useState(7);
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+
+    React.useEffect(() => {
+        if (logs.length === 0) fetchAuditLogs(false);
+    }, []);
 
     const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await fetchAuditLogs(daysToFetch);
-        setIsRefreshing(false);
+        setIsLoading(true);
+        await fetchAuditLogs(false);
+        setIsLoading(false);
+    };
+
+    const handleLoadMore = async () => {
+        if (isLoading) return;
+        setIsLoading(true);
+        await fetchAuditLogs(true);
+        setIsLoading(false);
     };
 
     const handleExport = () => {
@@ -64,76 +74,62 @@ export const LogsModule: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col gap-6 relative p-2">
-            {/* Header / Stats Overlay? No, keep it clean for logs */}
+        <div className="h-full flex flex-col gap-3 md:gap-6 relative p-1 md:p-2">
             
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden flex-1">
+            <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden flex-1">
                 {/* Search & Filter Bar */}
-                <div className="p-5 border-b border-slate-300 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20">
+                <div className="p-3 md:p-5 border-b border-slate-300 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 bg-slate-50/20">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-medical-50 text-medical-600 rounded-2xl shadow-sm">
-                            <Activity size={20} />
+                        <div className="p-2 md:p-2.5 bg-medical-50 text-medical-600 rounded-xl md:rounded-2xl shadow-sm">
+                            <Activity size={18} />
                         </div>
                         <div>
-                            <h2 className="font-black text-slate-800 uppercase tracking-tight text-lg leading-tight">System Audit Logs</h2>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-0.5">Real-time enterprise activity tracking</p>
+                            <h2 className="font-black text-slate-800 uppercase tracking-tight text-base md:text-lg leading-tight">System Audit Logs</h2>
+                            <p className="hidden md:block text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-0.5">Real-time enterprise activity tracking</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-medical-600" size={16} />
+                    <div className="flex flex-wrap gap-2 md:gap-3">
+                        <div className="relative group flex-1 md:flex-none">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-medical-600" size={14} />
                             <input 
                                 type="text"
                                 placeholder="Search logs..."
-                                className="pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:outline-none focus:border-medical-500 transition-all w-full sm:w-64"
+                                className="pl-9 pr-4 py-2 md:py-2.5 bg-white border border-slate-300 rounded-lg md:rounded-xl text-xs font-bold focus:outline-none focus:border-medical-500 transition-all w-full md:w-64"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />
                         </div>
 
-                        <button 
-                            onClick={handleRefresh}
-                            className={`p-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 hover:text-medical-600 hover:border-medical-300 transition-all ${isRefreshing ? 'animate-spin text-medical-600' : ''}`}
-                            title="Refresh Logs"
-                        >
-                            <Activity size={18} />
-                        </button>
-
-                        <button 
-                            onClick={handleExport}
-                            className="px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center gap-2"
-                        >
-                            <FileText size={14} /> Export JSON
-                        </button>
-
-                        <select 
-                            className="px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:border-medical-500 appearance-none pr-8 relative cursor-pointer"
-                            value={categoryFilter}
-                            onChange={e => setCategoryFilter(e.target.value)}
-                        >
-                            <option value="All">All Categories</option>
-                            <option value="Attendance">Attendance</option>
-                            <option value="Inventory">Inventory</option>
-                            <option value="Leads">Leads CRM</option>
-                            <option value="Auth">Security / Auth</option>
-                            <option value="Billing">Billing</option>
-                            <option value="Tasks">Tasks</option>
-                            <option value="System">System Master</option>
-                        </select>
-
-                        <div className="flex items-center gap-2 bg-slate-100/50 px-3 py-1.5 rounded-xl border border-slate-200">
-                             <span className="text-[9px] font-black uppercase text-slate-400">History:</span>
-                             <select 
-                                className="bg-transparent text-[10px] font-black uppercase text-indigo-600 outline-none"
-                                value={daysToFetch}
-                                onChange={e => setDaysToFetch(Number(e.target.value))}
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button 
+                                onClick={handleRefresh}
+                                disabled={isLoading}
+                                className={`flex-1 md:flex-none p-2 bg-white border border-slate-300 rounded-lg md:rounded-xl text-slate-600 hover:text-medical-600 hover:border-medical-300 transition-all ${isLoading ? 'animate-spin text-medical-600' : ''}`}
                             >
-                                <option value={1}>Today</option>
-                                <option value={3}>3 Days</option>
-                                <option value={7}>7 Days</option>
-                                <option value={14}>14 Days</option>
-                                <option value={30}>30 Days</option>
+                                <Activity size={16} />
+                            </button>
+
+                            <button 
+                                onClick={handleExport}
+                                className="flex-1 md:flex-none px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg md:rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
+                            >
+                                <FileText size={12} /> <span className="hidden sm:inline">JSON</span>
+                            </button>
+
+                            <select 
+                                className="flex-[2] md:flex-none px-3 py-2 bg-white border border-slate-300 rounded-lg md:rounded-xl text-[9px] font-black uppercase tracking-widest outline-none focus:border-medical-500 appearance-none pr-7 relative cursor-pointer"
+                                value={categoryFilter}
+                                onChange={e => setCategoryFilter(e.target.value)}
+                            >
+                                <option value="All">All Categories</option>
+                                <option value="Attendance">Attendance</option>
+                                <option value="Inventory">Inventory</option>
+                                <option value="Leads">Leads CRM</option>
+                                <option value="Auth">Security / Auth</option>
+                                <option value="Billing">Billing</option>
+                                <option value="Tasks">Tasks</option>
+                                <option value="System">System Master</option>
                             </select>
                         </div>
                     </div>
@@ -141,65 +137,45 @@ export const LogsModule: React.FC = () => {
 
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left">
-                        <thead className="bg-[#fcfdfd] text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 sticky top-0 z-20 border-b border-slate-200 shadow-sm">
+                        <thead className="bg-[#fcfdfd] text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 sticky top-0 z-20 border-b border-slate-200 shadow-sm">
                             <tr>
-                                <th className="px-6 py-4">Time & Actor</th>
-                                <th className="px-6 py-4">Category</th>
-                                <th className="px-6 py-4">Event Description</th>
-                                <th className="px-6 py-4">Specific Details</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4">Time & Actor</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4">Category</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4 hidden md:table-cell">Event</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4">Details</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 italic-last:bg-slate-50">
                             {filteredLogs.length > 0 ? filteredLogs.map((log) => (
                                 <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex gap-3">
+                                    <td className="px-3 md:px-6 py-2 md:py-4">
+                                        <div className="flex gap-2 md:gap-3">
                                             <div className="flex flex-col items-center shrink-0">
-                                                <div className="text-[11px] font-black text-slate-800 leading-none mb-1">{formatTime(log.timestamp)}</div>
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{formatDate(log.timestamp)}</div>
+                                                <div className="text-[10px] md:text-[11px] font-black text-slate-800 leading-none mb-0.5 md:mb-1">{formatTime(log.timestamp).slice(0, 5)}</div>
+                                                <div className="text-[7px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{formatDate(log.timestamp).split(',')[0]}</div>
                                             </div>
-                                            <div className="w-px h-8 bg-slate-100"></div>
-                                            <div>
-                                                <div className="text-[11px] font-black text-slate-700 leading-none mb-1">{log.userName}</div>
-                                                <div className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.1em] leading-none">{log.userRole}</div>
+                                            <div className="w-px h-6 md:h-8 bg-slate-100"></div>
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] md:text-[11px] font-black text-slate-700 leading-none mb-0.5 md:mb-1 truncate max-w-[80px] md:max-w-none">{log.userName}</div>
+                                                <div className="text-[7px] md:text-[9px] font-black text-indigo-500 uppercase tracking-[0.1em] leading-none truncate">{log.userRole?.split('_')[1] || log.userRole}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-lg w-fit shadow-sm">
+                                    <td className="px-3 md:px-6 py-2 md:py-4">
+                                        <div className="flex items-center gap-1.5 md:gap-2 md:px-3 px-1.5 py-0.5 md:py-1 bg-white border border-slate-200 rounded-md md:rounded-lg w-fit shadow-sm">
                                             {getCategoryIcon(log.category)}
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{log.category}</span>
+                                            <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 hidden sm:inline">{log.category}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 md:px-6 py-2 md:py-4 hidden md:table-cell">
                                         <div className="text-[11px] font-black text-slate-800 tracking-tight leading-snug">{log.action}</div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-3 md:px-6 py-2 md:py-4">
                                         <div className="max-w-md">
-                                            <p className="text-[11px] font-bold text-slate-700 leading-relaxed italic border-l-2 border-slate-100 pl-3 mb-2">
+                                            <p className="text-[10px] md:text-[11px] font-bold text-slate-700 leading-tight md:leading-relaxed italic border-l md:border-l-2 border-slate-100 pl-2 md:pl-3 line-clamp-2 md:line-clamp-none">
+                                                <span className="md:hidden font-black text-slate-900 not-italic mr-1">{log.action}:</span>
                                                 {log.details}
                                             </p>
-                                            
-                                            {log.beforeValues && log.afterValues && (
-                                                <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-[9px] font-medium font-mono overflow-auto max-h-32">
-                                                    <div className="text-slate-400 mb-1 uppercase tracking-tighter font-black">Field Level Changes:</div>
-                                                    {Object.keys({ ...log.beforeValues, ...log.afterValues }).map(key => {
-                                                        const before = log.beforeValues[key];
-                                                        const after = log.afterValues[key];
-                                                        if (JSON.stringify(before) === JSON.stringify(after)) return null;
-                                                        if (typeof before === 'object' || typeof after === 'object') return null; // Skip complex objects for readability
-                                                        
-                                                        return (
-                                                            <div key={key} className="flex flex-wrap gap-1 mb-1">
-                                                                <span className="text-slate-500 font-bold">{key}:</span>
-                                                                <span className="text-rose-500 line-through opacity-70">{String(before || 'None')}</span>
-                                                                <span className="text-slate-400">→</span>
-                                                                <span className="text-emerald-600 font-bold">{String(after || 'None')}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -215,6 +191,19 @@ export const LogsModule: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+
+                    {hasMoreLogs && (
+                        <div className="p-4 md:p-6 flex justify-center border-t border-slate-100 bg-slate-50/30">
+                            <button 
+                                onClick={handleLoadMore}
+                                disabled={isLoading}
+                                className="px-6 md:px-8 py-2.5 md:py-3 bg-white border border-slate-200 text-indigo-600 rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest shadow-sm hover:shadow-md hover:border-indigo-200 transition-all flex items-center gap-2 md:gap-3 disabled:opacity-50"
+                            >
+                                {isLoading ? <Activity size={14} className="animate-spin" /> : <Clock size={14} />}
+                                Load Older Entries
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

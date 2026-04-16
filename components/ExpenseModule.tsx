@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { ExpenseRecord } from '../types';
-import { Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, Check, X, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare, Download } from 'lucide-react';
+import { Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, Check, X, Image as ImageIcon, RefreshCw, Upload, AlertCircle, MessageSquare, Download, Camera } from 'lucide-react';
 import { useData } from './DataContext';
 
 interface ExpenseModuleProps {
@@ -17,7 +17,9 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     const [rejectionReason, setRejectionReason] = useState('');
     const [isCompressing, setIsCompressing] = useState(false);
     const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+    const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<ExpenseRecord | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -241,7 +243,11 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {visibleExpenses.map(expense => (
-                                <tr key={expense.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                                <tr 
+                                    key={expense.id} 
+                                    onClick={() => setSelectedExpenseForDetail(expense)}
+                                    className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer"
+                                >
                                     <td className="px-6 py-4 font-bold text-slate-400 text-[10px] uppercase">{expense.date}</td>
                                     {userRole === 'Admin' && (
                                         <td className="px-6 py-4">
@@ -403,39 +409,58 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     placeholder="Describe why this expense was incurred..." value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} />
                             </div>
 
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                accept="image/*"
-                                className="hidden"
-                            />
-
-                            <div
-                                onClick={() => !isCompressing && fileInputRef.current?.click()}
-                                className={`p-6 border-2 border-dashed rounded-[2rem] text-center cursor-pointer transition-all ${isCompressing ? 'opacity-50 cursor-wait' : ''} ${receiptPreview ? 'border-emerald-500 bg-emerald-50/30 text-emerald-600' : 'border-slate-300 dark:border-slate-700 text-slate-300 dark:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
-                            >
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Voucher Proof</label>
                                 {isCompressing ? (
-                                    <div className="flex flex-col items-center justify-center gap-3">
+                                    <div className="p-8 border-2 border-dashed border-emerald-500 bg-emerald-50/10 rounded-[2rem] flex flex-col items-center justify-center gap-3">
                                         <RefreshCw size={32} className="animate-spin text-emerald-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Optimizing Metadata...</span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Processing Snapshot...</span>
                                     </div>
                                 ) : receiptPreview ? (
-                                    <div className="flex items-center justify-center gap-5">
-                                        <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-700 border-2 border-emerald-100 dark:border-emerald-800 overflow-hidden shrink-0 shadow-lg ring-4 ring-emerald-500/5">
-                                            <img src={receiptPreview} alt="Preview" className="w-full h-full object-cover" />
+                                    <div className="p-4 border-2 border-emerald-500 bg-emerald-50/20 rounded-[2rem] flex items-center justify-between group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-16 h-16 rounded-2xl bg-white border-2 border-emerald-100 overflow-hidden shadow-lg">
+                                                <img src={receiptPreview} alt="Preview" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-emerald-700 uppercase leading-none">Evidence Attached</p>
+                                                <p className="text-[8px] font-bold text-emerald-600/60 uppercase mt-1 tracking-widest">Digital Snapshot Verified</p>
+                                            </div>
                                         </div>
-                                        <div className="text-left">
-                                            <p className="text-xs font-black uppercase tracking-tight">Attachment Successful</p>
-                                            <p className="text-[10px] font-black opacity-50 uppercase tracking-widest mt-1">Tap to Replace Snapshot</p>
-                                        </div>
+                                        <button 
+                                            onClick={() => setReceiptPreview(null)}
+                                            className="p-3 bg-white text-rose-500 rounded-xl hover:bg-rose-50 transition-colors shadow-sm border border-rose-100"
+                                            title="Remove Proof"
+                                        >
+                                            <X size={18} />
+                                        </button>
                                     </div>
                                 ) : (
-                                    <>
-                                        <Upload size={32} className="mx-auto mb-3 opacity-20" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Upload Digital Evidence</p>
-                                        <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Auto-optimizing file size</p>
-                                    </>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] hover:border-indigo-500 hover:bg-indigo-50/30 transition-all text-slate-400 group cursor-pointer">
+                                            <input
+                                                type="file"
+                                                onChange={handleFileChange}
+                                                accept="image/*"
+                                                capture="environment"
+                                                className="hidden"
+                                            />
+                                            <Camera size={32} className="mb-3 opacity-20 group-hover:opacity-100 group-hover:text-indigo-500 transition-all" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-indigo-600">Take Photo</span>
+                                            <p className="text-[8px] font-bold mt-1 opacity-40">Direct Camera</p>
+                                        </label>
+                                        <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-[2rem] hover:border-emerald-500 hover:bg-emerald-50/30 transition-all text-slate-400 group cursor-pointer">
+                                            <input
+                                                type="file"
+                                                onChange={handleFileChange}
+                                                accept="image/*"
+                                                className="hidden"
+                                            />
+                                            <Upload size={32} className="mb-3 opacity-20 group-hover:opacity-100 group-hover:text-emerald-500 transition-all" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-emerald-600">Choose File</span>
+                                            <p className="text-[8px] font-bold mt-1 opacity-40">From Gallery</p>
+                                        </label>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -515,6 +540,113 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 </div>
                             </div>
                             <button onClick={() => setViewReceiptModal(null)} className="px-10 py-3 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Close Terminal</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Detail View Modal */}
+            {selectedExpenseForDetail && (
+                <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border border-slate-200 dark:border-slate-800">
+                        <div className="p-6 md:p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2.5 md:p-3 bg-indigo-600 text-white rounded-2xl shadow-lg ring-4 ring-indigo-500/10">
+                                    <FileText size={20} className="md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">Voucher Intelligence</h3>
+                                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5">Claim ID: {selectedExpenseForDetail.id}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedExpenseForDetail(null)} className="text-slate-400 hover:text-rose-500 p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-full transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 custom-scrollbar bg-white dark:bg-slate-900 text-[11px]">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-6 md:pb-8 border-b border-slate-100 dark:border-slate-800">
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Submitter</p>
+                                    <p className="text-[12px] md:text-[13px] font-black text-slate-800 dark:text-white uppercase">{selectedExpenseForDetail.employeeName}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Timestamp</p>
+                                    <p className="text-[12px] md:text-[13px] font-black text-slate-800 dark:text-white uppercase">{selectedExpenseForDetail.date}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Category</p>
+                                    <span className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">{selectedExpenseForDetail.category}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detailed Briefing</p>
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold leading-relaxed whitespace-pre-wrap">
+                                    {selectedExpenseForDetail.description}
+                                </div>
+                            </div>
+
+                            {selectedExpenseForDetail.receiptUrl && (
+                                <div className="space-y-4">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Digital Snapshot Evidence</p>
+                                    <div 
+                                        onClick={() => setViewReceiptModal(selectedExpenseForDetail)}
+                                        className="relative group cursor-zoom-in rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700"
+                                    >
+                                        <img src={selectedExpenseForDetail.receiptUrl} alt="Receipt" className="w-full h-auto object-cover max-h-[300px] md:max-h-[400px]" />
+                                        <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/20 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                                            <div className="bg-white text-indigo-600 px-6 py-3 rounded-2xl font-black uppercase tracking-widest shadow-2xl flex items-center gap-2">
+                                                <ImageIcon size={16} /> Magnify Evidence
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedExpenseForDetail.status === 'Rejected' && selectedExpenseForDetail.rejectionReason && (
+                                <div className="bg-rose-50 dark:bg-rose-900/20 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-rose-100 dark:border-rose-900/50 space-y-3">
+                                    <div className="flex items-center gap-3 text-rose-600">
+                                        <AlertCircle size={18} />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em]">Audit Objection Reason</p>
+                                    </div>
+                                    <p className="text-xs font-bold text-rose-700 dark:text-rose-400 italic">"{selectedExpenseForDetail.rejectionReason}"</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 md:p-8 border-t border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row justify-between items-center gap-6 shrink-0">
+                            <div className="flex items-center gap-6 w-full sm:w-auto">
+                                <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Voucher Status</p>
+                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${getStatusColor(selectedExpenseForDetail.status)}`}>
+                                        {selectedExpenseForDetail.status === 'Approved' ? <CheckCircle2 size={14} /> : selectedExpenseForDetail.status === 'Rejected' ? <XCircle size={14} /> : <Clock size={14} />}
+                                        {selectedExpenseForDetail.status}
+                                    </span>
+                                </div>
+                                <div className="text-right sm:text-left ml-auto sm:ml-0">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Settlement Value</p>
+                                    <p className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">₹{selectedExpenseForDetail.amount.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                {userRole === 'Admin' && selectedExpenseForDetail.status === 'Pending' && (
+                                    <>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleApprove(selectedExpenseForDetail.id); setSelectedExpenseForDetail(null); }}
+                                            className="flex-1 sm:flex-none px-6 md:px-8 py-3.5 md:py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
+                                        >
+                                            Approve
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleOpenRejection(selectedExpenseForDetail.id); setSelectedExpenseForDetail(null); }}
+                                            className="flex-1 sm:flex-none px-6 md:px-8 py-3.5 md:py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 active:scale-95 transition-all"
+                                        >
+                                            Reject
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={() => setSelectedExpenseForDetail(null)} className="flex-1 sm:flex-none px-6 md:px-8 py-3.5 md:py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 active:scale-95 transition-all">Dismiss</button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product } from '../types';
-import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw } from 'lucide-react';
 import { useData } from './DataContext';
 
 
@@ -371,102 +371,117 @@ export const InventoryModule: React.FC = () => {
     // --- REVISED CALCULATION LOGIC REMOVED AND MOVED TO APP HEADER ---
 
     return (
-        <div className="h-full flex flex-col gap-6 relative overflow-y-auto lg:overflow-hidden p-2">
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-y-auto lg:overflow-hidden p-1.5 md:p-2">
 
 
             {/* Main Inventory Section */}
-            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[500px] lg:min-h-0">
+            <div className="flex-1 bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-0">
 
                 {/* Toolbar with Tabs */}
-                <div className="p-5 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex flex-col gap-3">
-                        <div className="flex bg-slate-100 p-1.5 rounded-2xl w-fit">
+                <div className="p-2.5 md:p-3 border-b border-slate-300 flex flex-col gap-2 md:gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex bg-slate-100 p-1 rounded-xl w-full translate-x-0 sm:w-fit overflow-x-auto custom-scrollbar-hide">
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('stock')}
-                                className={`px-6 py-2 text-sm font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'stock' ? 'bg-white shadow-md text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                                className={`flex-1 sm:flex-none px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-sm font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'stock' ? 'bg-white shadow-sm text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
                                 <Package size={14} /> Stock Registry
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('history')}
-                                className={`px-6 py-2 text-sm font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-white shadow-md text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                                className={`flex-1 sm:flex-none px-4 sm:px-6 py-1.5 sm:py-2 text-[10px] sm:text-sm font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'history' ? 'bg-white shadow-sm text-medical-700' : 'text-slate-500 hover:text-slate-700'}`}>
                                 <History size={14} /> Movement Logs
                             </button>
                         </div>
+
+                        <div className="hidden sm:block relative group">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="text-slate-400 group-focus-within:text-medical-600 transition-colors" size={16} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search inventory..."
+                                className="block w-full pl-10 pr-12 py-2 border border-slate-300 bg-slate-50/50 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    if (!e.target.value) setServerProducts([]);
+                                }}
+                                onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        {activeTab === 'stock' && (
-                            <>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="text-slate-400 group-focus-within:text-medical-600 transition-colors" size={16} />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Search inventory..."
-                                        className="block w-full pl-10 pr-12 py-2.5 border border-slate-300 bg-slate-50/50 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 sm:w-64 transition-all"
-                                        value={searchQuery}
-                                        onChange={(e) => {
-                                            setSearchQuery(e.target.value);
-                                            if (!e.target.value) setServerProducts([]);
-                                        }}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
-                                    />
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                        {isSearching ? (
-                                            <RotateCcw size={14} className="animate-spin text-medical-600" />
-                                        ) : searchQuery ? (
-                                            <button onClick={handleDeepSearch} title="Deep Search in History" className="p-1 hover:bg-slate-200 rounded-md transition-colors text-medical-600">
-                                                <ArrowUpRight size={14} />
-                                            </button>
-                                        ) : null}
-                                    </div>
+                    {activeTab === 'stock' && (
+                        <div className="flex flex-col gap-3">
+                            {/* Mobile Search */}
+                            <div className="sm:hidden relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Search className="text-slate-400 group-focus-within:text-medical-600 transition-colors" size={14} />
                                 </div>
-                                {serverProducts.length > 0 && (
-                                    <button onClick={() => {setSearchQuery(''); setServerProducts([]);}} className="text-[10px] font-black text-rose-500 uppercase hover:underline mr-2">Clear</button>
-                                )}
+                                <input
+                                    type="text"
+                                    placeholder="Search inventory..."
+                                    className="block w-full pl-10 pr-12 py-2 border border-slate-300 bg-slate-50/50 rounded-xl text-xs font-bold focus:outline-none focus:border-medical-500 transition-all"
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        if (!e.target.value) setServerProducts([]);
+                                    }}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    {isSearching ? (
+                                        <RotateCcw size={12} className="animate-spin text-medical-600" />
+                                    ) : searchQuery ? (
+                                        <button onClick={handleDeepSearch} className="p-1 hover:bg-slate-200 rounded-md transition-colors text-medical-600">
+                                            <ArrowUpRight size={12} />
+                                        </button>
+                                    ) : null}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowScanModal(true); handleResetScan(); }}
-                                    className="bg-slate-800 text-white hover:bg-slate-900 px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/20 active:scale-95">
-                                    <ScanBarcode size={16} /> Scan
+                                    className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-lg shadow-slate-500/10 active:scale-95">
+                                    <ScanBarcode size={14} /> Scan
                                 </button>
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowDemoModal(true); }}
-                                    className="bg-white border border-slate-300 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-5 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
-                                    <Send size={16} /> Demo
+                                    className="bg-white border border-slate-300 text-slate-600 hover:border-medical-300 hover:text-medical-600 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
+                                    <Send size={14} /> Demo
                                 </button>
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowAddProductModal(true); }}
-                                    className="bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/30 transition-transform active:scale-95">
+                                    className="col-span-2 sm:col-auto bg-gradient-to-r from-medical-600 to-teal-500 hover:from-medical-700 hover:to-teal-600 text-white px-4 py-2.5 sm:px-6 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-medical-500/20 transition-transform active:scale-95">
                                     <Plus size={16} /> Register Item
                                 </button>
-                            </>
-                        )}
-                    </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Table Content */}
                 <div className="flex-1 overflow-auto custom-scrollbar relative">
                     {activeTab === 'stock' ? (
                         <table className="w-full text-left text-[13px] text-slate-600 min-w-[1200px] table-fixed">
-                            <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
+                             <thead className="bg-[#fcfdfd] text-[8px] sm:text-[9px] md:text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-6 py-4 w-[18%] bg-[#fcfdfd]">Product Master</th>
-                                    <th className="px-6 py-4 w-[12%] bg-[#fcfdfd]">Category & SKU</th>
-                                    <th className="px-6 py-4 w-[12%] bg-[#fcfdfd]">Supplier</th>
-                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Available Stock</th>
-                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Purchase Price</th>
-                                    <th className="px-6 py-4 text-right w-[8%] bg-[#fcfdfd]">Selling Price</th>
-                                    <th className="px-6 py-4 text-center w-[6%] bg-[#fcfdfd]">GST %</th>
-                                    <th className="px-6 py-4 text-right w-[10%] bg-[#fcfdfd]">Total Asset</th>
-                                    <th className="px-6 py-4 w-[10%] bg-[#fcfdfd]">Warehouse</th>
-                                    <th className="px-6 py-4 w-[10%] bg-[#fcfdfd]">Status</th>
-                                    <th className="px-6 py-4 text-right w-[100px] bg-[#fcfdfd]">Action</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 w-[18%] bg-[#fcfdfd]">Product Master</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 w-[12%] bg-[#fcfdfd]">Cat & SKU</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 w-[12%] bg-[#fcfdfd]">Supplier</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right w-[10%] bg-[#fcfdfd]">Stock</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right w-[10%] bg-[#fcfdfd]">Purchase</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right w-[8%] bg-[#fcfdfd]">Selling</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-center w-[6%] bg-[#fcfdfd]">GST</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right w-[10%] bg-[#fcfdfd]">Total Asset</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 w-[10%] bg-[#fcfdfd]">Location</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 w-[10%] bg-[#fcfdfd]">Status</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right w-[100px] bg-[#fcfdfd]">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 relative z-10">
@@ -478,14 +493,14 @@ export const InventoryModule: React.FC = () => {
 
                                     return (
                                         <tr key={product.id} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
-                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'name' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'name' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'name' ? (
                                                     <InlineInput value={product.name} onSave={(v) => handleQuickUpdate(product.id, 'name', v)} onCancel={() => setInlineEdit(null)} />
                                                 ) : (
-                                                    <div className="font-black text-slate-800 truncate text-[13px]" title={product.name}>{product.name}</div>
+                                                    <div className="font-black text-slate-800 truncate text-[12px] md:text-[13px]" title={product.name}>{product.name}</div>
                                                 )}
                                                 <div 
-                                                    className="text-[11px] text-slate-400 font-bold uppercase mt-0.5 truncate cursor-text"
+                                                    className="text-[10px] md:text-[11px] text-slate-400 font-bold uppercase mt-0.5 truncate cursor-text"
                                                     onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'model' }); }}
                                                 >
                                                     {inlineEdit?.id === product.id && inlineEdit.field === 'model' ? (
@@ -495,14 +510,14 @@ export const InventoryModule: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'category' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'category' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'category' ? (
                                                     <InlineInput value={product.category} onSave={(v) => handleQuickUpdate(product.id, 'category', v)} onCancel={() => setInlineEdit(null)} className="text-indigo-600" />
                                                 ) : (
-                                                    <div className="text-[13px] font-black text-indigo-600 uppercase truncate">{product.category}</div>
+                                                    <div className="text-[12px] md:text-[13px] font-black text-indigo-600 uppercase truncate">{product.category}</div>
                                                 )}
                                                 <div 
-                                                    className="text-[11px] font-mono text-slate-400 mt-0.5 truncate cursor-text"
+                                                    className="text-[10px] md:text-[11px] font-mono text-slate-400 mt-0.5 truncate cursor-text"
                                                     onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sku' }); }}
                                                 >
                                                     {inlineEdit?.id === product.id && inlineEdit.field === 'sku' ? (
@@ -512,55 +527,55 @@ export const InventoryModule: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'supplier' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'supplier' }); }}>
                                                 <div className="flex items-center gap-2 text-slate-600 font-bold truncate">
                                                     <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0"><Building2 size={10} /></div>
                                                     {inlineEdit?.id === product.id && inlineEdit.field === 'supplier' ? (
                                                         <InlineInput value={product.supplier || ''} onSave={(v) => handleQuickUpdate(product.id, 'supplier', v)} onCancel={() => setInlineEdit(null)} />
                                                     ) : (
-                                                        <span className="truncate">{product.supplier || 'Not set'}</span>
+                                                        <span className="truncate text-[12px] md:text-[13px]">{product.supplier || 'Not set'}</span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right font-black text-slate-800 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'stock' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-slate-800 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'stock' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'stock' ? (
                                                     <InlineInput type="number" value={stock} onSave={(v) => handleQuickUpdate(product.id, 'stock', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
                                                 ) : (
                                                     <div className="flex flex-col items-end">
-                                                        <span className="text-[16px]">{stock}</span>
-                                                        <span className="text-[11px] text-slate-400 uppercase leading-none">{product.unit || 'nos'}</span>
+                                                        <span className="text-[14px] md:text-[16px]">{stock}</span>
+                                                        <span className="text-[10px] md:text-[11px] text-slate-400 uppercase leading-none">{product.unit || 'nos'}</span>
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-black text-slate-400 italic editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'purchasePrice' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-slate-400 italic editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'purchasePrice' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'purchasePrice' ? (
                                                     <InlineInput type="number" value={product.purchasePrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'purchasePrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right italic" />
                                                 ) : (
-                                                    <span>₹{purchasePrice.toLocaleString('en-IN')}</span>
+                                                    <span className="text-[12px] md:text-[13px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-black text-teal-700 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sellingPrice' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-teal-700 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sellingPrice' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'sellingPrice' ? (
                                                     <InlineInput type="number" value={product.sellingPrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'sellingPrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
                                                 ) : (
-                                                    <span>₹{sellingPrice.toLocaleString('en-IN')}</span>
+                                                    <span className="text-[12px] md:text-[13px]">₹{sellingPrice.toLocaleString('en-IN')}</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-center editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'taxRate' }); }}>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-center editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'taxRate' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'taxRate' ? (
                                                     <InlineInput type="number" value={product.taxRate || 0} onSave={(v) => handleQuickUpdate(product.id, 'taxRate', Number(v))} onCancel={() => setInlineEdit(null)} className="text-center" />
                                                 ) : (
                                                     <div className="flex flex-col items-center">
-                                                        <span className="font-black text-slate-700">{product.taxRate || 0}%</span>
-                                                        <span className="text-[11px] text-slate-400 font-bold">₹{((sellingPrice * (product.taxRate || 0)) / 100).toLocaleString('en-IN')}</span>
+                                                        <span className="font-black text-slate-700 text-[12px] md:text-[13px]">{product.taxRate || 0}%</span>
+                                                        <span className="text-[10px] md:text-[11px] text-slate-400 font-bold">₹{((sellingPrice * (product.taxRate || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-black text-medical-800 bg-medical-50/10">
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-medical-800 bg-medical-50/10 text-[12px] md:text-[13px]">
                                                 ₹{(stock * (product.purchasePrice || 0)).toLocaleString('en-IN')}
                                             </td>
-                                            <td className="px-6 py-4 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'location' }); }}>
-                                                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase text-slate-400 truncate">
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'location' }); }}>
+                                                <div className="flex items-center gap-1.5 text-[10px] md:text-[11px] font-black uppercase text-slate-400 truncate">
                                                     <MapPin size={10} className="shrink-0" />
                                                     {inlineEdit?.id === product.id && inlineEdit.field === 'location' ? (
                                                         <InlineInput value={product.location || ''} onSave={(v) => handleQuickUpdate(product.id, 'location', v)} onCancel={() => setInlineEdit(null)} className="text-[11px]" />
@@ -569,21 +584,21 @@ export const InventoryModule: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1.5 text-emerald-600 text-[11px] font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 w-fit">
-                                                    <CheckCircle size={10} className="shrink-0" /> <span>Optimal</span>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5">
+                                                <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] md:text-[11px] font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 w-fit">
+                                                    <CheckCircle size={10} className="shrink-0" /> <span className="hidden sm:inline">Optimal</span><span className="sm:hidden">OK</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right">
                                                 <div className="relative flex justify-end menu-container">
                                                     <button 
                                                         onClick={(e) => { 
                                                             e.stopPropagation(); 
                                                             setActiveMenuId(activeMenuId === product.id ? null : product.id); 
                                                         }} 
-                                                        className={`p-2 rounded-xl transition-all ${activeMenuId === product.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                        className={`p-1.5 md:p-2 rounded-xl transition-all ${activeMenuId === product.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
                                                     >
-                                                        <RefreshCw size={16} className={activeMenuId === product.id ? 'animate-spin-slow' : ''} />
+                                                        <RefreshCw size={14} className={activeMenuId === product.id ? 'animate-spin-slow' : ''} />
                                                     </button>
                                                     
                                                     {activeMenuId === product.id && (
@@ -604,39 +619,39 @@ export const InventoryModule: React.FC = () => {
                                     );
                                 })}
                             </tbody>
-                        </table>
+                    </table>
                     ) : (
-                        <table className="w-full text-left text-[13px] text-slate-600 min-w-[800px]">
-                            <thead className="bg-[#fcfdfd] text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
+                        <table className="w-full text-left text-[11px] md:text-[13px] text-slate-600 min-w-[800px]">
+                            <thead className="bg-[#fcfdfd] text-[8px] md:text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-6 py-4 bg-[#fcfdfd]">Transaction Date</th>
-                                    <th className="px-6 py-4 bg-[#fcfdfd]">Nature of Movement</th>
-                                    <th className="px-6 py-4 bg-[#fcfdfd]">Product Master</th>
-                                    <th className="px-6 py-4 text-right bg-[#fcfdfd]">Quantity</th>
-                                    <th className="px-6 py-4 bg-[#fcfdfd]">Reference / Notes</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 bg-[#fcfdfd]">Date</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 bg-[#fcfdfd]">Nature</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 bg-[#fcfdfd]">Product</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 text-right bg-[#fcfdfd]">Qty</th>
+                                    <th className="px-3 md:px-4 py-2 md:py-2.5 bg-[#fcfdfd]">Reference</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 relative z-10">
                                 {stockMovements.length > 0 ? (
                                     stockMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((movement) => (
                                         <tr key={movement.id} className="hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-b-0">
-                                            <td className="px-6 py-4 text-slate-500 font-bold">{movement.date}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider border ${movement.type === 'In'
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-slate-500 font-bold">{movement.date}</td>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] md:text-[11px] font-black uppercase tracking-wider border ${movement.type === 'In'
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                     : movement.purpose === 'Demo'
                                                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                                                         : 'bg-orange-50 text-orange-700 border-orange-200'
                                                     }`}>
                                                     {movement.type === 'In' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
-                                                    {movement.type === 'In' ? 'Stock Receipt' : movement.purpose === 'Demo' ? 'Demo Dispatch' : 'Sales Dispatch'}
+                                                    {movement.type === 'In' ? 'Receipt' : movement.purpose === 'Demo' ? 'Demo' : 'Sales'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 font-black text-slate-800">{movement.productName}</td>
-                                            <td className="px-6 py-4 text-right font-black text-[16px] text-slate-700">
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 font-black text-slate-800 truncate max-w-[150px] md:max-w-none">{movement.productName}</td>
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-[14px] md:text-[16px] text-slate-700">
                                                 {movement.quantity}
                                             </td>
-                                            <td className="px-6 py-4 font-mono text-[11px] text-slate-400 max-w-xs truncate">
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 font-mono text-[9px] md:text-[11px] text-slate-400 max-w-xs truncate">
                                                 {movement.reference}
                                             </td>
                                         </tr>
@@ -765,7 +780,7 @@ export const InventoryModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-5">
                                 <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
                                 <select className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
-                                    <option>Equipment</option><option>Consumable</option><option>Spare Part</option>
+                                    <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-5">

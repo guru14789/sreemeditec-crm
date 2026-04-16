@@ -131,7 +131,6 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             contactPerson: newLeadData.contactPerson || '',
             salesTakenBy: newLeadData.salesTakenBy || '',
             lastContact: new Date().toISOString().split('T')[0],
-            timestamp: new Date().toISOString(),
             followUps: []
         };
         await addLead(lead);

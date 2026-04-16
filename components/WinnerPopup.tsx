@@ -19,7 +19,7 @@ export const WinnerPopup: React.FC = () => {
     const handleClose = async () => {
         setIsClosing(true);
         setTimeout(async () => {
-            await acknowledgeWinner();
+            await acknowledgeWinner(latestWinner.id);
             setIsClosing(false);
             setShowWinnerPopup(false);
         }, 500);

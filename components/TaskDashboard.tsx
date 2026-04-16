@@ -19,7 +19,7 @@ export const TaskDashboard: React.FC = () => {
     ]);
 
     const toggleTaskStatus = (task: Task) => {
-        const newStatus = task.status === 'Done' ? 'Pending' : 'Done';
+        const newStatus = task.status === 'Done' ? 'To Do' : 'Done';
         updateTask(task.id, { status: newStatus });
     };
 

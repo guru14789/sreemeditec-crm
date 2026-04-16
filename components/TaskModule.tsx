@@ -125,7 +125,6 @@ export const TaskModule: React.FC = () => {
             locationName: newTask.locationName || 'Main Office',
             subTasks: [],
             pointsAwarded: false,
-            timestamp: new Date().toISOString(),
             logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleTimeString() }]
         };
 
@@ -151,6 +150,7 @@ export const TaskModule: React.FC = () => {
 
             await updateTaskRemote(selectedTask.id, {
                 dueDate: rescheduleDate,
+                status: 'To Do',
                 logs: [...(selectedTask.logs || []), log]
             });
             setIsRescheduling(false);
@@ -193,15 +193,15 @@ export const TaskModule: React.FC = () => {
     const KanbanColumn = ({ status, title, color }: { status: Task['status'], title: string, color: string }) => {
         const columnTasks = visibleTasks.filter(t => t.status === status);
         return (
-            <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden">
-                <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 sticky top-0 z-10 backdrop-blur-sm">
+            <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden uppercase">
+                <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
                         <h4 className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{title}</h4>
                     </div>
                     <span className="bg-slate-200/50 dark:bg-slate-800 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-500 dark:text-slate-400">{columnTasks.length}</span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-scroll p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
                     {columnTasks.map(task => (
                         <div
                             key={task.id}
@@ -229,7 +229,7 @@ export const TaskModule: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm shrink-0">
                 <div className="flex items-center gap-5">
                     <div className="p-4 bg-gradient-to-br from-indigo-600 to-medical-600 rounded-[1.5rem] text-white shadow-xl flex items-center justify-center"><CheckSquare size={24} /></div>
@@ -251,7 +251,7 @@ export const TaskModule: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex-1 flex gap-4 md:gap-6 overflow-x-auto pb-4 custom-scrollbar-h">
+            <div className="flex-1 flex gap-4 md:gap-6 overflow-x-auto pb-4 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <KanbanColumn title="Backlog" status="To Do" color="bg-slate-400" />
                 <KanbanColumn title="In Progress" status="In Progress" color="bg-amber-500" />
                 <KanbanColumn title="Under Review" status="Review" color="bg-indigo-500" />

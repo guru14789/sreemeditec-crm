@@ -7,10 +7,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Comprehensive rule for all collections used in the app
+    // Strict Control: Only the Master Admin can delete data
     match /{collectionName}/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if request.auth.token.email == 'sreekumar.career@gmail.com';
     }
 
     // Specific validation for tasks (example of more granular control)

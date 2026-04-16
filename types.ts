@@ -22,8 +22,11 @@ export enum TabView {
   HR = 'HR',
   PROFILE = 'PROFILE',
   REPORTS = 'REPORTS',
+  CATALOG = 'CATALOG',
   LOGS = 'LOGS',
-  ARCHIVE = 'ARCHIVE'
+  ARCHIVE = 'ARCHIVE',
+  PAYROLL = 'PAYROLL',
+  CONFIG = 'CONFIG'
 }
 
 export enum LeadStatus {
@@ -260,6 +263,7 @@ export interface MonthlyWinner {
 export interface SystemSettings {
   id: string;
   lastResetMonth: string; // Format: YYYY-MM
+  financialYear: string; // Format: 25-26
 }
 
 export interface TaskLog {
@@ -398,6 +402,8 @@ export interface DeliveryChallan {
   items: ChallanItem[];
   status: 'Draft' | 'Dispatched';
   subject?: string;
+  terms?: string;
+  remarks?: string;
 }
 
 export interface Holiday {
@@ -417,3 +423,16 @@ export interface LogEntry {
   beforeValues?: any;
   afterValues?: any;
 }
+
+export interface LeaveRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  appliedOn: string; // ISO timestamp
+  adminFeedback?: string;
+}
+

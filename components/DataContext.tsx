@@ -14,15 +14,13 @@ import {
     orderBy,
     limit,
     increment,
-    runTransaction,
-    startAfter,
-    writeBatch
+    startAfter
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -40,6 +38,7 @@ export interface DataContextType {
     serviceReports: ServiceReport[];
     holidays: Holiday[];
     deliveryChallans: DeliveryChallan[];
+    leaveRequests: LeaveRequest[];
     installationReports: ServiceReport[];
     monthlyWinners: MonthlyWinner[];
     showWinnerPopup: boolean;
@@ -65,11 +64,14 @@ export interface DataContextType {
     prizePool: number;
     addPoints: (amount: number, category: PointHistory['category'], description: string, targetUserId?: string) => Promise<void>;
     updatePrizePool: (amount: number) => void;
+    financialYear: string;
+    updateFinancialYear: (newFY: string) => Promise<void>;
 
     // Activity Logs
     logs: LogEntry[];
+    hasMoreLogs: boolean;
     addLog: (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => Promise<void>;
-    fetchAuditLogs: (daysToLookBack?: number) => Promise<void>;
+    fetchAuditLogs: (isLoadMore?: boolean) => Promise<void>;
 
     seedDatabase: () => Promise<void>;
     addClient: (client: Client) => Promise<void>;
@@ -104,6 +106,7 @@ export interface DataContextType {
     markNotificationRead: (id: string) => void;
     clearAllNotifications: () => void;
     updateAttendance: (record: Partial<AttendanceRecord> & { id: string }) => Promise<void>;
+    removeAttendance: (id: string) => Promise<void>;
     addDeliveryChallan: (challan: DeliveryChallan) => Promise<void>;
     updateDeliveryChallan: (id: string, updates: Partial<DeliveryChallan>) => Promise<void>;
     removeDeliveryChallan: (id: string) => Promise<void>;
@@ -115,10 +118,13 @@ export interface DataContextType {
     removeServiceReport: (id: string) => Promise<void>;
     addHoliday: (holiday: Holiday) => Promise<void>;
     removeHoliday: (id: string) => Promise<void>;
+    addLeaveRequest: (req: LeaveRequest) => Promise<void>;
+    updateLeaveRequest: (id: string, updates: Partial<LeaveRequest>) => Promise<void>;
     checkAndPerformMonthReset: () => Promise<void>;
     
     // Search
     searchRecords: <T>(collectionName: string, field: string, value: string) => Promise<T[]>;
+    fetchMoreData: (collectionName: string, orderByField?: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -172,6 +178,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return [...invoiceSnap, ...pushedInvoices.filter(i => !ids.has(i.id))].sort((a,b) => b.date.localeCompare(a.date));
     }, [invoiceSnap, pushedInvoices]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [lastLogDoc, setLastLogDoc] = useState<any>(null);
+    const [hasMoreLogs, setHasMoreLogs] = useState(true);
     const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
     const [expenseSnap, setExpenseSnap] = useState<ExpenseRecord[]>([]);
     const [pushedExpenses, setPushedExpenses] = useState<ExpenseRecord[]>([]);
@@ -198,8 +206,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
+    const [financialYear, setFinancialYear] = useState<string>("25-26");
     const [dbError] = useState<string | null>(null);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
+    const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [authError, setAuthError] = useState<string | null>(null);
     const [userStats, setUserStats] = useState<UserStats>({
         points: 0, tasksCompleted: 0, attendanceStreak: 12, salesRevenue: 0
@@ -254,43 +264,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => unsub();
     }, [firebaseUser]);
 
-    useEffect(() => {
-        if (!isAuthenticated) {
-            setLogs([]);
-            return;
-        }
-        const loadRecentLogs = async () => {
-            const today = new Date().toISOString().split('T')[0];
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-            try {
-                const [snapToday, snapYesterday] = await Promise.all([
-                    getDoc(doc(db, "system_audit", today)),
-                    getDoc(doc(db, "system_audit", yesterday))
-                ]);
-                let allRecents: LogEntry[] = [];
-                if (snapToday.exists()) allRecents = [...snapToday.data().entries];
-                if (snapYesterday.exists()) allRecents = [...allRecents, ...snapYesterday.data().entries];
-                setLogs(prev => {
-                    const combined = [...allRecents, ...prev];
-                    const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
-                    return unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500);
-                });
-            } catch (err) { console.warn("Log fetch fail:", err); }
-        };
-        loadRecentLogs();
-    }, [isAuthenticated]);
 
     useEffect(() => {
-        if (!firebaseUser) return;
+        if (!firebaseUser || firebaseUser.isAnonymous) return;
         
         let resolvedUser: Employee | null = null;
         const email = firebaseUser.email?.toLowerCase();
 
         // 1. Check for Super Admin Bypass (Immediate Resolution)
-        if (email === 'admin@demo.com' || email === 'sreekumar.career@gmail.com') {
+        if (email === 'sreekumar.career@gmail.com') {
             resolvedUser = {
-                id: email === 'admin@demo.com' ? 'EMP-BYPASS' : 'EMP-OWNER',
-                name: email === 'admin@demo.com' ? 'Enterprise Admin' : 'Sreekumar',
+                id: 'EMP-OWNER',
+                name: 'Sreekumar',
                 role: 'SYSTEM_ADMIN',
                 department: 'Administration',
                 email: email,
@@ -302,8 +287,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // 2. Resolve against Registry
             const match = employees.find(e => e.email.toLowerCase() === email);
             if (match) {
-                if (match.isLoginEnabled) resolvedUser = { ...match };
-                else setAuthError("Registry Locked: Access disabled.");
+                if (match.isLoginEnabled) {
+                    resolvedUser = { ...match };
+                } else {
+                    setAuthError("Registry Locked: Access disabled.");
+                    signOut(auth);
+                    setIsAuthenticating(false);
+                }
+            } else {
+                setAuthError(`Access Denied: '${firebaseUser.email}' not found in registry.`);
+                signOut(auth);
+                setIsAuthenticating(false);
             }
         }
 
@@ -315,29 +309,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             setIsAuthenticating(false);
             setAuthError(null);
-        } else if (isAuthenticating && employees.length > 0) {
-            // Only timeout if we actually have employees loaded and still no match
-            const timeout = setTimeout(async () => {
-                if (!resolvedUser) {
-                    setAuthError(`Access Denied: '${firebaseUser.email}' not found in registry.`);
-                    setIsAuthenticating(false);
-                    await signOut(auth);
-                }
-            }, 2000);
-            return () => clearTimeout(timeout);
         }
     }, [firebaseUser, employees, isAuthenticating]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
         
-        // Optimizing Reads: Apply limits and ordering to large collections
-        const unsubClients = onSnapshot(query(collection(db, "clients"), orderBy('name', 'asc')), (s) => setClients(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client)));
-        const unsubVendors = onSnapshot(query(collection(db, "vendors"), orderBy('name', 'asc')), (s) => setVendors(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor)));
-        const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)));
-        
-        // Dynamic Collections (High Growth): Apply strict limits
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(150)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
+        // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
+        const loadRegistries = async () => {
+            try {
+                const [cSnap, vSnap, pSnap, hSnap] = await Promise.all([
+                    getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
+                    getDocs(query(collection(db, "vendors"), orderBy('name', 'asc'))),
+                    getDocs(query(collection(db, "products"), orderBy('name', 'asc'))),
+                    getDocs(collection(db, "holidays"))
+                ]);
+                setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
+                setVendors(vSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor));
+                setProducts(pSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
+                setHolidays(hSnap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
+            } catch (err) { console.error("Registry load failed", err); }
+        };
+        loadRegistries();
+
+        // Dynamic Collections (High Growth): Initial small batch, then paginated
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(50)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
         
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
@@ -347,30 +343,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setter(snap.docs.map((d: any) => ({...sanitizeData(d.data()), id: d.id})));
         };
 
-        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(150)), (s) => handleSnap('invoices', s, setInvoiceSnap));
-        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(15)), (s) => handleSnap('leads', s, setLeadSnap));
-        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(150)), (s) => handleSnap('expenses', s, setExpenseSnap));
-        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(100)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
-        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(50)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
-        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(150)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
-        const unsubEmployees = onSnapshot(collection(db, "employees"), (s) => setEmployees(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Employee)));
+        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap));
+        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(25)), (s) => handleSnap('leads', s, setLeadSnap));
+        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(50)), (s) => handleSnap('expenses', s, setExpenseSnap));
+        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(30)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
+        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(30)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
+        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(50)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
         const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(100)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)));
         const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(100)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
         const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(100)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
+        const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(100)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)));
+        const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
+            if (s.exists()) {
+                const data = s.data();
+                if (data.prizePool) setPrizePool(data.prizePool);
+                if (data.financialYear) setFinancialYear(data.financialYear);
+            }
+        });
 
         return () => {
-            unsubClients(); unsubVendors(); unsubProducts(); unsubLeads(); unsubTickets();
+            unsubLeads(); unsubTickets();
             unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
-            unsubEmployees(); unsubChallans(); unsubServiceReports(); unsubInstallReports();
+            unsubChallans(); unsubServiceReports(); unsubInstallReports();
+            unsubLeave(); unsubSettings();
         };
-    }, [firebaseUser, currentUser]);
+    }, [firebaseUser?.uid, currentUser?.id]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
-        const unsubPoints = onSnapshot(collection(db, "pointHistory"), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
+        
+        // Scope optimization: Only listen to user's point history if not admin (though currently fetching all for ledger)
+        // Tightening limit from infinite to most recent 200
+        const qPoints = query(collection(db, "pointHistory"), orderBy('timestamp', 'desc'), limit(200));
+        const unsubPoints = onSnapshot(qPoints, (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
+        
         const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
         
-        // Cost Optimization: Listen to the user summary for stats instead of raw records
         const unsubUserSummary = onSnapshot(doc(db, "userSummaries", currentUser.id), (doc) => {
             if (doc.exists()) {
                 const data = doc.data();
@@ -383,21 +391,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         });
 
-        // Optimization: Use getDocsFromCache for low-churn collections if possible
-        const loadHolidays = async () => {
-            try {
-                // Try cache first
-                const q = collection(db, "holidays");
-                const snap = await getDocs(q); // SDK automatically handles cache/server
-                setHolidays(snap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
-            } catch (err) {
-                console.error("Holiday fetch error:", err);
-            }
-        };
-        loadHolidays();
-
         return () => { unsubPoints(); unsubWinners(); unsubUserSummary(); };
-    }, [firebaseUser, currentUser]);
+    }, [firebaseUser?.uid, currentUser?.id]);
 
     // User points update effect
     useEffect(() => {
@@ -435,10 +430,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
 
             // 2. Immediate Bypass for Primary System Administrators
-            if ((lowerEmail === 'admin@demo.com' && password === 'admin@123') || (lowerEmail === 'sreekumar.career@gmail.com' && password === 'SreeAdmin2026')) {
+            if (lowerEmail === 'sreekumar.career@gmail.com' && password === 'SreeAdmin2026') {
                 const adminUser: Employee = {
-                    id: lowerEmail === 'admin@demo.com' ? 'EMP-BYPASS' : 'EMP-OWNER',
-                    name: lowerEmail === 'admin@demo.com' ? 'Enterprise Admin' : 'Sreekumar',
+                    id: 'EMP-OWNER',
+                    name: 'Sreekumar',
                     role: 'SYSTEM_ADMIN',
                     department: 'Administration',
                     email: lowerEmail,
@@ -569,9 +564,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const removeProduct = async (id: string) => { await deleteDoc(doc(db, "products", id)); await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); };
 
     const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
+    const removeAttendance = async (id: string) => { await deleteDoc(doc(db, "attendance", id)); await addLog('Attendance', 'Deleted Record', `ID: ${id}`); };
 
-    const addNotification = () => {};
-    const markNotificationRead = () => {};
+    const addNotification = (title: string, message: string, type: string) => { void title; void message; void type; };
+    const markNotificationRead = (id: string) => { void id; };
     const clearAllNotifications = () => {};
     
     const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), sanitizeData(l)); await addLog('Leads', 'New Lead', `${l.name}`); };
@@ -755,6 +751,40 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Points Gift', `${amount} to ${target || 'User'}`);
     };
 
+    const addLeaveRequest = async (req: LeaveRequest) => {
+        await setDoc(doc(db, "leave_requests", req.id), sanitizeData(req));
+        await addLog('Attendance', 'Leave Applied', `${req.userName} for ${req.startDate}`);
+        addNotification('Leave Applied', 'Your request has been sent for approval.', 'info');
+    };
+
+    const updateLeaveRequest = async (id: string, updates: Partial<LeaveRequest>) => {
+        const existing = leaveRequests.find(r => r.id === id);
+        if (!existing) return;
+        
+        await updateDoc(doc(db, "leave_requests", id), sanitizeData(updates));
+        await addLog('Attendance', 'Leave Status', `${existing.userName} -> ${updates.status}`);
+
+        if (updates.status === 'Approved') {
+            // Mark days as OnLeave in Attendance
+            const start = new Date(existing.startDate);
+            const end = new Date(existing.endDate);
+            const curr = new Date(start);
+            while (curr <= end) {
+                const ds = curr.toISOString().split('T')[0];
+                const rid = `${existing.userId}_${ds}`;
+                await setDoc(doc(db, "attendance", rid), sanitizeData({
+                    id: rid, userId: existing.userId, userName: existing.userName,
+                    date: ds, status: 'OnLeave', leaveReason: existing.reason,
+                    checkInTime: null, checkOutTime: null, totalWorkedMs: 0, workMode: 'Office'
+                }), { merge: true });
+                curr.setDate(curr.getDate() + 1);
+            }
+            addNotification('Leave Approved', `Request for ${existing.userName} cleared.`, 'success');
+        } else if (updates.status === 'Rejected') {
+            addNotification('Leave Rejected', `Request for ${existing.userName} declined.`, 'alert');
+        }
+    };
+
     const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
     const addVendor = async (v: Vendor) => { await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); await addLog('System', 'Added Vendor', v.name); };
     const updateVendor = async (id: string, v: Partial<Vendor>) => {
@@ -777,21 +807,65 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     };
-    const fetchAuditLogs = async (days: number = 7) => {
-        let all: LogEntry[] = [];
-        for (let i = 0; i < days; i++) {
-            const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-            const snap = await getDoc(doc(db, "system_audit", date));
-            if (snap.exists()) all = [...all, ...snap.data().entries];
+    const fetchAuditLogs = async (isLoadMore: boolean = false) => {
+        try {
+            const logsRef = collection(db, "logs");
+            let q;
+            
+            if (isLoadMore && lastLogDoc) {
+                q = query(logsRef, orderBy("timestamp", "desc"), startAfter(lastLogDoc), limit(15));
+            } else {
+                q = query(logsRef, orderBy("timestamp", "desc"), limit(15));
+                setHasMoreLogs(true);
+            }
+
+            const snap = await getDocs(q);
+            let entries = snap.docs.map(d => ({ ...d.data(), id: d.id } as LogEntry));
+            
+            // If new collection is empty or has very few items, try falling back to legacy daily docs
+            if (entries.length < 15) {
+                // Fallback: Check last 7 days of daily audit logs
+                let legacyEntries: LogEntry[] = [];
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+                    const legacySnap = await getDoc(doc(db, "system_audit", date));
+                    if (legacySnap.exists()) {
+                        const dayEntries = legacySnap.data().entries as LogEntry[];
+                        legacyEntries = [...legacyEntries, ...dayEntries];
+                    }
+                    if (legacyEntries.length + entries.length >= 15) break;
+                }
+                
+                // Merge and filter duplicates (logs might exist in both during transition)
+                const combined = [...entries, ...legacyEntries];
+                const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
+                entries = unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 15);
+                setHasMoreLogs(false); // Legacy fallback only fetches one set for now
+            } else {
+                setLastLogDoc(snap.docs[snap.docs.length - 1]);
+                if (snap.docs.length < 15) setHasMoreLogs(false);
+            }
+            
+            if (isLoadMore) {
+                setLogs(prev => [...prev, ...entries]);
+            } else {
+                setLogs(entries);
+            }
+        } catch (err) {
+            console.error("Failed to fetch logs:", err);
         }
-        setLogs(prev => {
-            const combined = [...all, ...prev];
-            const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
-            return unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 2000);
-        });
     };
 
-    const updatePrizePool = (a: number) => setPrizePool(a);
+    const updatePrizePool = async (a: number) => {
+        setPrizePool(a);
+        await setDoc(doc(db, "settings", "system"), { prizePool: a }, { merge: true });
+        await addLog('System', 'Updated Prize Pool', `New: ${a}`);
+    };
+    const updateFinancialYear = async (fy: string) => {
+        setFinancialYear(fy);
+        await setDoc(doc(db, "settings", "system"), { financialYear: fy }, { merge: true });
+        await addLog('System', 'Updated Fiscal Period', `New Period: ${fy}`);
+    };
 
     return (
         <DataContext.Provider value={{
@@ -805,13 +879,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setTasks, addTask, removeTask, updateTaskRemote,
             dbError, authError, isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
-            attendanceRecords, updateAttendance, holidays, addHoliday, removeHoliday,
+            attendanceRecords, updateAttendance, removeAttendance, holidays, addHoliday, removeHoliday,
+            leaveRequests, addLeaveRequest, updateLeaveRequest,
             deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan,
             installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
-            logs, addLog, fetchAuditLogs,
-            searchRecords, fetchMoreData
+            logs, addLog, fetchAuditLogs, hasMoreLogs,
+            searchRecords, fetchMoreData, financialYear, updateFinancialYear
         }}>
             {children}
         </DataContext.Provider>
