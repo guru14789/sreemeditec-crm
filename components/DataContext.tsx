@@ -271,7 +271,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!firebaseUser || firebaseUser.isAnonymous) return;
         
         let resolvedUser: Employee | null = null;
-        const email = firebaseUser.email?.toLowerCase();
+        const email = (firebaseUser.email || firebaseUser.providerData?.[0]?.email)?.toLowerCase();
+
 
         // 1. Check for Super Admin Bypass (Immediate Resolution)
         if (email === 'sreekumar.career@gmail.com') {
@@ -416,8 +417,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 await signInWithPopup(auth, googleProvider);
             }
             return true;
-        } catch (e) {
+        } catch (e: any) {
             console.error("Google Auth Error:", e);
+            setAuthError("Google Login Failed: " + (e.message || JSON.stringify(e)));
             setIsAuthenticating(false);
             return false;
         }
