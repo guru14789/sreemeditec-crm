@@ -559,21 +559,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (colName === 'expenses') setPushedExpenses(prev => [...prev, ...newData] as ExpenseRecord[]);
     };
 
-    const addClient = async (c: Client) => { await setDoc(doc(db, "clients", c.id), sanitizeData(c)); await addLog('System', 'Added Client', `New client: ${c.name}`); };
+    const addClient = async (c: Client) => { 
+        setClients(prev => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
+        await setDoc(doc(db, "clients", c.id), sanitizeData(c)); 
+        await addLog('System', 'Added Client', `New client: ${c.name}`); 
+    };
     const updateClient = async (id: string, c: Partial<Client>) => {
         const existing = clients.find(cl => cl.id === id);
+        if (existing) setClients(prev => prev.map(cl => cl.id === id ? { ...cl, ...c } as Client : cl).sort((a, b) => a.name.localeCompare(b.name)));
         await updateDoc(doc(db, "clients", id), sanitizeData(c));
         await addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c });
     };
-    const removeClient = async (id: string) => { await deleteDoc(doc(db, "clients", id)); await addLog('System', 'Removed Client', `Client deleted: ${id}`); };
+    const removeClient = async (id: string) => { 
+        setClients(prev => prev.filter(c => c.id !== id));
+        await deleteDoc(doc(db, "clients", id)); 
+        await addLog('System', 'Removed Client', `Client deleted: ${id}`); 
+    };
     
-    const addProduct = async (p: Product) => { await setDoc(doc(db, "products", p.id), sanitizeData(p)); await addLog('Inventory', 'Added Product', `Item: ${p.name}`); };
+    const addProduct = async (p: Product) => { 
+        setProducts(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)));
+        await setDoc(doc(db, "products", p.id), sanitizeData(p)); 
+        await addLog('Inventory', 'Added Product', `Item: ${p.name}`); 
+    };
     const updateProduct = async (id: string, p: Partial<Product>) => {
         const existing = products.find(pr => pr.id === id);
+        if (existing) setProducts(prev => prev.map(pr => pr.id === id ? { ...pr, ...p } as Product : pr).sort((a, b) => a.name.localeCompare(b.name)));
         await updateDoc(doc(db, "products", id), sanitizeData(p));
         await addLog('Inventory', 'Updated Product', `Product modified: ${existing?.name || id}`, existing, { ...existing, ...p });
     };
-    const removeProduct = async (id: string) => { await deleteDoc(doc(db, "products", id)); await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); };
+    const removeProduct = async (id: string) => { 
+        setProducts(prev => prev.filter(p => p.id !== id));
+        await deleteDoc(doc(db, "products", id)); 
+        await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); 
+    };
 
     const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
     const removeAttendance = async (id: string) => { await deleteDoc(doc(db, "attendance", id)); await addLog('Attendance', 'Deleted Record', `ID: ${id}`); };
@@ -798,13 +816,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
-    const addVendor = async (v: Vendor) => { await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); await addLog('System', 'Added Vendor', v.name); };
+    const addVendor = async (v: Vendor) => { 
+        setVendors(prev => [...prev, v].sort((a, b) => a.name.localeCompare(b.name)));
+        await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); 
+        await addLog('System', 'Added Vendor', v.name); 
+    };
     const updateVendor = async (id: string, v: Partial<Vendor>) => {
         const existing = vendors.find(ven => ven.id === id);
+        if (existing) setVendors(prev => prev.map(ven => ven.id === id ? { ...ven, ...v } as Vendor : ven).sort((a, b) => a.name.localeCompare(b.name)));
         await updateDoc(doc(db, "vendors", id), sanitizeData(v));
         await addLog('System', 'Updated Vendor', existing?.name || id, existing, { ...existing, ...v });
     };
-    const removeVendor = async (id: string) => { await deleteDoc(doc(db, "vendors", id)); await addLog('System', 'Removed Vendor', id); };
+    const removeVendor = async (id: string) => { 
+        setVendors(prev => prev.filter(v => v.id !== id));
+        await deleteDoc(doc(db, "vendors", id)); 
+        await addLog('System', 'Removed Vendor', id); 
+    };
 
     const addInvoice = async (i: Invoice) => { 
         await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
