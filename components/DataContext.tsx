@@ -16,7 +16,9 @@ import {
     increment,
     startAfter
 } from 'firebase/firestore';
-import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
@@ -405,9 +407,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loginWithGoogle = async () => {
         setIsAuthenticating(true);
         try {
-            await signInWithPopup(auth, googleProvider);
+            if (Capacitor.isNativePlatform()) {
+                await GoogleAuth.initialize();
+                const googleUser = await GoogleAuth.signIn();
+                const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+                await signInWithCredential(auth, credential);
+            } else {
+                await signInWithPopup(auth, googleProvider);
+            }
             return true;
         } catch (e) {
+            console.error("Google Auth Error:", e);
             setIsAuthenticating(false);
             return false;
         }
