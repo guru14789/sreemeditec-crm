@@ -52,7 +52,15 @@ export const TaskModule: React.FC = () => {
         // System admins have permission to view all tasks across all users
         if (!isAdmin) {
             // Employees are restricted to only tasks explicitly assigned to them
-            filtered = tasks.filter(t => t.assignedTo === authUser?.name);
+            // AND only pending previous tasks or today's tasks (no future tasks)
+            const today = new Date().toISOString().split('T')[0];
+            filtered = tasks.filter(t => {
+                const isAssigned = t.assignedTo === authUser?.name;
+                const isHistoryDone = t.dueDate < today && t.status === 'Done';
+                const isFuture = t.dueDate > today;
+
+                return isAssigned && !isHistoryDone && !isFuture;
+            });
         }
 
         if (searchQuery.trim()) {

@@ -72,14 +72,15 @@ export const ServiceReportModule: React.FC = () => {
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !report.reportNumber) {
-            const currentYearReports = serviceReports.filter(r => r.reportNumber && r.reportNumber.includes(`/${financialYear}/`));
+            const reportYear = "26-27";
+            const currentYearReports = serviceReports.filter(r => r.reportNumber && r.reportNumber.includes(`/${reportYear}/`));
             const nextNum = currentYearReports.length + 1;
             setReport(prev => ({
                 ...prev,
-                reportNumber: `SR/${financialYear}/${nextNum}`
+                reportNumber: `SMSR/${reportYear}/${nextNum}`
             }));
         }
-    }, [viewState, serviceReports, editingId, report.reportNumber, financialYear]);
+    }, [viewState, serviceReports, editingId, report.reportNumber]);
 
     useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);
