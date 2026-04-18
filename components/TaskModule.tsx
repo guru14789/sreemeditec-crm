@@ -50,16 +50,29 @@ export const TaskModule: React.FC = () => {
         let filtered = tasks;
         
         // System admins have permission to view all tasks across all users
-        if (!isAdmin) {
-            // Employees are restricted to only tasks explicitly assigned to them
-            // AND only pending previous tasks or today's tasks (no future tasks)
-            const today = new Date().toISOString().split('T')[0];
-            filtered = tasks.filter(t => {
-                const isAssigned = t.assignedTo === authUser?.name;
-                const isHistoryDone = t.dueDate < today && t.status === 'Done';
-                const isFuture = t.dueDate > today;
+        if (!isAdmin && authUser?.name) {
+            // Robust 'today' calculation using local time (YYYY-MM-DD)
+            const localToday = new Date().toLocaleDateString('en-CA'); 
+            const authName = authUser.name.trim().toLowerCase();
 
-                return isAssigned && !isHistoryDone && !isFuture;
+            filtered = tasks.filter(t => {
+                const assignedName = (t.assignedTo || '').trim().toLowerCase();
+                const isAssigned = assignedName === authName;
+                
+                // Normalizing t.dueDate just in case it's missing or misformatted
+                const taskDate = t.dueDate || ''; 
+                
+                const isHistoryDone = taskDate < localToday && t.status === 'Done';
+                const isFuture = taskDate > localToday;
+
+                const shouldShow = isAssigned && !isHistoryDone && !isFuture;
+                
+                // Keep minimal logging for now to help the user verify
+                if (isAssigned && isFuture) {
+                    console.log(`Filtering out future task: ${t.title} (${taskDate} > ${localToday})`);
+                }
+
+                return shouldShow;
             });
         }
 
