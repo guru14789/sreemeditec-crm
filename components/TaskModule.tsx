@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskLog } from '../types';
 import {
     CheckSquare, Plus, User, Calendar,
-    X, AlignLeft, History, Zap, Trash2, Edit
+    X, AlignLeft, History, Zap, Trash2, Edit, Search, RefreshCw
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -16,8 +16,12 @@ export const TaskModule: React.FC = () => {
         updateTaskRemote,
         addTask,
         removeTask,
-        currentUser: authUser
+        currentUser: authUser,
+        fetchMoreData
     } = useData();
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
     console.log('TaskModule Debug:', { tasksCount: tasks.length, authUser: authUser?.name, isAdmin });
@@ -43,12 +47,37 @@ export const TaskModule: React.FC = () => {
     const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
 
     const visibleTasks = useMemo(() => {
+        let filtered = tasks;
+        
         // System admins have permission to view all tasks across all users
-        if (isAdmin) return tasks;
+        if (!isAdmin) {
+            // Employees are restricted to only tasks explicitly assigned to them
+            filtered = tasks.filter(t => t.assignedTo === authUser?.name);
+        }
 
-        // Employees are restricted to only tasks explicitly assigned to them
-        return tasks.filter(t => t.assignedTo === authUser?.name);
-    }, [tasks, isAdmin, authUser]);
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(t => 
+                t.title.toLowerCase().includes(q) || 
+                t.description.toLowerCase().includes(q) ||
+                t.assignedTo.toLowerCase().includes(q)
+            );
+        }
+
+        return filtered;
+    }, [tasks, isAdmin, authUser, searchQuery]);
+
+    const handleLoadMore = async () => {
+        setIsLoadingMore(true);
+        try {
+            await fetchMoreData('tasks', 'id');
+            addNotification('History Loaded', 'Older tasks retrieved from headquarters.', 'info');
+        } catch (err) {
+            console.error("Load more failed", err);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    };
 
     const handleUpdateStatus = async (id: string, newStatus: Task['status']) => {
         const existing = tasks.find(t => t.id === id);
@@ -244,11 +273,23 @@ export const TaskModule: React.FC = () => {
                         <p className="text-[10px] font-black text-indigo-600 uppercase mt-2 tracking-[0.2em]">{isAdmin ? 'ADMIN COMMAND CENTER' : 'FIELD AGENT TERMINAL'}</p>
                     </div>
                 </div>
-                {isAdmin && (
-                    <button onClick={() => setShowAddTaskModal(true)} className="bg-[#022c22] text-white px-7 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] shadow-xl hover:bg-black transition-all active:scale-95 flex items-center gap-2">
-                        <Plus size={16} /> Dispatch Job
-                    </button>
-                )}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                    <div className="relative group/search flex-1 lg:w-64">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-medical-500 transition-colors" size={16} />
+                        <input 
+                            type="text"
+                            placeholder="Search tasks..."
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-medical-500 focus:ring-4 focus:ring-medical-500/5 transition-all"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    {isAdmin && (
+                        <button onClick={() => setShowAddTaskModal(true)} className="bg-[#022c22] text-white px-7 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-2">
+                            <Plus size={16} /> Dispatch Job
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 flex gap-4 md:gap-6 overflow-x-auto pb-4 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -256,6 +297,20 @@ export const TaskModule: React.FC = () => {
                 <KanbanColumn title="In Progress" status="In Progress" color="bg-amber-500" />
                 <KanbanColumn title="Under Review" status="Review" color="bg-indigo-500" />
                 <KanbanColumn title="Completed" status="Done" color="bg-emerald-500" />
+            </div>
+
+            {/* Load More Footer */}
+            <div className="shrink-0 flex justify-center pb-4">
+                <button 
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="group bg-white dark:bg-slate-900 px-6 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-3"
+                >
+                    <RefreshCw size={14} className={`text-medical-500 ${isLoadingMore ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        {isLoadingMore ? 'Analyzing Database...' : 'Load More History'}
+                    </span>
+                </button>
             </div>
 
             {selectedTaskId && selectedTask && (

@@ -89,7 +89,7 @@ export interface DataContextType {
     updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
     recordStockMovement: (movement: StockMovement) => Promise<void>;
 
-    setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+
     addTask: (task: Task) => Promise<void>;
     removeTask: (id: string) => Promise<void>;
     updateTaskRemote: (id: string, updates: Partial<Task>) => Promise<void>;
@@ -190,7 +190,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return [...expenseSnap, ...pushedExpenses.filter(e => !ids.has(e.id))].sort((a,b) => b.date.localeCompare(a.date));
     }, [expenseSnap, pushedExpenses]);
     const [employees, setEmployees] = useState<Employee[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [taskSnap, setTaskSnap] = useState<Task[]>([]);
+    const [pushedTasks, setPushedTasks] = useState<Task[]>([]);
+    const tasks = useMemo(() => {
+        const ids = new Set(taskSnap.map(t => t.id));
+        return [...taskSnap, ...pushedTasks.filter(t => !ids.has(t.id))].sort((a,b) => b.id.localeCompare(a.id));
+    }, [taskSnap, pushedTasks]);
     const [leadSnap, setLeadSnap] = useState<Lead[]>([]);
     const [pushedLeads, setPushedLeads] = useState<Lead[]>([]);
     const leads = useMemo(() => {
@@ -336,7 +341,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loadRegistries();
 
         // Dynamic Collections (High Growth): Initial small batch, then paginated
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(50)), (s) => setTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Task)));
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(150)), (s) => handleSnap('tasks', s, setTaskSnap));
         
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
@@ -557,6 +562,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (colName === 'invoices') setPushedInvoices(prev => [...prev, ...newData] as Invoice[]);
         if (colName === 'leads') setPushedLeads(prev => [...prev, ...newData] as Lead[]);
         if (colName === 'expenses') setPushedExpenses(prev => [...prev, ...newData] as ExpenseRecord[]);
+        if (colName === 'tasks') setPushedTasks(prev => [...prev, ...newData] as Task[]);
     };
 
     const addClient = async (c: Client) => { 
@@ -682,6 +688,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updateTaskRemote = async (id: string, u: Partial<Task>) => {
         const existing = tasks.find(t => t.id === id);
+        // Optimistic UI updates
+        setTaskSnap(prev => prev.map(t => t.id === id ? { ...t, ...u } as Task : t));
+        setPushedTasks(prev => prev.map(t => t.id === id ? { ...t, ...u } as Task : t));
+        
         await updateDoc(doc(db, "tasks", id), sanitizeData(u)); 
         await addLog('Tasks', 'Modified Task', existing?.title || id, existing, { ...existing, ...u });
 
@@ -693,8 +703,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             else if (wasDone && !isNowDone) await updateUserSummary(currentUser.id, currentUser.name, 0, -1);
         }
     };
-    const addTask = async (t: Task) => { await setDoc(doc(db, "tasks", t.id), sanitizeData(t)); await addLog('Tasks', 'New Task', t.title); };
-    const removeTask = async (id: string) => { await deleteDoc(doc(db, "tasks", id)); await addLog('Tasks', 'Deleted Task', id); };
+    const addTask = async (t: Task) => { 
+        setTaskSnap(prev => [t, ...prev].sort((a,b) => b.id.localeCompare(a.id)));
+        await setDoc(doc(db, "tasks", t.id), sanitizeData(t)); 
+        await addLog('Tasks', 'New Task', t.title); 
+    };
+    const removeTask = async (id: string) => { 
+        setTaskSnap(prev => prev.filter(t => t.id !== id));
+        setPushedTasks(prev => prev.filter(t => t.id !== id));
+        await deleteDoc(doc(db, "tasks", id)); 
+        await addLog('Tasks', 'Deleted Task', id); 
+    };
 
     const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t)); await addLog('System', 'New Ticket', t.issue); };
     const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
@@ -915,7 +934,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
             addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
-            setTasks, addTask, removeTask, updateTaskRemote,
+            addTask, removeTask, updateTaskRemote,
             dbError, authError, isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
             attendanceRecords, updateAttendance, removeAttendance, holidays, addHoliday, removeHoliday,
