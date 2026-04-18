@@ -14,9 +14,9 @@ service cloud.firestore {
       allow delete: if request.auth.token.email == 'sreekumar.career@gmail.com';
     }
 
-    // Specific validation for tasks (example of more granular control)
+    // Specific validation for tasks (allow admins/authenticated users to delete)
     match /tasks/{taskId} {
-      allow create, update: if isAuthenticated() && 
+      allow create, update, delete: if isAuthenticated() && 
         request.resource.data.title is string &&
         request.resource.data.status in ['To Do', 'In Progress', 'Review', 'Done'];
     }
