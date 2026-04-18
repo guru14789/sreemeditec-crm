@@ -284,7 +284,8 @@ export interface Task {
   locationName?: string;
   submittedBy?: string;
   pointsAwarded?: boolean;
-  logs: TaskLog[];
+  handoffChain: string[];
+  handoffNotes?: string;
   subTasks?: any[];
 }
 

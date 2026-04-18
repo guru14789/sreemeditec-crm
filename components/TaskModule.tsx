@@ -36,12 +36,15 @@ export const TaskModule: React.FC = () => {
     const [editDescription, setEditDescription] = useState('');
     const [editPriority, setEditPriority] = useState<Task['priority']>('Medium');
     const [editAssignedTo, setEditAssignedTo] = useState('');
+    const [editHandoffChain, setEditHandoffChain] = useState<string[]>([]);
+    const [staffHandoffNote, setStaffHandoffNote] = useState('');
 
     const [newTask, setNewTask] = useState<Partial<Task>>({
         priority: 'Medium',
         dueDate: new Date().toISOString().split('T')[0],
         assignedTo: '',
-        status: 'To Do'
+        status: 'To Do',
+        handoffChain: []
     });
 
     const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
@@ -100,7 +103,7 @@ export const TaskModule: React.FC = () => {
         }
     };
 
-    const handleUpdateStatus = async (id: string, newStatus: Task['status']) => {
+    const handleUpdateStatus = async (id: string, newStatus: Task['status'], note?: string) => {
         const existing = tasks.find(t => t.id === id);
         if (!existing) return;
 
@@ -116,32 +119,58 @@ export const TaskModule: React.FC = () => {
             logs: [...(existing.logs || []), log]
         };
 
-        // Set 'submittedBy' when a staff member submits for review
+        // Set 'submittedBy' and optional handoff note when a staff member submits for review
         if (newStatus === 'Review') {
             updates.submittedBy = authUser?.id;
+            if (note) updates.handoffNotes = note;
         }
 
         try {
-            await updateTaskRemote(id, updates);
-            addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
-
-            // AWARD POINTS ONLY UPON APPROVAL TO 'DONE'
+            // AWARD POINTS AND HANDLE HANDOFF ONLY UPON APPROVAL TO 'DONE'
             if (newStatus === 'Done') {
-                // RULE: Points go to the person who submitted the task for review, 
-                // fulfilling the requirement "awarded only to the user who submits for review, not who approves".
-                // Idempotency: only award if pointsAwarded is not true.
+                // 1. Award Points for current stage
                 if (existing.submittedBy && !existing.pointsAwarded) {
                     const targetEmp = employees.find(e => e.id === existing.submittedBy);
                     if (targetEmp) {
-                        addPoints(50, 'Task', `Task Approved: ${existing.title}`, targetEmp.id);
-                        addNotification('Reward Processed', `50 points awarded to ${targetEmp.name}.`, 'success');
-
-                        // Mark as points awarded to prevent double points
-                        await updateTaskRemote(id, { pointsAwarded: true });
+                        addPoints(50, 'Task', `Stage Complete: ${existing.title}`, targetEmp.id);
+                        addNotification('Reward Processed', `50 points awarded for stage completion.`, 'success');
                     }
                 }
-                setSelectedTaskId(null);
+
+                // 2. Check for Handoff Chain
+                if (existing.handoffChain && existing.handoffChain.length > 0) {
+                    const chain = [...existing.handoffChain];
+                    const nextUser = chain.shift();
+                    
+                    const handoffLog: TaskLog = {
+                        id: `LOG-H-${Date.now()}`,
+                        user: 'System',
+                        action: `Sequential Handoff: Approved by ${authUser?.name}. New Assignee: ${nextUser}`,
+                        timestamp: new Date().toLocaleTimeString()
+                    };
+
+                    await updateTaskRemote(id, {
+                        ...updates,
+                        assignedTo: nextUser,
+                        status: 'To Do',
+                        handoffChain: chain,
+                        pointsAwarded: false, // Reset for next stage
+                        logs: [...updates.logs!, handoffLog]
+                    });
+                    
+                    addNotification('Handoff Complete', `Task moved to ${nextUser}.`, 'success');
+                    setStaffHandoffNote('');
+                } else {
+                    // Final Completion
+                    await updateTaskRemote(id, { ...updates, pointsAwarded: true });
+                    setSelectedTaskId(null);
+                }
+            } else {
+                // Regular status update (not Done)
+                await updateTaskRemote(id, updates);
             }
+            
+            addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
         } catch (err) {
             console.error("Task update failed", err);
         }
@@ -179,7 +208,11 @@ export const TaskModule: React.FC = () => {
         };
 
         try {
-            await addTask(taskToAdd);
+            await addTask({
+                ...taskToAdd,
+                handoffChain: newTask.handoffChain || [],
+                logs: [log]
+            });
             setShowAddTaskModal(false);
             setNewTask({ priority: 'Medium', dueDate: new Date().toISOString().split('T')[0], assignedTo: '', status: 'To Do' });
             addNotification('Task Dispatched', `Task assigned to ${taskToAdd.assignedTo}.`, 'success');
@@ -230,9 +263,11 @@ export const TaskModule: React.FC = () => {
                 description: editDescription,
                 priority: editPriority,
                 assignedTo: editAssignedTo,
+                handoffChain: editHandoffChain,
                 logs: [...(selectedTask.logs || []), log]
             });
             setIsEditing(false);
+            setEditHandoffChain([]);
             addNotification('Task Updated', 'Mission briefing updated successfully.', 'success');
         } catch (err) {
             console.error("Task update failed", err);
@@ -361,6 +396,7 @@ export const TaskModule: React.FC = () => {
                                             setEditDescription(selectedTask.description);
                                             setEditPriority(selectedTask.priority);
                                             setEditAssignedTo(selectedTask.assignedTo);
+                                            setEditHandoffChain(selectedTask.handoffChain || []);
                                             setIsEditing(true);
                                         }}
                                         className="p-2 text-indigo-400 hover:text-indigo-600 transition-all"
@@ -379,6 +415,14 @@ export const TaskModule: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10">
                             <section>
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-medical-600" /> Command Actions</h4>
+                                
+                                {selectedTask.handoffNotes && (
+                                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800 rounded-2xl">
+                                        <h5 className="text-[8px] font-black text-amber-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5"><AlignLeft size={10} /> Previous Phase Notes</h5>
+                                        <p className="text-xs font-bold text-amber-800 dark:text-amber-200 indent-2">{selectedTask.handoffNotes}</p>
+                                    </div>
+                                )}
+
                                 <div className="flex flex-col gap-3">
                                     {isEditing ? (
                                         <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
@@ -408,34 +452,101 @@ export const TaskModule: React.FC = () => {
                                                     </select>
                                                 </div>
                                             </div>
+
+                                            {/* Edit Chain UI */}
+                                            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Modify Flow Chain</label>
+                                                <div className="flex gap-2 mt-1">
+                                                    <select 
+                                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[10px] font-bold dark:text-white outline-none"
+                                                        id="edit-handoff-select"
+                                                    >
+                                                        <option value="">Add to chain...</option>
+                                                        {employees.map(emp => (
+                                                            <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button 
+                                                        className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase"
+                                                        onClick={() => {
+                                                            const sel = document.getElementById('edit-handoff-select') as HTMLSelectElement;
+                                                            if (sel.value) {
+                                                                setEditHandoffChain([...editHandoffChain, sel.value]);
+                                                                sel.value = "";
+                                                            }
+                                                        }}
+                                                    >Add</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {editHandoffChain.map((name, i) => (
+                                                        <div key={i} className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                                                            <span className="text-[9px] font-black text-slate-600 dark:text-slate-300">{name}</span>
+                                                            <button onClick={() => setEditHandoffChain(editHandoffChain.filter((_, idx) => idx !== i))} className="text-rose-500"><X size={10} /></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     ) : (
-                                        selectedTask.assignedTo === authUser?.name ? (
-                                            <>
-                                                {selectedTask.status === 'To Do' && (
-                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Work</button>
-                                                )}
-                                                {selectedTask.status === 'In Progress' && (
-                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review')} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Submit Review</button>
-                                                )}
-                                                {selectedTask.status === 'Review' && (
-                                                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
-                                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Under Admin Review</p>
+                                        <>
+                                            {/* Visual Progress Chain */}
+                                            {(selectedTask.handoffChain && selectedTask.handoffChain.length > 0) && (
+                                                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar no-bg">
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-black">1</div>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase">{selectedTask.assignedTo}</span>
                                                     </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Assigned to: {selectedTask.assignedTo}</p>
-                                            </div>
-                                        )
+                                                    {selectedTask.handoffChain.map((name, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <div className="w-4 h-px bg-slate-200"></div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-black">{i + 2}</div>
+                                                                <span className="text-[10px] font-black text-slate-300 uppercase">{name}</span>
+                                                            </div>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {selectedTask.assignedTo === authUser?.name ? (
+                                                <div className="space-y-4">
+                                                    {selectedTask.status === 'To Do' && (
+                                                        <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
+                                                    )}
+                                                    {selectedTask.status === 'In Progress' && (
+                                                        <div className="space-y-3">
+                                                            <div className="space-y-1">
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Handoff Instructions / Completion Notes</label>
+                                                                <textarea 
+                                                                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
+                                                                    placeholder="Describe what you've done for the next stage..."
+                                                                    value={staffHandoffNote}
+                                                                    onChange={(e) => setStaffHandoffNote(e.target.value)}
+                                                                    rows={3}
+                                                                />
+                                                            </div>
+                                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review', staffHandoffNote)} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl ring-4 ring-medical-500/10">Submit for Approval</button>
+                                                        </div>
+                                                    )}
+                                                    {selectedTask.status === 'Review' && (
+                                                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
+                                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center justify-center gap-2"><RefreshCw size={12} className="animate-spin" /> Awaiting Admin Review</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">Currently under Operation by: {selectedTask.assignedTo}</p>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
 
                                     {isAdmin && (
                                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <Calendar size={12} /> Reschedule Mission
+                                                    <Calendar size={12} /> Mission Timeline
                                                 </h5>
                                                 {!isRescheduling ? (
                                                     <button
@@ -445,14 +556,14 @@ export const TaskModule: React.FC = () => {
                                                         }}
                                                         className="text-[9px] font-black text-indigo-600 uppercase hover:underline"
                                                     >
-                                                        Change Date
+                                                        Reschedule
                                                     </button>
                                                 ) : (
                                                     <button
                                                         onClick={() => setIsRescheduling(false)}
                                                         className="text-[9px] font-black text-rose-500 uppercase hover:underline"
                                                     >
-                                                        Cancel
+                                                        Abort
                                                     </button>
                                                 )
                                                 }
@@ -470,19 +581,19 @@ export const TaskModule: React.FC = () => {
                                                         onClick={handleReschedule}
                                                         className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
                                                     >
-                                                        Save
+                                                        Commit
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Currently due on: {selectedTask.dueDate}</p>
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Target Deadline: {selectedTask.dueDate}</p>
                                             )}
                                         </div>
                                     )}
 
                                     {isAdmin && selectedTask.status === 'Review' && (
-                                        <div className="flex gap-3 pt-2">
-                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg">Approve & Close</button>
-                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="flex-1 bg-rose-50 text-rose-600 border border-rose-100 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Reject</button>
+                                        <div className="flex flex-col gap-2 pt-2">
+                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95">Verify & Proceed to Next Stage</button>
+                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
                                         </div>
                                     )}
                                 </div>
@@ -582,12 +693,51 @@ export const TaskModule: React.FC = () => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Briefing Notes</label>
-                                <textarea className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
+                                <textarea className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the first agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
+                            </div>
+
+                            {/* Handoff Chain Builder */}
+                            <div className="space-y-3 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+                                <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Strategic Handoff Chain (Next Steps)</label>
+                                <div className="flex gap-2">
+                                    <select 
+                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none focus:border-indigo-500"
+                                        id="handoff-select"
+                                    >
+                                        <option value="">Add next person...</option>
+                                        {employees.map(emp => (
+                                            <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                        ))}
+                                    </select>
+                                    <button 
+                                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm"
+                                        onClick={() => {
+                                            const sel = document.getElementById('handoff-select') as HTMLSelectElement;
+                                            if (sel.value) {
+                                                setNewTask({ ...newTask, handoffChain: [...(newTask.handoffChain || []), sel.value] });
+                                                sel.value = "";
+                                            }
+                                        }}
+                                    >
+                                        Append
+                                    </button>
+                                </div>
+                                {newTask.handoffChain && newTask.handoffChain.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {newTask.handoffChain.map((name, i) => (
+                                            <div key={i} className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900 shadow-sm">
+                                                <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase">{i + 1}. {name}</span>
+                                                <button onClick={() => setNewTask({...newTask, handoffChain: newTask.handoffChain?.filter((_, idx) => idx !== i)})} className="text-rose-500 hover:text-rose-700"><X size={12} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-[8px] font-bold text-slate-400 uppercase italic">Once the current agent finishes, work automatically moves to the next person in this list.</p>
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-3 bg-slate-50/50 dark:bg-slate-800/50">
-                            <button onClick={() => setShowAddTaskModal(false)} className="flex-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Cancel</button>
-                            <button onClick={handleCreateTask} className="flex-1 bg-medical-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Confirm Dispatch</button>
+                        <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                            <button onClick={() => setShowAddTaskModal(false)} className="flex-1 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
+                            <button onClick={handleCreateTask} className="flex-1 bg-[#022c22] text-white py-3 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Engage Fleet</button>
                         </div>
                     </div>
                 </div>
