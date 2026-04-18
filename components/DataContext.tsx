@@ -382,7 +382,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Scope optimization: Only listen to user's point history if not admin (though currently fetching all for ledger)
         // Tightening limit from infinite to most recent 200
-        const qPoints = query(collection(db, "pointHistory"), orderBy('timestamp', 'desc'), limit(200));
+        const qPoints = query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(200));
         const unsubPoints = onSnapshot(qPoints, (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
         
         const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
