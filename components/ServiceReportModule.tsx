@@ -579,6 +579,7 @@ export const ServiceReportModule: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Complaint Description</label><textarea rows={4} className="w-full border rounded-xl px-4 py-2 text-sm font-bold resize-none" value={report.problemReported || ''} onChange={e => setReport({...report, problemReported: e.target.value})} placeholder="Describe issue as reported..." /></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Engineer's Observations & Remarks</label><textarea rows={4} className="w-full border rounded-xl px-4 py-2 text-sm font-bold resize-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.engineerObservations || ''} onChange={e => setReport({...report, engineerObservations: e.target.value})} placeholder="Detailed diagnosis, findings, and temporary fixes..." /></div>
                                     </div>
                                 </section>
 
@@ -609,6 +610,14 @@ export const ServiceReportModule: React.FC = () => {
                                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bill</p><p className="text-lg font-black text-slate-800">₹{finTotals.totalReceivable.toLocaleString()}</p></div>
                                         </div>
                                         <div className="bg-medical-600 px-8 py-4 rounded-[1.5rem] text-white shadow-xl shadow-medical-500/20"><p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Net Out Balance</p><p className="text-2xl font-black tracking-tight leading-none">₹{finTotals.netBalance.toLocaleString()}</p></div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-6">
+                                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><PenTool size={14}/> Assessment & Follow-up</h3>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Engineer's Queries / Remarks / Follow-up Action</label>
+                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={report.queriesRemarks || ''} onChange={e => setReport({...report, queriesRemarks: e.target.value})} placeholder="Any further actions required, queries for the customer, or general remarks..." />
                                     </div>
                                 </section>
 
