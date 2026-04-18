@@ -584,6 +584,17 @@ export const ServiceReportModule: React.FC = () => {
                                 </section>
 
                                 <section className="space-y-6">
+                                    <div className="flex justify-between items-center border-b border-slate-300 pb-2">
+                                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><PenTool size={14}/> Action Taken by Engineer</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Hardware / Consumables</label><textarea rows={3} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold resize-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.actionHardware || ''} onChange={e => setReport({...report, actionHardware: e.target.value})} placeholder="Hardware replaced or serviced..." /></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Operational</label><textarea rows={3} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold resize-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.actionOperational || ''} onChange={e => setReport({...report, actionOperational: e.target.value})} placeholder="Calibration, testing, usage training..." /></div>
+                                        <div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Software</label><textarea rows={3} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold resize-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.actionSoftware || ''} onChange={e => setReport({...report, actionSoftware: e.target.value})} placeholder="Updates, configuration, data backup..." /></div>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-6">
                                     <div className="flex justify-between items-center border-b border-slate-300 pb-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Parts & Spares</h3><button onClick={() => setBuilderTab('catalog')} className="text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-lg border border-medical-100 hover:bg-medical-100">+ Add Spare</button></div>
                                     <div className="space-y-4">
                                         {report.itemsUsed?.map(item => (
