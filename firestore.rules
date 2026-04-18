@@ -7,11 +7,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Strict Control: Only the Master Admin can delete data
+    // Access Control: Authenticated users can read/write; UI handles role-based visibility
     match /{collectionName}/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if request.auth.token.email == 'sreekumar.career@gmail.com';
+      allow read, create, update, delete: if isAuthenticated();
     }
 
     // Specific validation for tasks (allow admins/authenticated users to delete)
