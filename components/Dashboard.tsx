@@ -6,7 +6,16 @@ import { useData } from './DataContext';
 const COLORS = ['#ef4444', '#f59e0b', '#10b981'];
 
 export const Dashboard: React.FC = () => {
-  const { tasks, serviceTickets, pointHistory, invoices } = useData();
+  const { tasks, serviceTickets, pointHistory, invoices, currentUser: authUser } = useData();
+
+  const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
+
+  const visibleTasks = useMemo(() => {
+    if (isAdmin) return tasks;
+    if (!authUser?.name) return [];
+    const authName = authUser.name.trim().toLowerCase();
+    return tasks.filter(t => (t.assignedTo || '').trim().toLowerCase() === authName);
+  }, [tasks, isAdmin, authUser]);
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -131,7 +140,7 @@ export const Dashboard: React.FC = () => {
                 </h3>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 custom-scrollbar pr-1">
-                {tasks.slice(0, 8).map(task => (
+                {visibleTasks.slice(0, 8).map(task => (
                     <div key={task.id} className="p-3 md:p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between group hover:bg-white transition-all shadow-sm shadow-slate-200/50">
                         <div className="flex items-center gap-3">
                             <div className={`p-1.5 md:p-2 rounded-lg md:rounded-xl text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm'}`}><Clock size={14} /></div>

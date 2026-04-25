@@ -211,7 +211,6 @@ export const TaskModule: React.FC = () => {
             await addTask({
                 ...taskToAdd,
                 handoffChain: newTask.handoffChain || [],
-                logs: [log]
             });
             setShowAddTaskModal(false);
             setNewTask({ priority: 'Medium', dueDate: new Date().toISOString().split('T')[0], assignedTo: '', status: 'To Do' });
@@ -251,10 +250,11 @@ export const TaskModule: React.FC = () => {
         }
 
         try {
+            const chainChanged = JSON.stringify(selectedTask.handoffChain || []) !== JSON.stringify(editHandoffChain);
             const log: TaskLog = {
                 id: `LOG-${Date.now()}`,
                 user: authUser?.name || 'Admin',
-                action: `Task Updated: Title/Description modified by admin`,
+                action: `Task Configuration Updated by Admin ${chainChanged ? '(Workflow Chain Modified)' : ''}`,
                 timestamp: new Date().toLocaleTimeString()
             };
 
@@ -485,6 +485,14 @@ export const TaskModule: React.FC = () => {
                                                         </div>
                                                     ))}
                                                 </div>
+                                                {editHandoffChain.length > 0 && (
+                                                    <button 
+                                                        onClick={() => setEditHandoffChain([])}
+                                                        className="mt-3 text-[9px] font-black text-rose-500 uppercase hover:underline flex items-center gap-1"
+                                                    >
+                                                        <Trash2 size={10} /> Clear Entire Chain (Convert to Single Task)
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
@@ -508,7 +516,7 @@ export const TaskModule: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {selectedTask.assignedTo === authUser?.name ? (
+                                            {selectedTask.assignedTo?.trim().toLowerCase() === authUser?.name?.trim().toLowerCase() ? (
                                                 <div className="space-y-4">
                                                     {selectedTask.status === 'To Do' && (
                                                         <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
@@ -652,12 +660,12 @@ export const TaskModule: React.FC = () => {
 
             {showAddTaskModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden scale-100 animate-in zoom-in-95">
+                        <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Dispatch Job</h3>
                             <button onClick={() => setShowAddTaskModal(false)}><X size={24} className="text-slate-400" /></button>
                         </div>
-                        <div className="p-6 space-y-5">
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title *</label>
                                 <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
@@ -730,12 +738,18 @@ export const TaskModule: React.FC = () => {
                                                 <button onClick={() => setNewTask({...newTask, handoffChain: newTask.handoffChain?.filter((_, idx) => idx !== i)})} className="text-rose-500 hover:text-rose-700"><X size={12} /></button>
                                             </div>
                                         ))}
+                                        <button 
+                                            onClick={() => setNewTask({...newTask, handoffChain: []})}
+                                            className="w-full text-center mt-2 text-[9px] font-black text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-colors"
+                                        >
+                                            Reset to Single Task
+                                        </button>
                                     </div>
                                 )}
                                 <p className="text-[8px] font-bold text-slate-400 uppercase italic">Once the current agent finishes, work automatically moves to the next person in this list.</p>
                             </div>
                         </div>
-                        <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                        <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
                             <button onClick={() => setShowAddTaskModal(false)} className="flex-1 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
                             <button onClick={handleCreateTask} className="flex-1 bg-[#022c22] text-white py-3 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Engage Fleet</button>
                         </div>
