@@ -111,7 +111,7 @@ export const TaskModule: React.FC = () => {
             id: `LOG-${Date.now()}`,
             user: authUser?.name || 'Unknown',
             action: `Status transitioned: ${existing.status} -> ${newStatus}`,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
         };
 
         const updates: Partial<Task> = {
@@ -132,8 +132,25 @@ export const TaskModule: React.FC = () => {
                 if (existing.submittedBy && !existing.pointsAwarded) {
                     const targetEmp = employees.find(e => e.id === existing.submittedBy);
                     if (targetEmp) {
-                        addPoints(50, 'Task', `Stage Complete: ${existing.title}`, targetEmp.id);
-                        addNotification('Reward Processed', `50 points awarded for stage completion.`, 'success');
+                        const localToday = new Date().toLocaleDateString('en-CA');
+                        const isOverdue = existing.dueDate < localToday;
+                        
+                        const basePoints = 10;
+                        const priorityBonus = existing.priority === 'High' ? 10 : 0;
+                        const overduePenalty = isOverdue ? 5 : 0;
+                        
+                        const totalAward = Math.max(0, basePoints + priorityBonus - overduePenalty);
+                        
+                        const reason = isOverdue 
+                            ? `Stage Complete (Overdue Penalty Applied): ${existing.title}`
+                            : `Stage Complete: ${existing.title}`;
+
+                        addPoints(totalAward, 'Task', reason, targetEmp.id);
+                        addNotification(
+                            isOverdue ? 'Task Completed Late' : 'Reward Processed', 
+                            `${totalAward} points awarded for stage completion${isOverdue ? ' (Overdue)' : ''}.`, 
+                            isOverdue ? 'warning' : 'success'
+                        );
                     }
                 }
 
@@ -146,7 +163,7 @@ export const TaskModule: React.FC = () => {
                         id: `LOG-H-${Date.now()}`,
                         user: 'System',
                         action: `Sequential Handoff: Approved by ${authUser?.name}. New Assignee: ${nextUser}`,
-                        timestamp: new Date().toLocaleTimeString()
+                        timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     };
 
                     await updateTaskRemote(id, {
@@ -204,7 +221,7 @@ export const TaskModule: React.FC = () => {
             locationName: newTask.locationName || 'Main Office',
             subTasks: [],
             pointsAwarded: false,
-            logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleTimeString() }]
+            logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) }]
         };
 
         try {
@@ -227,7 +244,7 @@ export const TaskModule: React.FC = () => {
                 id: `LOG-${Date.now()}`,
                 user: authUser?.name || 'Admin',
                 action: `Task Rescheduled: ${selectedTask.dueDate} -> ${rescheduleDate}`,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
             };
 
             await updateTaskRemote(selectedTask.id, {
@@ -255,7 +272,7 @@ export const TaskModule: React.FC = () => {
                 id: `LOG-${Date.now()}`,
                 user: authUser?.name || 'Admin',
                 action: `Task Configuration Updated by Admin ${chainChanged ? '(Workflow Chain Modified)' : ''}`,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
             };
 
             await updateTaskRemote(selectedTask.id, {

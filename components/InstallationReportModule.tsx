@@ -4,8 +4,8 @@ import {
     History, Download, Edit, Eye, PenTool, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -58,80 +58,19 @@ export const InstallationReportModule: React.FC = () => {
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
 
-    // ... (handleDownloadPDF remains the same)
-    const handleDownloadPDF = (data: SimpleInstallationReport) => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.text('SREE MEDITEC', pageWidth / 2, 25, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 32, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 38, { align: 'center' });
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('INSTALLATION REPORT', pageWidth / 2, 48, { align: 'center' });
-
-        doc.setFontSize(11);
-        doc.text(`SMIR No: ${data.smirNo || ''}`, margin, 58);
-        doc.text(`DATE: ${formatDateDDMMYYYY(data.date)}`, pageWidth - margin - 40, 58);
-
-        autoTable(doc, {
-            startY: 62,
-            margin: { left: margin, right: margin },
-            theme: 'grid',
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 4, 
-                lineColor: [0, 0, 0], 
-                lineWidth: 0.2, 
-                textColor: [0, 0, 0],
-                valign: 'middle'
-            },
-            columnStyles: {
-                0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
-                1: { cellWidth: 70, fontStyle: 'bold' },
-                2: { cellWidth: 'auto' }
-            },
-            body: [
-                [{ content: `Installation Report Of: ${data.installationOf || ''}`, colSpan: 3, styles: { fontStyle: 'bold' } }],
-                ['1', 'Name of the Customer (As Per Invoice)', data.customerName || ''],
-                ['2', 'Name of the Hospital/Clinic/Diagnostic Centre', data.customerHospital || ''],
-                ['3', 'Address of the site of Installation', data.customerAddress || ''],
-                ['4', 'Date of Installation', formatDateDDMMYYYY(data.date)],
-                ['5', 'Name of the Persons trained to use and operate the above said machine', data.trainedPersons || ''],
-                ['6', 'Serial No of Machine', data.serialNumber || '']
-            ]
-        });
-
-        const finalY = (doc as any).lastAutoTable.finalY;
-
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        const confirmationText = "The above referred unit has been supplied in good condition and installed successfully\nThe same is functioning satisfactorily. The required training on the use of the said machine has been given to us.";
-        doc.rect(margin, finalY, pageWidth - (margin * 2), 20);
-        doc.text(confirmationText, margin + 2, finalY + 8);
-
-        const noteY = finalY + 20;
-        doc.rect(margin, noteY, pageWidth - (margin * 2), 15);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Note: Training will be given only once', margin + 2, noteY + 6);
-        doc.setFont('helvetica', 'normal');
-        doc.text('All disputes are subject to Chennai jurisdiction only.', margin + 2, noteY + 11);
-
-        const sigY = noteY + 15;
-        doc.rect(margin, sigY, pageWidth - (margin * 2), 35);
-        doc.line(pageWidth / 2, sigY, pageWidth / 2, sigY + 35);
-        
-        doc.setFont('helvetica', 'bold');
-        doc.text('Company Service engineer Signature', margin + 15, sigY + 8);
-        doc.text('Customer Seal and Signature', (pageWidth / 2) + 15, sigY + 8);
-
-        doc.save(`Installation_Report_${data.smirNo}.pdf`);
+    const handleDownloadPDF = async (data: SimpleInstallationReport) => {
+        try {
+            const blob = await PDFService.generateInstallationReportPDF(data);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.smirNo || 'InstallationReport'}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            alert("Error generating PDF.");
+        }
     };
 
     const handleSave = async (status: 'Draft' | 'Finalized') => {

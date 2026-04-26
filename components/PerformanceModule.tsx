@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trophy, Star, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X, PartyPopper } from 'lucide-react';
+import { Trophy, Star, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X, PartyPopper, Clock } from 'lucide-react';
 import { useData } from './DataContext';
 import ReactConfetti from 'react-confetti';
 
@@ -9,7 +9,9 @@ export const PerformanceModule: React.FC = () => {
     pointHistory, 
     employees, 
     tasks, 
-    currentUser: activeUser
+    currentUser: activeUser,
+    attendanceRecords,
+    holidays
   } = useData();
   
   const [showRules, setShowRules] = useState(false);
@@ -19,6 +21,23 @@ export const PerformanceModule: React.FC = () => {
   // Calculates real-time rankings by summing point history for the CURRENT month only.
   const dynamicLeaderboard = useMemo(() => {
       const currentMonthId = new Date().toISOString().slice(0, 7);
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const todayDate = today.getDate();
+
+      // Calculate working days in current month so far (Excluding Sundays and Holidays)
+      let workingDaysSoFar = 0;
+      for (let d = 1; d <= todayDate; d++) {
+          const date = new Date(currentYear, currentMonth, d);
+          const dateStr = date.toISOString().split('T')[0];
+          const isSunday = date.getDay() === 0;
+          const isHoliday = holidays.some(h => h.date === dateStr);
+          if (!isSunday && !isHoliday) {
+              workingDaysSoFar++;
+          }
+      }
+
       const list = employees.map(emp => {
           const empPoints = pointHistory
               .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
@@ -26,12 +45,22 @@ export const PerformanceModule: React.FC = () => {
           
           const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.status === 'Done').length;
           
+          const empAttendanceCount = attendanceRecords.filter(r => 
+              r.userId === emp.id && 
+              r.date.startsWith(currentMonthId) && 
+              (r.status === 'Completed' || r.status === 'CheckedIn' || r.status === 'Paused')
+          ).length;
+
+          const attendancePercentage = workingDaysSoFar > 0 
+              ? Math.min(100, Math.round((empAttendanceCount / workingDaysSoFar) * 100)) 
+              : 0;
+          
           return {
               id: emp.id,
               name: emp.name,
               points: empPoints,
               tasks: empTasks,
-              attendance: '95%',
+              attendance: `${attendancePercentage}%`,
               badge: empPoints > 1000 ? 'gold' : 'none',
               rank: 0
           };
@@ -271,27 +300,58 @@ export const PerformanceModule: React.FC = () => {
                   </div>
               </div>
 
-              <div className="bg-indigo-600 rounded-3xl p-5 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden shrink-0">
-                   <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
-                        <HelpCircle size={80} />
-                   </div>
-                   <h3 className="font-black text-[9px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2 text-indigo-100">
-                        <Star size={13} className="fill-current" /> Scoring System
+              <div className="bg-white rounded-[2.5rem] p-6 text-slate-900 shadow-xl shadow-slate-200/50 relative overflow-hidden shrink-0 border border-slate-200">
+                   <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -translate-y-16 translate-x-16 blur-2xl"></div>
+                   <div className="absolute bottom-0 left-0 w-24 h-24 bg-emerald-500/5 rounded-full translate-y-12 -translate-x-12 blur-2xl"></div>
+                   
+                   <h3 className="font-black text-[10px] uppercase tracking-[0.3em] mb-6 flex items-center gap-2.5 text-slate-400">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"></div>
+                        Scoring Guide
                    </h3>
-                   <div className="space-y-4 relative z-10">
-                        <div className="flex items-start gap-2.5">
-                            <div className="p-1 px-1.5 bg-white/10 rounded-lg text-indigo-100 shrink-0 mt-0.5"><Target size={12}/></div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-tight">Tasks</p>
-                                <p className="text-[9px] text-indigo-100/70 font-bold leading-tight mt-0.5">+10 Completion / +5 On-Time</p>
+                   
+                   <div className="space-y-5 relative z-10">
+                        <div className="flex items-start gap-4 group/item">
+                            <div className="w-9 h-9 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-500 border border-slate-100 group-hover/item:border-indigo-500/30 transition-colors shrink-0">
+                                <Target size={18}/>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-black uppercase tracking-wider text-slate-800">Tasks Matrix</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] font-bold text-slate-500">Completion</span>
+                                    <span className="text-[10px] font-black text-emerald-600">+10</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[9px] font-bold text-slate-500">High Priority</span>
+                                    <span className="text-[10px] font-black text-amber-600">+10</span>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-start gap-2.5">
-                            <div className="p-1 px-1.5 bg-white/10 rounded-lg text-indigo-100 shrink-0 mt-0.5"><CheckCircle size={12}/></div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase tracking-tight">Check-in</p>
-                                <p className="text-[9px] text-indigo-100/70 font-bold leading-tight mt-0.5">+10 Early / -10 Late</p>
+
+                        <div className="flex items-start gap-4 group/item">
+                            <div className="w-9 h-9 bg-slate-50 rounded-2xl flex items-center justify-center text-emerald-500 border border-slate-100 group-hover/item:border-emerald-500/30 transition-colors shrink-0">
+                                <CheckCircle size={18}/>
                             </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-black uppercase tracking-wider text-slate-800">Attendance</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] font-bold text-slate-500">Punctuality</span>
+                                    <span className="text-[10px] font-black text-emerald-600">+10</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[9px] font-bold text-slate-500">Daily Goal</span>
+                                    <span className="text-[10px] font-black text-indigo-600">+50</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-100">
+                             <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                       <Award size={14} className="text-amber-500" />
+                                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Streak Bonus</span>
+                                  </div>
+                                  <span className="text-[10px] font-black text-amber-600">+100 Pts</span>
+                             </div>
                         </div>
                    </div>
               </div>
@@ -311,14 +371,43 @@ export const PerformanceModule: React.FC = () => {
                       </button>
                   </div>
                   <div className="p-4 overflow-y-auto space-y-4 custom-scrollbar">
-                      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-900/30">
-                          <h5 className="font-black text-indigo-900 dark:text-indigo-300 text-[10px] uppercase mb-3 tracking-widest border-b border-indigo-100 dark:border-indigo-800 pb-2">Scoring Rules</h5>
-                          <ul className="space-y-2 text-[11px]">
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Task Completion</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg">+10 pts</span></li>
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">High Priority</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg">+10 pts</span></li>
-                              <li className="flex justify-between font-bold items-center"><span className="text-slate-600 dark:text-slate-400">Perfect 7D Attendance</span> <span className="text-emerald-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg">+100 pts</span></li>
-                          </ul>
-                      </div>
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-800">
+                           <h5 className="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase mb-4 tracking-[0.2em] flex items-center gap-2">
+                               <Target size={14} className="text-indigo-500" /> Task Performance
+                           </h5>
+                           <div className="space-y-3">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Base Completion</span>
+                                   <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">+10 Points</span>
+                               </div>
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">High Priority Bonus</span>
+                                   <span className="text-[11px] font-black text-amber-500">+10 Points</span>
+                               </div>
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm opacity-60">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Overdue Penalty</span>
+                                   <span className="text-[11px] font-black text-rose-500">-5 Points</span>
+                               </div>
+                           </div>
+
+                           <h5 className="font-black text-slate-800 dark:text-slate-200 text-[11px] uppercase mt-8 mb-4 tracking-[0.2em] flex items-center gap-2">
+                               <Clock size={14} className="text-emerald-500" /> Attendance Rewards
+                           </h5>
+                           <div className="space-y-3">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Early Check-in</span>
+                                   <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">+10 Points</span>
+                               </div>
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Full Shift (8H+)</span>
+                                   <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">+50 Points</span>
+                               </div>
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Perfect 7D Streak</span>
+                                   <span className="text-[11px] font-black text-amber-500">+100 Points</span>
+                               </div>
+                           </div>
+                       </div>
                   </div>
               </div>
           </div>

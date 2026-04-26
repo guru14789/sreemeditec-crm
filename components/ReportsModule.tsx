@@ -32,35 +32,82 @@ export const ReportsModule: React.FC = () => {
   const { invoices, expenses, leads, products } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
+  const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
   const [summaries, setSummaries] = useState<any[]>([]);
 
-  // 1. Fetch Aggregated Summaries (Optimized)
+  // 1. Fetch Aggregated Summaries (Optimized for multiple views)
   useEffect(() => {
-    const q = query(collection(db, "summaries"), orderBy('month', 'desc'), limit(12));
+    // Fetch last 36 months of summaries for comprehensive views
+    const q = query(collection(db, "summaries"), orderBy('month', 'desc'), limit(36));
     const unsub = onSnapshot(q, (snap) => {
         setSummaries(snap.docs.map(d => d.data()));
     });
     return () => unsub();
   }, []);
 
-  // Dynamic Data Processing
-  const MONTHLY_PERFORMANCE = React.useMemo(() => {
+  // Dynamic Data Processing for Financial Performance
+  const PERFORMANCE_DATA = React.useMemo(() => {
     const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Convert summaries to chart format
-    const data = summaries.map(s => {
-        const [year, month] = s.month.split('-');
-        return {
-            month: `${monthsShort[parseInt(month) - 1]} ${year.slice(2)}`,
-            monthRaw: s.month,
-            revenue: s.revenue || 0,
-            expenses: s.expense || 0,
-            profit: (s.revenue || 0) - (s.expense || 0)
-        };
-    }).sort((a, b) => a.monthRaw.localeCompare(b.monthRaw));
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    return data;
-  }, [summaries]);
+    if (viewMode === 'month') {
+        // Break down the CURRENT month by days
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dailyData = Array.from({ length: daysInMonth }, (_, i) => ({
+            label: `${i + 1}`,
+            revenue: 0,
+            expenses: 0,
+            profit: 0,
+            raw: `${currentMonthStr}-${String(i + 1).padStart(2, '0')}`
+        }));
+
+        invoices.forEach(inv => {
+            if (inv.status === 'Draft' || !inv.date.startsWith(currentMonthStr)) return;
+            const day = parseInt(inv.date.split('-')[2]);
+            if (day && dailyData[day - 1]) {
+                dailyData[day - 1].revenue += (inv.grandTotal || 0);
+            }
+        });
+
+        expenses.forEach(exp => {
+            if (exp.status !== 'Approved' || !exp.date.startsWith(currentMonthStr)) return;
+            const day = parseInt(exp.date.split('-')[2]);
+            if (day && dailyData[day - 1]) {
+                dailyData[day - 1].expenses += (exp.amount || 0);
+            }
+        });
+
+        return dailyData.map(d => ({ ...d, profit: d.revenue - d.expenses }));
+    }
+
+    if (viewMode === 'year') {
+        // Last 12 months (Year view)
+        const data = summaries.slice(0, 12).map(s => {
+            const [year, month] = s.month.split('-');
+            return {
+                label: `${monthsShort[parseInt(month) - 1]}`,
+                revenue: s.revenue || 0,
+                expenses: s.expense || 0,
+                profit: (s.revenue || 0) - (s.expense || 0),
+                raw: s.month
+            };
+        }).sort((a, b) => a.raw.localeCompare(b.raw));
+        return data;
+    }
+
+    // Overall (By Year)
+    const yearMap: Record<string, any> = {};
+    summaries.forEach(s => {
+        const year = s.month.split('-')[0];
+        if (!yearMap[year]) yearMap[year] = { label: year, revenue: 0, expenses: 0, profit: 0 };
+        yearMap[year].revenue += (s.revenue || 0);
+        yearMap[year].expenses += (s.expense || 0);
+        yearMap[year].profit += (s.revenue || 0) - (s.expense || 0);
+    });
+
+    return Object.values(yearMap).sort((a, b) => a.label.localeCompare(b.label));
+  }, [summaries, viewMode, invoices, expenses]);
 
   const CATEGORY_DATA = React.useMemo(() => {
     const catMap: Record<string, number> = {};
@@ -134,9 +181,9 @@ export const ReportsModule: React.FC = () => {
       ["MONTHLY PERFORMANCE", "Month", "Sales (Profit)", "Loss (Purchases + Exp)", "Net Profit"]
     ];
     
-    const performanceRows = MONTHLY_PERFORMANCE.map(d => [
-      "MONTHLY PERFORMANCE",
-      d.month,
+    const performanceRows = PERFORMANCE_DATA.map(d => [
+      "PERFORMANCE DATA",
+      d.label,
       d.revenue,
       d.expenses,
       d.profit
@@ -279,67 +326,111 @@ export const ReportsModule: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-6 mb-4 lg:min-h-[600px]">
             
             {/* Main Financial Chart */}
-            <div className="flex-1 bg-white p-6 rounded-3xl border border-slate-300 shadow-sm flex flex-col min-h-[400px]">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div className="flex-1 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 flex flex-col min-h-[450px] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 relative z-10">
                     <div>
-                        <h3 className="font-bold text-lg text-slate-800">Financial Performance</h3>
-                        <p className="text-xs text-slate-500 font-medium">Profit vs Loss Analysis</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-black text-2xl text-slate-800 tracking-tight">Financial Performance</h3>
+                            <div className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-widest rounded-full animate-pulse">Live</div>
+                        </div>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Revenue vs Operational Outflow</p>
                     </div>
-                    <div className="flex bg-slate-50 p-1 rounded-xl w-full sm:w-auto">
-                        <button 
-                            onClick={() => setActiveChart('revenue')}
-                            className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'revenue' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                            Combined
-                        </button>
-                        <button 
-                            onClick={() => setActiveChart('profit')}
-                            className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeChart === 'profit' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                            Trend
-                        </button>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl shadow-inner">
+                            {(['month', 'year', 'overall'] as const).map((mode) => (
+                                <button 
+                                    key={mode}
+                                    onClick={() => setViewMode(mode)}
+                                    className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${viewMode === mode ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>
+                                    {mode}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div className="flex bg-indigo-50 p-1 rounded-2xl">
+                            <button 
+                                onClick={() => setActiveChart('revenue')}
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeChart === 'revenue' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-indigo-400'}`}>
+                                Composed
+                            </button>
+                            <button 
+                                onClick={() => setActiveChart('profit')}
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeChart === 'profit' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-indigo-400'}`}>
+                                Net Profit
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <div className="flex-1 w-full min-h-[250px]">
+                <div className="flex-1 w-full min-h-[300px] relative z-10">
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={MONTHLY_PERFORMANCE} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <ComposedChart data={PERFORMANCE_DATA} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                </linearGradient>
+                                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.4}/>
+                                </linearGradient>
+                            </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis 
-                                dataKey="month" 
+                                dataKey="label" 
                                 axisLine={false} 
                                 tickLine={false} 
-                                tick={{fontSize: 10, fill: '#64748b'}} 
-                                dy={10}
+                                tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 700}} 
+                                dy={15}
                             />
                             <YAxis 
                                 axisLine={false} 
                                 tickLine={false} 
-                                tick={{fontSize: 10, fill: '#64748b'}} 
-                                tickFormatter={(value) => `${formatIndianNumber(value)}`}
+                                tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 700}} 
+                                tickFormatter={(value) => `₹${formatIndianNumber(value)}`}
                             />
                             <Tooltip 
-                                cursor={{fill: '#f8fafc'}}
-                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                                itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
-                                labelStyle={{ fontSize: '10px', color: '#94a3b8', marginBottom: '8px' }}
-                                formatter={(value: number) => [`₹${formatIndianNumber(value)}`, '']}
+                                cursor={{stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '5 5'}}
+                                contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', padding: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(8px)' }}
+                                itemStyle={{ fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                                labelStyle={{ fontSize: '10px', fontWeight: '900', color: '#6366f1', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
                             />
-                            <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+                            <Legend 
+                                verticalAlign="top" 
+                                align="right" 
+                                iconType="circle" 
+                                wrapperStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '30px' }} 
+                            />
                             
                             {activeChart === 'revenue' ? (
                                 <>
-                                    <Bar dataKey="revenue" name="Sales" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                                    <Bar dataKey="expenses" name="Loss" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
-                                    <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#6366f1" strokeWidth={3} dot={{r: 4, strokeWidth: 0, fill: '#6366f1'}} />
+                                    <Bar dataKey="revenue" name="Inflow" fill="url(#colorRev)" radius={[6, 6, 0, 0]} barSize={viewMode === 'month' ? 8 : 20} animationDuration={1500} />
+                                    <Bar dataKey="expenses" name="Outflow" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={viewMode === 'month' ? 8 : 20} animationDuration={1500} />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="profit" 
+                                        name="Profit Delta" 
+                                        stroke="#6366f1" 
+                                        strokeWidth={4} 
+                                        dot={{r: 5, strokeWidth: 2, stroke: '#fff', fill: '#6366f1'}} 
+                                        activeDot={{ r: 8, strokeWidth: 0 }}
+                                        animationDuration={2000}
+                                    />
                                 </>
                             ) : (
                                 <Area 
                                     type="monotone" 
                                     dataKey="profit" 
-                                    name="Net Profit"
+                                    name="Net Earnings"
                                     stroke="#6366f1" 
-                                    strokeWidth={3}
-                                    fillOpacity={0.2} 
-                                    fill="#6366f1" 
+                                    strokeWidth={4}
+                                    fillOpacity={1} 
+                                    fill="url(#colorProfit)" 
+                                    animationDuration={2000}
                                 />
                             )}
                         </ComposedChart>

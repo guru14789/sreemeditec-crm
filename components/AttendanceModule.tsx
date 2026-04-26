@@ -45,6 +45,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
     // Leave Request States
     const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
     const [showManageLeavesModal, setShowManageLeavesModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [showQuickAttendanceModal, setShowQuickAttendanceModal] = useState(false);
+    const [quickSelectedDate, setQuickSelectedDate] = useState('');
+    const [quickStatus, setQuickStatus] = useState<'Present' | 'Absent' | 'Leave'>('Present');
+    const [quickReason, setQuickReason] = useState('');
+    const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+    const [calendarSelectedUser, setCalendarSelectedUser] = useState<Employee | null>(null);
     const [leaveForm, setLeaveForm] = useState({
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
@@ -172,7 +179,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
             const checkInDate = editCheckIn ? new Date(editCheckIn) : null;
             const checkOutDate = editCheckOut ? new Date(editCheckOut) : null;
             
-            if (!checkInDate && !checkOutDate) {
+            if (!checkInDate && !checkOutDate && editStatus !== 'OnLeave') {
                 alert("Please provide at least a Check-In or Check-Out time.");
                 return;
             }
@@ -337,6 +344,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                     checkInTime: todayRecord?.checkInTime || now.toISOString(),
                     checkOutTime: null
                 });
+                
+                // Award points for punctuality on first check-in
+                if (!todayRecord?.checkInTime && isWithinWindow) {
+                    addPoints(10, 'Attendance', 'Punctuality: Early Check-in');
+                    addNotification('Punctuality Bonus', '10 points awarded for checking in on time.', 'success');
+                }
             }
         } catch (error: any) {
             console.error("Attendance Update Failed:", error);
@@ -725,9 +738,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                     <h3 className="text-[11px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight leading-none">Time Registry</h3>
                                     <p className="text-slate-400 text-[7.5px] md:text-[8px] font-bold uppercase tracking-widest leading-none mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
                                 </div>
-                                {isHolidayToday && (
-                                    <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-200">Holiday Credited</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => {
+                                            setCalendarSelectedUser(me || null);
+                                            setCalendarViewDate(new Date());
+                                            setShowCalendarModal(true);
+                                        }}
+                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-indigo-100"
+                                        title="View My Attendance Calendar"
+                                    >
+                                        <Calendar size={14} />
+                                    </button>
+                                    {isHolidayToday && (
+                                        <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-200">Holiday Credited</span>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 items-center">
@@ -922,6 +948,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                                     <span className={`px-1 py-0.5 rounded-md text-[6.5px] md:text-[7.5px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
                                                         {isHolidayToday ? 'Hol' : rec?.status === 'Completed' ? 'Lock' : rec?.status?.slice(0, 4) || emp.status?.slice(0, 4)}
                                                     </span>
+                                                    {isAdmin && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setCalendarSelectedUser(emp);
+                                                                setCalendarViewDate(new Date());
+                                                                setShowCalendarModal(true);
+                                                            }}
+                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                            title="View Employee Calendar"
+                                                        >
+                                                            <Calendar size={13} />
+                                                        </button>
+                                                    )}
                                                     {isAdmin && rec && (
                                                         <button 
                                                             onClick={(e) => {
@@ -989,7 +1029,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                 </div>
             </div>
             {showEditAttendanceModal && editingAttendanceRecord && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
@@ -1075,7 +1115,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
             {/* Apply Leave Modal */}
             {showApplyLeaveModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
@@ -1140,7 +1180,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
             {/* Manage Leaves Modal (Admin/User specific visibility handled inside) */}
             {showManageLeavesModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
@@ -1215,6 +1255,282 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
                                     </div>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Attendance Calendar Modal */}
+            {showCalendarModal && calendarSelectedUser && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-2 md:p-4">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-200">
+                        <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <div>
+                                <h3 className="text-lg md:text-xl font-black text-slate-800 uppercase tracking-tight leading-none">
+                                    Attendance Calendar: {calendarSelectedUser.name}
+                                </h3>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">
+                                    {calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })} • {calendarSelectedUser.department}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => {
+                                        const d = new Date(calendarViewDate);
+                                        d.setMonth(d.getMonth() - 1);
+                                        setCalendarViewDate(d);
+                                    }}
+                                    className="p-2 hover:bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
+                                >
+                                    <ChevronRight size={18} className="rotate-180" />
+                                </button>
+                                <button 
+                                    onClick={() => setCalendarViewDate(new Date())}
+                                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                                >
+                                    Today
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        const d = new Date(calendarViewDate);
+                                        d.setMonth(d.getMonth() + 1);
+                                        setCalendarViewDate(d);
+                                    }}
+                                    className="p-2 hover:bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                                <div className="w-px h-8 bg-slate-200 mx-2"></div>
+                                <button onClick={() => setShowCalendarModal(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-all">
+                                    <X size={24} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+                            {/* Calendar Grid Header */}
+                            <div className="grid grid-cols-7 mb-4">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                    <div key={day} className="text-center text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] py-2">{day}</div>
+                                ))}
+                            </div>
+
+                            {/* Calendar Grid Body */}
+                            <div className="grid grid-cols-7 gap-2 md:gap-4">
+                                {(() => {
+                                    const year = calendarViewDate.getFullYear();
+                                    const month = calendarViewDate.getMonth();
+                                    const firstDay = new Date(year, month, 1).getDay();
+                                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                                    const today = new Date();
+                                    const todayDateStr = today.toISOString().split('T')[0];
+
+                                    const cells = [];
+                                    
+                                    // Padding for previous month
+                                    for (let i = 0; i < firstDay; i++) {
+                                        cells.push(<div key={`pad-${i}`} className="aspect-square"></div>);
+                                    }
+
+                                    // Actual Days
+                                    for (let d = 1; d <= daysInMonth; d++) {
+                                        const date = new Date(year, month, d);
+                                        const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                                        const record = attendanceRecords.find(r => r.userId === calendarSelectedUser.id && r.date === ds);
+                                        const isHoliday = holidays.find(h => h.date === ds);
+                                        const isFuture = date > today;
+                                        const isSunday = date.getDay() === 0;
+
+                                        let bgColor = 'bg-slate-50';
+                                        let textColor = 'text-slate-400';
+                                        let borderColor = 'border-slate-100';
+                                        let statusText = '';
+                                        let reasonText = '';
+
+                                        if (isFuture) {
+                                            bgColor = 'bg-slate-50/50';
+                                            textColor = 'text-slate-300';
+                                        } else if (isHoliday) {
+                                            bgColor = 'bg-amber-50';
+                                            textColor = 'text-amber-600';
+                                            borderColor = 'border-amber-100';
+                                            statusText = 'Holiday';
+                                            reasonText = isHoliday.name;
+                                        } else if (isSunday) {
+                                            bgColor = 'bg-slate-100';
+                                            textColor = 'text-slate-500';
+                                            statusText = 'Sunday';
+                                        } else if (record) {
+                                            if (record.status === 'Completed' || record.status === 'CheckedIn') {
+                                                bgColor = 'bg-emerald-50';
+                                                textColor = 'text-emerald-700';
+                                                borderColor = 'border-emerald-100';
+                                                statusText = 'Present';
+                                                reasonText = formatDuration(record.totalWorkedMs);
+                                            } else if (record.status === 'OnLeave') {
+                                                bgColor = 'bg-rose-50';
+                                                textColor = 'text-rose-700';
+                                                borderColor = 'border-rose-100';
+                                                statusText = 'Leave';
+                                                reasonText = record.leaveReason || 'On Approved Leave';
+                                            }
+                                        } else {
+                                            // Absent
+                                            bgColor = 'bg-rose-100/50';
+                                            textColor = 'text-rose-800';
+                                            borderColor = 'border-rose-200';
+                                            statusText = 'Absent';
+                                        }
+
+                                        cells.push(
+                                            <div 
+                                                key={ds}
+                                                onClick={() => {
+                                                    if (isAdmin && !isFuture) {
+                                                        setCalendarSelectedUser(calendarSelectedUser);
+                                                        setQuickSelectedDate(ds);
+                                                        setQuickReason(record?.leaveReason || '');
+                                                        
+                                                        if (record) {
+                                                            if (record.status === 'OnLeave') setQuickStatus('Leave');
+                                                            else setQuickStatus('Present');
+                                                        } else {
+                                                            setQuickStatus('Absent');
+                                                        }
+                                                        
+                                                        setShowQuickAttendanceModal(true);
+                                                    }
+                                                }}
+                                                className={`aspect-square p-2 md:p-4 rounded-[1.5rem] md:rounded-[2rem] border-2 flex flex-col justify-between transition-all group ${borderColor} ${bgColor} ${isAdmin && !isFuture ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : ''}`}
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <span className={`text-xs md:text-lg font-black ${ds === todayDateStr ? 'text-indigo-600 scale-125' : textColor}`}>{d}</span>
+                                                    {ds === todayDateStr && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>}
+                                                </div>
+                                                <div className="flex flex-col gap-0.5">
+                                                    {statusText && (
+                                                        <span className={`text-[6px] md:text-[8px] font-black uppercase tracking-widest ${textColor}`}>{statusText}</span>
+                                                    )}
+                                                    {reasonText && (
+                                                        <span className="text-[5px] md:text-[7px] font-bold text-slate-400 line-clamp-1">{reasonText}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return cells;
+                                })()}
+                            </div>
+
+                            {/* Legend */}
+                            <div className="mt-8 flex flex-wrap gap-4 pt-6 border-t border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-emerald-50 border border-emerald-100"></div>
+                                    <span className="text-[8px] font-black uppercase text-slate-400">Present</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-rose-50 border border-rose-100"></div>
+                                    <span className="text-[8px] font-black uppercase text-slate-400">On Leave</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-rose-100 border border-rose-200"></div>
+                                    <span className="text-[8px] font-black uppercase text-slate-400">Absent</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-amber-50 border border-amber-100"></div>
+                                    <span className="text-[8px] font-black uppercase text-slate-400">Holiday</span>
+                                </div>
+                                {isAdmin && (
+                                    <div className="flex-1 text-right italic text-[8px] font-bold text-indigo-400 uppercase tracking-widest">
+                                        Tip: Click any past cell to overwrite record
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Quick Attendance Modal */}
+            {showQuickAttendanceModal && calendarSelectedUser && (
+                <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <div>
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-none">Quick Update</h3>
+                                <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">{calendarSelectedUser.name} • {quickSelectedDate}</p>
+                            </div>
+                            <button onClick={() => setShowQuickAttendanceModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-4">
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { id: 'Present', icon: CheckCircle, color: 'emerald' },
+                                    { id: 'Absent', icon: X, color: 'rose' },
+                                    { id: 'Leave', icon: Calendar, color: 'indigo' }
+                                ].map((opt) => {
+                                    const Icon = opt.icon;
+                                    const isActive = quickStatus === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setQuickStatus(opt.id as any)}
+                                            className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                                                isActive 
+                                                    ? `bg-${opt.color}-50 border-${opt.color}-500 text-${opt.color}-600 scale-105 shadow-lg shadow-${opt.color}-500/10` 
+                                                    : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                                            }`}
+                                        >
+                                            <Icon size={20} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{opt.id}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {quickStatus === 'Leave' && (
+                                <div className="animate-in slide-in-from-top-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Leave Reason</label>
+                                    <textarea
+                                        value={quickReason}
+                                        onChange={(e) => setQuickReason(e.target.value)}
+                                        className="w-full bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-400 min-h-[80px]"
+                                        placeholder="e.g. Personal Work..."
+                                    />
+                                </div>
+                            )}
+
+                            <button
+                                onClick={async () => {
+                                    const recordId = `${calendarSelectedUser.id}_${quickSelectedDate}`;
+                                    if (quickStatus === 'Absent') {
+                                        await removeAttendance(recordId);
+                                        addLog('Attendance', 'Quick Update', `Marked ${calendarSelectedUser.name} as Absent on ${quickSelectedDate}`);
+                                    } else {
+                                        const nowStr = new Date().toISOString();
+                                        const updates: any = {
+                                            id: recordId,
+                                            userId: calendarSelectedUser.id,
+                                            userName: calendarSelectedUser.name,
+                                            date: quickSelectedDate,
+                                            status: quickStatus === 'Present' ? 'Completed' : 'OnLeave',
+                                            totalWorkedMs: quickStatus === 'Present' ? (8 * 3600000) : 0,
+                                            checkInTime: quickStatus === 'Present' ? `${quickSelectedDate}T09:15:00Z` : null,
+                                            checkOutTime: quickStatus === 'Present' ? `${quickSelectedDate}T17:15:00Z` : null,
+                                            leaveReason: quickStatus === 'Leave' ? quickReason : '',
+                                            workMode: 'Office'
+                                        };
+                                        await updateAttendance(updates);
+                                        addLog('Attendance', 'Quick Update', `Marked ${calendarSelectedUser.name} as ${quickStatus} on ${quickSelectedDate}`);
+                                    }
+                                    addNotification('Attendance Updated', `Record for ${calendarSelectedUser.name} on ${quickSelectedDate} saved.`, 'success');
+                                    setShowQuickAttendanceModal(false);
+                                }}
+                                className="w-full bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]"
+                            >
+                                Apply Changes
+                            </button>
                         </div>
                     </div>
                 </div>

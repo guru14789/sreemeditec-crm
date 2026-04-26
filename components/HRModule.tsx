@@ -30,6 +30,7 @@ const MODULE_OPTIONS = [
     { value: TabView.ARCHIVE, label: 'Finance Archive' },
     { value: TabView.CATALOG, label: 'Product Catalog' },
     { value: TabView.PAYROLL, label: 'Staff Payroll' },
+    { value: TabView.PURCHASE_REGISTER, label: 'Purchase Entry' },
     { value: TabView.CONFIG, label: 'System Settings' },
     { value: TabView.PROFILE, label: 'My Profile' },
 ];

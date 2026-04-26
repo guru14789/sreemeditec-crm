@@ -6,8 +6,7 @@ import {
     History, Download, Edit, Eye, List as ListIcon, CreditCard, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { PDFService } from '../services/PDFService';
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
     const items = order.items || [];
@@ -79,166 +78,19 @@ export const PurchaseOrderModule: React.FC = () => {
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
 
-    const handleDownloadPDF = (data: Partial<Invoice>) => {
-        const doc = new jsPDF();
-        const totals = calculateDetailedTotals(data);
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 10;
-        const colWidth = (pageWidth - 20) / 2;
-
-        // Header
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 24, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 29, { align: 'center' });
-
-        // Document Title
-        doc.setLineWidth(0.1);
-        doc.rect(margin, 34, pageWidth - 20, 8);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('CUSTOMER PURCHASE ORDER', pageWidth / 2, 39.5, { align: 'center' });
-
-        // Registry Grid
-        autoTable(doc, {
-            startY: 42,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`SMCPO NO: ${data.invoiceNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.date)}`],
-                [`CPO NO: ${data.cpoNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.cpoDate)}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        // Addresses Grid
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`Name of the Customer and Address:\n\n${data.customerName || ''}\n${data.customerAddress || ''}`, `Delivery Address:\n\n${data.deliveryAddress || data.customerAddress || ''}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        // GST info Grid
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`GST No: ${data.customerGstin || ''}`, `GST No: ${data.bankDetails || '33APGPS4675G2ZL'}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        // Order Details Header
-        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 7);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ORDER DETAILS', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4.5, { align: 'center' });
-
-        // Items Table
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 7,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-            head: [['Sl no.', 'Product', 'Qty', 'Rate', 'Amount', 'Gst %', 'Gst value', 'Price with Gst']],
-            body: (data.items || []).map((it, idx) => {
-                const amount = it.quantity * it.unitPrice;
-                const gstValue = amount * (it.taxRate / 100);
-                return [
-                    idx + 1,
-                    it.description,
-                    it.quantity,
-                    it.unitPrice.toLocaleString('en-IN'),
-                    amount.toLocaleString('en-IN'),
-                    `${it.taxRate}%`,
-                    gstValue.toLocaleString('en-IN'),
-                    (amount + gstValue).toLocaleString('en-IN')
-                ];
-            }),
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 10 },
-                2: { halign: 'center', cellWidth: 10 },
-                3: { halign: 'right', cellWidth: 20 },
-                4: { halign: 'right', cellWidth: 25 },
-                5: { halign: 'center', cellWidth: 12 },
-                6: { halign: 'right', cellWidth: 25 },
-                7: { halign: 'right', cellWidth: 30 }
-            }
-        });
-
-        // Summary Rows
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: totals.totalWithGst.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Discount/Buyback/adjustment', styles: { fontStyle: 'bold' } }, { content: (data.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } }],
-                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }],
-                [{ content: `Advance Payment details: ${data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')} via ${data.paymentMethod} on ${formatDateDDMMYYYY(data.advanceDate)}` : '---'}`, colSpan: 2, styles: { fontStyle: 'bold' } }]
-            ],
-            columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
-        });
-
-        // Payment Details Box
-        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 6);
-        doc.setFontSize(8);
-        doc.text('PAYMENT DETAILS', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4, { align: 'center' });
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 6,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            head: [['Bank and Branch:', 'Mode of payment:', 'Date:', 'Amount:']],
-            body: [[data.bankAndBranch || '---', data.paymentMethod || '---', formatDateDDMMYYYY(data.advanceDate), (data.advanceAmount || 0).toLocaleString('en-IN')]],
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
-            columnStyles: { 0: { cellWidth: colWidth * 0.6 }, 1: { cellWidth: colWidth * 0.6 }, 2: { cellWidth: colWidth * 0.4 }, 3: { cellWidth: colWidth * 0.4 } }
-        });
-
-        // Delivery Time
-        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 8);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Delivery time:', margin + 2, (doc as any).lastAutoTable.finalY + 5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(data.deliveryTime || '---', margin + 35, (doc as any).lastAutoTable.finalY + 5);
-
-        // Special Notes
-        const noteY = (doc as any).lastAutoTable.finalY + 8;
-        const noteText = `Any special note regarding supply, payment terms(to be filled by company personal):\n\n${data.specialNote || 'Standard terms apply.'}`;
-        const splitNote = doc.splitTextToSize(noteText, pageWidth - 24);
-        const noteHeight = Math.max(20, (splitNote.length * 5) + 5);
-        doc.rect(margin, noteY, pageWidth - 20, noteHeight);
-        doc.setFont('helvetica', 'bold');
-        doc.text(splitNote, margin + 2, noteY + 5);
-
-        // Signature Blocks
-        const sigY = noteY + noteHeight;
-        doc.rect(margin, sigY, pageWidth - 20, 30);
-        doc.line(pageWidth / 2, sigY, pageWidth / 2, sigY + 30);
-        doc.setFontSize(8);
-        doc.text('Customer seal and signature:', margin + 2, sigY + 5);
-        doc.text('Sreemeditec representative signature:', pageWidth / 2 + 2, sigY + 5);
-
-        doc.save(`${data.invoiceNumber || 'PurchaseOrder'}.pdf`);
+    const handleDownloadPDF = async (data: Partial<Invoice>) => {
+        try {
+            const blob = await PDFService.generatePurchaseOrderPDF(data as Invoice, data.documentType !== 'SupplierPO');
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.invoiceNumber || 'PurchaseOrder'}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            addNotification('Download Failed', 'Could not generate PDF file.', 'alert');
+        }
     };
 
     const handleAddItem = (prod?: any) => {
@@ -297,7 +149,7 @@ export const PurchaseOrderModule: React.FC = () => {
 
     const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!order.customerName || !order.items?.length) {
-            alert("Fill customer details and items.");
+            addNotification('Invalid Data', 'Fill customer details and items.', 'alert');
             return;
         }
         const totals = calculateDetailedTotals(order);
@@ -315,7 +167,7 @@ export const PurchaseOrderModule: React.FC = () => {
         else addInvoice(finalData);
         setViewState('history');
         setEditingId(null);
-        addNotification('Registry Updated', `Purchase Order ${finalData.invoiceNumber} saved as ${status}.`, 'success');
+        addNotification('Registry Updated', `Purchase Order ${finalData.invoiceNumber} saved.`, 'success');
     };
 
     const totals = useMemo(() => calculateDetailedTotals(order), [order]);
@@ -357,7 +209,7 @@ export const PurchaseOrderModule: React.FC = () => {
                 <div className="p-1.5 flex gap-2"><span className="font-bold">GST No:</span><span className="font-bold">{data.bankDetails || '33APGPS4675G2ZL'}</span></div>
             </div>
 
-            <div className="border-x border-black text-center py-1 font-bold">ORDER DETAILS</div>
+            <div className="border-x border-black text-center py-1 font-bold uppercase tracking-widest">Order Details</div>
 
             <div className="border border-black">
                 <table className="w-full border-collapse text-[10px]">
@@ -407,7 +259,7 @@ export const PurchaseOrderModule: React.FC = () => {
                         </tr>
                         <tr className="border-t border-black font-black bg-slate-50 text-sm">
                             <td colSpan={7} className="border-r border-black p-1.5 text-right uppercase">Grand Total</td>
-                            <td className="p-1.5 text-right">Rs. {totals.grandTotal.toLocaleString()}</td>
+                            <td className="p-1.5 text-right font-black">Rs. {totals.grandTotal.toLocaleString()}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -417,13 +269,13 @@ export const PurchaseOrderModule: React.FC = () => {
                 Advance Payment details: {data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString()} paid via ${data.paymentMethod} on ${formatDateDDMMYYYY(data.advanceDate)}` : '---'}
             </div>
 
-            <div className="border-x border-b border-black text-center py-1 font-bold uppercase">Payment Details</div>
+            <div className="border-x border-b border-black text-center py-1 font-black uppercase tracking-widest text-[10px]">Payment Details</div>
 
-            <div className="grid grid-cols-4 border-x border-b border-black text-[10px] font-bold">
-                <div className="border-r border-black p-1.5 col-span-1">Bank and Branch:</div>
-                <div className="border-r border-black p-1.5 col-span-1">Mode of payment:</div>
-                <div className="border-r border-black p-1.5 col-span-1">Date:</div>
-                <div className="p-1.5 col-span-1">Amount:</div>
+            <div className="grid grid-cols-4 border-x border-b border-black text-[9px] font-bold uppercase bg-slate-50">
+                <div className="border-r border-black p-1 col-span-1">Bank and Branch</div>
+                <div className="border-r border-black p-1 col-span-1">Mode</div>
+                <div className="border-r border-black p-1 col-span-1">Date</div>
+                <div className="p-1 col-span-1">Amount</div>
             </div>
             <div className="grid grid-cols-4 border-x border-b border-black text-[11px] min-h-[25px]">
                 <div className="border-r border-black p-1.5 font-medium">{data.bankAndBranch}</div>
@@ -437,8 +289,8 @@ export const PurchaseOrderModule: React.FC = () => {
             </div>
 
             <div className="border-x border-b border-black p-1.5 min-h-[50px]">
-                <p className="font-bold underline decoration-slate-300">Any special note regarding supply, payment terms(to be filled by company personal):</p>
-                <p className="mt-1 font-medium italic">{data.specialNote || 'Standard terms apply.'}</p>
+                <p className="font-bold underline">Any special note regarding supply, payment terms:</p>
+                <p className="mt-1 font-medium italic text-[11px]">{data.specialNote || 'Standard terms apply.'}</p>
             </div>
 
             <div className="grid grid-cols-2 border-x border-b border-black flex-1 min-h-[80px]">
@@ -460,6 +312,7 @@ export const PurchaseOrderModule: React.FC = () => {
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
                 <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0] }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
             </div>
+
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                     <div className="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50/30"><h3 className="font-black text-slate-800 uppercase tracking-tight text-xs tracking-widest">Order Log</h3></div>
@@ -484,10 +337,7 @@ export const PurchaseOrderModule: React.FC = () => {
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-6 py-4">
-                                            <div 
-                                                title={inv.createdBy || 'System'}
-                                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
-                                            >
+                                            <div title={inv.createdBy || 'System'} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
@@ -495,32 +345,13 @@ export const PurchaseOrderModule: React.FC = () => {
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="relative flex justify-end">
-                                                <button 
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        setActiveMenuId(activeMenuId === inv.id ? null : inv.id); 
-                                                    }} 
-                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-                                                >
+                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>
-                                                
                                                 {activeMenuId === inv.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px] border-slate-300">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"
-                                                            title="Edit Order"
-                                                        >
-                                                            <Edit size={18} />
-                                                        </button>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
-                                                            title="Download PDF"
-                                                        >
-                                                            <Download size={18} />
-                                                        </button>
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                     </div>
                                                 )}
                                             </div>
@@ -553,16 +384,6 @@ export const PurchaseOrderModule: React.FC = () => {
                                             <input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.date} onChange={e => setOrder({...order, date: e.target.value})} />
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CPO No.</label>
-                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={order.cpoNumber} onChange={e => setOrder({...order, cpoNumber: e.target.value})} placeholder="CPO-1234" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">CPO Date</label>
-                                            <input type="date" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={order.cpoDate} onChange={e => setOrder({...order, cpoDate: e.target.value})} />
-                                        </div>
-                                    </div>
                                 </section>
 
                                 <section className="space-y-4">
@@ -572,14 +393,10 @@ export const PurchaseOrderModule: React.FC = () => {
                                         <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Billing Address" />
                                         <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Delivery Address" />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <input type="text" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" placeholder="Customer GSTIN" value={order.customerGstin} onChange={e => setOrder({...order, customerGstin: e.target.value})} />
-                                        <input type="text" className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" placeholder="Our GSTIN" value={order.bankDetails} onChange={e => setOrder({...order, bankDetails: e.target.value})} />
-                                    </div>
                                 </section>
 
                                 <section className="space-y-4">
-                                    <div className="flex justify-between items-center border-b border-slate-300 pb-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Order Details</h3><div className="flex gap-2"><button onClick={() => handleAddItem()} className="text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all">+ Manual Row</button><button onClick={() => setBuilderTab('catalog')} className="text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all">+ Add Catalog</button></div></div>
+                                    <div className="flex justify-between items-center border-b border-slate-300 pb-2"><h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Order Details</h3><div className="flex gap-2"><button onClick={() => handleAddItem()} className="text-[10px] font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-lg border border-medical-100">+ Manual Row</button><button onClick={() => setBuilderTab('catalog')} className="text-[10px] font-black text-teal-600 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100">+ Add Catalog</button></div></div>
                                     <div className="space-y-4">{order.items?.map((item) => (
                                         <div key={item.id} className="p-4 bg-slate-50 border border-slate-300 rounded-2xl relative group">
                                             <button onClick={() => setOrder({...order, items: order.items?.filter(i => i.id !== item.id)})} className="absolute top-2 right-2 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
@@ -591,57 +408,6 @@ export const PurchaseOrderModule: React.FC = () => {
                                             </div>
                                         </div>
                                     ))}</div>
-                                </section>
-
-                                <section className="space-y-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-300">
-                                    <h3 className="text-xs font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                                        <CreditCard size={16} /> Financial & Payment Details
-                                    </h3>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bank and Branch Name</label>
-                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.bankAndBranch} onChange={e => setOrder({...order, bankAndBranch: e.target.value})} placeholder="e.g. ICICI Bank, Branch..." />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mode of Payment</label>
-                                            <select className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none" value={order.paymentMethod} onChange={e => setOrder({...order, paymentMethod: e.target.value as any})}>
-                                                <option value="Bank Transfer">Bank Transfer</option>
-                                                <option value="NEFT">NEFT</option>
-                                                <option value="RTGS">RTGS</option>
-                                                <option value="Cheque">Cheque</option>
-                                                <option value="Cash">Cash</option>
-                                                <option value="UPI">UPI</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Advance Amount (₹)</label>
-                                            <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.advanceAmount} onChange={e => setOrder({...order, advanceAmount: Number(e.target.value)})} placeholder="0.00" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Payment Date</label>
-                                            <input type="date" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.advanceDate} onChange={e => setOrder({...order, advanceDate: e.target.value})} />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-300">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Discount / Buyback (₹)</label>
-                                            <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.discount} onChange={e => setOrder({...order, discount: Number(e.target.value)})} placeholder="0.00" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Delivery Time</label>
-                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.deliveryTime} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. Immediate, 10 Days" />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Special Notes / Terms</label>
-                                        <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-medical-500/5 transition-all resize-none" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Supply and payment terms details..." />
-                                    </div>
                                 </section>
 
                                 <div className="flex flex-col sm:flex-row gap-3 pt-6 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30">

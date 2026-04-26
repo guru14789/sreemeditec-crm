@@ -7,8 +7,8 @@ import {
     ChevronDown, ArrowUpRight
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -54,7 +54,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax, itemsTax, freightTotal };
 };
 
-export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () => {
+export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
     const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
@@ -129,244 +129,21 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
 
     const totals = useMemo(() => calculateDetailedTotals(invoice), [invoice]);
 
-    const handleDownloadPDF = (data: Partial<Invoice>) => {
+    const handleDownloadPDF = async (data: Partial<Invoice>) => {
         addLog('Billing', 'Downloaded PDF', `Exported document ${data.invoiceNumber || 'New'} as PDF`);
-        const doc = new jsPDF();
-        const docTotals = calculateDetailedTotals(data);
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 10;
-        
-        // Align top divider with the first major vertical line in the table (after Description of Goods)
-        const col0W = 10;
-        const col1W = 80;
-        const midX = margin + col0W + col1W; // This is the vertical line after Description column
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('Tax Invoice', midX, 10, { align: 'center' });
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
-
-        doc.setLineWidth(0.1);
-        const startY = 12;
-        const totalHeaderH = 100;
-        doc.rect(margin, startY, pageWidth - (margin * 2), totalHeaderH);
-        doc.line(midX, startY, midX, startY + totalHeaderH);
-
-        // LEFT COLUMN (Company, Consignee, Buyer)
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('SREE MEDITEC', margin + 2, startY + 6);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('Old No.2 New No.18, Bajanai Koil Street,', margin + 2, startY + 11);
-        doc.text('Rajakilpakkam, Chennai -73', margin + 2, startY + 15);
-        doc.text('Ph.9884818398/ 7200025642', margin + 2, startY + 19);
-        doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, startY + 23);
-        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, startY + 27);
-
-
-        doc.line(margin, startY + 35, midX, startY + 35);
-        doc.setFontSize(7);
-        doc.text('Consignee (Ship to)', margin + 2, startY + 39);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, startY + 43);
-        doc.setFont('helvetica', 'normal');
-        const cAddr = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(cAddr, margin + 2, startY + 47);
-        const cGstY = startY + 47 + (cAddr.length * 3) + 2;
-        doc.text(`GSTIN/UIN       : ${data.customerGstin || ''}`, margin + 2, cGstY);
-
-
-        doc.line(margin, startY + 67, midX, startY + 67);
-        doc.text('Buyer (Bill to)', margin + 2, startY + 71);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.buyerName || data.customerName || '', margin + 2, startY + 75);
-        doc.setFont('helvetica', 'normal');
-        const bAddr = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
-        doc.text(bAddr, margin + 2, startY + 79);
-        const bGstY = startY + 79 + (bAddr.length * 3) + 2;
-        doc.text(`GSTIN/UIN       : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, bGstY);
-        doc.text('Place of Supply : Tamil Nadu', margin + 2, bGstY + 3);
-
-
-        // RIGHT COLUMN (Metadata)
-        const innerMid = midX + ((pageWidth - margin - midX) / 2);
-        const metadataRows = [
-            { l: 'Invoice No.', v: data.invoiceNumber, r: 'Dated', rv: formatDateDDMMYYYY(data.date) },
-            { l: 'Delivery Note', v: '', r: 'Mode/Terms of Payment', rv: data.deliveryTime || 'Immediately' },
-            { l: 'Reference No. & Date.', v: '', r: 'Other References', rv: '' },
-            { l: 'Buyer\'s Order No.', v: data.smcpoNumber, r: 'Dated', rv: formatDateDDMMYYYY(data.date) },
-            { l: 'Dispatch Doc No.', v: '', r: 'Delivery Note Date', rv: '' },
-            { l: 'Dispatched through', v: data.dispatchedThrough || 'Person', r: 'Destination', rv: data.specialNote || 'Chennai' },
-            { l: 'Terms of Delivery', v: '', r: '', rv: '' }
-        ];
-
-
-        metadataRows.forEach((row, i) => {
-            const y = startY + (i * 14);
-            if (i > 0) doc.line(midX, y, pageWidth - margin, y);
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'normal');
-            doc.text(row.l, midX + 1, y + 4);
-            doc.text(row.r, innerMid + 1, y + 4);
-            doc.setFont('helvetica', 'bold');
-            doc.text(row.v || '', midX + 1, y + 9);
-            doc.text(row.rv || '', innerMid + 1, y + 9);
-            if (i < 6) doc.line(innerMid, y, innerMid, y + 14);
-        });
-
-        const itemsBody = (data.items || []).map((it, idx) => {
-            const base = it.quantity * it.unitPrice;
-            return [
-                idx + 1, 
-                { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' } as any }, 
-                it.hsn || '', 
-                `${it.taxRate}%`, 
-                `${it.quantity.toFixed(2)} nos`, 
-                it.unitPrice.toFixed(2), 
-                'nos', 
-                '', 
-                base.toFixed(2)
-            ];
-        });
-
-        itemsBody.push(
-            ['', { content: 'Freight', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', `${data.freightTaxRate || 0}%`, '', '', '', '', docTotals.freight.toFixed(2)],
-            ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.cgst.toFixed(2)],
-            ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', docTotals.sgst.toFixed(2)]
-        );
-
-        autoTable(doc, {
-            startY: startY + totalHeaderH,
-            margin: { left: margin, right: margin },
-            head: [['Sl\nNo.', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Disc. %', 'Amount']],
-            body: itemsBody,
-            foot: [[
-                '', 
-                { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' } as any }, 
-                '', 
-                '', 
-                { content: `${docTotals.totalQty.toFixed(2)} nos`, styles: { halign: 'center', fontStyle: 'bold' } as any }, 
-                '', 
-                '', 
-                '', 
-                { content: `Rs. ${docTotals.grandTotal.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } as any }
-            ]],
-            theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7, cellPadding: 1 },
-            footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 8, cellPadding: 1 },
-            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            columnStyles: { 
-                0: { cellWidth: col0W, halign: 'center' },
-                1: { cellWidth: col1W },
-                2: { cellWidth: 15, halign: 'center' },
-                3: { cellWidth: 12, halign: 'center' },
-                4: { cellWidth: 20, halign: 'center' },
-                5: { cellWidth: 15, halign: 'right' },
-                6: { cellWidth: 10, halign: 'center' },
-                7: { cellWidth: 8, halign: 'center' },
-                8: { cellWidth: pageWidth - (margin * 2) - col0W - col1W - 15 - 12 - 20 - 15 - 10 - 8, halign: 'right' }
-            }
-        });
-
-        const tableFinalY = (doc as any).lastAutoTable.finalY;
-        const wordsY = tableFinalY + 8;
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Amount Chargeable (in words): INR ${numberToWords(docTotals.grandTotal)}`, margin, wordsY);
-        doc.text('E. & O.E', pageWidth - margin, wordsY, { align: 'right' });
-
-
-        const taxBody = [
-            [
-                '9402', 
-                docTotals.taxableValue.toFixed(2), 
-                '9%', 
-                docTotals.cgst.toFixed(2), 
-                '9%', 
-                docTotals.sgst.toFixed(2), 
-                (docTotals.cgst + docTotals.sgst).toFixed(2)
-            ],
-            [
-                { content: 'Total', styles: { fontStyle: 'bold', halign: 'right' } as any },
-                { content: docTotals.taxableValue.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
-                '',
-                { content: docTotals.cgst.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
-                '',
-                { content: docTotals.sgst.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any },
-                { content: (docTotals.cgst + docTotals.sgst).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }
-            ]
-        ];
-
-        autoTable(doc, {
-            startY: wordsY + 6,
-            margin: { left: margin, right: margin },
-            head: [
-                [
-                    { content: 'HSN/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any },
-                    { content: 'Taxable\nValue', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any },
-                    { content: 'CGST', colSpan: 2, styles: { halign: 'center' } as any },
-                    { content: 'SGST/UTGST', colSpan: 2, styles: { halign: 'center' } as any },
-                    { content: 'Total\nTax Amount', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any }
-                ],
-                ['Rate', 'Amount', 'Rate', 'Amount']
-            ],
-            body: taxBody,
-            theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 7, fontStyle: 'bold' },
-            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            columnStyles: {
-                0: { halign: 'center' },
-                1: { halign: 'right' },
-                2: { halign: 'center' },
-                3: { halign: 'right' },
-                4: { halign: 'center' },
-                5: { halign: 'right' },
-                6: { halign: 'right' }
-            }
-        });
-
-        const taxY = (doc as any).lastAutoTable.finalY + 5;
-        doc.setFontSize(8);
-        doc.text(`Tax Amount (in words) : INR ${numberToWords(docTotals.cgst + docTotals.sgst)}`, margin, taxY);
-
-        const footerH = 60;
-        const bottomY = taxY + 8;
-        doc.rect(margin, bottomY, pageWidth - (margin * 2), footerH);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Declaration', margin + 2, bottomY + 5);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        const declLines = doc.splitTextToSize('We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', (midX - margin) - 4);
-        doc.text(declLines, margin + 2, bottomY + 10);
-
-        doc.line(midX, bottomY, midX, bottomY + footerH);
-        doc.line(margin, bottomY + 25, pageWidth - margin, bottomY + 25);
-        
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(': KVB Bank', midX + 30, bottomY + 10);
-        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(': 1617135000000754', midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(': Selaiyur & KVBL0001617', midX + 30, bottomY + 18);
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 55);
-        doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 35, { align: 'right' });
-        doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 55, { align: 'right' });
-
-
-
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'italic');
-        doc.text('This is a Computer Generated Invoice', pageWidth / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
-
-        doc.save(`Invoice_${data.invoiceNumber || 'New'}.pdf`);
+        try {
+            const isQuotation = data.documentType === 'Quotation';
+            const blob = await PDFService.generateInvoicePDF(data, isQuotation);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.invoiceNumber || 'Document'}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            alert("Error generating PDF.");
+        }
     };
 
     const handleSave = async (status: 'Draft' | 'Finalized') => {
@@ -394,7 +171,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = () =>
             taxTotal: invTotals.taxTotal,
             grandTotal: invTotals.grandTotal,
             status: status === 'Draft' ? 'Draft' : 'Pending',
-            documentType: 'PO',
+            documentType: variant === 'billing' ? 'Invoice' : 'Quotation',
             createdBy: currentUser?.name || 'System'
         };
 

@@ -6,8 +6,8 @@ import {
     History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const DEFAULT_DELIVERY_ADDRESS = 'Sreemeditec,\nNew No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.';
 
@@ -113,132 +113,19 @@ export const SupplierPOModule: React.FC = () => {
         }
     };
 
-    const handleDownloadPDF = (data: Partial<Invoice>) => {
-        const doc = new jsPDF();
-        const totals = calculateDetailedTotals(data);
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 10;
-        const colWidth = (pageWidth - 20) / 2;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 24, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 29, { align: 'center' });
-
-        doc.setLineWidth(0.1);
-        doc.rect(margin, 34, pageWidth - 20, 8);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('SUPPLIER PURCHASE ORDER', pageWidth / 2, 39.5, { align: 'center' });
-
-        autoTable(doc, {
-            startY: 42,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`SMPOC NO: ${data.invoiceNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.date)}`],
-                [`VENDOR REF NO: ${data.cpoNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.cpoDate)}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`Name of the Vendor and Address:\n\n${data.customerName || ''}\n${data.customerAddress || ''}`, `Dispatch To:\n\n${data.deliveryAddress || ''}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [`Vendor GST No: ${data.customerGstin || ''}`, `Our GST No: ${data.bankDetails || '33APGPS4675G2ZL'}`]
-            ],
-            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
-        });
-
-        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 7);
-        doc.setFont('helvetica', 'bold');
-        doc.text('PROCUREMENT DETAILS', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4.5, { align: 'center' });
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 7,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-            head: [['Sl no.', 'Description', 'Qty', 'Rate', 'Amount', 'Gst %', 'Gst value', 'Price with Gst']],
-            body: (data.items || []).map((it, idx) => {
-                const amount = it.quantity * it.unitPrice;
-                const gstValue = amount * (it.taxRate / 100);
-                return [
-                    idx + 1,
-                    it.description,
-                    it.quantity,
-                    (it.unitPrice || 0).toLocaleString('en-IN'),
-                    amount.toLocaleString('en-IN'),
-                    `${it.taxRate}%`,
-                    gstValue.toLocaleString('en-IN'),
-                    (amount + gstValue).toLocaleString('en-IN')
-                ];
-            }),
-            columnStyles: {
-                0: { halign: 'center', cellWidth: 10 },
-                2: { halign: 'center', cellWidth: 10 },
-                3: { halign: 'right', cellWidth: 20 },
-                4: { halign: 'right', cellWidth: 25 },
-                5: { halign: 'center', cellWidth: 12 },
-                6: { halign: 'right', cellWidth: 25 },
-                7: { halign: 'right', cellWidth: 30 }
-            }
-        });
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY,
-            margin: { left: margin },
-            tableWidth: pageWidth - 20,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: totals.totalWithGst.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Discount/Buyback/adjustment', styles: { fontStyle: 'bold' } }, { content: (data.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } }],
-                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }],
-                [{ content: `Payment details: ${data.paymentTerms || 'As per agreement'}`, colSpan: 2, styles: { fontStyle: 'bold' } }]
-            ],
-            columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
-        });
-
-        const noteY = (doc as any).lastAutoTable.finalY + 2;
-        const noteText = `Special instructions regarding supply/packing:\n\n${data.specialNote || 'Standard quality requirements apply.'}`;
-        const splitNote = doc.splitTextToSize(noteText, pageWidth - 24);
-        const noteHeight = Math.max(20, (splitNote.length * 5) + 5);
-        doc.rect(margin, noteY, pageWidth - 20, noteHeight);
-        doc.setFont('helvetica', 'bold');
-        doc.text(splitNote, margin + 2, noteY + 5);
-
-        const sigY = noteY + noteHeight;
-        doc.rect(margin, sigY, pageWidth - 20, 30);
-        doc.line(pageWidth / 2, sigY, pageWidth / 2, sigY + 30);
-        doc.setFontSize(8);
-        doc.text('Accepted By (Vendor):', margin + 2, sigY + 5);
-        doc.text('For Sree Meditec (Authorized Signatory):', pageWidth / 2 + 2, sigY + 5);
-
-        doc.save(`${data.invoiceNumber || 'SupplierPO'}.pdf`);
+    const handleDownloadPDF = async (data: Partial<Invoice>) => {
+        try {
+            const blob = await PDFService.generatePurchaseOrderPDF(data, false);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.invoiceNumber || 'SupplierPO'}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            alert("Error generating PDF.");
+        }
     };
 
     const handleAddItem = (prod?: any) => {

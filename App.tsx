@@ -1,9 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
+import { db } from './firebase';
+import { collection, getDocs } from 'firebase/firestore';
+import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, Download
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -21,6 +24,7 @@ import { ServiceOrderModule } from './components/ServiceOrderModule';
 import { ServiceReportModule } from './components/ServiceReportModule';
 import { InstallationReportModule } from './components/InstallationReportModule';
 import { DeliveryChallanModule } from './components/DeliveryChallanModule';
+import { PurchaseRecordModule } from './components/PurchaseRecordModule';
 import { ReportsModule } from './components/ReportsModule';
 import { ClientModule } from './components/ClientModule';
 import { VendorModule } from './components/VendorModule';
@@ -32,7 +36,7 @@ import { PayrollModule } from './components/PayrollModule';
 import { ArchiveModule } from './components/ArchiveModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
-import { TabView } from './types';
+import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord } from './types';
 import { useData } from './components/DataContext';
 
 const NavItem: React.FC<{
@@ -100,10 +104,183 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
 export const App: React.FC = () => {
     const { 
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
-        userStats, attendanceRecords, invoices, financialYear, updateFinancialYear 
+        userStats, attendanceRecords, invoices, financialYear, updateFinancialYear,
+        clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
+        addNotification
     } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
+
+    const handleFullBackup = async () => {
+        const zip = new JSZip();
+        
+        // 1. Create Master Snapshot
+        const fullSnapshot = {
+            timestamp: new Date().toISOString(),
+            version: "3.0.0",
+            financialYear,
+            data: {
+                clients, vendors, products, invoices, expenses, tasks, leads,
+                attendance: attendanceRecords, serviceReports, deliveryChallans,
+                purchaseRecords, holidays, installationReports
+            }
+        };
+        zip.file("MASTER_SNAPSHOT.json", JSON.stringify(fullSnapshot, null, 2));
+
+        // 2. Organized Folders for Doc Makers
+        const folders = {
+            invoices: zip.folder("1_INVOICES"),
+            quotes: zip.folder("2_QUOTATIONS"),
+            customerPOs: zip.folder("3_CUSTOMER_POS"),
+            supplierPOs: zip.folder("4_SUPPLIER_POS"),
+            serviceOrders: zip.folder("5_SERVICE_ORDERS"),
+            serviceReports: zip.folder("6_SERVICE_REPORTS"),
+            installReports: zip.folder("07_INSTALLATION_REPORTS"),
+            challans: zip.folder("08_DELIVERY_CHALLANS"),
+            purchaseEntries: zip.folder("09_PURCHASE_ENTRY"),
+            leads: zip.folder("10_LEADS"),
+            inventory: zip.folder("11_INVENTORY"),
+            expenses: zip.folder("12_EXPENSES"),
+            crm: zip.folder("13_CRM"),
+            hr: zip.folder("14_HR")
+        };
+
+        // 3. Fetch ALL Data from Firestore (Not just limited local state)
+        addNotification('Backup Started', 'Fetching full database records...', 'info');
+        
+        try {
+            const allInvoices = (await getDocs(collection(db, "invoices"))).docs.map(d => ({ ...d.data(), id: d.id } as Invoice));
+            const allServiceReports = (await getDocs(collection(db, "serviceReports"))).docs.map(d => ({ ...d.data(), id: d.id } as ServiceReport));
+            const allChallans = (await getDocs(collection(db, "deliveryChallans"))).docs.map(d => ({ ...d.data(), id: d.id } as DeliveryChallan));
+            const allInstallReports = (await getDocs(collection(db, "installationReports"))).docs.map(d => ({ ...d.data(), id: d.id } as any));
+            const allLeads = (await getDocs(collection(db, "leads"))).docs.map(d => ({ ...d.data(), id: d.id } as Lead));
+            const allExpenses = (await getDocs(collection(db, "expenses"))).docs.map(d => ({ ...d.data(), id: d.id } as ExpenseRecord));
+            const allPurchases = (await getDocs(collection(db, "purchaseRecords"))).docs.map(d => ({ ...d.data(), id: d.id } as PurchaseRecord));
+            
+            // 3.1 Fetch Archive Collections
+            const archivedDocs = (await getDocs(collection(db, "archives"))).docs.map(d => ({ ...d.data(), id: d.id }));
+            const archiveCSV = (await getDocs(collection(db, "archived_reports"))).docs.map(d => ({ ...d.data(), id: d.id }));
+
+            // Merge archived docs into main arrays for processing
+            archivedDocs.forEach((d: any) => {
+                if (d.originalCollection === 'invoices') allInvoices.push(d);
+                else if (d.originalCollection === 'serviceReports') allServiceReports.push(d);
+                else if (d.originalCollection === 'deliveryChallans') allChallans.push(d);
+                else if (d.originalCollection === 'installationReports') allInstallReports.push(d);
+                else if (d.originalCollection === 'leads') allLeads.push(d);
+                else if (d.originalCollection === 'expenses') allExpenses.push(d);
+                else if (d.originalCollection === 'purchaseRecords') allPurchases.push(d);
+            });
+
+            // Save Archive CSVs to CRM/Compliance folder
+            archiveCSV.forEach((rep: any) => {
+                const fileName = `${rep.id}.csv`;
+                folders.crm?.file(`Financial_Archives/${fileName}`, rep.csvContent || '');
+            });
+
+            // Populate Invoices & Docs (PDF FORMAT)
+            for (const doc of allInvoices) {
+                try {
+                    // Smart Type Detection (Corrects mislabeled 'PO' tags from BillingModule bug)
+                    let type = doc.documentType || 'Invoice';
+                    const invNum = (doc.invoiceNumber || '').toUpperCase();
+                    if (invNum.startsWith('SM/')) type = 'Invoice';
+                    else if (invNum.startsWith('SMQ/')) type = 'Quotation';
+                    else if (invNum.startsWith('SMCPO/')) type = 'CustomerPO';
+                    else if (invNum.startsWith('SMSPO/')) type = 'SupplierPO';
+
+                    const fileName = `${(doc.invoiceNumber || doc.id).replace(/\//g, '_')}.pdf`;
+                    let pdfBlob;
+                    
+                    if (type === 'Invoice') pdfBlob = await PDFService.generateInvoicePDF(doc);
+                    else if (type === 'Quotation') pdfBlob = await PDFService.generateInvoicePDF(doc, true);
+                    else if (type === 'CustomerPO' || type === 'PO') pdfBlob = await PDFService.generatePurchaseOrderPDF(doc, true);
+                    else if (type === 'SupplierPO') pdfBlob = await PDFService.generatePurchaseOrderPDF(doc, false);
+                    
+                    if (pdfBlob) {
+                        switch(type) {
+                            case 'Invoice': folders.invoices?.file(fileName, pdfBlob); break;
+                            case 'Quotation': folders.quotes?.file(fileName, pdfBlob); break;
+                            case 'CustomerPO': 
+                            case 'PO': folders.customerPOs?.file(fileName, pdfBlob); break;
+                            case 'SupplierPO': folders.supplierPOs?.file(fileName, pdfBlob); break;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed PDF for:", doc.id, err);
+                }
+            }
+
+            // Service Reports
+            for (const r of allServiceReports) {
+                try {
+                    const pdfBlob = await PDFService.generateServiceReportPDF(r);
+                    folders.serviceReports?.file(`${(r.reportNumber || r.id).replace(/\//g, '_')}.pdf`, pdfBlob);
+                } catch (err) {}
+            }
+
+            // Delivery Challans
+            for (const c of allChallans) {
+                try {
+                    const pdfBlob = await PDFService.generateDeliveryChallanPDF(c);
+                    folders.challans?.file(`${(c.challanNumber || c.id).replace(/\//g, '_')}.pdf`, pdfBlob);
+                } catch (err) {}
+            }
+
+            // Installation Reports
+            for (const r of allInstallReports) {
+                try {
+                    const pdfBlob = await PDFService.generateInstallationReportPDF(r);
+                    folders.installReports?.file(`${(r.smirNo || r.id).replace(/\//g, '_')}.pdf`, pdfBlob);
+                } catch (err) {}
+            }
+
+
+            // Populate JSON Backups (RAW DATA)
+            allInvoices.forEach(doc => {
+                let type = doc.documentType || 'Invoice';
+                const invNum = (doc.invoiceNumber || '').toUpperCase();
+                if (invNum.startsWith('SM/')) type = 'Invoice';
+                else if (invNum.startsWith('SMQ/')) type = 'Quotation';
+
+                const fileName = `${(doc.invoiceNumber || doc.id).replace(/\//g, '_')}.json`;
+                if (type === 'Invoice') folders.invoices?.file(`JSON/${fileName}`, JSON.stringify(doc, null, 2));
+                else if (type === 'Quotation') folders.quotes?.file(`JSON/${fileName}`, JSON.stringify(doc, null, 2));
+                else if (type === 'CustomerPO' || type === 'PO') folders.customerPOs?.file(`JSON/${fileName}`, JSON.stringify(doc, null, 2));
+                else if (type === 'SupplierPO') folders.supplierPOs?.file(`JSON/${fileName}`, JSON.stringify(doc, null, 2));
+            });
+
+            allServiceReports.forEach(r => folders.serviceReports?.file(`JSON/${(r.reportNumber || r.id).replace(/\//g, '_')}.json`, JSON.stringify(r, null, 2)));
+            allChallans.forEach(c => folders.challans?.file(`JSON/${(c.challanNumber || c.id).replace(/\//g, '_')}.json`, JSON.stringify(c, null, 2)));
+            allInstallReports.forEach(r => folders.installReports?.file(`JSON/${(r.smirNo || r.id).replace(/\//g, '_')}.json`, JSON.stringify(r, null, 2)));
+            
+            allLeads.forEach(l => folders.leads?.file(`${l.hospital || l.name}.json`, JSON.stringify(l, null, 2)));
+            allExpenses.forEach(e => folders.expenses?.file(`${e.date}_${e.id}.json`, JSON.stringify(e, null, 2)));
+            allPurchases.forEach(p => folders.purchaseEntries?.file(`${p.invoiceNo || p.id}.json`, JSON.stringify(p, null, 2)));
+
+            // Master Records
+            clients.forEach(c => folders.crm?.file(`Clients/${c.name}.json`, JSON.stringify(c, null, 2)));
+            vendors.forEach(v => folders.crm?.file(`Vendors/${v.name}.json`, JSON.stringify(v, null, 2)));
+            products.forEach(p => folders.inventory?.file(`${p.name}.json`, JSON.stringify(p, null, 2)));
+            attendanceRecords.forEach(a => folders.hr?.file(`Attendance/${a.date}_${a.userName}.json`, JSON.stringify(a, null, 2)));
+
+        } catch (err) {
+            console.error("Full fetch failed:", err);
+            addNotification('Backup Failed', 'Could not reach cloud database.', 'alert');
+        }
+
+        
+        // Generate and Download
+        const blob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `SREE_MEDITEC_VAULT_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
   const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -156,6 +333,7 @@ export const App: React.FC = () => {
         { tab: TabView.SERVICE_REPORTS, icon: ClipboardList, label: 'Service Report Maker' },
         { tab: TabView.INSTALLATION_REPORTS, icon: ShieldAlert, label: 'Install Report Maker' },
         { tab: TabView.DELIVERY, icon: Truck, label: 'Delivery Challan' },
+        { tab: TabView.PURCHASE_REGISTER, icon: ShoppingCart, label: 'Purchase Entry' },
       ]
     },
     {
@@ -231,6 +409,7 @@ export const App: React.FC = () => {
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
+      case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.LOGS: return <LogsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
@@ -256,6 +435,23 @@ export const App: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Standard</p>
                         <ChevronRight size={14} className="text-slate-300 group-hover/card:text-indigo-400 transition-colors" />
+                    </div>
+                </div>
+                <div 
+                    onClick={() => {
+                        if (userRole !== 'Admin') {
+                            alert("Administrative privileges required for System Backup.");
+                            return;
+                        }
+                        handleFullBackup();
+                    }}
+                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-1 transition-all group/backup"
+                >
+                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/backup:text-emerald-500 transition-colors"><Database size={16}/></div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Data Vault</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Backup</p>
+                        <Download size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
                     </div>
                 </div>
                 <div 

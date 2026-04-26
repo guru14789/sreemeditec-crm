@@ -22,7 +22,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -43,6 +43,7 @@ export interface DataContextType {
     leaveRequests: LeaveRequest[];
     installationReports: ServiceReport[];
     monthlyWinners: MonthlyWinner[];
+    purchaseRecords: PurchaseRecord[];
     showWinnerPopup: boolean;
     setShowWinnerPopup: (show: boolean) => void;
     latestWinner: MonthlyWinner | null;
@@ -122,6 +123,11 @@ export interface DataContextType {
     removeHoliday: (id: string) => Promise<void>;
     addLeaveRequest: (req: LeaveRequest) => Promise<void>;
     updateLeaveRequest: (id: string, updates: Partial<LeaveRequest>) => Promise<void>;
+
+    addPurchaseRecord: (record: PurchaseRecord) => Promise<void>;
+    updatePurchaseRecord: (id: string, updates: Partial<PurchaseRecord>) => Promise<void>;
+    removePurchaseRecord: (id: string) => Promise<void>;
+
     checkAndPerformMonthReset: () => Promise<void>;
     
     // Search
@@ -209,6 +215,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
+    const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
     const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
@@ -355,12 +362,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(25)), (s) => handleSnap('leads', s, setLeadSnap));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(50)), (s) => handleSnap('expenses', s, setExpenseSnap));
         const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(30)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
-        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(30)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
+        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(1000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
         const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(50)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
         const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(100)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)));
         const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(100)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
         const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(100)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
         const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(100)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)));
+        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)));
         const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
             if (s.exists()) {
                 const data = s.data();
@@ -373,7 +381,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             unsubLeads(); unsubTickets();
             unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
             unsubChallans(); unsubServiceReports(); unsubInstallReports();
-            unsubLeave(); unsubSettings();
+            unsubLeave(); unsubSettings(); unsubPurchases();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 
@@ -835,6 +843,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
+
+    const addPurchaseRecord = async (r: PurchaseRecord) => {
+        await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
+        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${r.equipmentName}`);
+    };
+
+    const updatePurchaseRecord = async (id: string, updates: Partial<PurchaseRecord>) => {
+        const existing = purchaseRecords.find(r => r.id === id);
+        await updateDoc(doc(db, "purchaseRecords", id), sanitizeData(updates));
+        await addLog('Inventory', 'Updated Purchase Entry', `ID: ${id}`, existing, { ...existing, ...updates });
+    };
+
+    const removePurchaseRecord = async (id: string) => {
+        await deleteDoc(doc(db, "purchaseRecords", id));
+        await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
+    };
+
     const addVendor = async (v: Vendor) => { 
         setVendors(prev => [...prev, v].sort((a, b) => a.name.localeCompare(b.name)));
         await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); 
@@ -944,7 +969,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
-            searchRecords, fetchMoreData, financialYear, updateFinancialYear
+            searchRecords, fetchMoreData, financialYear, updateFinancialYear,
+            purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord
         }}>
             {children}
         </DataContext.Provider>

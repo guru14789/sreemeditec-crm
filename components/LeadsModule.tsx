@@ -5,7 +5,7 @@ import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
 
 export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({ onNavigate }) => {
-    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees, addLog, searchRecords, fetchMoreData } = useData();
+    const { leads, addLead, updateLead, removeLead, addNotification, setPendingQuoteData, employees, addLog, searchRecords, fetchMoreData, clients, products } = useData();
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -28,6 +28,30 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         value: 0
     });
     const [editingLeadData, setEditingLeadData] = useState<Partial<Lead>>({});
+
+    const handleSelectClient = (type: 'add' | 'edit', field: 'name' | 'hospital', value: string) => {
+        const client = clients.find(c => (field === 'name' ? c.name === value : c.hospital === value));
+        if (client) {
+            const updates = {
+                name: client.name,
+                hospital: client.hospital || '',
+                phone: client.phone || '',
+                email: client.email || '',
+                address: client.address || '',
+            };
+            if (type === 'add') {
+                setNewLeadData(prev => ({ ...prev, ...updates }));
+            } else {
+                setEditingLeadData(prev => ({ ...prev, ...updates }));
+            }
+        } else {
+            if (type === 'add') {
+                setNewLeadData(prev => ({ ...prev, [field]: value }));
+            } else {
+                setEditingLeadData(prev => ({ ...prev, [field]: value }));
+            }
+        }
+    };
 
     React.useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);
@@ -431,11 +455,11 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Detail *</label>
-                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Client or Lead Name" value={newLeadData.name || ''} onChange={e => setNewLeadData({ ...newLeadData, name: e.target.value })} />
+                                <input type="text" list="client-name-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Client or Lead Name" value={newLeadData.name || ''} onChange={e => handleSelectClient('add', 'name', e.target.value)} />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Organization / Hospital *</label>
-                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Legal Entity Name" value={newLeadData.hospital || ''} onChange={e => setNewLeadData({ ...newLeadData, hospital: e.target.value })} />
+                                <input type="text" list="client-hosp-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Legal Entity Name" value={newLeadData.hospital || ''} onChange={e => handleSelectClient('add', 'hospital', e.target.value)} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -456,7 +480,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Item Interest</label>
-                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={newLeadData.productInterest || ''} onChange={e => setNewLeadData({ ...newLeadData, productInterest: e.target.value })} />
+                                    <input type="text" list="prod-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={newLeadData.productInterest || ''} onChange={e => setNewLeadData({ ...newLeadData, productInterest: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estimated Value (₹)</label>
@@ -541,11 +565,11 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Entity Name</label>
-                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Full Name" value={editingLeadData.name || ''} onChange={e => setEditingLeadData({ ...editingLeadData, name: e.target.value })} />
+                                    <input type="text" list="client-name-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Full Name" value={editingLeadData.name || ''} onChange={e => handleSelectClient('edit', 'name', e.target.value)} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hospital / Clinic</label>
-                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Facility Name" value={editingLeadData.hospital || ''} onChange={e => setEditingLeadData({ ...editingLeadData, hospital: e.target.value })} />
+                                    <input type="text" list="client-hosp-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all shadow-inner" placeholder="Facility Name" value={editingLeadData.hospital || ''} onChange={e => handleSelectClient('edit', 'hospital', e.target.value)} />
                                 </div>
                             </div>
 
@@ -567,7 +591,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Item Interest</label>
-                                    <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={editingLeadData.productInterest || ''} onChange={e => setEditingLeadData({ ...editingLeadData, productInterest: e.target.value })} />
+                                    <input type="text" list="prod-list" className="w-full border border-slate-300 bg-slate-50/50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" placeholder="Product Type" value={editingLeadData.productInterest || ''} onChange={e => setEditingLeadData({ ...editingLeadData, productInterest: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Estimated Value (₹)</label>
@@ -637,6 +661,9 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                     </div>
                 </div>
             )}
+            <datalist id="client-name-list">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
+            <datalist id="client-hosp-list">{clients.filter(c => c.hospital).map(c => <option key={c.id} value={c.hospital} />)}</datalist>
+            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
         </div>
     );
 };

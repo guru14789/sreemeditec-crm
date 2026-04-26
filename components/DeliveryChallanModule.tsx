@@ -6,8 +6,8 @@ import {
     History, FileText, MoreVertical, Truck, Package, User, Info
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -52,115 +52,19 @@ export const DeliveryChallanModule: React.FC = () => {
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
 
-    const handleDownloadPDF = (data: Partial<DeliveryChallan>) => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const midX = pageWidth / 2;
-        const margin = 10;
-        
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('Delivery Challan', midX, 10, { align: 'center' });
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
-
-        doc.setLineWidth(0.1);
-        doc.rect(margin, 12, pageWidth - (margin * 2), 78);
-        doc.line(midX, 12, midX, 90);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text('SREE MEDITEC', margin + 2, 18);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text('Old No.2 New No.18, Bajanai Koil Street,', margin + 2, 23);
-        doc.text('Rajakilpakkam, Chennai -73', margin + 2, 27);
-        doc.text('Ph.9884818398/ 7200025642', margin + 2, 31);
-        doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, 35);
-        doc.text('State Name : Tamil Nadu, Code : 33', margin + 2, 39);
-        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, 43);
-
-        const rowH = 13;
-        const startY = 12;
-        doc.line(midX, startY + rowH, pageWidth - margin, startY + rowH);
-        doc.line(midX, startY + (rowH * 2), pageWidth - margin, startY + (rowH * 2));
-        doc.line(midX, startY + (rowH * 3), pageWidth - margin, startY + (rowH * 3));
-        
-        const innerMid = midX + ((pageWidth - margin - midX) / 2);
-        doc.line(innerMid, startY, innerMid, startY + (rowH * 2));
-
-        doc.setFontSize(7);
-        doc.text('Challan No.', midX + 1, startY + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.challanNumber || '', midX + 1, startY + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Dated', innerMid + 1, startY + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(formatDateDDMMYYYY(data.date), innerMid + 1, startY + 9);
-
-        doc.setFont('helvetica', 'normal');
-        doc.text('Delivery Note', midX + 1, startY + rowH + 4);
-        doc.text('Reference No.', innerMid + 1, startY + rowH + 4);
-
-        doc.text('Subject:', midX + 1, startY + (rowH * 2) + 4);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.subject || 'Supply of Medical Equipments', midX + 1, startY + (rowH * 2) + 9);
-
-        doc.line(margin, 46, midX, 46);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Consignee (Ship to)', margin + 2, 49);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 53);
-        doc.setFont('helvetica', 'normal');
-        const addrLines = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(addrLines, margin + 2, 57);
-
-        const itemsBody = (data.items || []).map((it, idx) => [
-            idx + 1, 
-            it.description, 
-            `${it.quantity} ${it.unit || 'Nos'}`, 
-            it.remarks || ''
-        ]);
-
-        autoTable(doc, {
-            startY: 90,
-            head: [['Sl No.', 'Description of Goods', 'Quantity', 'Remarks']],
-            body: itemsBody,
-            theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7 },
-            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            columnStyles: { 
-                0: { cellWidth: 15, halign: 'center' },
-                1: { cellWidth: 100 },
-                2: { cellWidth: 30, halign: 'center' },
-                3: { cellWidth: 45 }
-            }
-        });
-
-        const tableFinalY = (doc as any).lastAutoTable.finalY || 150;
-
-        doc.setFont('helvetica', 'bold');
-        doc.text('Terms & Conditions:', margin, tableFinalY + 10);
-        doc.setFont('helvetica', 'normal');
-        const termsLines = doc.splitTextToSize(data.terms || '', pageWidth - (margin * 2) - 10);
-        doc.text(termsLines, margin, tableFinalY + 15);
-
-        if (data.remarks) {
-            const remarksY = tableFinalY + 15 + (termsLines.length * 4) + 5;
-            doc.setFont('helvetica', 'bold');
-            doc.text('Remarks:', margin, remarksY);
-            doc.setFont('helvetica', 'normal');
-            doc.text(data.remarks, margin, remarksY + 5);
+    const handleDownloadPDF = async (data: Partial<DeliveryChallan>) => {
+        try {
+            const blob = await PDFService.generateDeliveryChallanPDF(data);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.challanNumber || 'DeliveryChallan'}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Failed to download PDF", err);
+            alert("Error generating PDF.");
         }
-
-        doc.setFont('helvetica', 'bold');
-        doc.text('for SREE MEDITEC', pageWidth - margin - 5, tableFinalY + 30, { align: 'right' });
-        doc.text('Authorised Signatory', pageWidth - margin - 5, tableFinalY + 50, { align: 'right' });
-
-        doc.save(`Challan_${data.challanNumber || 'New'}.pdf`);
     };
 
     const handleSave = async (status: 'Draft' | 'Dispatched') => {

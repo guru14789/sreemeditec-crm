@@ -26,7 +26,8 @@ export enum TabView {
   LOGS = 'LOGS',
   ARCHIVE = 'ARCHIVE',
   PAYROLL = 'PAYROLL',
-  CONFIG = 'CONFIG'
+  CONFIG = 'CONFIG',
+  PURCHASE_REGISTER = 'PURCHASE_REGISTER'
 }
 
 export enum LeadStatus {
@@ -435,5 +436,25 @@ export interface LeaveRequest {
   status: 'Pending' | 'Approved' | 'Rejected';
   appliedOn: string; // ISO timestamp
   adminFeedback?: string;
+}
+
+export interface PurchaseRecord {
+  id: string;
+  dateSupply: string;
+  materialReceivedDate: string;
+  supplier: string;
+  equipmentName: string;
+  invoiceNo: string;
+  rate: number;
+  qty: number;
+  packingCharges: number;
+  forwardingCharges: number;
+  freightCharges: number;
+  gst5: number;
+  gst18: number;
+  totalGst: number;
+  totalIgst: number;
+  total: number;
+  createdBy?: string;
 }
 
