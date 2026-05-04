@@ -22,7 +22,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -30,6 +30,7 @@ export interface DataContextType {
     products: Product[];
     invoices: Invoice[];
     stockMovements: StockMovement[];
+    stockBatches: StockBatch[];
     expenses: ExpenseRecord[];
     employees: Employee[];
     notifications: any[];
@@ -44,6 +45,13 @@ export interface DataContextType {
     installationReports: ServiceReport[];
     monthlyWinners: MonthlyWinner[];
     purchaseRecords: PurchaseRecord[];
+    
+    // New Accounting States
+    ledgers: Ledger[];
+    accountGroups: AccountGroup[];
+    vouchers: AccountingVoucher[];
+    stockTransfers: StockTransfer[];
+    expenseStats: { approved: number, pending: number, rejected: number };
     showWinnerPopup: boolean;
     setShowWinnerPopup: (show: boolean) => void;
     latestWinner: MonthlyWinner | null;
@@ -89,6 +97,8 @@ export interface DataContextType {
     addInvoice: (invoice: Invoice) => Promise<void>;
     updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
     recordStockMovement: (movement: StockMovement) => Promise<void>;
+    addStockBatch: (batch: StockBatch) => Promise<void>;
+    updateStockBatch: (id: string, updates: Partial<StockBatch>) => Promise<void>;
 
 
     addTask: (task: Task) => Promise<void>;
@@ -127,6 +137,14 @@ export interface DataContextType {
     addPurchaseRecord: (record: PurchaseRecord) => Promise<void>;
     updatePurchaseRecord: (id: string, updates: Partial<PurchaseRecord>) => Promise<void>;
     removePurchaseRecord: (id: string) => Promise<void>;
+
+    // Accounting Methods
+    addLedger: (ledger: Ledger) => Promise<void>;
+    updateLedger: (id: string, updates: Partial<Ledger>) => Promise<void>;
+    addAccountGroup: (group: AccountGroup) => Promise<void>;
+    addVoucher: (voucher: AccountingVoucher) => Promise<void>;
+    postToLedger: (voucherData: Partial<AccountingVoucher>) => Promise<void>;
+    addStockTransfer: (transfer: StockTransfer) => Promise<void>;
 
     checkAndPerformMonthReset: () => Promise<void>;
     
@@ -195,6 +213,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const ids = new Set(expenseSnap.map(e => e.id));
         return [...expenseSnap, ...pushedExpenses.filter(e => !ids.has(e.id))].sort((a,b) => b.date.localeCompare(a.date));
     }, [expenseSnap, pushedExpenses]);
+
+    const [voucherSnap, setVoucherSnap] = useState<AccountingVoucher[]>([]);
+    const [pushedVouchers, setPushedVouchers] = useState<AccountingVoucher[]>([]);
+    const vouchers = useMemo(() => {
+        const ids = new Set(voucherSnap.map(v => v.id));
+        return [...voucherSnap, ...pushedVouchers.filter(v => !ids.has(v.id))].sort((a,b) => b.date.localeCompare(a.date));
+    }, [voucherSnap, pushedVouchers]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [taskSnap, setTaskSnap] = useState<Task[]>([]);
     const [pushedTasks, setPushedTasks] = useState<Task[]>([]);
@@ -216,18 +241,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
     const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
+    const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
+    
+    // Accounting States
+    const [ledgers, setLedgers] = useState<Ledger[]>([]);
+    const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([]);
+    const [stockTransfers, setStockTransfers] = useState<StockTransfer[]>([]);
+    const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
+
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
     const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
-    const [financialYear, setFinancialYear] = useState<string>("25-26");
+    const [financialYear, setFinancialYear] = useState<string>("26-27");
     const [dbError] = useState<string | null>(null);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [authError, setAuthError] = useState<string | null>(null);
-    const [userStats, setUserStats] = useState<UserStats>({
-        points: 0, tasksCompleted: 0, attendanceStreak: 12, salesRevenue: 0
-    });
     const [firebaseUser, setFirebaseUser] = useState<any>(null);
     const loginLoggedRef = React.useRef(false);
 
@@ -360,7 +390,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap));
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(25)), (s) => handleSnap('leads', s, setLeadSnap));
-        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(50)), (s) => handleSnap('expenses', s, setExpenseSnap));
+        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(20)), (s) => handleSnap('expenses', s, setExpenseSnap));
         const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(30)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
         const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(1000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
         const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(50)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
@@ -369,6 +399,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(100)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
         const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(100)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)));
         const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)));
+        const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)));
+        
+        // Accounting Listeners
+        const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)));
+        const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)));
+        const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(20)), (s) => handleSnap('vouchers', s, setVoucherSnap));
+        const unsubTransfers = onSnapshot(query(collection(db, "stockTransfers"), orderBy('date', 'desc'), limit(100)), (s) => setStockTransfers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockTransfer)));
+
         const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
             if (s.exists()) {
                 const data = s.data();
@@ -376,12 +414,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (data.financialYear) setFinancialYear(data.financialYear);
             }
         });
+        
+        const qStats = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration') 
+            ? query(collection(db, "expenses"))
+            : query(collection(db, "expenses"), where("employeeName", "==", currentUser?.name || ''));
+
+        const unsubStats = onSnapshot(qStats, (snap) => {
+            let approved = 0, pending = 0, rejected = 0;
+            snap.docs.forEach(doc => {
+                const data = doc.data();
+                const amt = data.amount || 0;
+                if (data.status === 'Approved') approved += amt;
+                else if (data.status === 'Rejected') rejected += amt;
+                else pending += amt;
+            });
+            setExpenseStats({ approved, pending, rejected });
+        });
 
         return () => {
             unsubLeads(); unsubTickets();
             unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
             unsubChallans(); unsubServiceReports(); unsubInstallReports();
-            unsubLeave(); unsubSettings(); unsubPurchases();
+            unsubLeave(); unsubSettings(); unsubPurchases(); unsubBatches();
+            unsubLedgers(); unsubGroups(); unsubVouchers(); unsubTransfers();
+            unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 
@@ -395,27 +451,52 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
         
-        const unsubUserSummary = onSnapshot(doc(db, "userSummaries", currentUser.id), (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                setUserStats(prev => ({
-                    ...prev,
-                    points: data.points || 0,
-                    tasksCompleted: data.tasksCompleted || 0,
-                    salesRevenue: data.salesRevenue || 0
-                }));
-            }
-        });
-
-        return () => { unsubPoints(); unsubWinners(); unsubUserSummary(); };
+        return () => { unsubPoints(); unsubWinners(); };
     }, [firebaseUser?.uid, currentUser?.id]);
 
-    // User points update effect
-    useEffect(() => {
-        if (!currentUser) return;
-        const userPoints = pointHistory.filter(p => p.userId === currentUser.id).reduce((sum, p) => sum + p.points, 0);
-        setUserStats(prev => ({ ...prev, points: userPoints }));
-    }, [pointHistory, currentUser]);
+    const userStats = useMemo(() => {
+        if (!currentUser) return { points: 0, tasksCompleted: 0, attendanceStreak: 0, salesRevenue: 0 };
+
+        const points = pointHistory
+            .filter(p => p.userId === currentUser.id)
+            .reduce((sum, p) => sum + p.points, 0);
+
+        const tasksCompleted = tasks.filter(t => 
+            (t.assignedTo === currentUser.name || t.submittedBy === currentUser.name) && 
+            t.status === 'Done'
+        ).length;
+
+        const salesRevenue = invoices.filter(i => 
+            (i.documentType === 'Invoice' || !i.documentType) && 
+            (i.createdBy === currentUser.name)
+        ).reduce((sum, i) => sum + (i.grandTotal || 0), 0);
+
+        const userAttendance = attendanceRecords
+            .filter(a => a.userName === currentUser.name)
+            .sort((a, b) => b.date.localeCompare(a.date));
+
+        let streak = 0;
+        if (userAttendance.length > 0) {
+            const today = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            let currentCheckDate = userAttendance[0].date;
+            
+            if (currentCheckDate === today || currentCheckDate === yesterday) {
+                streak = 1;
+                for (let i = 1; i < userAttendance.length; i++) {
+                    const prevDate = new Date(currentCheckDate);
+                    prevDate.setDate(prevDate.getDate() - 1);
+                    const expectedDate = prevDate.toISOString().split('T')[0];
+                    if (userAttendance[i].date === expectedDate) {
+                        streak++;
+                        currentCheckDate = expectedDate;
+                    } else break;
+                }
+            }
+        }
+
+        return { points, tasksCompleted, attendanceStreak: streak, salesRevenue };
+    }, [currentUser, pointHistory, tasks, invoices, attendanceRecords]);
 
     // 4. METHODS
     const loginWithGoogle = async () => {
@@ -427,7 +508,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
                 await signInWithCredential(auth, credential);
             } else {
-                await signInWithPopup(auth, googleProvider);
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(auth, provider);
             }
             return true;
         } catch (e: any) {
@@ -508,6 +590,37 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await signOut(auth);
     };
 
+    // --- AUDIT TRAIL HELPERS ---
+    const createAuditEntry = (action: AuditLogEntry['action'], oldData: any, newData: any, reason?: string): AuditLogEntry => {
+        const changes: AuditLogEntry['changes'] = [];
+        const ignoreFields = ['editHistory', 'lastUpdated', 'id'];
+
+        const allKeys = Array.from(new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]));
+        
+        for (const key of allKeys) {
+            if (ignoreFields.includes(key)) continue;
+            const oldVal = oldData?.[key];
+            const newVal = newData?.[key];
+            
+            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+                changes.push({
+                    field: key,
+                    oldValue: oldVal === undefined ? null : oldVal,
+                    newValue: newVal === undefined ? null : newVal
+                });
+            }
+        }
+
+        return {
+            id: `AUDIT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            timestamp: new Date().toISOString(),
+            user: currentUser?.name || 'System',
+            action,
+            changes,
+            reason
+        };
+    };
+
     // 5. AGGREGATION HELPERS
     const updateMonthlySummary = async (date: string, amount: number, type: 'revenue' | 'expense') => {
         const monthId = date.slice(0, 7); // YYYY-MM
@@ -559,7 +672,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, colName),
             orderBy(orderByField, 'desc'),
             startAfter(lastDoc),
-            limit(100)
+            limit(20)
         );
         const snap = await getDocs(q);
         if (snap.empty) return;
@@ -571,6 +684,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (colName === 'leads') setPushedLeads(prev => [...prev, ...newData] as Lead[]);
         if (colName === 'expenses') setPushedExpenses(prev => [...prev, ...newData] as ExpenseRecord[]);
         if (colName === 'tasks') setPushedTasks(prev => [...prev, ...newData] as Task[]);
+        if (colName === 'vouchers') setPushedVouchers(prev => [...prev, ...newData] as AccountingVoucher[]);
     };
 
     const addClient = async (c: Client) => { 
@@ -599,7 +713,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const existing = products.find(pr => pr.id === id);
         if (existing) setProducts(prev => prev.map(pr => pr.id === id ? { ...pr, ...p } as Product : pr).sort((a, b) => a.name.localeCompare(b.name)));
         await updateDoc(doc(db, "products", id), sanitizeData(p));
-        await addLog('Inventory', 'Updated Product', `Product modified: ${existing?.name || id}`, existing, { ...existing, ...p });
+        await addLog('Inventory', 'Updated Product', `Item: ${existing?.name || id}`, existing, { ...existing, ...p });
+    };
+
+    const addStockBatch = async (batch: StockBatch) => {
+        await setDoc(doc(db, "stockBatches", batch.id), sanitizeData(batch));
+        await addLog('Inventory', 'Created Batch', `Batch: ${batch.batchNo} for Product: ${batch.productId}`);
+    };
+
+    const updateStockBatch = async (id: string, updates: Partial<StockBatch>) => {
+        await updateDoc(doc(db, "stockBatches", id), sanitizeData(updates));
     };
     const removeProduct = async (id: string) => { 
         setProducts(prev => prev.filter(p => p.id !== id));
@@ -622,10 +745,50 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const removeLead = async (id: string) => { await deleteDoc(doc(db, "leads", id)); await addLog('Leads', 'Deleted Lead', id); };
 
-    const seedDatabase = async () => { await addLog('System', 'DB Seed', 'Sync triggered'); };
-    const updateInvoice = async (id: string, u: Partial<Invoice>) => {
+    const seedDatabase = async () => { 
+        await addLog('System', 'DB Seed', 'Sync triggered');
+        
+        // Seed default groups
+        const defaultGroups: AccountGroup[] = [
+            { id: 'GRP-ASSETS', name: 'Assets', type: 'Asset' },
+            { id: 'GRP-LIABILITIES', name: 'Liabilities', type: 'Liability' },
+            { id: 'GRP-INCOME', name: 'Income', type: 'Revenue' },
+            { id: 'GRP-EXPENSES', name: 'Expenses', type: 'Expense' },
+            { id: 'GRP-CASH', name: 'Cash-in-Hand', parentGroupId: 'GRP-ASSETS', type: 'Asset' },
+            { id: 'GRP-BANK', name: 'Bank Accounts', parentGroupId: 'GRP-ASSETS', type: 'Asset' },
+            { id: 'GRP-DEBTORS', name: 'Sundry Debtors', parentGroupId: 'GRP-ASSETS', type: 'Asset' },
+            { id: 'GRP-CREDITORS', name: 'Sundry Creditors', parentGroupId: 'GRP-LIABILITIES', type: 'Liability' },
+            { id: 'GRP-DUTIES', name: 'Duties & Taxes', parentGroupId: 'GRP-LIABILITIES', type: 'Liability' }
+        ];
+
+        for (const g of defaultGroups) {
+            if (!accountGroups.find(ag => ag.id === g.id)) {
+                await addAccountGroup(g);
+            }
+        }
+
+        // Seed default ledgers
+        const defaultLedgers: Ledger[] = [
+            { id: 'LDG-CASH', name: 'Cash', groupId: 'GRP-CASH', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-SALES', name: 'Sales Account', groupId: 'GRP-INCOME', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-CGST-OUT', name: 'Output CGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-SGST-OUT', name: 'Output SGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 }
+        ];
+
+        for (const l of defaultLedgers) {
+            if (!ledgers.find(lg => lg.id === l.id)) {
+                await addLedger(l);
+            }
+        }
+    };
+    const updateInvoice = async (id: string, u: Partial<Invoice>, reason?: string) => {
         const existing = invoices.find(i => i.id === id);
-        await updateDoc(doc(db, "invoices", id), sanitizeData(u));
+        if (!existing) return;
+
+        const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...u }, reason);
+        const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+
+        await updateDoc(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
         await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
 
         // Update Summary if status changed to approved or amount changed
@@ -734,9 +897,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await updateMonthlySummary(e.date, e.amount, 'expense');
         }
     };
-    const updateExpense = async (id: string, updates: Partial<ExpenseRecord>) => {
+    const updateExpense = async (id: string, updates: Partial<ExpenseRecord>, reason?: string) => {
         const existing = expenses.find(e => e.id === id);
-        await updateDoc(doc(db, "expenses", id), sanitizeData(updates));
+        if (!existing) return;
+
+        const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...updates }, reason);
+        const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+
+        await updateDoc(doc(db, "expenses", id), sanitizeData({ ...updates, editHistory: updatedEditHistory }));
         await addLog('Billing', 'Updated Expense', `Voucher modified: ${existing?.id || id}`, existing, { ...existing, ...updates });
 
         if (existing) {
@@ -860,6 +1028,96 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
     };
 
+    // --- NEW ACCOUNTING METHODS ---
+
+    const addAccountGroup = async (group: AccountGroup) => {
+        await setDoc(doc(db, "accountGroups", group.id), sanitizeData(group));
+        await addLog('System', 'Accounting Group Created', group.name);
+    };
+
+    const addLedger = async (l: Ledger) => {
+        await setDoc(doc(db, "ledgers", l.id), sanitizeData(l));
+        await addLog('System', 'Accounting Ledger Created', l.name);
+    };
+
+    const updateLedger = async (id: string, u: Partial<Ledger>) => {
+        await updateDoc(doc(db, "ledgers", id), sanitizeData(u));
+    };
+
+    const updateVoucher = async (id: string, updates: Partial<AccountingVoucher>, reason?: string) => {
+        const existing = vouchers.find(v => v.id === id);
+        if (!existing) return;
+
+        const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...updates }, reason);
+        const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+
+        await updateDoc(doc(db, "vouchers", id), sanitizeData({ ...updates, editHistory: updatedEditHistory }));
+        await addLog('Billing', 'Updated Voucher', existing.voucherNumber, existing, { ...existing, ...updates });
+    };
+
+    const addVoucher = async (v: AccountingVoucher) => {
+        const auditEntry = createAuditEntry('Created', null, v);
+        const voucherWithAudit = { ...v, editHistory: [auditEntry] };
+
+        await setDoc(doc(db, "vouchers", v.id), sanitizeData(voucherWithAudit));
+        // Update current balances of ledgers involved
+        for (const entry of v.entries) {
+            const diff = entry.debit - entry.credit;
+            if (diff !== 0) {
+                await updateDoc(doc(db, "ledgers", entry.ledgerId), {
+                    currentBalance: increment(diff)
+                });
+            }
+        }
+
+        // Process Bill-wise Settlements
+        if (v.settlements && v.settlements.length > 0) {
+            for (const settlement of v.settlements) {
+                const inv = invoices.find(i => i.id === settlement.invoiceId);
+                if (inv) {
+                    const currentBalance = inv.balanceDue !== undefined ? inv.balanceDue : inv.grandTotal;
+                    const newBalance = Math.max(0, currentBalance - settlement.amount);
+                    await updateDoc(doc(db, "invoices", inv.id), {
+                        balanceDue: newBalance,
+                        status: newBalance <= 0 ? 'Paid' : inv.status
+                    });
+                }
+            }
+        }
+
+        await addLog('Billing', 'Voucher Generated', `${v.type} - ${v.voucherNumber}`);
+    };
+
+    const postToLedger = async (vData: Partial<AccountingVoucher>) => {
+        const id = `VCH-${Date.now()}`;
+        const voucher: AccountingVoucher = {
+            id,
+            voucherNumber: vData.voucherNumber || `VCH-${id.slice(-4)}`,
+            date: vData.date || new Date().toISOString().split('T')[0],
+            type: vData.type || 'Journal',
+            entries: vData.entries || [],
+            narration: vData.narration || '',
+            referenceId: vData.referenceId,
+            referenceNumber: vData.referenceNumber,
+            totalAmount: vData.totalAmount || 0,
+            settlements: vData.settlements || [],
+            createdBy: currentUser?.name || 'System'
+        };
+        await addVoucher(voucher);
+    };
+
+    const addStockTransfer = async (t: StockTransfer) => {
+        await setDoc(doc(db, "stockTransfers", t.id), sanitizeData(t));
+        // Update stocks at both locations
+        const prod = products.find(p => p.id === t.productId);
+        if (prod) {
+            // Note: Since location-wise stock is not yet in Product schema fully, 
+            // we just log it for now, but in a real godown system, 
+            // you'd update specific GodownStock records.
+            await addLog('Inventory', 'Stock Transfer', `${t.quantity} ${t.productName} from ${t.fromLocation} to ${t.toLocation}`);
+        }
+    };
+
     const addVendor = async (v: Vendor) => { 
         setVendors(prev => [...prev, v].sort((a, b) => a.name.localeCompare(b.name)));
         await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); 
@@ -952,7 +1210,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return (
         <DataContext.Provider value={{
-            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications: [], tasks, leads, serviceTickets,
+            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications: [], tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
             pendingQuoteData, setPendingQuoteData,
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
@@ -970,7 +1228,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
             searchRecords, fetchMoreData, financialYear, updateFinancialYear,
-            purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord
+            addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
+            ledgers, accountGroups, vouchers, stockTransfers, expenseStats,
+            addLedger, updateLedger, addAccountGroup, addVoucher, updateVoucher, postToLedger, addStockTransfer
         }}>
             {children}
         </DataContext.Provider>

@@ -38,9 +38,9 @@ export const ServiceModule: React.FC = () => {
             <div className="bg-red-50 p-3 rounded-2xl text-red-600 shadow-sm"><AlertTriangle size={24}/></div>
             <div><div className="text-3xl font-black text-slate-800">{serviceTickets.filter(t => t.priority === 'High').length}</div><div className="text-[10px] font-black text-red-400 uppercase tracking-widest">Active Breakdowns</div></div>
         </div>
-        <div className="bg-white p-5 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-4">
-            <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 shadow-sm"><Wrench size={24}/></div>
-            <div><div className="text-3xl font-black text-slate-800">{serviceTickets.filter(t => t.status !== 'Resolved').length}</div><div className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Tickets In Queue</div></div>
+        <div className="bg-white p-5 rounded-3xl border border-medical-100 shadow-sm flex items-center gap-4">
+            <div className="bg-medical-50 p-3 rounded-2xl text-medical-600 shadow-sm"><Wrench size={24}/></div>
+            <div><div className="text-3xl font-black text-slate-800">{serviceTickets.filter(t => t.status !== 'Resolved').length}</div><div className="text-[10px] font-black text-medical-400 uppercase tracking-widest">Tickets In Queue</div></div>
         </div>
         <div className="bg-white p-5 rounded-3xl border border-emerald-100 shadow-sm flex items-center gap-4">
             <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600 shadow-sm"><Calendar size={24}/></div>
@@ -69,7 +69,7 @@ export const ServiceModule: React.FC = () => {
                         <div key={ticket.id} className="bg-white p-5 rounded-2xl border border-slate-300 shadow-sm hover:shadow-lg transition-all flex flex-col md:flex-row gap-4 group">
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border uppercase tracking-widest ${ticket.priority === 'High' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>{ticket.priority} Priority</span>
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg border uppercase tracking-widest ${ticket.priority === 'High' ? 'bg-red-50 text-red-700' : 'bg-medical-50 text-medical-700'}`}>{ticket.priority} Priority</span>
                                     <span className="text-[10px] font-mono text-slate-300">#{ticket.id}</span>
                                 </div>
                                 <h3 className="font-black text-slate-800 uppercase tracking-tight">{ticket.customer} • {ticket.equipment}</h3>

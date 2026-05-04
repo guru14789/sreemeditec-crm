@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Wallet, DollarSign, Activity, Calendar, ArrowUpRight, Clock, Zap } from 'lucide-react';
+import { TrendingUp, Wallet, DollarSign, Activity, Calendar, ArrowUpRight, Clock, Zap, CheckCircle2, XCircle } from 'lucide-react';
 import { useData } from './DataContext';
 
 const COLORS = ['#ef4444', '#f59e0b', '#10b981'];
 
 export const Dashboard: React.FC = () => {
-  const { tasks, serviceTickets, pointHistory, invoices, currentUser: authUser } = useData();
+  const { tasks, serviceTickets, pointHistory, invoices, expenseStats, currentUser: authUser } = useData();
 
   const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
 
@@ -125,6 +125,38 @@ export const Dashboard: React.FC = () => {
                     <p className="text-[9px] md:text-[10px] font-black text-purple-200/80 uppercase tracking-widest">Monthly Intake</p>
                     <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
                     <p className="text-[10px] md:text-xs text-purple-200/60 mt-0.5 md:mt-1 font-medium italic underline decoration-purple-500/30">MOM Growth Engine</p>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      {/* Expense Snapshot */}
+      <div className="space-y-2.5">
+        <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
+            <Wallet size={13} /> Live Workspace Summary
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-emerald-400 transition-all">
+                <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle2 size={20} /></div>
+                <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Approved / Cleared</p>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.approved || 0)}</h3>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-amber-400 transition-all">
+                <div className="bg-amber-50 text-amber-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
+                <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pending / Awaiting</p>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.pending || 0)}</h3>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-rose-400 transition-all">
+                <div className="bg-rose-50 text-rose-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={20} /></div>
+                <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rejected / Declined</p>
+                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.rejected || 0)}</h3>
                 </div>
             </div>
         </div>

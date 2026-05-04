@@ -22,6 +22,7 @@ export const TaskModule: React.FC = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [completedLimit, setCompletedLimit] = useState(20);
 
     const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
     console.log('TaskModule Debug:', { tasksCount: tasks.length, authUser: authUser?.name, isAdmin });
@@ -30,6 +31,9 @@ export const TaskModule: React.FC = () => {
     const [showAddTaskModal, setShowAddTaskModal] = useState(false);
     const [isRescheduling, setIsRescheduling] = useState(false);
     const [rescheduleDate, setRescheduleDate] = useState('');
+    const [showRescheduleRequest, setShowRescheduleRequest] = useState(false);
+    const [reqNewDate, setReqNewDate] = useState('');
+    const [reqReason, setReqReason] = useState('');
 
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState('');
@@ -61,21 +65,13 @@ export const TaskModule: React.FC = () => {
             filtered = tasks.filter(t => {
                 const assignedName = (t.assignedTo || '').trim().toLowerCase();
                 const isAssigned = assignedName === authName;
-                
-                // Normalizing t.dueDate just in case it's missing or misformatted
                 const taskDate = t.dueDate || ''; 
                 
                 const isHistoryDone = taskDate < localToday && t.status === 'Done';
                 const isFuture = taskDate > localToday;
 
-                const shouldShow = isAssigned && !isHistoryDone && !isFuture;
-                
-                // Keep minimal logging for now to help the user verify
-                if (isAssigned && isFuture) {
-                    console.log(`Filtering out future task: ${t.title} (${taskDate} > ${localToday})`);
-                }
-
-                return shouldShow;
+                // Employees ONLY see today's or past tasks assigned to them
+                return isAssigned && !isHistoryDone && !isFuture;
             });
         }
 
@@ -243,19 +239,81 @@ export const TaskModule: React.FC = () => {
             const log: TaskLog = {
                 id: `LOG-${Date.now()}`,
                 user: authUser?.name || 'Admin',
-                action: `Task Rescheduled: ${selectedTask.dueDate} -> ${rescheduleDate}`,
+                action: `Task Rescheduled (Override): ${selectedTask.dueDate} -> ${rescheduleDate}`,
                 timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
             };
 
             await updateTaskRemote(selectedTask.id, {
                 dueDate: rescheduleDate,
                 status: 'To Do',
+                rescheduleRequest: undefined, // Clear any pending requests
                 logs: [...(selectedTask.logs || []), log]
             });
             setIsRescheduling(false);
             addNotification('Task Rescheduled', `New deadline set to ${rescheduleDate}`, 'success');
         } catch (err) {
             console.error("Reschedule failed", err);
+        }
+    };
+
+    const handleRequestReschedule = async () => {
+        if (!selectedTask || !reqNewDate || !reqReason) return;
+        try {
+            const req = {
+                newDate: reqNewDate,
+                reason: reqReason,
+                status: 'Pending' as const,
+                requestedBy: authUser?.name || 'Unknown',
+                requestedAt: new Date().toISOString()
+            };
+
+            const log: TaskLog = {
+                id: `LOG-REQ-${Date.now()}`,
+                user: authUser?.name || 'User',
+                action: `Reschedule Requested for ${reqNewDate}: "${reqReason}"`,
+                timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+            };
+
+            await updateTaskRemote(selectedTask.id, {
+                rescheduleRequest: req,
+                logs: [...(selectedTask.logs || []), log]
+            });
+            setShowRescheduleRequest(false);
+            setReqReason('');
+            setReqNewDate('');
+            addNotification('Request Submitted', 'Admin will review your reschedule request.', 'info');
+        } catch (err) {
+            console.error("Request failed", err);
+        }
+    };
+
+    const handleProcessReschedule = async (approved: boolean, adminNote?: string) => {
+        if (!selectedTask || !selectedTask.rescheduleRequest) return;
+        try {
+            const req = selectedTask.rescheduleRequest;
+            const newStatus = approved ? 'Approved' : 'Rejected';
+            
+            const log: TaskLog = {
+                id: `LOG-ADMIN-${Date.now()}`,
+                user: authUser?.name || 'Admin',
+                action: `Reschedule Request ${newStatus}. ${adminNote ? `Note: ${adminNote}` : ''}`,
+                timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+            };
+
+            const updates: Partial<Task> = {
+                rescheduleRequest: { ...req, status: newStatus as any, responseNote: adminNote },
+                logs: [...(selectedTask.logs || []), log]
+            };
+
+            if (approved) {
+                updates.dueDate = req.newDate;
+                updates.status = 'To Do'; // Unfreeze
+            }
+
+            await updateTaskRemote(selectedTask.id, updates);
+            addNotification(`Request ${newStatus}`, approved ? 'Task date updated.' : 'Task remains frozen.', approved ? 'success' : 'warning');
+        } catch (err) {
+            console.error("Process failed", err);
         }
     };
 
@@ -294,6 +352,7 @@ export const TaskModule: React.FC = () => {
 
     const KanbanColumn = ({ status, title, color }: { status: Task['status'], title: string, color: string }) => {
         const columnTasks = visibleTasks.filter(t => t.status === status);
+        const isCompleted = status === 'Done';
         return (
             <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden uppercase">
                 <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
@@ -304,24 +363,49 @@ export const TaskModule: React.FC = () => {
                     <span className="bg-slate-200/50 dark:bg-slate-800 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-500 dark:text-slate-400">{columnTasks.length}</span>
                 </div>
                 <div className="flex-1 overflow-y-scroll p-4 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    {columnTasks.map(task => (
+                    {(isCompleted ? columnTasks.slice(0, completedLimit) : columnTasks).map(task => (
                         <div
                             key={task.id}
                             onClick={() => setSelectedTaskId(task.id)}
                             className={`group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${task.priority === 'High' && task.status !== 'Done' ? 'border-rose-100 dark:border-rose-900' : 'border-slate-300 dark:border-slate-800'}`}
                         >
+                            {/* Frozen Overlay Badge */}
+                            {(task.status === 'To Do' || task.status === 'In Progress') && task.dueDate < new Date().toLocaleDateString('en-CA') && (
+                                <div className="absolute top-0 right-0 px-3 py-1 bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest rounded-bl-xl z-10 animate-pulse">
+                                    Frozen
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-start mb-4">
                                 <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase border ${task.priority === 'High' ? 'bg-rose-50 text-rose-700' : 'bg-slate-50 text-slate-500'}`}>
                                     {task.priority}
                                 </span>
+                                {task.rescheduleRequest?.status === 'Pending' && (
+                                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-100">
+                                        Req Pending
+                                    </span>
+                                )}
                             </div>
                             <h5 className="font-black text-slate-800 dark:text-slate-100 text-[12px] md:text-[13px] uppercase tracking-tight mb-2 leading-tight">{task.title}</h5>
                             <div className="pt-4 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
                                 <div className="flex items-center gap-2"><User size={12} /> {task.assignedTo.split(' ')[0]}</div>
-                                <div className="flex items-center gap-1"><Calendar size={12} /> {task.dueDate}</div>
+                                <div className={`flex items-center gap-1 ${task.dueDate < new Date().toLocaleDateString('en-CA') && task.status !== 'Done' ? 'text-rose-500 font-black' : ''}`}>
+                                    <Calendar size={12} /> {task.dueDate}
+                                </div>
                             </div>
                         </div>
                     ))}
+
+                    {isCompleted && columnTasks.length > completedLimit && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setCompletedLimit(prev => prev + 20); }}
+                            className="w-full py-4 rounded-[1.5rem] border-2 border-dashed border-slate-300 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-medical-600 hover:border-medical-300 transition-all flex flex-col items-center gap-1 group"
+                        >
+                            <Plus size={14} className="group-hover:rotate-90 transition-transform" />
+                            Load More Completed ({columnTasks.length - completedLimit} remaining)
+                        </button>
+                    )}
+
                     {columnTasks.length === 0 && (
                         <div className="py-10 text-center opacity-20 italic text-xs font-bold text-slate-400">Queue Empty</div>
                     )}
@@ -535,28 +619,71 @@ export const TaskModule: React.FC = () => {
 
                                             {selectedTask.assignedTo?.trim().toLowerCase() === authUser?.name?.trim().toLowerCase() ? (
                                                 <div className="space-y-4">
-                                                    {selectedTask.status === 'To Do' && (
-                                                        <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
-                                                    )}
-                                                    {selectedTask.status === 'In Progress' && (
-                                                        <div className="space-y-3">
-                                                            <div className="space-y-1">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Handoff Instructions / Completion Notes</label>
-                                                                <textarea 
-                                                                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
-                                                                    placeholder="Describe what you've done for the next stage..."
-                                                                    value={staffHandoffNote}
-                                                                    onChange={(e) => setStaffHandoffNote(e.target.value)}
-                                                                    rows={3}
-                                                                />
+                                                    {/* Frozen State Logic */}
+                                                    {(selectedTask.dueDate < new Date().toLocaleDateString('en-CA') && (selectedTask.status === 'To Do' || selectedTask.status === 'In Progress')) ? (
+                                                        <div className="p-6 bg-rose-50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-800 rounded-[2rem] space-y-4">
+                                                            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                                                                <XCircle size={24} />
+                                                                <h5 className="text-sm font-black uppercase tracking-tight">Task Frozen</h5>
                                                             </div>
-                                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review', staffHandoffNote)} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl ring-4 ring-medical-500/10">Submit for Approval</button>
+                                                            <p className="text-[10px] font-bold text-rose-800/70 dark:text-rose-300/70 leading-relaxed">
+                                                                Deadline exceeded. This mission is locked. You must raise a reschedule request to resume operations.
+                                                            </p>
+                                                            
+                                                            {selectedTask.rescheduleRequest ? (
+                                                                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-sm">
+                                                                    <div className="flex justify-between items-center mb-2">
+                                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Status</span>
+                                                                        <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${
+                                                                            selectedTask.rescheduleRequest.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 
+                                                                            selectedTask.rescheduleRequest.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                                                        }`}>
+                                                                            {selectedTask.rescheduleRequest.status}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Proposed: {selectedTask.rescheduleRequest.newDate}</p>
+                                                                    {selectedTask.rescheduleRequest.responseNote && (
+                                                                        <p className="text-[9px] mt-2 italic text-rose-500">Admin: {selectedTask.rescheduleRequest.responseNote}</p>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setReqNewDate(new Date().toISOString().split('T')[0]);
+                                                                        setShowRescheduleRequest(true);
+                                                                    }}
+                                                                    className="w-full bg-rose-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all"
+                                                                >
+                                                                    Raise Reschedule Request
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                    {selectedTask.status === 'Review' && (
-                                                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
-                                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center justify-center gap-2"><RefreshCw size={12} className="animate-spin" /> Awaiting Admin Review</p>
-                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {selectedTask.status === 'To Do' && (
+                                                                <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
+                                                            )}
+                                                            {selectedTask.status === 'In Progress' && (
+                                                                <div className="space-y-3">
+                                                                    <div className="space-y-1">
+                                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Handoff Instructions / Completion Notes</label>
+                                                                        <textarea 
+                                                                            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
+                                                                            placeholder="Describe what you've done for the next stage..."
+                                                                            value={staffHandoffNote}
+                                                                            onChange={(e) => setStaffHandoffNote(e.target.value)}
+                                                                            rows={3}
+                                                                        />
+                                                                    </div>
+                                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review', staffHandoffNote)} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl ring-4 ring-medical-500/10">Submit for Approval</button>
+                                                                </div>
+                                                            )}
+                                                            {selectedTask.status === 'Review' && (
+                                                                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
+                                                                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center justify-center gap-2"><RefreshCw size={12} className="animate-spin" /> Awaiting Admin Review</p>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             ) : (
@@ -615,10 +742,37 @@ export const TaskModule: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {isAdmin && selectedTask.status === 'Review' && (
-                                        <div className="flex flex-col gap-2 pt-2">
-                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95">Verify & Proceed to Next Stage</button>
-                                            <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
+                                    {isAdmin && (
+                                        <div className="space-y-3 pt-2">
+                                            {selectedTask.rescheduleRequest?.status === 'Pending' && (
+                                                <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-100 dark:border-amber-800 rounded-[2rem] space-y-4">
+                                                    <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+                                                        <Clock size={24} />
+                                                        <h5 className="text-sm font-black uppercase tracking-tight">Reschedule Request</h5>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requested by {selectedTask.rescheduleRequest.requestedBy}</p>
+                                                        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800">
+                                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 leading-relaxed">Reason: "{selectedTask.rescheduleRequest.reason}"</p>
+                                                            <p className="text-[10px] font-black text-indigo-600 uppercase">Proposed Date: {selectedTask.rescheduleRequest.newDate}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <button onClick={() => handleProcessReschedule(true)} className="bg-emerald-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Approve</button>
+                                                        <button onClick={() => {
+                                                            const note = prompt("Reason for rejection:");
+                                                            if (note !== null) handleProcessReschedule(false, note);
+                                                        }} className="bg-rose-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all">Reject</button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {selectedTask.status === 'Review' && (
+                                                <div className="flex flex-col gap-2">
+                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95">Verify & Proceed to Next Stage</button>
+                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -769,6 +923,44 @@ export const TaskModule: React.FC = () => {
                         <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
                             <button onClick={() => setShowAddTaskModal(false)} className="flex-1 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
                             <button onClick={handleCreateTask} className="flex-1 bg-[#022c22] text-white py-3 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Engage Fleet</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showRescheduleRequest && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Request Reschedule</h3>
+                            <button onClick={() => setShowRescheduleRequest(false)}><X size={24} /></button>
+                        </div>
+                        <div className="space-y-6">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Proposed Mission Date</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white"
+                                    value={reqNewDate}
+                                    onChange={(e) => setReqNewDate(e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reason for Adjustment</label>
+                                <textarea 
+                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none"
+                                    rows={4}
+                                    placeholder="Explain why the deadline was missed..."
+                                    value={reqReason}
+                                    onChange={(e) => setReqReason(e.target.value)}
+                                />
+                            </div>
+                            <button 
+                                onClick={handleRequestReschedule}
+                                className="w-full bg-rose-600 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95 transition-all"
+                            >
+                                Dispatch Request
+                            </button>
                         </div>
                     </div>
                 </div>

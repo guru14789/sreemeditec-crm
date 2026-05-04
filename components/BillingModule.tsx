@@ -475,10 +475,10 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                 <section className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                                        <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
-                                        <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={invoice.date} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
+                                        <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber || ''} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
+                                        <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={invoice.date || ''} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
                                         <FormRow label="Buyer Order #">
-                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.smcpoNumber} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.smcpoNumber || ''} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
                                                 <option value="Mail confirmation">Mail confirmation</option>
                                                 <option value="Verbal">Verbal</option>
                                                 <option value="PO">PO</option>
@@ -486,14 +486,14 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                             </select>
                                         </FormRow>
                                         <FormRow label="Dispatch Mode">
-                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.dispatchedThrough} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})}>
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none cursor-pointer" value={invoice.dispatchedThrough || ''} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})}>
                                                 <option value="Person">Person</option>
                                                 <option value="Courier">Courier</option>
                                                 <option value="Transport">Transport</option>
                                             </select>
                                         </FormRow>
-                                        <FormRow label="Destination"><input type="text" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" value={invoice.specialNote} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
-                                        <FormRow label="Paid Amount"><input type="number" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/5 transition-all text-center" value={invoice.paidAmount} onChange={e => setInvoice({...invoice, paidAmount: Number(e.target.value)})} /></FormRow>
+                                        <FormRow label="Destination"><input type="text" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" value={invoice.specialNote || ''} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
+                                        <FormRow label="Paid Amount"><input type="number" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/5 transition-all text-center" value={invoice.paidAmount || 0} onChange={e => setInvoice({...invoice, paidAmount: Number(e.target.value)})} /></FormRow>
                                     </div>
                                 </section>
 
@@ -519,7 +519,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                         }} placeholder="Search registry..." />
                                                     </FormRow>
                                                     <FormRow label="Consignee GSTIN">
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin || ''} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
                                                     </FormRow>
                                                     <FormRow label="Site / Shipping Address">
                                                         <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full shipping address..." />
@@ -573,23 +573,23 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <div className="grid grid-cols-12 gap-6">
                                                     <div className="col-span-12 md:col-span-5">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-4 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-3 md:col-span-1">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-3 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-2 md:col-span-2">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
+                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
                                                     </div>
                                                     <div className="col-span-12">
                                                         <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>

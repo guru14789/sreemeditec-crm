@@ -14,7 +14,16 @@ interface EmployeeDashboardProps {
 }
 
 export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUser, tasks }) => {
-  const { userStats, pointHistory } = useData();
+  const { userStats, pointHistory, currentUser: activeUser } = useData();
+  
+  const tasksCompletedMonthly = React.useMemo(() => {
+    const currentMonthId = new Date().toISOString().slice(0, 7);
+    return pointHistory.filter(p => 
+      p.userId === activeUser?.id && 
+      p.category === 'Task' && 
+      p.date?.startsWith(currentMonthId)
+    ).length;
+  }, [pointHistory, activeUser?.id]);
   
   const todayStr = new Date().toISOString().split('T')[0];
   const myTasksToday = tasks.filter(t => t.assignedTo === currentUser && t.dueDate === todayStr);
@@ -43,7 +52,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-medical-50 dark:bg-medical-900/30 text-medical-600 dark:text-medical-400 rounded-2xl group-hover:scale-110 transition-transform">
               <Zap size={22} fill="currentColor" />
             </div>
             <TrendingUp size={18} className="text-emerald-500" />
@@ -60,7 +69,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-lg">Best</span>
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Tasks Completed</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{userStats.tasksCompleted}</h3>
+          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
@@ -93,7 +102,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="font-black text-xs md:text-sm text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-medical-500"></div>
               Today's Agenda
             </h3>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{pendingTasks.length} Pending Actions</span>
@@ -113,7 +122,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
                       </h4>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          <MapPin size={12} className="text-indigo-400" /> {task.locationName || 'Main Office'}
+                          <MapPin size={12} className="text-medical-400" /> {task.locationName || 'Main Office'}
                         </span>
                         <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase border tracking-tighter ${
                           task.priority === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-slate-50 text-slate-500 border-slate-300'
@@ -150,7 +159,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             </div>
             <div className="p-5 space-y-3">
               {pointHistory.slice(0, 5).map(log => (
-                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-indigo-200 transition-colors">
+                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-medical-200 transition-colors">
                   <div className="min-w-0 pr-4">
                     <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase truncate leading-tight tracking-tight">{log.description}</p>
                     <p className="text-[8px] font-bold text-slate-300 uppercase mt-1.5 tracking-widest">{log.date}</p>
@@ -163,7 +172,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-600 to-indigo-900 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-950/30 relative overflow-hidden">
+          <div className="bg-gradient-to-br from-medical-600 to-medical-900 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-medical-950/30 relative overflow-hidden">
             <div className="absolute -bottom-10 -left-10 opacity-10 rotate-12">
               <Target size={150} />
             </div>
@@ -172,7 +181,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
                 <Zap size={20} className="text-amber-300" fill="currentColor" />
               </div>
               <h4 className="font-black text-xs uppercase tracking-[0.2em] mb-3">Tactical Insight</h4>
-              <p className="text-sm font-medium text-indigo-100 leading-relaxed italic">
+              <p className="text-sm font-medium text-medical-100 leading-relaxed italic">
                 "Speed determines success. High-priority tasks resolved before 12:00 PM trigger a 1.5x Multiplier."
               </p>
             </div>

@@ -1,6 +1,19 @@
 
 export type EnterpriseRole = 'SYSTEM_ADMIN' | 'SYSTEM_STAFF';
 
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: 'Created' | 'Modified' | 'Deleted' | 'Status Change';
+  changes: {
+    field: string;
+    oldValue: any;
+    newValue: any;
+  }[];
+  reason?: string;
+}
+
 export enum TabView {
   DASHBOARD = 'DASHBOARD',
   LEADS = 'LEADS',
@@ -27,7 +40,9 @@ export enum TabView {
   ARCHIVE = 'ARCHIVE',
   PAYROLL = 'PAYROLL',
   CONFIG = 'CONFIG',
-  PURCHASE_REGISTER = 'PURCHASE_REGISTER'
+  PURCHASE_REGISTER = 'PURCHASE_REGISTER',
+  ACCOUNTING = 'ACCOUNTING',
+  COMPLIANCE = 'COMPLIANCE'
 }
 
 export enum LeadStatus {
@@ -91,6 +106,7 @@ export interface Vendor {
   status?: 'Draft' | 'Finalized';
 }
 
+
 export interface Product {
   id: string;
   name: string;
@@ -109,6 +125,113 @@ export interface Product {
   supplier?: string;
   lastRestocked?: string;
   price?: number;
+  isBatchTracked?: boolean;
+  reorderLevel?: number;
+  godown?: string;
+}
+
+// --- NEW ACCOUNTING & COMPLIANCE TYPES ---
+
+export type VoucherType = 'Sales' | 'Purchase' | 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Debit Note' | 'Credit Note';
+
+export interface AccountGroup {
+  id: string;
+  name: string;
+  parentGroupId?: string;
+  type: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+}
+
+export interface Ledger {
+  id: string;
+  name: string;
+  groupId: string;
+  openingBalance: number;
+  currentBalance: number;
+  description?: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface LedgerEntry {
+  id: string;
+  ledgerId: string;
+  ledgerName: string;
+  debit: number;
+  credit: number;
+  narration?: string;
+}
+
+export interface BillSettlement {
+  invoiceId: string;
+  invoiceNumber: string;
+  voucherId: string;
+  amount: number;
+  date: string;
+}
+
+export interface AccountingVoucher {
+  id: string;
+  voucherNumber: string;
+  date: string;
+  type: VoucherType;
+  entries: LedgerEntry[];
+  narration: string;
+  referenceId?: string; // ID of the Invoice, Expense, etc.
+  referenceNumber?: string;
+  totalAmount: number;
+  settlements?: BillSettlement[];
+  createdBy: string;
+  editHistory?: AuditLogEntry[];
+  bankReconciliationDate?: string;
+}
+
+export interface BankStatementEntry {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  type: 'Debit' | 'Credit';
+  reference?: string;
+  isMatched: boolean;
+  matchedVoucherId?: string;
+}
+
+export interface StockTransfer {
+  id: string;
+  date: string;
+  productId: string;
+  productName: string;
+  fromLocation: string;
+  toLocation: string;
+  quantity: number;
+  reference?: string;
+  createdBy: string;
+}
+
+export interface StatutoryDeduction {
+  id: string;
+  employeeId: string;
+  monthId: string; // YYYY-MM
+  pf: number;
+  esi: number;
+  professionalTax: number;
+  otherDeductions: number;
+  totalDeductions: number;
+  netSalary: number;
+}
+
+export interface TdsTcsRecord {
+  id: string;
+  date: string;
+  ledgerId: string;
+  ledgerName: string;
+  type: 'TDS' | 'TCS';
+  section: string;
+  taxableAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  referenceVoucherId: string;
 }
 
 export interface InvoiceItem {
@@ -156,6 +279,8 @@ export interface Invoice {
   discount?: number;
   subject?: string;
   phone?: string;
+  email?: string;
+  contactPerson?: string;
   freightAmount?: number;
   freightTaxRate?: number;
   paymentTerms?: string;
@@ -166,6 +291,21 @@ export interface Invoice {
   warrantyTerms?: string;
   dispatchedThrough?: string;
   paidAmount?: number;
+  paymentDate?: string;
+  paymentBank?: string;
+  equipmentName?: string;
+  model?: string;
+  serialNumber?: string;
+  machineStatus?: string;
+  engineerName?: string;
+  problemReported?: string;
+  department?: string;
+  visitType?: string;
+  priority?: 'Urgent' | 'High' | 'Medium' | 'Low';
+  expectedResolutionDate?: string;
+  machineLocation?: string;
+  balanceDue?: number;
+  editHistory?: AuditLogEntry[];
 }
 
 export interface StockMovement {
@@ -177,6 +317,16 @@ export interface StockMovement {
   date: string;
   reference: string;
   purpose: 'Restock' | 'Sale' | 'Demo';
+  batchId?: string;
+}
+
+export interface StockBatch {
+  id: string;
+  productId: string;
+  batchNo: string;
+  expiryDate: string;
+  quantity: number;
+  createdDate: string;
 }
 
 export interface ExpenseRecord {
@@ -189,6 +339,7 @@ export interface ExpenseRecord {
   status: 'Pending' | 'Approved' | 'Rejected';
   receiptUrl?: string;
   rejectionReason?: string;
+  editHistory?: AuditLogEntry[];
 }
 
 export interface Employee {
@@ -264,7 +415,7 @@ export interface MonthlyWinner {
 export interface SystemSettings {
   id: string;
   lastResetMonth: string; // Format: YYYY-MM
-  financialYear: string; // Format: 25-26
+  financialYear: string; // Format: 26-27
 }
 
 export interface TaskLog {
@@ -272,6 +423,15 @@ export interface TaskLog {
   user: string;
   action: string;
   timestamp: string;
+}
+
+export interface RescheduleRequest {
+  newDate: string;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  requestedBy: string;
+  requestedAt: string;
+  responseNote?: string;
 }
 
 export interface Task {
@@ -288,6 +448,8 @@ export interface Task {
   handoffChain: string[];
   handoffNotes?: string;
   subTasks?: any[];
+  logs?: TaskLog[];
+  rescheduleRequest?: RescheduleRequest;
 }
 
 export interface ServiceTicket {

@@ -34,6 +34,8 @@ import { LogsModule } from './components/LogsModule';
 import { CatalogModule } from './components/CatalogModule';
 import { PayrollModule } from './components/PayrollModule';
 import { ArchiveModule } from './components/ArchiveModule';
+import { AccountingModule } from './components/AccountingModule';
+import { ComplianceModule } from './components/ComplianceModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord } from './types';
@@ -106,7 +108,7 @@ export const App: React.FC = () => {
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
         userStats, attendanceRecords, invoices, financialYear, updateFinancialYear,
         clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
-        addNotification
+        addNotification, expenseStats
     } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
@@ -352,6 +354,8 @@ export const App: React.FC = () => {
         { tab: TabView.HR, icon: ShieldCheck, label: 'Staff Management' },
         { tab: TabView.REPORTS, icon: ClipboardList, label: 'Reports Centre' },
         { tab: TabView.ARCHIVE, icon: FileText, label: 'Finance Archive' },
+        { tab: TabView.ACCOUNTING, icon: Wallet, label: 'Accounting Terminal' },
+        { tab: TabView.COMPLIANCE, icon: ShieldCheck, label: 'Compliance Terminal' },
         { tab: TabView.CONFIG, icon: Settings, label: 'System Config' },
       ]
     }
@@ -418,6 +422,8 @@ export const App: React.FC = () => {
       case TabView.CATALOG: return <CatalogModule />;
       case TabView.PAYROLL: return <PayrollModule />;
       case TabView.ARCHIVE: return <ArchiveModule />;
+      case TabView.ACCOUNTING: return <AccountingModule />;
+      case TabView.COMPLIANCE: return <ComplianceModule />;
       case TabView.CONFIG: return (
         <div className="h-full flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in zoom-in duration-500">
             <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
@@ -674,32 +680,25 @@ export const App: React.FC = () => {
           {activeTab === TabView.EXPENSES && (
             <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
                {(() => {
-                 const userRole = (currentUser?.department === 'Administration' || currentUser?.role === 'SYSTEM_ADMIN') ? 'Admin' : 'Employee';
-                 const visibleExpenses = userRole === 'Admin' ? expenses : expenses.filter(e => e.employeeName === currentUser?.name);
-                 
-                 const totalApproved = visibleExpenses.filter(e => e.status === 'Approved').reduce((sum, e) => sum + e.amount, 0);
-                 const pendingAmount = visibleExpenses.filter(e => e.status === 'Pending').reduce((sum, e) => sum + e.amount, 0);
-                 const totalRejected = visibleExpenses.filter(e => e.status === 'Rejected').reduce((sum, e) => sum + e.amount, 0);
-                 
                  return (
                    <>
                      <HeaderStatCard 
                         label="Approved" 
-                        value={`₹${formatIndianNumber(totalApproved)}`} 
+                        value={`₹${formatIndianNumber(expenseStats?.approved || 0)}`} 
                         icon={CheckCircle2} 
                         colorClass="bg-emerald-500"
                         subText="Cleared"
                      />
                      <HeaderStatCard 
                         label="Pending" 
-                        value={`₹${formatIndianNumber(pendingAmount)}`} 
+                        value={`₹${formatIndianNumber(expenseStats?.pending || 0)}`} 
                         icon={Clock} 
                         colorClass="bg-amber-500"
                         subText="Awaiting"
                      />
                      <HeaderStatCard 
                         label="Rejected" 
-                        value={`₹${formatIndianNumber(totalRejected)}`} 
+                        value={`₹${formatIndianNumber(expenseStats?.rejected || 0)}`} 
                         icon={XCircle} 
                         colorClass="bg-rose-500"
                         subText="Declined"

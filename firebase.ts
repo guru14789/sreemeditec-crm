@@ -20,11 +20,8 @@ export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true
 });
 
-import { initializeAuth, GoogleAuthProvider, indexedDBLocalPersistence, browserLocalPersistence } from "firebase/auth";
+export const auth = getAuth(app);
 
-export const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
-});
 export const googleProvider = new GoogleAuthProvider();
 
 let analyticsInstance: any = null;

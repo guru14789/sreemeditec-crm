@@ -43,7 +43,11 @@ export const PerformanceModule: React.FC = () => {
               .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
               .reduce((sum, p) => sum + p.points, 0);
           
-          const empTasks = tasks.filter(t => t.assignedTo === emp.name && t.status === 'Done').length;
+          const empTasks = pointHistory.filter(p => 
+              p.userId === emp.id && 
+              p.category === 'Task' && 
+              p.date?.startsWith(currentMonthId)
+          ).length;
           
           const empAttendanceCount = attendanceRecords.filter(r => 
               r.userId === emp.id && 
