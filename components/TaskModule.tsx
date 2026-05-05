@@ -7,7 +7,11 @@ import {
 } from 'lucide-react';
 import { useData } from './DataContext';
 
-export const TaskModule: React.FC = () => {
+interface TaskModuleProps {
+    userRole?: 'Admin' | 'Employee';
+}
+
+export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     const {
         tasks,
         addPoints,
@@ -24,7 +28,7 @@ export const TaskModule: React.FC = () => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [completedLimit, setCompletedLimit] = useState(20);
 
-    const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
+    const isAdmin = userRole === 'Admin' || authUser?.role === 'SYSTEM_ADMIN';
     console.log('TaskModule Debug:', { tasksCount: tasks.length, authUser: authUser?.name, isAdmin });
 
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -369,10 +373,10 @@ export const TaskModule: React.FC = () => {
                             onClick={() => setSelectedTaskId(task.id)}
                             className={`group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${task.priority === 'High' && task.status !== 'Done' ? 'border-rose-100 dark:border-rose-900' : 'border-slate-300 dark:border-slate-800'}`}
                         >
-                            {/* Frozen Overlay Badge */}
+                            {/* Overdue/Frozen Overlay Badge */}
                             {(task.status === 'To Do' || task.status === 'In Progress') && task.dueDate < new Date().toLocaleDateString('en-CA') && (
-                                <div className="absolute top-0 right-0 px-3 py-1 bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest rounded-bl-xl z-10 animate-pulse">
-                                    Frozen
+                                <div className={`absolute top-0 right-0 px-3 py-1 text-white text-[8px] font-black uppercase tracking-widest rounded-bl-xl z-10 ${isAdmin ? 'bg-indigo-600' : 'bg-rose-600 animate-pulse'}`}>
+                                    {isAdmin ? 'Overdue' : 'Frozen'}
                                 </div>
                             )}
 
@@ -619,8 +623,8 @@ export const TaskModule: React.FC = () => {
 
                                             {selectedTask.assignedTo?.trim().toLowerCase() === authUser?.name?.trim().toLowerCase() ? (
                                                 <div className="space-y-4">
-                                                    {/* Frozen State Logic */}
-                                                    {(selectedTask.dueDate < new Date().toLocaleDateString('en-CA') && (selectedTask.status === 'To Do' || selectedTask.status === 'In Progress')) ? (
+                                            {/* Frozen State Logic - Bypassed for Admins */}
+                                            {(selectedTask.dueDate < new Date().toLocaleDateString('en-CA') && (selectedTask.status === 'To Do' || selectedTask.status === 'In Progress') && !isAdmin) ? (
                                                         <div className="p-6 bg-rose-50 dark:bg-rose-900/10 border-2 border-rose-100 dark:border-rose-800 rounded-[2rem] space-y-4">
                                                             <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
                                                                 <XCircle size={24} />

@@ -14,7 +14,11 @@ import {
 } from 'lucide-react';
 import { useData } from './DataContext';
 
-export const ComplianceModule: React.FC = () => {
+interface ComplianceModuleProps {
+  userRole?: 'Admin' | 'Employee';
+}
+
+export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) => {
   const { invoices, ledgers, vouchers } = useData();
   const [activeTab, setActiveTab] = useState<'gstr1' | 'gstr3b' | 'tds'>('gstr1');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));

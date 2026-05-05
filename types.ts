@@ -352,7 +352,7 @@ export interface Employee {
   joinDate?: string;
   baseSalary?: number;
   status: 'Active' | 'On Leave';
-  permissions: TabView[];
+  permissions: Record<string, 'Admin' | 'Employee'>;
   password?: string;
   isLoginEnabled: boolean;
   lastSeenWinnerMonth?: string; // Format: YYYY-MM

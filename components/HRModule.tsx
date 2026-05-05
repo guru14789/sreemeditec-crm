@@ -33,6 +33,8 @@ const MODULE_OPTIONS = [
     { value: TabView.PURCHASE_REGISTER, label: 'Purchase Entry' },
     { value: TabView.CONFIG, label: 'System Settings' },
     { value: TabView.PROFILE, label: 'My Profile' },
+    { value: TabView.ACCOUNTING, label: 'Accounting Terminal' },
+    { value: TabView.COMPLIANCE, label: 'Compliance Terminal' },
 ];
 
 const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
@@ -53,7 +55,7 @@ export const HRModule: React.FC = () => {
         department: 'Sales',
         status: 'Active',
         baseSalary: 30000,
-        permissions: [TabView.DASHBOARD],
+        permissions: { [TabView.DASHBOARD]: 'Employee' },
         isLoginEnabled: true,
         password: ''
     });
@@ -70,7 +72,7 @@ export const HRModule: React.FC = () => {
             status: 'Active',
             baseSalary: 30000,
             joinDate: new Date().toISOString().split('T')[0],
-            permissions: [TabView.DASHBOARD],
+            permissions: { [TabView.DASHBOARD]: 'Employee' },
             isLoginEnabled: true,
             password: Math.random().toString(36).slice(-8)
         });
@@ -80,7 +82,14 @@ export const HRModule: React.FC = () => {
     const handleOpenEditModal = (emp: Employee) => {
         setIsEditing(true);
         setSelectedEmployeeId(emp.id);
-        setEmployeeFormData({ ...emp });
+        
+        // Normalize legacy array permissions to Record format if encountered during edit
+        let normalizedPerms = emp.permissions || {};
+        if (Array.isArray(normalizedPerms)) {
+            normalizedPerms = (normalizedPerms as any).reduce((acc: any, tab: string) => ({ ...acc, [tab]: 'Employee' }), {});
+        }
+        
+        setEmployeeFormData({ ...emp, permissions: normalizedPerms });
         setShowEmployeeModal(true);
     };
 
@@ -115,7 +124,7 @@ export const HRModule: React.FC = () => {
                 joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
                 baseSalary: Number(employeeFormData.baseSalary),
                 status: 'Active',
-                permissions: employeeFormData.permissions || [],
+                permissions: employeeFormData.permissions || {},
                 password: employeeFormData.password,
                 isLoginEnabled: true
             };
@@ -157,12 +166,24 @@ export const HRModule: React.FC = () => {
         const emp = employees.find(e => e.id === empId);
         if (!emp) return;
         
-        // Super admin protection
         if (emp.email?.toLowerCase() === 'sreekumar.career@gmail.com') return;
 
-        const currentPerms = emp.permissions || [];
-        const newPerms = currentPerms.includes(tab) ? currentPerms.filter(t => t !== tab) : [...currentPerms, tab];
-        updateEmployee(empId, { permissions: newPerms });
+        const currentPerms = { ...(emp.permissions || {}) } as Record<string, 'Admin' | 'Employee'>;
+        const currentRole = currentPerms[tab];
+
+        // Cycle: None -> Employee -> Admin -> None
+        let nextRole: 'Admin' | 'Employee' | undefined;
+        if (!currentRole) nextRole = 'Employee';
+        else if (currentRole === 'Employee') nextRole = 'Admin';
+        else nextRole = undefined;
+
+        if (nextRole) {
+            currentPerms[tab] = nextRole;
+        } else {
+            delete currentPerms[tab];
+        }
+        
+        updateEmployee(empId, { permissions: currentPerms });
     };
 
     const filteredEmployees = employees.filter(emp =>
@@ -213,7 +234,7 @@ export const HRModule: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <span className="text-[9px] font-black text-slate-400 uppercase">Access Status</span>
                                         <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-600' : 'text-medical-600'}`}>
-                                            {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${emp.permissions?.length || 0} Modules Grant`}
+                                            {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${Object.keys(emp.permissions || {}).length} Modules Grant`}
                                         </span>
                                     </div>
                                 </div>
@@ -256,14 +277,19 @@ export const HRModule: React.FC = () => {
                                                     return (
                                                         <div className="flex flex-wrap gap-2">
                                                             {MODULE_OPTIONS.map(mod => {
-                                                                const isChecked = (emp.permissions || []).includes(mod.value);
+                                                                const role = (emp.permissions || {})[mod.value];
                                                                 return (
                                                                     <button
                                                                         key={mod.value}
-                                                                        onClick={() => togglePermission(emp.id, mod.value)}
-                                                                        className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 ${isChecked ? (isAdmin ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-medical-600 text-white border-medical-600 shadow-md') : 'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'}`}
+                                                                        onClick={() => togglePermission(emp.id, mod.value as TabView)}
+                                                                        className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                                                                            role === 'Admin' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 
+                                                                            role === 'Employee' ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 
+                                                                            'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'
+                                                                        }`}
                                                                     >
-                                                                        {mod.label}
+                                                                        <span>{mod.label}</span>
+                                                                        {role && <span className="text-[7px] opacity-70">({role})</span>}
                                                                     </button>
                                                                 );
                                                             })}

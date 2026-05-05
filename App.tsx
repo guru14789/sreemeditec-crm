@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { db } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, updateDoc, doc } from 'firebase/firestore';
 import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
@@ -38,7 +38,7 @@ import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
-import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord } from './types';
+import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord, Employee } from './types';
 import { useData } from './components/DataContext';
 
 const NavItem: React.FC<{
@@ -108,10 +108,45 @@ export const App: React.FC = () => {
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
         userStats, attendanceRecords, invoices, financialYear, updateFinancialYear,
         clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
-        addNotification, expenseStats
+        addNotification, expenseStats, updateEmployee
     } = useData();
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
+
+    const isSuperAdmin = currentUser?.email?.toLowerCase() === 'sreekumar.career@gmail.com';
+
+    // Anti-Gravity Safety Effect: Auto-normalize currentUser permissions if they arrive as Array
+    useEffect(() => {
+        if (currentUser && Array.isArray(currentUser.permissions)) {
+            console.warn("Legacy Permission Array detected for user:", currentUser.name, ". Normalizing...");
+            const normalized = currentUser.permissions.reduce((acc: any, tab: string) => ({ ...acc, [tab]: 'Employee' }), {});
+            updateEmployee(currentUser.id, { permissions: normalized });
+        }
+    }, [currentUser?.permissions, currentUser?.id]);
+
+    const handleMigratePermissions = async () => {
+      if (!isSuperAdmin) return;
+      if (!window.confirm("CRITICAL: This will migrate ALL employees to the new granular permission structure. This is required to resolve legacy Array issues. Continue?")) return;
+      
+      try {
+        const q = query(collection(db, "employees"));
+        const snap = await getDocs(q);
+        let count = 0;
+        
+        for (const d of snap.docs) {
+          const data = d.data();
+          if (Array.isArray(data.permissions)) {
+            const normalized = data.permissions.reduce((acc: any, tab: string) => ({ ...acc, [tab]: 'Employee' }), {});
+            await updateDoc(doc(db, "employees", d.id), { permissions: normalized });
+            count++;
+          }
+        }
+        alert(`Security Maintenance Complete: ${count} employees normalized to Record structure.`);
+      } catch (err) {
+        console.error("Migration failed:", err);
+        alert("Maintenance Error: System was unable to write to the employee registry. Check Firestore rules.");
+      }
+    };
 
     const handleFullBackup = async () => {
         const zip = new JSZip();
@@ -302,14 +337,19 @@ export const App: React.FC = () => {
     return <Login />;
   }
 
-  const isSuperAdmin = currentUser.email?.toLowerCase() === 'sreekumar.career@gmail.com';
-  const userRole = currentUser.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
+  const userRole = (() => {
+    if (isSuperAdmin) return 'Admin';
+    const role = currentUser.permissions?.[activeTab];
+    if (role) return role;
+    return currentUser.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
+  })();
+
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
     if (isSuperAdmin) return true;
     if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
-    return (currentUser.permissions || []).includes(tab);
+    return !!(currentUser.permissions?.[tab]);
   };
 
   const sidebarSections = [
@@ -407,7 +447,7 @@ export const App: React.FC = () => {
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
       case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} />;
-      case TabView.TASKS: return <TaskModule />;
+      case TabView.TASKS: return <TaskModule userRole={userRole} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
@@ -422,8 +462,8 @@ export const App: React.FC = () => {
       case TabView.CATALOG: return <CatalogModule />;
       case TabView.PAYROLL: return <PayrollModule />;
       case TabView.ARCHIVE: return <ArchiveModule />;
-      case TabView.ACCOUNTING: return <AccountingModule />;
-      case TabView.COMPLIANCE: return <ComplianceModule />;
+      case TabView.ACCOUNTING: return <AccountingModule userRole={userRole} />;
+      case TabView.COMPLIANCE: return <ComplianceModule userRole={userRole} />;
       case TabView.CONFIG: return (
         <div className="h-full flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in zoom-in duration-500">
             <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
@@ -444,7 +484,7 @@ export const App: React.FC = () => {
                     </div>
                 </div>
                 <div 
-                    onClick={() => {
+                    onClick={async () => {
                         if (userRole !== 'Admin') {
                             alert("Administrative privileges required for System Backup.");
                             return;
@@ -456,10 +496,26 @@ export const App: React.FC = () => {
                     <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/backup:text-emerald-500 transition-colors"><Database size={16}/></div>
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Data Vault</p>
                     <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Backup</p>
-                        <Download size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Sync</p>
+                        <ChevronRight size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
                     </div>
                 </div>
+                {isSuperAdmin && (
+                  <div 
+                      onClick={handleMigratePermissions}
+                      className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all group/migrate col-span-2"
+                  >
+                      <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 mb-4 shadow-sm group-hover/migrate:bg-indigo-600 group-hover/migrate:text-white transition-all"><ShieldAlert size={16}/></div>
+                      <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-1">Security Maintenance</p>
+                      <div className="flex items-center justify-between">
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Migrate Legacy Permissions</p>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 rounded-full uppercase tracking-tighter">Super Admin Only</span>
+                            <ChevronRight size={14} className="text-indigo-300 group-hover/migrate:text-indigo-400 transition-colors" />
+                          </div>
+                      </div>
+                  </div>
+                )}
                 <div 
                     onClick={async () => {
                         if (userRole !== 'Admin') {

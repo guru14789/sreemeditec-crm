@@ -326,7 +326,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 email: email,
                 status: 'Active',
                 isLoginEnabled: true,
-                permissions: Object.values(TabView)
+                permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
             };
         } else if (employees.length > 0) {
             // 2. Resolve against Registry
@@ -546,7 +546,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     email: lowerEmail,
                     status: 'Active',
                     isLoginEnabled: true,
-                    permissions: Object.values(TabView)
+                    permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
                 };
                 setCurrentUser(adminUser);
                 setIsAuthenticating(false);

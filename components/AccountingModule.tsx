@@ -43,7 +43,11 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
     </div>
 );
 
-export const AccountingModule: React.FC = () => {
+interface AccountingModuleProps {
+  userRole?: 'Admin' | 'Employee';
+}
+
+export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) => {
   const { 
     ledgers = [], 
     vouchers = [], 
