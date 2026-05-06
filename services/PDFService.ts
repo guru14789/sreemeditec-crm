@@ -539,29 +539,230 @@ export const PDFService = {
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text('SREE MEDITEC', pageWidth / 2, 15, { align: 'center' });
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 73.', pageWidth / 2, 20, { align: 'center' });
-        doc.text('Ph: 9884818398 / 7200025642 | Email: sreemeditec@gmail.com', pageWidth / 2, 24, { align: 'center' });
+        // Custom Colors from Tailwind Config
+        const medical600 = [5, 150, 105]; // #059669
+        const slate50 = [248, 250, 252]; // #f8fafc
+        const slate100 = [241, 245, 249]; // #f1f7f9
+        const rose600 = [225, 29, 72]; // #e11d48
         
-        doc.setLineWidth(0.5);
-        doc.line(margin, 28, pageWidth - margin, 28);
+        // 1. Header Section
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(28);
+        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 23, { align: 'center' });
+        doc.text('Mob: 9884818398', pageWidth / 2, 27, { align: 'center' });
+        
+        // 2. Service Report Banner
+        doc.setLineWidth(0.2);
+        doc.setDrawColor(0);
+        doc.setFillColor(slate50[0], slate50[1], slate50[2]);
+        doc.rect(margin, 32, pageWidth - (margin * 2), 8, 'FD');
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('SERVICE REPORT', pageWidth / 2, 34, { align: 'center' });
+        doc.text('SERVICE REPORT', pageWidth / 2, 37.5, { align: 'center' });
+
+        // 3. Info Grid (5 Columns)
+        autoTable(doc, {
+            startY: 40,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            body: [
+                [
+                    { content: `Sr No: ${data.reportNumber || ''}`, styles: { textColor: medical600 as any } },
+                    { content: `Office: ${data.office || 'Chennai'}`, styles: { fontStyle: 'normal' } },
+                    { content: `Engineer: ${(data.engineerName || '').toUpperCase()}`, styles: { fontStyle: 'normal' } },
+                    { content: `Date: ${formatDateDDMMYYYY(data.date)}`, styles: { fontStyle: 'normal' } },
+                    { content: `Time: ${data.time || ''}`, styles: { fontStyle: 'normal' } }
+                ]
+            ],
+            columnStyles: { 
+                0: { cellWidth: 38 }, 1: { cellWidth: 30 }, 2: { cellWidth: 45 }, 3: { cellWidth: 35 }, 4: { cellWidth: 'auto' } 
+            }
+        });
+
+        // 4. Customer & Machine Grid
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            body: [
+                [
+                    { content: `Customer: ${(data.customerName || '').toUpperCase()}` },
+                    { content: `Machine: ${(data.equipmentName || '').toUpperCase()}` }
+                ]
+            ]
+        });
+
+        // 5. Address & Machine Status Grid
+        const status = data.machineStatus || 'Warranty';
+        const checkboxSize = 3;
+        
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [
+                    { 
+                        content: `Address:\n\n${(data.customerAddress || '').toUpperCase()}`, 
+                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' } 
+                    },
+                    { 
+                        content: `Machine Status:\n\n\n\n\n\nSoftware version: ${data.softwareVersion || '---'}`, 
+                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' } 
+                    }
+                ]
+            ],
+            columnStyles: { 0: { cellWidth: (pageWidth - 20) * 0.5 }, 1: { cellWidth: (pageWidth - 20) * 0.5 } },
+            didDrawCell: (dataCell) => {
+                if (dataCell.column.index === 1 && dataCell.section === 'body') {
+                    const x = dataCell.cell.x + 2;
+                    const y = dataCell.cell.y + 8;
+                    const options = ['Warranty', 'Out Of Warranty', 'AMC'];
+                    
+                    doc.setFontSize(7);
+                    options.forEach((opt, idx) => {
+                        const optX = x + (idx * 30);
+                        doc.rect(optX, y, checkboxSize, checkboxSize);
+                        if (status === opt) {
+                            doc.setFillColor(0);
+                            doc.rect(optX + 0.5, y + 0.5, checkboxSize - 1, checkboxSize - 1, 'F');
+                        }
+                        doc.text(opt, optX + 5, y + 2.5);
+                    });
+                }
+            }
+        });
+
+        // 6. Complaint & Observations Grid
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [
+                    { 
+                        content: `Complaint Summary:\n\n${data.problemReported || '---'}`, 
+                        styles: { minCellHeight: 25, fontStyle: 'italic' } 
+                    },
+                    { 
+                        content: `Engineer's observations:\n\n${data.engineerObservations || '---'}`, 
+                        styles: { minCellHeight: 25, fontStyle: 'italic' } 
+                    }
+                ]
+            ],
+            head: [[
+                { content: 'COMPLAINT SUMMARY', styles: { fontSize: 7, fontStyle: 'bold' } },
+                { content: "ENGINEER'S OBSERVATIONS", styles: { fontSize: 7, fontStyle: 'bold' } }
+            ]],
+            showHead: 'always'
+        });
+
+        // 7. PO/WO Number
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            body: [
+                [`PO/WO Number from Customer:   ${data.poWoNumber || '---'}`]
+            ]
+        });
+
+        // 8. Action Taken Banner
+        doc.setFillColor(slate50[0], slate50[1], slate50[2]);
+        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - (margin * 2), 7, 'FD');
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ACTION TAKEN BY ENGINEER', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4.5, { align: 'center' });
+
+        // 9. Action Grid
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY + 7,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                ['Hardware/Spares:', data.actionHardware || '---'],
+                ['Operational Fix:', data.actionOperational || '---'],
+                ['Software Update:', data.actionSoftware || '---']
+            ],
+            columnStyles: { 
+                0: { cellWidth: 40, fontStyle: 'bold', fillColor: slate50 as any },
+                1: { fontStyle: 'normal' }
+            }
+        });
+
+        // 10. Financial & Remarks Section (Split)
+        const sparesSum = (data.itemsUsed || []).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+        const pastBal = Number(data.pastBalance) || 0;
+        const visitChg = Number(data.visitCharges) || 0;
+        const totalRec = pastBal + visitChg + sparesSum;
+        const recvd = Number(data.amountReceived) || 0;
+        const balance = totalRec - recvd;
 
         autoTable(doc, {
-            startY: 38,
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 0, lineColor: [0, 0, 0], lineWidth: 0.1 },
             body: [
-                [`Report No: ${data.reportNumber || ''}`, `Date: ${formatDateDDMMYYYY(data.date)}`],
-                [`Customer: ${data.customerName || ''}`, `Engineer: ${data.engineerName || ''}`],
-                [`Equipment: ${data.equipmentName || ''}`, `Problem: ${data.problemReported || 'Standard Service'}`]
-            ]
+                [
+                    { 
+                        content: `Follow up / Remarks:\n\n${data.queriesRemarks || '---'}\n\n\n\n\n\n\n\n\nCustomer Signature\n(Seal & Stamp Required)`, 
+                        styles: { minCellHeight: 80, halign: 'center', valign: 'bottom', cellPadding: 5, fontStyle: 'italic', fontSize: 7.5 } 
+                    },
+                    {
+                        content: '', // Placeholder for the sub-table
+                        styles: { minCellHeight: 80, valign: 'top' }
+                    }
+                ]
+            ],
+            columnStyles: { 0: { cellWidth: (pageWidth - 20) * 0.55 }, 1: { cellWidth: (pageWidth - 20) * 0.45 } },
+            didDrawCell: (dataCell) => {
+                if (dataCell.column.index === 1 && dataCell.section === 'body') {
+                    // Draw the financial sub-table inside this cell manually or using another autoTable
+                    autoTable(doc, {
+                        startY: dataCell.cell.y,
+                        margin: { left: dataCell.cell.x },
+                        tableWidth: dataCell.cell.width,
+                        theme: 'grid',
+                        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+                        body: [
+                            [{ content: 'Past balance (A):', styles: { fontStyle: 'bold' } }, { content: pastBal.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Visit Charges (B):', styles: { fontStyle: 'bold' } }, { content: visitChg.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Spares Charges (C):', styles: { fontStyle: 'bold' } }, { content: sparesSum.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Total receivable (A+B+C):', styles: { fontStyle: 'bold', fillColor: slate50 as any } }, { content: totalRec.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10, fillColor: slate50 as any } }],
+                            [{ content: 'Amount received (D):', styles: { fontStyle: 'bold' } }, { content: recvd.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', textColor: medical600 as any } }],
+                            [{ content: 'Balance (Total-D):', styles: { fontStyle: 'bold', fillColor: slate100 as any } }, { content: balance.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', textColor: rose600 as any, fillColor: slate100 as any } }],
+                            [{ content: 'Memo No:', styles: { fontStyle: 'italic' } }, { content: data.memoNumber || '---', styles: { halign: 'right', fontStyle: 'bold' } }]
+                        ]
+                    });
+
+                    // Add Engineer Signature area below the sub-table
+                    const finalY = (doc as any).lastAutoTable.finalY + 10;
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Engineer Signature', dataCell.cell.x + (dataCell.cell.width / 2), finalY + 15, { align: 'center' });
+                    doc.setFontSize(8);
+                    doc.setTextColor(medical600[0], medical600[1], medical600[2]);
+                    doc.text('FOR SREE MEDITEC', dataCell.cell.x + (dataCell.cell.width / 2), finalY + 20, { align: 'center' });
+                    doc.setTextColor(0);
+                }
+            }
         });
 
         return doc.output('blob');

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskLog } from '../types';
 import {
     CheckSquare, Plus, User, Calendar,
-    X, AlignLeft, History, Zap, Trash2, Edit, Search, RefreshCw
+    X, AlignLeft, History, Zap, Trash2, Edit, Search, RefreshCw, XCircle, Clock
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -29,7 +29,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     const [completedLimit, setCompletedLimit] = useState(20);
 
     const isAdmin = userRole === 'Admin' || authUser?.role === 'SYSTEM_ADMIN';
-    console.log('TaskModule Debug:', { tasksCount: tasks.length, authUser: authUser?.name, isAdmin });
+
 
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -64,7 +64,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
         if (!isAdmin && authUser?.name) {
             // Robust 'today' calculation using local time (YYYY-MM-DD)
             const localToday = new Date().toLocaleDateString('en-CA'); 
-            const authName = authUser.name.trim().toLowerCase();
+            const authName = (authUser.name || '').trim().toLowerCase();
 
             filtered = tasks.filter(t => {
                 const assignedName = (t.assignedTo || '').trim().toLowerCase();
@@ -82,9 +82,9 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             filtered = filtered.filter(t => 
-                t.title.toLowerCase().includes(q) || 
-                t.description.toLowerCase().includes(q) ||
-                t.assignedTo.toLowerCase().includes(q)
+                (t.title || '').toLowerCase().includes(q) || 
+                (t.description || '').toLowerCase().includes(q) ||
+                (t.assignedTo || '').toLowerCase().includes(q)
             );
         }
 
@@ -106,6 +106,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     const handleUpdateStatus = async (id: string, newStatus: Task['status'], note?: string) => {
         const existing = tasks.find(t => t.id === id);
         if (!existing) return;
+
+        if (newStatus === existing.status) return;
 
         const log: TaskLog = {
             id: `LOG-${Date.now()}`,
@@ -187,7 +189,11 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
                 await updateTaskRemote(id, updates);
             }
             
-            addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
+            if (existing.handoffChain && existing.handoffChain.length > 0 && newStatus === 'Done') {
+                addNotification('Handoff Processed', `Task handed off to ${updates.assignedTo}.`, 'success');
+            } else {
+                addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
+            }
         } catch (err) {
             console.error("Task update failed", err);
         }
@@ -207,11 +213,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
 
     const handleCreateTask = async () => {
         if (!newTask.title || !newTask.assignedTo) {
-            alert("Please fill in Title and Assigned Staff member.");
+            addNotification("Incomplete Field", "Please fill in Title and Assigned Staff member.", "warning");
             return;
         }
+        const uniqueId = `T-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const taskToAdd: Task = {
-            id: `T-${Date.now()}`,
+            id: uniqueId,
             title: newTask.title!,
             description: newTask.description || 'No description provided.',
             assignedTo: newTask.assignedTo!,
@@ -311,7 +318,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
 
             if (approved) {
                 updates.dueDate = req.newDate;
-                updates.status = 'To Do'; // Unfreeze
+                // If it was already in progress, keep it there, otherwise move to To Do
+                updates.status = selectedTask.status === 'Review' ? 'To Do' : (selectedTask.status || 'To Do');
             }
 
             await updateTaskRemote(selectedTask.id, updates);
@@ -324,7 +332,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     const handleSaveTaskEdit = async () => {
         if (!selectedTask) return;
         if (!editTitle.trim()) {
-            alert("Title cannot be empty");
+            addNotification("Validation Error", "Title cannot be empty", "warning");
             return;
         }
 

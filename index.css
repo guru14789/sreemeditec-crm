@@ -50,3 +50,27 @@
     appearance: textfield;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #service-report-print-area, #service-report-print-area * {
+    visibility: visible;
+  }
+  #service-report-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Hide scrollbars and other things that might show up */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}

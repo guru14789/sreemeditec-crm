@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ServiceReport, ServiceReportItem } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, 
-    History, Download, Edit, Eye, List as ListIcon, Save, Clock, User, Settings, CreditCard, DollarSign, MoreVertical, Shield, Wrench, Activity, MessageSquare
+    History, Download, Edit, Eye, List as ListIcon, Save, Clock, User, Settings, CreditCard, DollarSign, MoreVertical, Shield, Wrench, Activity, MessageSquare, Printer
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -185,7 +185,7 @@ export const ServiceReportModule: React.FC = () => {
     };
 
     const renderReportTemplate = (data: DetailedServiceReport, fin: any) => (
-        <div className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col mx-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+        <div id="service-report-print-area" className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col mx-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
             <div className="text-center mb-6">
                 <h1 className="text-4xl font-black uppercase mb-1">SREE MEDITEC</h1>
                 <p className="text-[11px] font-bold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
@@ -577,7 +577,21 @@ export const ServiceReportModule: React.FC = () => {
                             </div>
                         )}
                         {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50">
+                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50 relative">
+                                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                                    <button 
+                                        onClick={() => window.print()}
+                                        className="p-3 bg-white border border-slate-300 rounded-2xl text-slate-600 hover:text-medical-600 hover:border-medical-300 shadow-lg flex items-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all"
+                                    >
+                                        <Printer size={18} /> Browser Print
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDownloadPDF(report)}
+                                        className="p-3 bg-medical-600 text-white rounded-2xl shadow-lg flex items-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-medical-700"
+                                    >
+                                        <Download size={18} /> Save PDF
+                                    </button>
+                                </div>
                                 <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.5] sm:scale-[0.65] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
                                     {renderReportTemplate(report, finTotals)}
                                 </div>
