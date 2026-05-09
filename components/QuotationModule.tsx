@@ -7,8 +7,7 @@ import {
     Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User
 } from 'lucide-react';
 import { useData } from './DataContext';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { PDFService } from '../services/PDFService';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -163,123 +162,27 @@ export const QuotationModule: React.FC = () => {
         }
     };
 
-    const handleDownloadPDF = (data: Partial<Invoice>) => {
-        const doc = new jsPDF();
-        const totals = calculateDetailedTotals(data);
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
-
-        const drawHeader = () => {
-            if (logo) doc.addImage(logo, 'PNG', 10, 10, 25, 25);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(22);
-            doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajajipakkam, Chennai 600 073.', pageWidth / 2, 24, { align: 'center' });
-            doc.text(`Mob: 9884818398.`, pageWidth / 2, 28, { align: 'center' });
-            doc.text(`GST NO: 33APGPS4675G2ZL`, pageWidth / 2, 32, { align: 'center' });
-        };
-        drawHeader();
-
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Quotation', pageWidth / 2, 40, { align: 'center' });
-        doc.line(pageWidth / 2 - 10, 41, pageWidth / 2 + 10, 41);
-
-        doc.setFontSize(10);
-        doc.text(`Ref: ${data.invoiceNumber}`, 15, 48);
-        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, pageWidth - 15, 48, { align: 'right' });
-
-        doc.text('To,', 15, 56);
-        doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '---', 15, 61);
-        doc.setFont('helvetica', 'normal');
-        const addrLines = doc.splitTextToSize(data.customerAddress || '', 100);
-        doc.text(addrLines, 15, 66);
-        let currentY = 66 + (addrLines.length * 5);
-        if (data.customerGstin) {
-            doc.text(`GST: ${data.customerGstin}`, 15, currentY + 2);
-            currentY += 7;
-        } else currentY += 5;
-
-        currentY += 8;
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Sub: Reg. Price Quotation for ${data.subject || '---'}.`, 15, currentY);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.', 15, currentY + 6, { maxWidth: pageWidth - 30 });
-        currentY += 14;
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Product', 'Model', 'Features', 'Qty', 'Rate', 'GST%', 'GST Amt', 'Amount']],
-            body: (data.items || []).map(it => {
-                const gstAmt = (it.unitPrice * it.quantity) * (it.taxRate / 100);
-                const lineTotal = (it.unitPrice * it.quantity) + gstAmt;
-                return [
-                    it.description, it.model || '-', it.features ? it.features : '-', `${it.quantity}\n${it.unit}`,
-                    `Rs.${it.unitPrice.toFixed(2)}`, `${it.taxRate}%`, `Rs.${gstAmt.toFixed(2)}`,
-                    { content: `Rs.${lineTotal.toFixed(2)}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' } }
-                ];
-            }),
-            theme: 'grid',
-            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [0, 0, 0], halign: 'center' },
-            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 20 }, 2: { cellWidth: 35 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 18, halign: 'right' }, 7: { cellWidth: 35 } }
-        });
-
-        let finalY = (doc as any).lastAutoTable.finalY;
-        if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
-        const summaryX = pageWidth - 80;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('Gross Total:', summaryX, finalY + 8);
-        doc.text(`Rs.${totals.subtotal.toFixed(2)}`, pageWidth - 15, finalY + 8, { align: 'right' });
-        
-        doc.text('Freight:', summaryX, finalY + 14);
-        doc.text(`Rs.${(totals.freight + totals.freightGst).toFixed(2)}`, pageWidth - 15, finalY + 14, { align: 'right' });
-        
-        doc.text('Discount:', summaryX, finalY + 20);
-        doc.text(`(-) Rs.${totals.discount.toFixed(2)}`, pageWidth - 15, finalY + 20, { align: 'right' });
-        
-        doc.text('Total GST:', summaryX, finalY + 26);
-        doc.text(`Rs.${totals.itemGstTotal.toFixed(2)}`, pageWidth - 15, finalY + 26, { align: 'right' });
-        
-        doc.setFontSize(11);
-        doc.text('Grand Total:', summaryX, finalY + 34);
-        doc.text(`Rs.${totals.grandTotal.toFixed(2)}`, pageWidth - 15, finalY + 34, { align: 'right' });
-        finalY += 40;
-
-        if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Terms and condition:', 15, finalY);
-        doc.setFont('helvetica', 'normal');
-        const termsList = [
-            ['Validity', `: The above price is valid up to 30 days from the date of submission of the Quotation.`],
-            ['Taxes', `: GST is applicable to the price mentioned as per item-wise rates.`],
-            ['Payment', `: ${data.paymentTerms}`],
-            ['Banking details', `: Bank name: ICICI Bank, Branch: Selaiyur, A/C name: Sreemeditec,\n  A/C type: CA, A/C No: 603705016939, IFSC Code: ICIC0006037`],
-            ['Delivery', `: ${data.deliveryTerms}`],
-            ['Warranty', `: ${data.warrantyTerms}`]
-        ];
-        autoTable(doc, { startY: finalY + 2, margin: { left: 15 }, theme: 'plain', styles: { fontSize: 10.5, cellPadding: 1 }, columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 150 } }, body: termsList });
-
-        let signOffY = (doc as any).lastAutoTable.finalY + 10;
-        if (signOffY + 50 > pageHeight - margin) { doc.addPage(); signOffY = 20; }
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Thanking you and looking forward for your order.', 15, signOffY);
-        doc.text('With Regards,', 15, signOffY + 8);
-        doc.setFont('helvetica', 'bold');
-        doc.text('For SREE MEDITEC,', 15, signOffY + 14);
-        if (signature) doc.addImage(signature, 'PNG', 15, signOffY + 16, 35, 12);
-        if (seal) doc.addImage(seal, 'PNG', 70, signOffY + 14, 22, 22);
-        doc.text(repName, 15, signOffY + 36);
-        doc.setFont('helvetica', 'normal');
-        doc.text(repPhone, 15, signOffY + 41);
-        doc.save(`${data.invoiceNumber || 'Quotation'}.pdf`);
+    const handleDownloadPDF = async (data: Partial<Invoice>) => {
+        try {
+            const blob = await PDFService.generateQuotationPDF(data, {
+                logo,
+                signature,
+                seal,
+                repName,
+                repPhone
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${data.invoiceNumber || 'Quotation'}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Failed to generate Quotation PDF:", error);
+            addNotification('Error', 'Failed to generate PDF. Please check the console.', 'error');
+        }
     };
 
     const handleAddItem = (prod?: any) => {
@@ -373,7 +276,7 @@ export const QuotationModule: React.FC = () => {
     const handleSave = (status: 'Draft' | 'Finalized') => {
         if (!quote.customerName || !quote.items?.length) {
             alert("Fill customer details and items.");
-            return;
+            return null;
         }
         const totals = calculateDetailedTotals(quote);
         const finalData: Invoice = {
@@ -391,6 +294,7 @@ export const QuotationModule: React.FC = () => {
         setViewState('history');
         setEditingId(null);
         addNotification('Registry Updated', `Quotation ${finalData.invoiceNumber} saved as ${status}.`, 'success');
+        return finalData;
     };
 
     const totals = useMemo(() => calculateDetailedTotals(quote), [quote]);
@@ -613,7 +517,7 @@ export const QuotationModule: React.FC = () => {
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" /></div></div></section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Payment Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.paymentTerms} onChange={e => setQuote({...quote, paymentTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Delivery Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.deliveryTerms} onChange={e => setQuote({...quote, deliveryTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warranty Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.warrantyTerms} onChange={e => setQuote({...quote, warrantyTerms: e.target.value})} /></div></div></section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
-                                <div className="flex flex-col sm:flex-row gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30"><button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button><button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button><button onClick={() => { handleSave('Finalized'); handleDownloadPDF(quote); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">Finalize & PDF</button></div>
+                                <div className="flex flex-col sm:flex-row gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30"><button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button><button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button><button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">Finalize & PDF</button></div>
                             </div>
                         )}
                         {builderTab === 'preview' && (

@@ -351,7 +351,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
                             <div className="p-6 bg-slate-50/50 border-t border-slate-300 shrink-0 flex gap-4">
                                 <button onClick={() => handleDelete(selectedLead)} className="p-4 bg-white border border-rose-200 text-rose-500 rounded-2xl hover:bg-rose-50 transition-all shadow-sm"><Trash2 size={20}/></button>
-                                <button onClick={() => { setLead(selectedLead); setEditingId(selectedLead.id); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"><Edit2 size={16}/> Modify Profile</button>
+                                <button onClick={() => { setLead({ ...selectedLead }); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"><Edit2 size={16}/> Modify Profile</button>
                             </div>
                         </div>
                     )}

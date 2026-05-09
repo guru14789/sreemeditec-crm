@@ -150,7 +150,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
                         addPoints(totalAward, 'Task', reason, targetEmp.id);
                         addNotification(
                             isOverdue ? 'Task Completed Late' : 'Reward Processed', 
-                            `${totalAward} points awarded for stage completion${isOverdue ? ' (Overdue)' : ''}.`, 
+                            `${totalAward} points awarded to ${targetEmp.name} for stage completion.`, 
                             isOverdue ? 'warning' : 'success'
                         );
                     }
@@ -174,24 +174,23 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
                         status: 'To Do',
                         handoffChain: chain,
                         pointsAwarded: false, // Reset for next stage
+                        submittedBy: undefined, // Clear for next stage
                         logs: [...updates.logs!, handoffLog]
                     });
                     
                     addNotification('Handoff Complete', `Task moved to ${nextUser}.`, 'success');
                     setStaffHandoffNote('');
+                    return; // Early return as we already called updateTaskRemote
                 } else {
                     // Final Completion
                     await updateTaskRemote(id, { ...updates, pointsAwarded: true });
                     setSelectedTaskId(null);
+                    addNotification('Mission Completed', `Final stage approved. Task moved to archive.`, 'success');
+                    return;
                 }
             } else {
                 // Regular status update (not Done)
                 await updateTaskRemote(id, updates);
-            }
-            
-            if (existing.handoffChain && existing.handoffChain.length > 0 && newStatus === 'Done') {
-                addNotification('Handoff Processed', `Task handed off to ${updates.assignedTo}.`, 'success');
-            } else {
                 addNotification('Task Updated', `Task status moved to ${newStatus}.`, 'info');
             }
         } catch (err) {
@@ -781,7 +780,15 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
 
                                             {selectedTask.status === 'Review' && (
                                                 <div className="flex flex-col gap-2">
-                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95">Verify & Proceed to Next Stage</button>
+                                                    <button 
+                                                        onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} 
+                                                        className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                                    >
+                                                        <CheckSquare size={16} />
+                                                        {(selectedTask.handoffChain && selectedTask.handoffChain.length > 0) 
+                                                            ? 'Verify & Hand off to Next Agent' 
+                                                            : 'Verify & Finalize Mission'}
+                                                    </button>
                                                     <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
                                                 </div>
                                             )}
@@ -855,7 +862,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent *</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Assignee *</label>
                                     <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })}>
                                         <option value="">Select Staff...</option>
                                         {employees.map(emp => (

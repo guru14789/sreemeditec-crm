@@ -8,7 +8,7 @@ const COLORS = ['#ef4444', '#f59e0b', '#10b981'];
 export const Dashboard: React.FC = () => {
   const { tasks, serviceTickets, pointHistory, invoices, expenseStats, currentUser: authUser } = useData();
 
-  const isAdmin = authUser?.role === 'SYSTEM_ADMIN';
+  const isAdmin = authUser?.role === 'SYSTEM_ADMIN' || authUser?.department === 'Administration';
 
   const visibleTasks = useMemo(() => {
     if (isAdmin) return tasks;
@@ -17,42 +17,45 @@ export const Dashboard: React.FC = () => {
     return tasks.filter(t => (t.assignedTo || '').trim().toLowerCase() === authName);
   }, [tasks, isAdmin, authUser]);
 
+  const visibleTickets = useMemo(() => {
+    if (isAdmin) return serviceTickets;
+    if (!authUser?.name) return [];
+    const authName = authUser.name.trim().toLowerCase();
+    return serviceTickets.filter(t => (t.assignedTo || '').trim().toLowerCase() === authName);
+  }, [serviceTickets, isAdmin, authUser]);
+
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
     
-    // Start of week (Sunday)
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // Start of month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Filter valid sales (Invoices) - including all non-quote/non-supplier-po documents to find missing value
-    const validInvoices = invoices.filter(inv => 
-        inv.documentType !== 'Quotation' && 
-        inv.documentType !== 'SupplierPO' &&
+    const baseInvoices = isAdmin 
+        ? invoices 
+        : invoices.filter(inv => inv.createdBy === authUser?.name);
+
+    const validInvoices = baseInvoices.filter(inv => 
+        (inv.documentType === 'Invoice' || !inv.documentType) && 
         inv.status !== 'Draft' && 
         inv.status !== 'Cancelled'
     );
 
-    const todayInvoices = validInvoices.filter(inv => inv.date === today);
-    const todayRevenue = todayInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+    const todayRevenue = validInvoices.filter(inv => inv.date === today).reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    const weekInvoices = validInvoices.filter(inv => {
+    const weekRevenue = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
       return invDate >= startOfWeek && invDate <= now;
-    });
-    const weekRevenue = weekInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+    }).reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    const monthInvoices = validInvoices.filter(inv => {
+    const monthRevenue = validInvoices.filter(inv => {
       const invDate = new Date(inv.date);
       return invDate >= startOfMonth && invDate <= now;
-    });
-    const monthRevenue = monthInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+    }).reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
 
-    // Calculate daily sales for last 7 days for the bar chart
     const dailySales = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -66,15 +69,16 @@ export const Dashboard: React.FC = () => {
     }
 
     return { todayRevenue, weekRevenue, monthRevenue, dailySales };
-  }, [invoices]);
+  }, [invoices, isAdmin, authUser?.name]);
 
-  const dataTickets = [
-    { name: 'Open', value: serviceTickets.filter(t => t.status === 'Open').length },
-    { name: 'In Progress', value: serviceTickets.filter(t => t.status === 'In Progress').length },
-    { name: 'Resolved', value: serviceTickets.filter(t => t.status === 'Resolved').length },
-  ];
+  const dataTickets = useMemo(() => [
+    { name: 'Open', value: visibleTickets.filter(t => t.status === 'Open').length },
+    { name: 'In Progress', value: visibleTickets.filter(t => t.status === 'In Progress').length },
+    { name: 'Resolved', value: visibleTickets.filter(t => t.status === 'Resolved').length },
+  ], [visibleTickets]);
 
   const formatCurrency = (val: number) => {
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)}Cr`;
     if (val >= 100000) return `₹${(val / 100000).toFixed(2)}L`;
     if (val >= 1000) return `₹${(val / 1000).toFixed(2)}K`;
     return `₹${val.toFixed(0)}`;

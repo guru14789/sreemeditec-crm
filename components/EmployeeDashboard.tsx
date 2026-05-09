@@ -14,19 +14,42 @@ interface EmployeeDashboardProps {
 }
 
 export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUser, tasks }) => {
-  const { userStats, pointHistory, currentUser: activeUser } = useData();
-  
+  const { pointHistory, currentUser: authUser, invoices, userStats } = useData();
+
+  const myPointHistory = React.useMemo(() => 
+    pointHistory.filter(p => p.userId === authUser?.id),
+  [pointHistory, authUser?.id]);
+
   const tasksCompletedMonthly = React.useMemo(() => {
     const currentMonthId = new Date().toISOString().slice(0, 7);
-    return pointHistory.filter(p => 
-      p.userId === activeUser?.id && 
+    return myPointHistory.filter(p => 
       p.category === 'Task' && 
       p.date?.startsWith(currentMonthId)
     ).length;
-  }, [pointHistory, activeUser?.id]);
+  }, [myPointHistory]);
+
+  const myInvoices = React.useMemo(() => {
+    return invoices.filter(inv => 
+      inv.createdBy === authUser?.name &&
+      (inv.documentType === 'Invoice' || !inv.documentType) &&
+      inv.status !== 'Draft' &&
+      inv.status !== 'Cancelled'
+    );
+  }, [invoices, authUser?.name]);
+
+  const salesImpact = React.useMemo(() => {
+    return myInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+  }, [myInvoices]);
   
+  const totalPoints = React.useMemo(() => 
+    myPointHistory.reduce((sum, p) => sum + (p.points || 0), 0),
+  [myPointHistory]);
+
   const todayStr = new Date().toISOString().split('T')[0];
-  const myTasksToday = tasks.filter(t => t.assignedTo === currentUser && t.dueDate === todayStr);
+  const myTasksToday = tasks.filter(t => 
+    (t.assignedTo || '').toLowerCase() === (currentUser || '').toLowerCase() && 
+    t.dueDate === todayStr
+  );
   const pendingTasks = myTasksToday.filter(t => t.status !== 'Done');
   const completedToday = myTasksToday.length - pendingTasks.length;
 
@@ -58,7 +81,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             <TrendingUp size={18} className="text-emerald-500" />
           </div>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Total Points</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{userStats.points}</h3>
+          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{totalPoints}</h3>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
@@ -75,11 +98,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
         <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
-              <Star size={22} />
+              <TrendingUp size={22} />
             </div>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">App Streak</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{userStats.attendanceStreak}D</h3>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Sales Impact</p>
+          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">
+            ₹{(salesImpact / 100000).toFixed(1)}L
+          </h3>
         </div>
 
         <div className="bg-[#022c22] p-7 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-950/20 relative overflow-hidden group">
@@ -158,7 +183,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
               </h3>
             </div>
             <div className="p-5 space-y-3">
-              {pointHistory.slice(0, 5).map(log => (
+              {myPointHistory.slice(0, 5).map(log => (
                 <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-medical-200 transition-colors">
                   <div className="min-w-0 pr-4">
                     <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase truncate leading-tight tracking-tight">{log.description}</p>

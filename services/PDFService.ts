@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Invoice, ServiceReport, DeliveryChallan, InvoiceItem } from '../types';
+import { Invoice, ServiceReport, DeliveryChallan, InvoiceItem, ChallanItem } from '../types';
+import { COMPANY_DETAILS, BANK_DETAILS, PDF_STYLES } from './PDFConstants';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -11,40 +12,36 @@ const formatDateDDMMYYYY = (dateStr?: string) => {
 };
 
 const numberToWords = (num: number): string => {
+    if (isNaN(num) || num === null || num === undefined) return '';
     if (num === 0) return 'Zero Only';
     const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
     const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
     const inWords = (n: number): string => {
-        if (n < 20) return a[n];
+        if (isNaN(n)) return '';
+        if (n < 20) return a[n] || '';
         if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '');
         if (n < 1000) return a[Math.floor(n / 100)] + 'hundred ' + (n % 100 !== 0 ? 'and ' + inWords(n % 100) : '');
         if (n < 100000) return inWords(Math.floor(n / 1000)) + 'thousand ' + (n % 1000 !== 0 ? inWords(n % 1000) : '');
         if (n < 10000000) return inWords(Math.floor(n / 100000)) + 'lakh ' + (n % 100000 !== 0 ? inWords(n % 100000) : '');
-        return inWords(Math.floor(num / 10000000)) + 'crore ' + (num % 10000000 !== 0 ? inWords(num % 10000000) : '');
+        return inWords(Math.floor(n / 10000000)) + 'crore ' + (n % 10000000 !== 0 ? inWords(n % 10000000) : '');
     };
     const result = inWords(Math.floor(num));
-    return result ? result.trim().charAt(0).toUpperCase() + result.trim().slice(1) + ' Only' : '';
+    return result ? '(' + result.trim().charAt(0).toUpperCase() + result.trim().slice(1) + ' only)' : '';
 };
 
-const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
-    const items = invoice.items || [];
-    const freight = Number(invoice.freightAmount) || 0;
-    const freightTax = (freight * (Number(invoice.freightTaxRate) || 0)) / 100;
+export const calculateDetailedTotals = (data: Partial<Invoice>) => {
+    const items = data.items || [];
+    const subtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
+    const itemGstTotal = items.reduce((sum, p) => sum + ((Number(p.quantity) * Number(p.unitPrice)) * (Number(p.taxRate) / 100)), 0);
     
-    const itemsTaxable = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
-    const itemsTax = items.reduce((sum, p) => sum + (((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)) * ((Number(p.taxRate) || 0) / 100)), 0);
-    
-    const taxableValue = itemsTaxable + freight;
-    const taxTotal = itemsTax + freightTax;
-    
-    const cgst = taxTotal / 2;
-    const sgst = taxTotal / 2;
-    const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-    const grandTotal = taxableValue + taxTotal;
-    const freightTotal = freight + freightTax;
-    
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax, itemsTax, freightTotal };
+    const freight = Number(data.freightAmount) || 0;
+    const freightGst = freight * ((Number(data.freightTaxRate) || 0) / 100);
+    const discount = Number(data.discount) || 0;
+
+    const grandTotal = subtotal + itemGstTotal + freight + freightGst - discount;
+    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal };
 };
+
 
 export const PDFService = {
     async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false) {
@@ -71,14 +68,13 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text('SREE MEDITEC', margin + 2, startY + 6);
+        doc.text(COMPANY_DETAILS.name, margin + 2, startY + 6);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('Old No.2 New No.18, Bajanai Koil Street,', margin + 2, startY + 11);
-        doc.text('Rajakilpakkam, Chennai -73', margin + 2, startY + 15);
-        doc.text('Ph.9884818398/ 7200025642', margin + 2, startY + 19);
-        doc.text('GSTIN/UIN: 33APGPS4675G2ZL', margin + 2, startY + 23);
-        doc.text('E-Mail : sreemeditec@gmail.com', margin + 2, startY + 27);
+        doc.text(COMPANY_DETAILS.address, margin + 2, startY + 11);
+        doc.text(`Ph.${COMPANY_DETAILS.phone}`, margin + 2, startY + 19);
+        doc.text(`GSTIN/UIN: ${COMPANY_DETAILS.gstin}`, margin + 2, startY + 23);
+        doc.text(`E-Mail : ${COMPANY_DETAILS.email}`, margin + 2, startY + 27);
 
         doc.line(margin, startY + 35, midX, startY + 35);
         doc.setFontSize(7);
@@ -243,20 +239,140 @@ export const PDFService = {
         doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
-        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(': KVB Bank', midX + 30, bottomY + 10);
-        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(': 1617135000000754', midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(': Selaiyur & KVBL0001617', midX + 30, bottomY + 18);
+        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${BANK_DETAILS.bankName}`, midX + 30, bottomY + 10);
+        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${BANK_DETAILS.accountNo}`, midX + 30, bottomY + 14);
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${BANK_DETAILS.branch} & ${BANK_DETAILS.ifsc}`, midX + 30, bottomY + 18);
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 55);
-        doc.text('for SREE MEDITEC', pageWidth - margin - 2, bottomY + 35, { align: 'right' });
+        doc.text(`for ${COMPANY_DETAILS.name}`, pageWidth - margin - 2, bottomY + 35, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 55, { align: 'right' });
 
         doc.setFontSize(7);
         doc.setFont('helvetica', 'italic');
         doc.text(`This is a Computer Generated ${isQuotation ? 'Quotation' : 'Invoice'}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
 
+        return doc.output('blob');
+    },
+
+    async generateQuotationPDF(data: Partial<Invoice>, brandAssets: { logo: string | null, signature: string | null, seal: string | null, repName: string, repPhone: string }) {
+        const doc = new jsPDF();
+        const totals = calculateDetailedTotals(data);
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+
+        const drawHeader = () => {
+            if (brandAssets.logo) doc.addImage(brandAssets.logo, 'PNG', 10, 10, 25, 25);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
+            doc.text(`Mob: ${COMPANY_DETAILS.phone}.`, pageWidth / 2, 28, { align: 'center' });
+            doc.text(`GST NO: ${COMPANY_DETAILS.gstin}`, pageWidth / 2, 32, { align: 'center' });
+        };
+        drawHeader();
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Quotation', pageWidth / 2, 40, { align: 'center' });
+        doc.line(pageWidth / 2 - 10, 41, pageWidth / 2 + 10, 41);
+
+        doc.setFontSize(10);
+        doc.text(`Ref: ${data.invoiceNumber}`, 15, 48);
+        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, pageWidth - 15, 48, { align: 'right' });
+
+        doc.text('To,', 15, 56);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.customerName || '---', 15, 61);
+        doc.setFont('helvetica', 'normal');
+        const addrLines = doc.splitTextToSize(data.customerAddress || '', 100);
+        doc.text(addrLines, 15, 66);
+        let currentY = 66 + (addrLines.length * 5);
+        if (data.customerGstin) {
+            doc.text(`GST: ${data.customerGstin}`, 15, currentY + 2);
+            currentY += 7;
+        } else currentY += 5;
+
+        currentY += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Sub: Reg. Price Quotation for ${data.subject || '---'}.`, 15, currentY);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.', 15, currentY + 6, { maxWidth: pageWidth - 30 });
+        currentY += 14;
+
+        autoTable(doc, {
+            startY: currentY,
+            head: [['Product', 'Model', 'Features', 'Qty', 'Rate', 'GST%', 'GST Amt', 'Amount']],
+            body: (data.items || []).map(it => {
+                const gstAmt = (Number(it.unitPrice) * Number(it.quantity)) * (Number(it.taxRate) / 100);
+                const lineTotal = (Number(it.unitPrice) * Number(it.quantity)) + gstAmt;
+                return [
+                    it.description, it.model || '-', it.features ? it.features : '-', `${it.quantity}\n${it.unit}`,
+                    `Rs.${Number(it.unitPrice).toFixed(2)}`, `${it.taxRate}%`, `Rs.${gstAmt.toFixed(2)}`,
+                    { content: `Rs.${lineTotal.toFixed(2)}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' } }
+                ];
+            }),
+            theme: 'grid',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [0, 0, 0], halign: 'center' },
+            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 20 }, 2: { cellWidth: 35 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 18, halign: 'right' }, 7: { cellWidth: 35 } }
+        });
+
+        let finalY = (doc as any).lastAutoTable.finalY;
+        if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
+        const summaryX = pageWidth - 80;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('Gross Total:', summaryX, finalY + 8);
+        doc.text(`Rs.${totals.subtotal.toFixed(2)}`, pageWidth - 15, finalY + 8, { align: 'right' });
+        
+        doc.text('Freight:', summaryX, finalY + 14);
+        doc.text(`Rs.${(totals.freight + totals.freightGst).toFixed(2)}`, pageWidth - 15, finalY + 14, { align: 'right' });
+        
+        doc.text('Discount:', summaryX, finalY + 20);
+        doc.text(`(-) Rs.${totals.discount.toFixed(2)}`, pageWidth - 15, finalY + 20, { align: 'right' });
+        
+        doc.text('Total GST:', summaryX, finalY + 26);
+        doc.text(`Rs.${totals.itemGstTotal.toFixed(2)}`, pageWidth - 15, finalY + 26, { align: 'right' });
+        
+        doc.setFontSize(11);
+        doc.text('Grand Total:', summaryX, finalY + 34);
+        doc.text(`Rs.${totals.grandTotal.toFixed(2)}`, pageWidth - 15, finalY + 34, { align: 'right' });
+        finalY += 40;
+
+        if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Terms and condition:', 15, finalY);
+        doc.setFont('helvetica', 'normal');
+        const termsList = [
+            ['Validity', `: The above price is valid up to 30 days from the date of submission of the Quotation.`],
+            ['Taxes', `: GST is applicable to the price mentioned as per item-wise rates.`],
+            ['Payment', `: ${data.paymentTerms}`],
+            ['Banking details', `: Bank name: ICICI Bank, Branch: Selaiyur, A/C name: Sreemeditec,\n  A/C type: CA, A/C No: 603705016939, IFSC Code: ICIC0006037`],
+            ['Delivery', `: ${data.deliveryTerms}`],
+            ['Warranty', `: ${data.warrantyTerms}`]
+        ];
+        autoTable(doc, { startY: finalY + 2, margin: { left: 15 }, theme: 'plain', styles: { fontSize: 10.5, cellPadding: 1 }, columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 150 } }, body: termsList });
+
+        let signOffY = (doc as any).lastAutoTable.finalY + 10;
+        if (signOffY + 50 > pageHeight - margin) { doc.addPage(); signOffY = 20; }
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Thanking you and looking forward for your order.', 15, signOffY);
+        doc.text('With Regards,', 15, signOffY + 8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`For ${COMPANY_DETAILS.name},`, 15, signOffY + 14);
+        if (brandAssets.signature) doc.addImage(brandAssets.signature, 'PNG', 15, signOffY + 16, 35, 12);
+        if (brandAssets.seal) doc.addImage(brandAssets.seal, 'PNG', 70, signOffY + 14, 22, 22);
+        doc.text(brandAssets.repName, 15, signOffY + 36);
+        doc.setFont('helvetica', 'normal');
+        doc.text(brandAssets.repPhone, 15, signOffY + 41);
+        
         return doc.output('blob');
     },
 
@@ -280,11 +396,11 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
+        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 24, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 29, { align: 'center' });
+        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
+        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 29, { align: 'center' });
 
         doc.setLineWidth(0.1);
         doc.rect(margin, 34, pageWidth - 20, 8);
@@ -324,7 +440,7 @@ export const PDFService = {
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
             body: [
-                [`${isCustomerPO ? 'Customer' : 'Vendor'} GST No: ${data.customerGstin || ''}`, `Our GST No: ${data.bankDetails || '33APGPS4675G2ZL'}`]
+                [`${isCustomerPO ? 'Customer' : 'Vendor'} GST No: ${data.customerGstin || ''}`, `Our GST No: ${COMPANY_DETAILS.gstin}`]
             ],
             columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
         });
@@ -402,11 +518,11 @@ export const PDFService = {
         // Header
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
+        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 24, { align: 'center' });
-        doc.text('Mob: 9884818398 / 7200025642 | Email: sreemeditec@gmail.com', pageWidth / 2, 29, { align: 'center' });
+        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
+        doc.text(`Mob: ${COMPANY_DETAILS.phone} | Email: ${COMPANY_DETAILS.email}`, pageWidth / 2, 29, { align: 'center' });
 
         doc.setLineWidth(0.1);
         doc.rect(margin, 34, pageWidth - 20, 8);
@@ -523,7 +639,7 @@ export const PDFService = {
         doc.line(margin, finalY - 5, margin + 50, finalY - 5);
         doc.text('Seal & Signature', margin, finalY);
 
-        doc.text('For SREE MEDITEC', pageWidth - margin - 50, finalY - 20, { align: 'left' });
+        doc.text(`For ${COMPANY_DETAILS.name}`, pageWidth - margin - 50, finalY - 20, { align: 'left' });
         doc.line(pageWidth - margin - 50, finalY - 5, pageWidth - margin, finalY - 5);
         doc.text('Authorised Signatory', pageWidth - margin - 50, finalY);
 
@@ -548,11 +664,11 @@ export const PDFService = {
         // 1. Header Section
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(28);
-        doc.text('SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
+        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'bold');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 23, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 27, { align: 'center' });
+        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 23, { align: 'center' });
+        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 27, { align: 'center' });
         
         // 2. Service Report Banner
         doc.setLineWidth(0.2);
@@ -758,8 +874,8 @@ export const PDFService = {
                     doc.setFont('helvetica', 'bold');
                     doc.text('Engineer Signature', dataCell.cell.x + (dataCell.cell.width / 2), finalY + 15, { align: 'center' });
                     doc.setFontSize(8);
-                    doc.setTextColor(medical600[0], medical600[1], medical600[2]);
-                    doc.text('FOR SREE MEDITEC', dataCell.cell.x + (dataCell.cell.width / 2), finalY + 20, { align: 'center' });
+                    doc.setTextColor(PDF_STYLES.colors.medical600[0], PDF_STYLES.colors.medical600[1], PDF_STYLES.colors.medical600[2]);
+                    doc.text(`FOR ${COMPANY_DETAILS.name}`, dataCell.cell.x + (dataCell.cell.width / 2), finalY + 20, { align: 'center' });
                     doc.setTextColor(0);
                 }
             }
@@ -787,20 +903,71 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text('SREE MEDITEC', margin + 2, 18);
+        doc.text(COMPANY_DETAILS.name, margin + 2, 18);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('Old No.2 New No.18, Bajanai Koil Street, Rajakilpakkam, Chennai -73', margin + 2, 23);
+        doc.text(COMPANY_DETAILS.address, margin + 2, 23);
+        doc.text(`Ph: ${COMPANY_DETAILS.phone}`, margin + 2, 27);
+        doc.text(`GSTIN/UIN: ${COMPANY_DETAILS.gstin}`, margin + 2, 31);
+
+        // Metadata on right
+        const metadataY = 18;
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Challan No: ${data.challanNumber || ''}`, midX + 2, metadataY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, midX + 2, metadataY + 5);
+        doc.text(`Reference: ${data.subject || '---'}`, midX + 2, metadataY + 10);
+
+        doc.line(margin, 40, pageWidth - margin, 40);
+        doc.text('Consignee:', margin + 2, 45);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.customerName || '', margin + 2, 50);
+        doc.setFont('helvetica', 'normal');
+        const addr = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
+        doc.text(addr, margin + 2, 54);
 
         autoTable(doc, {
             startY: 92,
             margin: { left: margin, right: margin },
-            head: [['Sl No.', 'Description', 'Quantity', 'Unit']],
-            body: (data.items || []).map((it: any, idx: number) => [idx + 1, it.description, it.quantity, 'nos']),
+            head: [['Sl No.', 'Description of Goods', 'Quantity', 'Unit', 'Remarks']],
+            body: (data.items || []).map((it: ChallanItem, idx: number) => [
+                idx + 1, 
+                it.description, 
+                it.quantity, 
+                it.unit || 'nos',
+                it.remarks || ''
+            ]),
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
-            styles: { fontSize: 8 }
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            columnStyles: {
+                0: { cellWidth: 15, halign: 'center' },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 20, halign: 'center' },
+                3: { cellWidth: 15, halign: 'center' },
+                4: { cellWidth: 30 }
+            }
         });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 10;
+        const totalQty = (data.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Total Quantity: ${totalQty} nos`, margin, finalY);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        const termsY = finalY + 10;
+        doc.text('Terms & Conditions:', margin, termsY);
+        doc.text('1. Goods once sold will not be taken back.', margin, termsY + 4);
+        doc.text('2. Any discrepancy should be reported within 24 hours.', margin, termsY + 8);
+        
+        const footerY = termsY + 30;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Receiver\'s Signature', margin, footerY);
+        doc.text(`for ${COMPANY_DETAILS.name}`, pageWidth - margin - 5, footerY - 15, { align: 'right' });
+        doc.text('Authorised Signatory', pageWidth - margin - 5, footerY, { align: 'right' });
 
         return doc.output('blob');
     },
@@ -808,45 +975,62 @@ export const PDFService = {
     async generateInstallationReportPDF(data: any) {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-
-        doc.setFont('helvetica', 'bold');
+        const margin = 15;        doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
-        doc.text('SREE MEDITEC', pageWidth / 2, 25, { align: 'center' });
+        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 25, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.', pageWidth / 2, 32, { align: 'center' });
-        doc.text('Mob: 9884818398', pageWidth / 2, 38, { align: 'center' });
+        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 32, { align: 'center' });
+        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 38, { align: 'center' });
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
-        doc.text('INSTALLATION REPORT', pageWidth / 2, 48, { align: 'center' });
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.line(margin, 42, pageWidth - margin, 42);
+        doc.text('INSTALLATION REPORT', pageWidth / 2, 50, { align: 'center' });
+        doc.line(margin, 54, pageWidth - margin, 54);
 
-        doc.setFontSize(11);
-        doc.text(`SMIR No: ${data.smirNo || ''}`, margin, 58);
-        doc.text(`DATE: ${formatDateDDMMYYYY(data.date)}`, pageWidth - margin - 40, 58);
+        doc.setFontSize(10);
+        doc.text(`Report No: ${data.smirNo || '---'}`, margin, 62);
+        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, pageWidth - margin, 62, { align: 'right' });
 
         autoTable(doc, {
-            startY: 62,
+            startY: 68,
             margin: { left: margin, right: margin },
             theme: 'grid',
-            styles: { fontSize: 10, cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.2, textColor: [0, 0, 0] },
-            columnStyles: { 0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' }, 1: { cellWidth: 70, fontStyle: 'bold' } },
+            styles: { fontSize: 9, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
+            columnStyles: { 
+                0: { cellWidth: 10, halign: 'center', fontStyle: 'bold', fillColor: [245, 245, 245] }, 
+                1: { cellWidth: 60, fontStyle: 'bold', fillColor: [245, 245, 245] },
+                2: { fontStyle: 'normal' }
+            },
             body: [
-                ['1', 'Installation of Equipment', data.installationOf || ''],
-                ['2', 'Name of the Customer', data.customerName || ''],
-                ['3', 'Hospital/Clinic Name', data.customerHospital || ''],
-                ['4', 'Address', data.customerAddress || ''],
-                ['5', 'Equipment Serial Number', data.serialNumber || ''],
-                ['6', 'Trained Persons', data.trainedPersons || ''],
-                ['7', 'Status', data.status || 'Completed']
+                ['1', 'Equipment Details', `${data.installationOf || '---'}\nModel: ${data.model || '---'}`],
+                ['2', 'Serial Number', data.serialNumber || '---'],
+                ['3', 'Customer Name', (data.customerName || '').toUpperCase()],
+                ['4', 'Hospital / Clinic', data.customerHospital || '---'],
+                ['5', 'Address', data.customerAddress || '---'],
+                ['6', 'Installation Date', formatDateDDMMYYYY(data.date)],
+                ['7', 'Trained Personnel', data.trainedPersons || '---'],
+                ['8', 'Working Status', { content: data.status || 'Successfully Installed & Working', styles: { fontStyle: 'bold', textColor: [5, 150, 105] } }],
+                ['9', 'Warranty Period', data.warrantyPeriod || '1 Year Standard']
             ]
         });
 
-        const finalY = (doc as any).lastAutoTable.finalY + 30;
+        const currentY = (doc as any).lastAutoTable.finalY + 10;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Note: The above equipment has been installed and demonstrated to our satisfaction.', margin, currentY);
+
+        const footerY = currentY + 35;
+        doc.setLineWidth(0.1);
+        doc.line(margin, footerY - 5, margin + 50, footerY - 5);
+        doc.line(pageWidth - margin - 50, footerY - 5, pageWidth - margin, footerY - 5);
+        
         doc.setFont('helvetica', 'bold');
-        doc.text('Customer Signature', margin, finalY);
-        doc.text('Engineer Signature', pageWidth - margin - 40, finalY);
+        doc.text('Customer Signature & Seal', margin, footerY);
+        doc.text('Service Engineer Signature', pageWidth - margin, footerY, { align: 'right' });
 
         return doc.output('blob');
     }
