@@ -31,7 +31,9 @@ export const PurchaseRecordModule: React.FC = () => {
         freightCharges: 0,
         totalGst: 0,
         totalIgst: 0,
-        total: 0
+        total: 0,
+        isRoundOff: true,
+        roundOff: 0
     };
 
     const INITIAL_ITEM_STATE: Partial<PurchaseItem> & { taxType?: 'Local' | 'Interstate' } = {
@@ -84,8 +86,16 @@ export const PurchaseRecordModule: React.FC = () => {
              totalItems += item.total || 0;
         });
 
-        const total = totalItems + packing + forwarding + freight;
-        return { ...data, totalGst, totalIgst, total };
+        let total = totalItems + packing + forwarding + freight;
+        let roundOff = 0;
+
+        if (data.isRoundOff) {
+            const roundedTotal = Math.round(total);
+            roundOff = Number((roundedTotal - total).toFixed(2));
+            total = roundedTotal;
+        }
+
+        return { ...data, totalGst, totalIgst, total, roundOff };
     };
 
     const handleInputChange = (field: keyof PurchaseRecord, value: any) => {
@@ -315,6 +325,8 @@ export const PurchaseRecordModule: React.FC = () => {
             totalGst: Number(finalTotals.totalGst) || 0,
             totalIgst: Number(finalTotals.totalIgst) || 0,
             total: Number(finalTotals.total) || 0,
+            isRoundOff: finalTotals.isRoundOff,
+            roundOff: finalTotals.roundOff,
             createdBy: currentUser?.name
         };
 
@@ -671,9 +683,24 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <p className="text-sm sm:text-base font-bold text-medical-400">₹{formatIndianNumber((Number(newRecord.packingCharges) || 0) + (Number(newRecord.forwardingCharges) || 0) + (Number(newRecord.freightCharges) || 0))}</p>
                                     </div>
                                 </div>
-                                <div className="text-center sm:text-right w-full sm:w-auto border-t border-slate-800 sm:border-t-0 pt-3 sm:pt-0">
-                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 leading-none">Total Payable</p>
-                                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tighter">₹{formatIndianNumber(newRecord.total || 0)}</p>
+                                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
+                                    <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-xl border border-white/10 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => handleInputChange('isRoundOff', !newRecord.isRoundOff)}>
+                                        <div className={`w-8 h-4 rounded-full relative transition-colors ${newRecord.isRoundOff ? 'bg-medical-500' : 'bg-slate-700'}`}>
+                                            <div className={`absolute top-1 left-1 w-2 h-2 bg-white rounded-full transition-transform ${newRecord.isRoundOff ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Round Off</span>
+                                    </div>
+                                    <div className="text-center sm:text-right border-t border-slate-800 sm:border-t-0 pt-3 sm:pt-0">
+                                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 leading-none">Total Payable</p>
+                                        <p className="text-2xl sm:text-3xl font-black text-white tracking-tighter flex items-baseline justify-center sm:justify-end gap-1">
+                                            ₹{formatIndianNumber(newRecord.total || 0)}
+                                            {newRecord.isRoundOff && newRecord.roundOff !== 0 && (
+                                                <span className={`text-[10px] font-bold ${newRecord.roundOff! > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    ({newRecord.roundOff! > 0 ? '+' : ''}{newRecord.roundOff})
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

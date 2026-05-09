@@ -636,6 +636,8 @@ export interface PurchaseRecord {
   totalGst: number;
   totalIgst: number;
   total: number;
+  isRoundOff?: boolean;
+  roundOff?: number;
   createdBy?: string;
   items?: PurchaseItem[];
 }
