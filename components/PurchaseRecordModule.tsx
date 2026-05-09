@@ -435,7 +435,6 @@ export const PurchaseRecordModule: React.FC = () => {
                             <tr>
                                 <th className="px-4 py-3">Date / Invoice</th>
                                 <th className="px-4 py-3">Supplier</th>
-                                <th className="px-4 py-3 text-right">GST Details</th>
                                 <th className="px-4 py-3 text-right">Grand Total</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
@@ -452,12 +451,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
                                     </td>
 
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="text-[10px] font-bold text-emerald-600">
-                                            GST: ₹{formatIndianNumber(record.totalGst)}
-                                        </div>
-                                        {record.totalIgst > 0 && <div className="text-[10px] font-bold text-medical-500 mt-0.5">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
-                                    </td>
+
                                     <td className="px-4 py-3 text-right">
                                         <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(record.total)}</div>
                                     </td>
