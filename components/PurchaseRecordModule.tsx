@@ -433,8 +433,7 @@ export const PurchaseRecordModule: React.FC = () => {
                             <tr>
                                 <th className="px-4 py-3">Date / Invoice</th>
                                 <th className="px-4 py-3">Supplier</th>
-                                <th className="px-4 py-3">Equipment</th>
-                                <th className="px-4 py-3 text-right">Qty / Rate</th>
+                                <th className="px-4 py-3">Equipment Details</th>
                                 <th className="px-4 py-3 text-right">GST Details</th>
                                 <th className="px-4 py-3 text-right">Grand Total</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
@@ -453,22 +452,21 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </td>
                                     <td className="px-4 py-2 font-bold text-slate-700 uppercase text-[10px]">
                                         {record.items && record.items.length > 0 
-                                            ? record.items.map(i => <div key={i.id}>{i.equipmentName}</div>)
-                                            : record.equipmentName}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                        {record.items && record.items.length > 0 
                                             ? record.items.map(i => (
-                                                <div key={i.id} className="mb-1">
-                                                    <div className="text-xs font-black text-slate-800">{i.qty} {i.unit || 'NOS'}</div>
-                                                    <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(i.rate)}</div>
+                                                <div key={i.id} className="mb-1.5 last:mb-0">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-slate-800">{i.equipmentName}</span>
+                                                        <span className="text-[9px] font-black text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded whitespace-nowrap">{i.qty} {i.unit || 'NOS'}</span>
+                                                        <span className="text-[8px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(i.rate)}</span>
+                                                    </div>
                                                 </div>
                                             ))
                                             : (
-                                                <>
-                                                    <div className="text-xs font-black text-slate-800">{record.qty} {record.unit || 'NOS'}</div>
-                                                    <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(record.rate || 0)}</div>
-                                                </>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-slate-800">{record.equipmentName}</span>
+                                                    <span className="text-[9px] font-black text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded whitespace-nowrap">{record.qty} {record.unit || 'NOS'}</span>
+                                                    <span className="text-[8px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(record.rate || 0)}</span>
+                                                </div>
                                             )}
                                     </td>
                                     <td className="px-4 py-2 text-right">
@@ -508,7 +506,7 @@ export const PurchaseRecordModule: React.FC = () => {
                             ))}
                             {filteredRecords.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-20 text-center">
+                                    <td colSpan={6} className="py-20 text-center">
                                         <div className="flex flex-col items-center opacity-20">
                                             <ShoppingCart size={48} className="mb-4" />
                                             <p className="font-black uppercase tracking-[0.2em] text-slate-400">No Purchase Entries Found</p>
