@@ -41,6 +41,7 @@ export const PurchaseRecordModule: React.FC = () => {
         equipmentName: '',
         rate: 0,
         qty: 1,
+        unit: 'nos',
         cgstPercent: 0,
         sgstPercent: 0,
         igstPercent: 0,
@@ -246,6 +247,7 @@ export const PurchaseRecordModule: React.FC = () => {
             equipmentName: currentItem.equipmentName || '',
             rate: Number(currentItem.rate) || 0,
             qty: Number(currentItem.qty) || 0,
+            unit: currentItem.unit || 'nos',
             gstPercent: Number(currentItem.gstPercent) || 0,
             cgstPercent: Number(currentItem.cgstPercent) || 0,
             sgstPercent: Number(currentItem.sgstPercent) || 0,
@@ -269,6 +271,7 @@ export const PurchaseRecordModule: React.FC = () => {
             equipmentName: '',
             rate: 0,
             qty: 1,
+            unit: 'nos',
             cgstPercent: 0,
             sgstPercent: 0,
             igstPercent: 0,
@@ -304,6 +307,7 @@ export const PurchaseRecordModule: React.FC = () => {
                 equipmentName: currentItem.equipmentName || '',
                 rate: Number(currentItem.rate) || 0,
                 qty: Number(currentItem.qty) || 0,
+                unit: currentItem.unit || 'nos',
                 gstPercent: Number(currentItem.gstPercent) || 0,
                 cgstPercent: Number(currentItem.cgstPercent) || 0,
                 sgstPercent: Number(currentItem.sgstPercent) || 0,
@@ -456,13 +460,13 @@ export const PurchaseRecordModule: React.FC = () => {
                                         {record.items && record.items.length > 0 
                                             ? record.items.map(i => (
                                                 <div key={i.id} className="mb-1">
-                                                    <div className="text-xs font-black text-slate-800">{i.qty} Units</div>
+                                                    <div className="text-xs font-black text-slate-800">{i.qty} {i.unit || 'NOS'}</div>
                                                     <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(i.rate)}</div>
                                                 </div>
                                             ))
                                             : (
                                                 <>
-                                                    <div className="text-xs font-black text-slate-800">{record.qty} Units</div>
+                                                    <div className="text-xs font-black text-slate-800">{record.qty} {record.unit || 'NOS'}</div>
                                                     <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(record.rate || 0)}</div>
                                                 </>
                                             )}
@@ -580,9 +584,20 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <FormRow label="Unit Rate (₹)">
                                                 <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.rate || ''} onChange={e => handleItemChange('rate', e.target.value)} />
                                             </FormRow>
-                                            <FormRow label="Quantity">
-                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.qty || ''} onChange={e => handleItemChange('qty', e.target.value)} />
-                                            </FormRow>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormRow label="Quantity">
+                                                    <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.qty || ''} onChange={e => handleItemChange('qty', e.target.value)} />
+                                                </FormRow>
+                                                <FormRow label="Unit">
+                                                    <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={currentItem.unit || 'nos'} onChange={e => handleItemChange('unit', e.target.value)}>
+                                                        <option value="nos">NOS</option>
+                                                        <option value="pkt">PKT</option>
+                                                        <option value="set">SET</option>
+                                                        <option value="jar">JAR</option>
+                                                        <option value="mtr">MTR</option>
+                                                    </select>
+                                                </FormRow>
+                                            </div>
                                             <FormRow label="Tax Type">
                                                 <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={currentItem.taxType} onChange={e => handleItemChange('taxType', e.target.value)}>
                                                     <option value="Local">Local (CGST+SGST)</option>
@@ -639,7 +654,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                     {newRecord.items.map((item, idx) => (
                                                         <tr key={idx}>
                                                             <td className="px-4 py-2 font-bold text-slate-800">{item.equipmentName}</td>
-                                                            <td className="px-4 py-2 text-right">₹{formatIndianNumber(item.rate)} x {item.qty}</td>
+                                                            <td className="px-4 py-2 text-right">₹{formatIndianNumber(item.rate)} x {item.qty} <span className="text-[9px] opacity-60 uppercase">{item.unit || 'NOS'}</span></td>
                                                             <td className="px-4 py-2 text-right text-[10px]">
                                                                 <span className="font-bold">{(item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0)}%</span>
                                                                 <span className="block text-[8px] text-slate-400 font-black">
@@ -760,8 +775,8 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Equipment</p>
                                         <div className="font-bold text-slate-800 uppercase">
                                             {selectedRecord.items && selectedRecord.items.length > 0
-                                                ? selectedRecord.items.map(i => <div key={i.id}>{i.equipmentName} ({i.qty} units)</div>)
-                                                : selectedRecord.equipmentName}
+                                                ? selectedRecord.items.map(i => <div key={i.id}>{i.equipmentName} ({i.qty} {i.unit || 'NOS'})</div>)
+                                                : <div>{selectedRecord.equipmentName} ({selectedRecord.qty} {selectedRecord.unit || 'NOS'})</div>}
                                         </div>
                                     </div>
                                     <div>

@@ -608,6 +608,7 @@ export interface PurchaseItem {
   equipmentName: string;
   rate: number;
   qty: number;
+  unit?: string;
   gstPercent?: number; // Added for convenience
   cgstPercent?: number;
   sgstPercent?: number;
@@ -626,6 +627,7 @@ export interface PurchaseRecord {
   invoiceNo: string;
   rate?: number;
   qty?: number;
+  unit?: string;
   gstPercent?: number; // Added for legacy support/convenience
   packingCharges: number;
   forwardingCharges: number;
