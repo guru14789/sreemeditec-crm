@@ -608,11 +608,10 @@ export interface PurchaseItem {
   equipmentName: string;
   rate: number;
   qty: number;
+  gstPercent?: number; // Added for convenience
   cgstPercent?: number;
   sgstPercent?: number;
   igstPercent?: number;
-  gst5: number;
-  gst18: number;
   totalGst: number;
   totalIgst: number;
   total: number;
@@ -627,17 +626,17 @@ export interface PurchaseRecord {
   invoiceNo: string;
   rate?: number;
   qty?: number;
+  gstPercent?: number; // Added for legacy support/convenience
   packingCharges: number;
   forwardingCharges: number;
   freightCharges: number;
   cgstPercent?: number;
   sgstPercent?: number;
   igstPercent?: number;
-  gst5?: number;
-  gst18?: number;
   totalGst: number;
   totalIgst: number;
   total: number;
   createdBy?: string;
   items?: PurchaseItem[];
 }
+

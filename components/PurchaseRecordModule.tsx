@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem } from '../types';
-import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter } from 'lucide-react';
+import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit } from 'lucide-react';
 import { useData } from './DataContext';
 
 const formatIndianNumber = (num: number) => {
@@ -22,7 +22,7 @@ export const PurchaseRecordModule: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<PurchaseRecord | null>(null);
-    const [newRecord, setNewRecord] = useState<Partial<PurchaseRecord>>({
+    const INITIAL_RECORD_STATE: Partial<PurchaseRecord> = {
         dateSupply: new Date().toISOString().split('T')[0],
         materialReceivedDate: new Date().toISOString().split('T')[0],
         items: [],
@@ -32,25 +32,36 @@ export const PurchaseRecordModule: React.FC = () => {
         totalGst: 0,
         totalIgst: 0,
         total: 0
-    });
-    const [currentItem, setCurrentItem] = useState<Partial<PurchaseItem>>({
+    };
+
+    const INITIAL_ITEM_STATE: Partial<PurchaseItem> & { taxType?: 'Local' | 'Interstate' } = {
         equipmentName: '',
         rate: 0,
         qty: 1,
         cgstPercent: 0,
         sgstPercent: 0,
         igstPercent: 0,
-        gst5: 0,
-        gst18: 0,
+        taxType: 'Local',
         totalIgst: 0,
         totalGst: 0,
         total: 0
-    });
+    };
+
+    const [newRecord, setNewRecord] = useState<Partial<PurchaseRecord>>(INITIAL_RECORD_STATE);
+    const [currentItem, setCurrentItem] = useState<Partial<PurchaseItem> & { taxType?: 'Local' | 'Interstate', gstPercent?: number }>(INITIAL_ITEM_STATE);
 
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+
+    const handleNewEntry = () => {
+        setNewRecord(INITIAL_RECORD_STATE);
+        setCurrentItem(INITIAL_ITEM_STATE);
+        setEditingId(null);
+        setShowAddModal(true);
+    };
 
     const verifyPassword = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -86,42 +97,121 @@ export const PurchaseRecordModule: React.FC = () => {
         setNewRecord(calculateTotals(updated, newRecord.items || []));
     };
 
-    const handleItemChange = (field: keyof PurchaseItem, value: any) => {
+    const handleItemChange = (field: keyof PurchaseItem | 'gstType', value: any) => {
         let val = value;
         if (field === 'equipmentName' && typeof value === 'string') {
             val = value.toUpperCase();
+            const product = products.find(p => p.name.toUpperCase() === val);
+            if (product) {
+                const rate = product.purchasePrice || product.price || 0;
+                const taxRate = product.taxRate || 0;
+                const isInterstate = currentItem.taxType === 'Interstate';
+                
+                const updatedItem = { 
+                    ...currentItem, 
+                    equipmentName: val,
+                    rate,
+                    gstPercent: taxRate, // Ensure gstPercent is set
+                    cgstPercent: isInterstate ? 0 : taxRate / 2,
+                    sgstPercent: isInterstate ? 0 : taxRate / 2,
+                    igstPercent: isInterstate ? taxRate : 0
+                };
+                
+                const basicAmount = rate * (updatedItem.qty || 1);
+                const taxAmt = (basicAmount * taxRate) / 100;
+                
+                setCurrentItem({ 
+                    ...updatedItem, 
+                    totalGst: isInterstate ? 0 : taxAmt, 
+                    totalIgst: isInterstate ? taxAmt : 0, 
+                    total: basicAmount + taxAmt 
+                });
+                return;
+            }
         }
+        
+        // Handle Tax Type change
+        if (field === 'taxType') {
+            const currentGstPerc = (currentItem.cgstPercent || 0) + (currentItem.sgstPercent || 0) + (currentItem.igstPercent || 0);
+            const rate = Number(currentItem.rate) || 0;
+            const qty = Number(currentItem.qty) || 0;
+            const basicAmount = rate * qty;
+            
+            if (value === 'Interstate') {
+                const totalIgst = (basicAmount * currentGstPerc) / 100;
+                setCurrentItem({ 
+                    ...currentItem, 
+                    taxType: 'Interstate',
+                    igstPercent: currentGstPerc, 
+                    cgstPercent: 0, 
+                    sgstPercent: 0,
+                    totalGst: 0,
+                    totalIgst,
+                    total: basicAmount + totalIgst
+                });
+            } else {
+                const totalGst = (basicAmount * currentGstPerc) / 100;
+                setCurrentItem({ 
+                    ...currentItem, 
+                    taxType: 'Local',
+                    igstPercent: 0, 
+                    cgstPercent: currentGstPerc / 2, 
+                    sgstPercent: currentGstPerc / 2,
+                    totalGst,
+                    totalIgst: 0,
+                    total: basicAmount + totalGst
+                });
+            }
+            return;
+        }
+
         const updated = { ...currentItem, [field]: val };
         const rate = Number(updated.rate) || 0;
         const qty = Number(updated.qty) || 0;
         const basicAmount = rate * qty;
 
-        let cgstPercent = Number(updated.cgstPercent) || 0;
-        let sgstPercent = Number(updated.sgstPercent) || 0;
-        let igstPercent = Number(updated.igstPercent) || 0;
-        
-        let gst5 = Number(updated.gst5) || 0;
-        let gst18 = Number(updated.gst18) || 0;
-        let totalIgst = Number(updated.totalIgst) || 0;
-
-        // If percentages are changed, recalculate absolute values
-        if (field === 'cgstPercent' || field === 'sgstPercent' || field === 'igstPercent' || field === 'rate' || field === 'qty') {
-            const cgstAmt = (basicAmount * cgstPercent) / 100;
-            const sgstAmt = (basicAmount * sgstPercent) / 100;
-            totalIgst = (basicAmount * igstPercent) / 100;
+        // Handle single GST percentage field change or re-calculating totals on rate/qty change
+        if (field === 'gstPercent' || field === 'rate' || field === 'qty') {
+            const totalPerc = field === 'gstPercent' 
+                ? Number(val) || 0 
+                : (Number(updated.gstPercent) || (Number(currentItem.cgstPercent || 0) + Number(currentItem.sgstPercent || 0) + Number(currentItem.igstPercent || 0)));
             
-            // For backward compatibility or mixed use, we sum them into totalGst
-            // But we keep them separate if we want to show them in the table
-            const totalGst = cgstAmt + sgstAmt + gst5 + gst18;
-            const total = basicAmount + totalGst + totalIgst;
-            setCurrentItem({ ...updated, totalGst, totalIgst, total });
+            const isInterstate = currentItem.taxType === 'Interstate';
+            
+            if (isInterstate) {
+                const igstAmt = (basicAmount * totalPerc) / 100;
+                setCurrentItem({ 
+                    ...updated, 
+                    gstPercent: totalPerc,
+                    igstPercent: totalPerc,
+                    cgstPercent: 0,
+                    sgstPercent: 0,
+                    totalIgst: igstAmt, 
+                    totalGst: 0, 
+                    total: basicAmount + igstAmt 
+                });
+            } else {
+                const cgstAmt = (basicAmount * (totalPerc / 2)) / 100;
+                const sgstAmt = (basicAmount * (totalPerc / 2)) / 100;
+                setCurrentItem({ 
+                    ...updated, 
+                    gstPercent: totalPerc,
+                    cgstPercent: totalPerc / 2,
+                    sgstPercent: totalPerc / 2,
+                    igstPercent: 0,
+                    totalGst: cgstAmt + sgstAmt, 
+                    totalIgst: 0, 
+                    total: basicAmount + cgstAmt + sgstAmt 
+                });
+            }
             return;
         }
 
-        const totalGst = gst5 + gst18 + ((basicAmount * cgstPercent) / 100) + ((basicAmount * sgstPercent) / 100);
-        const total = basicAmount + totalGst + totalIgst;
+        const totalGst = ((basicAmount * (Number(updated.cgstPercent) || 0)) / 100) + ((basicAmount * (Number(updated.sgstPercent) || 0)) / 100);
+        const totalIgst = (basicAmount * (Number(updated.igstPercent) || 0)) / 100;
         
-        setCurrentItem({ ...updated, totalGst, total });
+        setCurrentItem({ ...updated, totalGst, totalIgst, total: basicAmount + totalGst + totalIgst });
+
     };
 
     const handleAddItem = () => {
@@ -130,20 +220,28 @@ export const PurchaseRecordModule: React.FC = () => {
             return;
         }
         const item: PurchaseItem = {
-            id: `PI-${Date.now()}`,
+            id: currentItem.id || `PI-${Date.now()}`,
             equipmentName: currentItem.equipmentName || '',
             rate: Number(currentItem.rate) || 0,
             qty: Number(currentItem.qty) || 0,
+            gstPercent: Number(currentItem.gstPercent) || 0,
             cgstPercent: Number(currentItem.cgstPercent) || 0,
             sgstPercent: Number(currentItem.sgstPercent) || 0,
             igstPercent: Number(currentItem.igstPercent) || 0,
-            gst5: Number(currentItem.gst5) || 0,
-            gst18: Number(currentItem.gst18) || 0,
             totalIgst: Number(currentItem.totalIgst) || 0,
             totalGst: Number(currentItem.totalGst) || 0,
             total: Number(currentItem.total) || 0,
-        };
-        const updatedItems = [...(newRecord.items || []), item];
+        } as PurchaseItem;
+        
+        let updatedItems;
+        if (currentItem.id) {
+            // Edit existing item
+            updatedItems = (newRecord.items || []).map(i => i.id === currentItem.id ? item : i);
+        } else {
+            // Add new item
+            updatedItems = [...(newRecord.items || []), item];
+        }
+        
         setNewRecord(calculateTotals({ ...newRecord, items: updatedItems }, updatedItems));
         setCurrentItem({
             equipmentName: '',
@@ -152,13 +250,23 @@ export const PurchaseRecordModule: React.FC = () => {
             cgstPercent: 0,
             sgstPercent: 0,
             igstPercent: 0,
-            gst5: 0,
-            gst18: 0,
+            gstPercent: 0,
+            taxType: 'Local',
             totalIgst: 0,
             totalGst: 0,
             total: 0
         });
     };
+
+    const handleEditItem = (item: PurchaseItem) => {
+        const totalPerc = (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0);
+        setCurrentItem({
+            ...item,
+            taxType: item.igstPercent ? 'Interstate' : 'Local',
+            gstPercent: totalPerc
+        });
+    };
+
     
     const handleRemoveItem = (id: string) => {
         const updatedItems = (newRecord.items || []).filter(i => i.id !== id);
@@ -174,15 +282,14 @@ export const PurchaseRecordModule: React.FC = () => {
                 equipmentName: currentItem.equipmentName || '',
                 rate: Number(currentItem.rate) || 0,
                 qty: Number(currentItem.qty) || 0,
+                gstPercent: Number(currentItem.gstPercent) || 0,
                 cgstPercent: Number(currentItem.cgstPercent) || 0,
                 sgstPercent: Number(currentItem.sgstPercent) || 0,
                 igstPercent: Number(currentItem.igstPercent) || 0,
-                gst5: Number(currentItem.gst5) || 0,
-                gst18: Number(currentItem.gst18) || 0,
                 totalIgst: Number(currentItem.totalIgst) || 0,
                 totalGst: Number(currentItem.totalGst) || 0,
                 total: Number(currentItem.total) || 0,
-            };
+            } as PurchaseItem;
             itemsToSave.push(item);
         }
 
@@ -191,7 +298,7 @@ export const PurchaseRecordModule: React.FC = () => {
             return;
         }
 
-        const id = `PR-${Date.now()}`;
+        const id = editingId || `PR-${Date.now()}`;
         // Re-calculate totals based on items to save
         const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
         
@@ -211,20 +318,27 @@ export const PurchaseRecordModule: React.FC = () => {
             createdBy: currentUser?.name
         };
 
-        await addPurchaseRecord(record);
+        if (editingId) {
+            await updatePurchaseRecord(editingId, record);
+            addNotification('Entry Updated', `Purchase from ${record.supplier} updated.`, 'success');
+        } else {
+            await addPurchaseRecord(record);
+            addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
+        }
+
         setShowAddModal(false);
+        setEditingId(null);
+        setNewRecord(INITIAL_RECORD_STATE);
+        setCurrentItem(INITIAL_ITEM_STATE);
+    };
+
+    const handleEdit = (record: PurchaseRecord) => {
         setNewRecord({
-            dateSupply: new Date().toISOString().split('T')[0],
-            materialReceivedDate: new Date().toISOString().split('T')[0],
-            items: [],
-            packingCharges: 0,
-            forwardingCharges: 0,
-            freightCharges: 0,
-            totalGst: 0,
-            totalIgst: 0,
-            total: 0
+            ...record,
+            items: record.items || []
         });
-        addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
+        setEditingId(record.id);
+        setShowAddModal(true);
     };
 
     const filteredRecords = useMemo(() => {
@@ -274,7 +388,7 @@ export const PurchaseRecordModule: React.FC = () => {
                         />
                     </div>
                     <button
-                        onClick={() => setShowAddModal(true)}
+                        onClick={handleNewEntry}
                         className="bg-medical-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg shadow-medical-200/50"
                     >
                         <Plus size={14} /> New Entry
@@ -329,7 +443,14 @@ export const PurchaseRecordModule: React.FC = () => {
                                             )}
                                     </td>
                                     <td className="px-4 py-2 text-right">
-                                        <div className="text-[9px] font-black text-emerald-600">GST: ₹{formatIndianNumber(record.totalGst)}</div>
+                                        <div className="text-[9px] font-black text-emerald-600">
+                                            GST: ₹{formatIndianNumber(record.totalGst)}
+                                            {record.items && record.items.length > 0 && (
+                                                <span className="ml-1 opacity-60 text-[7px] bg-emerald-50 px-1 rounded">
+                                                    ({record.items[0].gstPercent}%)
+                                                </span>
+                                            )}
+                                        </div>
                                         {record.totalIgst > 0 && <div className="text-[9px] font-black text-medical-600">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
                                     </td>
                                     <td className="px-4 py-2 text-right">
@@ -338,8 +459,16 @@ export const PurchaseRecordModule: React.FC = () => {
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="flex justify-end gap-2">
                                             <button
+                                                onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
+                                                className="p-1.5 text-slate-300 hover:text-medical-600 hover:bg-medical-50 rounded-lg transition-all"
+                                                title="Edit Entry"
+                                            >
+                                                <Edit size={14} />
+                                            </button>
+                                            <button
                                                 onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
                                                 className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="Delete Entry"
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -371,8 +500,8 @@ export const PurchaseRecordModule: React.FC = () => {
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-medical-600 rounded-xl text-white shadow-lg"><Plus size={18} /></div>
                                 <div>
-                                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Purchase Entry</h3>
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Document Registry</p>
+                                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{editingId ? 'Edit Purchase' : 'Purchase Entry'}</h3>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{editingId ? 'Modify Record' : 'Document Registry'}</p>
                                 </div>
                             </div>
                             <button onClick={() => setShowAddModal(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-400" /></button>
@@ -405,8 +534,23 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                             <div className="lg:col-span-2">
                                                 <FormRow label="Equipment Name *">
-                                                    <input type="text" list="prod-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH PRODUCT" value={currentItem.equipmentName || ''} onChange={e => handleItemChange('equipmentName', e.target.value)} />
+                                                    <div className="relative">
+                                                        <input type="text" list="prod-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH PRODUCT" value={currentItem.equipmentName || ''} onChange={e => handleItemChange('equipmentName', e.target.value)} />
+                                                         {currentItem.equipmentName && products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase()) && (
+                                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                                                <div className="flex flex-col items-end">
+                                                                    <span className="text-[9px] font-black text-white bg-medical-600 px-2 py-0.5 rounded border border-medical-500 shadow-sm whitespace-nowrap">
+                                                                        PURCHASE: ₹{formatIndianNumber(products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase())?.purchasePrice || 0)}
+                                                                    </span>
+                                                                    <span className="text-[7px] font-black text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 mt-0.5 whitespace-nowrap">
+                                                                        SELLING: ₹{formatIndianNumber(products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase())?.sellingPrice || products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase())?.price || 0)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </FormRow>
+
                                             </div>
                                             <FormRow label="Unit Rate (₹)">
                                                 <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.rate || ''} onChange={e => handleItemChange('rate', e.target.value)} />
@@ -414,27 +558,40 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <FormRow label="Quantity">
                                                 <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.qty || ''} onChange={e => handleItemChange('qty', e.target.value)} />
                                             </FormRow>
-                                            <FormRow label="CGST %">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.cgstPercent || ''} onChange={e => handleItemChange('cgstPercent', e.target.value)} />
+                                            <FormRow label="Tax Type">
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={currentItem.taxType} onChange={e => handleItemChange('taxType', e.target.value)}>
+                                                    <option value="Local">Local (CGST+SGST)</option>
+                                                    <option value="Interstate">Interstate (IGST)</option>
+                                                </select>
                                             </FormRow>
-                                            <FormRow label="SGST %">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.sgstPercent || ''} onChange={e => handleItemChange('sgstPercent', e.target.value)} />
-                                            </FormRow>
-                                            <FormRow label="IGST %">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.igstPercent || ''} onChange={e => handleItemChange('igstPercent', e.target.value)} />
-                                            </FormRow>
-                                            <FormRow label="GST 5% (₹)">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.gst5 || ''} onChange={e => handleItemChange('gst5', e.target.value)} />
-                                            </FormRow>
-                                            <FormRow label="GST 18% (₹)">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.gst18 || ''} onChange={e => handleItemChange('gst18', e.target.value)} />
-                                            </FormRow>
-                                            <FormRow label="IGST Amount (₹)">
-                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.totalIgst || ''} onChange={e => handleItemChange('totalIgst', e.target.value)} />
-                                            </FormRow>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <FormRow label="GST %">
+                                                    <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" placeholder="0" value={currentItem.gstPercent || ''} onChange={e => handleItemChange('gstPercent', e.target.value)} />
+                                                </FormRow>
+                                                <FormRow label="Tax Amt (₹)">
+                                                    <input type="text" readOnly className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-black text-emerald-600 outline-none" value={formatIndianNumber((Number(currentItem.totalGst) || 0) + (Number(currentItem.totalIgst) || 0))} />
+                                                </FormRow>
+                                            </div>
+
+                                            <div className="lg:col-span-4 bg-slate-900 rounded-lg p-2 flex justify-between items-center text-[10px]">
+                                                <div className="flex gap-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-500 font-black uppercase text-[7px]">Basic Amount</span>
+                                                        <span className="text-white font-bold">₹{formatIndianNumber((Number(currentItem.rate) || 0) * (Number(currentItem.qty) || 0))}</span>
+                                                    </div>
+                                                    <div className="flex flex-col border-l border-slate-700 pl-4">
+                                                        <span className="text-emerald-500 font-black uppercase text-[7px]">Tax Amount</span>
+                                                        <span className="text-emerald-400 font-bold">₹{formatIndianNumber((Number(currentItem.totalGst) || 0) + (Number(currentItem.totalIgst) || 0))}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-slate-500 font-black uppercase text-[7px]">Line Total</span>
+                                                    <p className="text-medical-400 font-black text-sm leading-none">₹{formatIndianNumber(currentItem.total || 0)}</p>
+                                                </div>
+                                            </div>
                                             <div className="flex items-end">
-                                                <button onClick={handleAddItem} className="w-full h-[32px] bg-medical-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wider hover:bg-medical-700 transition-colors flex items-center justify-center gap-2">
-                                                    <Plus size={12} /> Add Item
+                                                <button onClick={handleAddItem} className="w-full h-[36px] bg-medical-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wider hover:bg-medical-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-medical-500/20">
+                                                    {currentItem.id ? <><RefreshCw size={12} /> Update Item</> : <><Plus size={12} /> Add Item</>}
                                                 </button>
                                             </div>
                                         </div>
@@ -459,16 +616,22 @@ export const PurchaseRecordModule: React.FC = () => {
                                                             <td className="px-4 py-2 font-bold text-slate-800">{item.equipmentName}</td>
                                                             <td className="px-4 py-2 text-right">₹{formatIndianNumber(item.rate)} x {item.qty}</td>
                                                             <td className="px-4 py-2 text-right text-[10px]">
-                                                                {item.cgstPercent ? `CGST:${item.cgstPercent}% ` : ''}
-                                                                {item.sgstPercent ? `SGST:${item.sgstPercent}% ` : ''}
-                                                                {item.igstPercent ? `IGST:${item.igstPercent}%` : ''}
+                                                                <span className="font-bold">{(item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0)}%</span>
+                                                                <span className="block text-[8px] text-slate-400 font-black">
+                                                                    {item.igstPercent ? 'INTERSTATE' : 'LOCAL'}
+                                                                </span>
                                                             </td>
                                                             <td className="px-4 py-2 text-right text-emerald-600 font-bold">₹{formatIndianNumber(item.totalGst + item.totalIgst)}</td>
                                                             <td className="px-4 py-2 text-right font-black">₹{formatIndianNumber(item.total)}</td>
                                                             <td className="px-4 py-2 text-center">
-                                                                <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded">
-                                                                    <Trash2 size={14} />
-                                                                </button>
+                                                                <div className="flex justify-center gap-1">
+                                                                    <button onClick={() => handleEditItem(item)} className="text-medical-600 hover:bg-medical-50 p-1 rounded transition-colors" title="Edit Item">
+                                                                        <Edit size={14} />
+                                                                    </button>
+                                                                    <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors" title="Remove Item">
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -516,8 +679,13 @@ export const PurchaseRecordModule: React.FC = () => {
                         </div>
 
                         <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
-                            <button onClick={() => setShowAddModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
-                            <button onClick={handleSaveRecord} className="flex-[2] px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-medical-500/30 active:scale-95 transition-all text-[10px]">Save Purchase Entry</button>
+                            <button onClick={() => setShowAddModal(false)} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
+                            <button onClick={() => { setNewRecord(INITIAL_RECORD_STATE); setCurrentItem(INITIAL_ITEM_STATE); }} className="px-6 py-3 bg-slate-100 text-amber-600 border border-amber-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
+                                <RefreshCw size={14} /> Reset Form
+                            </button>
+                            <button onClick={handleSaveRecord} className="flex-[2] px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-medical-500/30 active:scale-95 transition-all text-[10px]">
+                                {editingId ? 'Update Purchase Entry' : 'Save Purchase Entry'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -573,6 +741,12 @@ export const PurchaseRecordModule: React.FC = () => {
                         </div>
 
                         <div className="p-8 border-t bg-slate-50 flex gap-4 shrink-0">
+                            <button 
+                                onClick={() => { handleEdit(selectedRecord); setSelectedRecord(null); }}
+                                className="flex-1 px-8 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-medical-700 transition-all text-xs shadow-lg flex items-center justify-center gap-2"
+                            >
+                                <Edit size={16} /> Edit Record
+                            </button>
                             <button onClick={() => setSelectedRecord(null)} className="flex-1 px-8 py-4 bg-slate-800 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-black transition-all text-xs shadow-lg">Close Record</button>
                         </div>
                     </div>
@@ -609,7 +783,7 @@ export const PurchaseRecordModule: React.FC = () => {
                 </div>
             )}
             <datalist id="vendor-list">{vendors.map(v => <option key={v.id} value={v.name.toUpperCase()} />)}</datalist>
-            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name.toUpperCase()} />)}</datalist>
+            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name.toUpperCase()}>{p.name.toUpperCase()} - ₹{formatIndianNumber(p.purchasePrice || p.price || 0)}</option>)}</datalist>
         </div>
     );
 };
