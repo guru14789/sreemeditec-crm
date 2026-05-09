@@ -110,7 +110,7 @@ export const SupplierPOModule: React.FC = () => {
             ...prev,
             customerName: vendor.name,
             customerAddress: vendor.address || '',
-            customerGstin: vendor.gstin || ''
+            customerGstin: (vendor.gstin || '').toUpperCase()
         }));
         addNotification('Vendor Detected', `Linked ${vendor.name} to procurement order.`, 'success');
     };
@@ -131,16 +131,20 @@ export const SupplierPOModule: React.FC = () => {
     };
 
     const handleAddItem = (prod?: any) => {
+        const tr = prod?.taxRate || 18;
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             quantity: 1,
             unitPrice: prod?.purchasePrice || 0,
-            taxRate: prod?.taxRate || 18,
+            taxRate: tr,
+            cgstRate: tr / 2,
+            sgstRate: tr / 2,
+            igstRate: 0,
             amount: prod?.purchasePrice || 0,
-            gstValue: (prod?.purchasePrice || 0) * ((prod?.taxRate || 18) / 100),
-            priceWithGst: (prod?.purchasePrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
+            gstValue: (prod?.purchasePrice || 0) * (tr / 100),
+            priceWithGst: (prod?.purchasePrice || 0) * (1 + (tr / 100))
         };
         setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
         if (builderTab === 'spares') setBuilderTab('form');
@@ -150,16 +154,37 @@ export const SupplierPOModule: React.FC = () => {
         setOrder(prev => {
             const updatedItems = (prev.items || []).map(item => {
                 if (item.id === id) {
-                    const updated = { ...item, [field]: value };
+                    let updated = { ...item, [field]: value };
+                    
                     if (field === 'description') {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
                             updated.unitPrice = masterProd.purchasePrice || 0;
                             updated.taxRate = masterProd.taxRate || 18;
+                            updated.cgstRate = updated.taxRate / 2;
+                            updated.sgstRate = updated.taxRate / 2;
+                            updated.igstRate = 0;
                             updated.hsn = masterProd.hsn || '';
                         }
                     }
+                    
+                    if (field === 'taxRate') {
+                        updated.cgstRate = Number(value) / 2;
+                        updated.sgstRate = Number(value) / 2;
+                        updated.igstRate = 0;
+                    } else if (field === 'cgstRate' || field === 'sgstRate') {
+                        updated.igstRate = 0;
+                        updated.taxRate = (updated.cgstRate || 0) + (updated.sgstRate || 0);
+                    } else if (field === 'igstRate') {
+                        updated.cgstRate = 0;
+                        updated.sgstRate = 0;
+                        updated.taxRate = Number(value);
+                    }
+
                     updated.amount = updated.quantity * (updated.unitPrice || 0);
+                    updated.gstValue = updated.amount * (updated.taxRate / 100);
+                    updated.priceWithGst = updated.amount + updated.gstValue;
+                    
                     return updated;
                 }
                 return item;
@@ -390,10 +415,10 @@ export const SupplierPOModule: React.FC = () => {
                                                 </FormRow>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     <FormRow label="Vendor GST">
-                                                        <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Vendor GSTIN" value={order.customerGstin || ''} onChange={e => setOrder({...order, customerGstin: e.target.value})} />
+                                                        <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none uppercase" placeholder="Vendor GSTIN" value={order.customerGstin || ''} onChange={e => setOrder({...order, customerGstin: e.target.value.toUpperCase()})} />
                                                     </FormRow>
                                                     <FormRow label="Our GST">
-                                                        <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Billing GSTIN" value={order.bankDetails || ''} onChange={e => setOrder({...order, bankDetails: e.target.value})} />
+                                                        <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none uppercase" placeholder="Billing GSTIN" value={order.bankDetails || ''} onChange={e => setOrder({...order, bankDetails: e.target.value.toUpperCase()})} />
                                                     </FormRow>
                                                 </div>
                                                 <FormRow label="Vendor Address">
@@ -430,13 +455,19 @@ export const SupplierPOModule: React.FC = () => {
                                                                 setOrder(prev => {
                                                                     const updatedItems = (prev.items || []).map(it => {
                                                                         if (it.id === item.id) {
+                                                                            const tr = prod.taxRate || 18;
                                                                             return {
                                                                                 ...it,
                                                                                 description: prod.name,
                                                                                 unitPrice: prod.purchasePrice || 0,
-                                                                                taxRate: prod.taxRate || 18,
+                                                                                taxRate: tr,
+                                                                                cgstRate: tr / 2,
+                                                                                sgstRate: tr / 2,
+                                                                                igstRate: 0,
                                                                                 hsn: prod.hsn || '',
-                                                                                amount: it.quantity * (prod.purchasePrice || 0)
+                                                                                amount: it.quantity * (prod.purchasePrice || 0),
+                                                                                gstValue: (it.quantity * (prod.purchasePrice || 0)) * (tr / 100),
+                                                                                priceWithGst: (it.quantity * (prod.purchasePrice || 0)) * (1 + (tr / 100))
                                                                             };
                                                                         }
                                                                         return it;
@@ -454,27 +485,66 @@ export const SupplierPOModule: React.FC = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
-                                                        <input 
-                                                            type="number"
-                                                            value={(item.quantity || '')}
-                                                            onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                                                            className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm"
-                                                        />
-                                                        <span className="text-[9px] font-black text-slate-300">×</span>
-                                                        <input 
-                                                            type="number"
-                                                            value={(item.unitPrice || '')}
-                                                            onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
-                                                            className="w-20 bg-transparent font-black text-slate-700 outline-none text-sm"
-                                                        />
-                                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[7px] font-black text-slate-400 uppercase">Qty</span>
                                                             <input 
                                                                 type="number"
-                                                                value={(item.taxRate || '')}
-                                                                onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))}
-                                                                className="w-8 bg-transparent text-center font-black text-emerald-600 outline-none text-xs"
+                                                                value={(item.quantity || '')}
+                                                                onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                                                                className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm"
                                                             />
-                                                            <span className="text-[9px] font-black text-slate-400">%</span>
+                                                        </div>
+                                                        <span className="text-[9px] font-black text-slate-300 mt-2">×</span>
+                                                        <div className="flex flex-col items-center">
+                                                            <span className="text-[7px] font-black text-slate-400 uppercase">Rate</span>
+                                                            <input 
+                                                                type="number"
+                                                                value={(item.unitPrice || '')}
+                                                                onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
+                                                                className="w-20 bg-transparent font-black text-slate-700 outline-none text-sm"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase">CGST%</span>
+                                                                <input 
+                                                                    type="number"
+                                                                    value={(item.cgstRate || '')}
+                                                                    onChange={e => updateItem(item.id, 'cgstRate', Number(e.target.value))}
+                                                                    className="w-8 bg-transparent text-center font-black text-emerald-600 outline-none text-xs"
+                                                                />
+                                                            </div>
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase">SGST%</span>
+                                                                <input 
+                                                                    type="number"
+                                                                    value={(item.sgstRate || '')}
+                                                                    onChange={e => updateItem(item.id, 'sgstRate', Number(e.target.value))}
+                                                                    className="w-8 bg-transparent text-center font-black text-emerald-600 outline-none text-xs"
+                                                                />
+                                                            </div>
+                                                            <div className="flex flex-col items-center border-l border-slate-100 pl-1">
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase">IGST%</span>
+                                                                <input 
+                                                                    type="number"
+                                                                    value={(item.igstRate || '')}
+                                                                    onChange={e => updateItem(item.id, 'igstRate', Number(e.target.value))}
+                                                                    className="w-8 bg-transparent text-center font-black text-medical-600 outline-none text-xs"
+                                                                />
+                                                            </div>
+                                                            <div className="flex flex-col items-center border-l border-slate-100 pl-1">
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase">GST ₹</span>
+                                                                <span className="text-[10px] font-black text-slate-600 px-1">{item.gstValue.toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex flex-col items-center border-l border-slate-100 pl-1">
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase">Total%</span>
+                                                                <input 
+                                                                    type="number"
+                                                                    value={(item.taxRate || '')}
+                                                                    onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))}
+                                                                    className="w-8 bg-transparent text-center font-black text-slate-400 outline-none text-[10px]"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <button 

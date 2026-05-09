@@ -511,15 +511,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                                 ...prev,
                                                                 customerName: e.target.value,
                                                                 customerAddress: client ? client.address : prev.customerAddress,
-                                                                customerGstin: client ? client.gstin : prev.customerGstin,
+                                                                customerGstin: client ? (client.gstin || '').toUpperCase() : prev.customerGstin,
                                                                 buyerName: prev.buyerName || (client ? client.name : ''),
                                                                 buyerAddress: prev.buyerAddress || (client ? client.address : ''),
-                                                                buyerGstin: prev.buyerGstin || (client ? client.gstin : '')
+                                                                buyerGstin: prev.buyerGstin || (client ? (client.gstin || '').toUpperCase() : '')
                                                             }));
                                                         }} placeholder="Search registry..." />
                                                     </FormRow>
                                                     <FormRow label="Consignee GSTIN">
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.customerGstin || ''} onChange={e => setInvoice({...invoice, customerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none uppercase" value={invoice.customerGstin || ''} onChange={e => setInvoice({...invoice, customerGstin: e.target.value.toUpperCase()})} placeholder="33XXXXX" />
                                                     </FormRow>
                                                     <FormRow label="Site / Shipping Address">
                                                         <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.customerAddress || ''} onChange={e => setInvoice({...invoice, customerAddress: e.target.value})} placeholder="Full shipping address..." />
@@ -542,12 +542,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                                 ...prev,
                                                                 buyerName: e.target.value,
                                                                 buyerAddress: client ? client.address : prev.buyerAddress,
-                                                                buyerGstin: client ? client.gstin : prev.buyerGstin
+                                                                buyerGstin: client ? (client.gstin || '').toUpperCase() : prev.buyerGstin
                                                             }));
                                                         }} placeholder="Billing Entity Name" />
                                                     </FormRow>
                                                     <FormRow label="Buyer GSTIN">
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none" value={invoice.buyerGstin || ''} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value})} placeholder="33XXXXX" />
+                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none uppercase" value={invoice.buyerGstin || ''} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value.toUpperCase()})} placeholder="33XXXXX" />
                                                     </FormRow>
                                                     <FormRow label="Billing Address">
                                                         <textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-5 py-3 text-sm font-bold outline-none resize-none" value={invoice.buyerAddress || ''} onChange={e => setInvoice({...invoice, buyerAddress: e.target.value})} placeholder="Full billing address..." />

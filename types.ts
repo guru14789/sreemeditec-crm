@@ -110,7 +110,7 @@ export interface Vendor {
 export interface Product {
   id: string;
   name: string;
-  category: 'Equipment' | 'Consumable' | 'Spare Part';
+  category: 'Equipment' | 'Consumable' | 'Spare Part' | 'Pipe Line' | 'Furniture';
   sku: string;
   stock: number;
   unit: string;
@@ -241,6 +241,9 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   taxRate: number;
+  cgstRate?: number;
+  sgstRate?: number;
+  igstRate?: number;
   amount: number;
   gstValue: number;
   priceWithGst: number;
@@ -600,23 +603,41 @@ export interface LeaveRequest {
   adminFeedback?: string;
 }
 
-export interface PurchaseRecord {
+export interface PurchaseItem {
   id: string;
-  dateSupply: string;
-  materialReceivedDate: string;
-  supplier: string;
   equipmentName: string;
-  invoiceNo: string;
   rate: number;
   qty: number;
-  packingCharges: number;
-  forwardingCharges: number;
-  freightCharges: number;
+  cgstPercent?: number;
+  sgstPercent?: number;
+  igstPercent?: number;
   gst5: number;
   gst18: number;
   totalGst: number;
   totalIgst: number;
   total: number;
-  createdBy?: string;
 }
 
+export interface PurchaseRecord {
+  id: string;
+  dateSupply: string;
+  materialReceivedDate: string;
+  supplier: string;
+  equipmentName?: string;
+  invoiceNo: string;
+  rate?: number;
+  qty?: number;
+  packingCharges: number;
+  forwardingCharges: number;
+  freightCharges: number;
+  cgstPercent?: number;
+  sgstPercent?: number;
+  igstPercent?: number;
+  gst5?: number;
+  gst18?: number;
+  totalGst: number;
+  totalIgst: number;
+  total: number;
+  createdBy?: string;
+  items?: PurchaseItem[];
+}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PurchaseRecord } from '../types';
+import { PurchaseRecord, PurchaseItem } from '../types';
 import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -11,8 +11,8 @@ const formatIndianNumber = (num: number) => {
 };
 
 const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
-    <div className="flex flex-col gap-1.5 w-full">
-        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[14px]">{label}</label>
+    <div className="flex flex-col gap-1 w-full">
+        <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[12px]">{label}</label>
         {children}
     </div>
 );
@@ -25,18 +25,28 @@ export const PurchaseRecordModule: React.FC = () => {
     const [newRecord, setNewRecord] = useState<Partial<PurchaseRecord>>({
         dateSupply: new Date().toISOString().split('T')[0],
         materialReceivedDate: new Date().toISOString().split('T')[0],
-        rate: 0,
-        qty: 1,
+        items: [],
         packingCharges: 0,
         forwardingCharges: 0,
         freightCharges: 0,
-        gst5: 0,
-        gst18: 0,
         totalGst: 0,
         totalIgst: 0,
         total: 0
     });
-    
+    const [currentItem, setCurrentItem] = useState<Partial<PurchaseItem>>({
+        equipmentName: '',
+        rate: 0,
+        qty: 1,
+        cgstPercent: 0,
+        sgstPercent: 0,
+        igstPercent: 0,
+        gst5: 0,
+        gst18: 0,
+        totalIgst: 0,
+        totalGst: 0,
+        total: 0
+    });
+
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
@@ -48,52 +58,156 @@ export const PurchaseRecordModule: React.FC = () => {
         else { alert("Incorrect Security Password."); setPassword(''); }
     };
 
-    const calculateTotals = (data: Partial<PurchaseRecord>) => {
-        const rate = Number(data.rate) || 0;
-        const qty = Number(data.qty) || 0;
+    const calculateTotals = (data: Partial<PurchaseRecord>, itemsList: PurchaseItem[] = []) => {
         const packing = Number(data.packingCharges) || 0;
         const forwarding = Number(data.forwardingCharges) || 0;
         const freight = Number(data.freightCharges) || 0;
-        const gst5 = Number(data.gst5) || 0;
-        const gst18 = Number(data.gst18) || 0;
-        const totalIgst = Number(data.totalIgst) || 0;
+        
+        let totalGst = 0;
+        let totalIgst = 0;
+        let totalItems = 0;
 
-        const basicAmount = rate * qty;
-        const totalGst = gst5 + gst18;
-        const total = basicAmount + totalGst + totalIgst + packing + forwarding + freight;
+        itemsList.forEach(item => {
+             totalGst += item.totalGst || 0;
+             totalIgst += item.totalIgst || 0;
+             totalItems += item.total || 0;
+        });
 
-        return { ...data, totalGst, total };
+        const total = totalItems + packing + forwarding + freight;
+        return { ...data, totalGst, totalIgst, total };
     };
 
     const handleInputChange = (field: keyof PurchaseRecord, value: any) => {
-        const updated = { ...newRecord, [field]: value };
-        setNewRecord(calculateTotals(updated));
+        let val = value;
+        if ((field === 'supplier' || field === 'invoiceNo') && typeof value === 'string') {
+            val = value.toUpperCase();
+        }
+        const updated = { ...newRecord, [field]: val };
+        setNewRecord(calculateTotals(updated, newRecord.items || []));
     };
 
+    const handleItemChange = (field: keyof PurchaseItem, value: any) => {
+        let val = value;
+        if (field === 'equipmentName' && typeof value === 'string') {
+            val = value.toUpperCase();
+        }
+        const updated = { ...currentItem, [field]: val };
+        const rate = Number(updated.rate) || 0;
+        const qty = Number(updated.qty) || 0;
+        const basicAmount = rate * qty;
+
+        let cgstPercent = Number(updated.cgstPercent) || 0;
+        let sgstPercent = Number(updated.sgstPercent) || 0;
+        let igstPercent = Number(updated.igstPercent) || 0;
+        
+        let gst5 = Number(updated.gst5) || 0;
+        let gst18 = Number(updated.gst18) || 0;
+        let totalIgst = Number(updated.totalIgst) || 0;
+
+        // If percentages are changed, recalculate absolute values
+        if (field === 'cgstPercent' || field === 'sgstPercent' || field === 'igstPercent' || field === 'rate' || field === 'qty') {
+            const cgstAmt = (basicAmount * cgstPercent) / 100;
+            const sgstAmt = (basicAmount * sgstPercent) / 100;
+            totalIgst = (basicAmount * igstPercent) / 100;
+            
+            // For backward compatibility or mixed use, we sum them into totalGst
+            // But we keep them separate if we want to show them in the table
+            const totalGst = cgstAmt + sgstAmt + gst5 + gst18;
+            const total = basicAmount + totalGst + totalIgst;
+            setCurrentItem({ ...updated, totalGst, totalIgst, total });
+            return;
+        }
+
+        const totalGst = gst5 + gst18 + ((basicAmount * cgstPercent) / 100) + ((basicAmount * sgstPercent) / 100);
+        const total = basicAmount + totalGst + totalIgst;
+        
+        setCurrentItem({ ...updated, totalGst, total });
+    };
+
+    const handleAddItem = () => {
+        if (!currentItem.equipmentName) {
+            alert("Equipment name is required");
+            return;
+        }
+        const item: PurchaseItem = {
+            id: `PI-${Date.now()}`,
+            equipmentName: currentItem.equipmentName || '',
+            rate: Number(currentItem.rate) || 0,
+            qty: Number(currentItem.qty) || 0,
+            cgstPercent: Number(currentItem.cgstPercent) || 0,
+            sgstPercent: Number(currentItem.sgstPercent) || 0,
+            igstPercent: Number(currentItem.igstPercent) || 0,
+            gst5: Number(currentItem.gst5) || 0,
+            gst18: Number(currentItem.gst18) || 0,
+            totalIgst: Number(currentItem.totalIgst) || 0,
+            totalGst: Number(currentItem.totalGst) || 0,
+            total: Number(currentItem.total) || 0,
+        };
+        const updatedItems = [...(newRecord.items || []), item];
+        setNewRecord(calculateTotals({ ...newRecord, items: updatedItems }, updatedItems));
+        setCurrentItem({
+            equipmentName: '',
+            rate: 0,
+            qty: 1,
+            cgstPercent: 0,
+            sgstPercent: 0,
+            igstPercent: 0,
+            gst5: 0,
+            gst18: 0,
+            totalIgst: 0,
+            totalGst: 0,
+            total: 0
+        });
+    };
+    
+    const handleRemoveItem = (id: string) => {
+        const updatedItems = (newRecord.items || []).filter(i => i.id !== id);
+        setNewRecord(calculateTotals({ ...newRecord, items: updatedItems }, updatedItems));
+    };
     const handleSaveRecord = async () => {
-        if (!newRecord.supplier || !newRecord.equipmentName || !newRecord.invoiceNo) {
-            alert("Supplier, Equipment, and Invoice No are required.");
+        let itemsToSave = [...(newRecord.items || [])];
+        
+        // If items are empty but currentItem has data, auto-add it
+        if (itemsToSave.length === 0 && currentItem.equipmentName) {
+            const item: PurchaseItem = {
+                id: `PI-${Date.now()}`,
+                equipmentName: currentItem.equipmentName || '',
+                rate: Number(currentItem.rate) || 0,
+                qty: Number(currentItem.qty) || 0,
+                cgstPercent: Number(currentItem.cgstPercent) || 0,
+                sgstPercent: Number(currentItem.sgstPercent) || 0,
+                igstPercent: Number(currentItem.igstPercent) || 0,
+                gst5: Number(currentItem.gst5) || 0,
+                gst18: Number(currentItem.gst18) || 0,
+                totalIgst: Number(currentItem.totalIgst) || 0,
+                totalGst: Number(currentItem.totalGst) || 0,
+                total: Number(currentItem.total) || 0,
+            };
+            itemsToSave.push(item);
+        }
+
+        if (itemsToSave.length === 0) {
+            alert("Please add at least one equipment.");
             return;
         }
 
         const id = `PR-${Date.now()}`;
+        // Re-calculate totals based on items to save
+        const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
+        
         const record: PurchaseRecord = {
             id,
-            dateSupply: newRecord.dateSupply || '',
-            materialReceivedDate: newRecord.materialReceivedDate || '',
-            supplier: newRecord.supplier || '',
-            equipmentName: newRecord.equipmentName || '',
-            invoiceNo: newRecord.invoiceNo || '',
-            rate: Number(newRecord.rate) || 0,
-            qty: Number(newRecord.qty) || 0,
-            packingCharges: Number(newRecord.packingCharges) || 0,
-            forwardingCharges: Number(newRecord.forwardingCharges) || 0,
-            freightCharges: Number(newRecord.freightCharges) || 0,
-            gst5: Number(newRecord.gst5) || 0,
-            gst18: Number(newRecord.gst18) || 0,
-            totalGst: Number(newRecord.totalGst) || 0,
-            totalIgst: Number(newRecord.totalIgst) || 0,
-            total: Number(newRecord.total) || 0,
+            dateSupply: finalTotals.dateSupply || '',
+            materialReceivedDate: finalTotals.materialReceivedDate || '',
+            supplier: finalTotals.supplier || '',
+            invoiceNo: finalTotals.invoiceNo || '',
+            items: itemsToSave,
+            packingCharges: Number(finalTotals.packingCharges) || 0,
+            forwardingCharges: Number(finalTotals.forwardingCharges) || 0,
+            freightCharges: Number(finalTotals.freightCharges) || 0,
+            totalGst: Number(finalTotals.totalGst) || 0,
+            totalIgst: Number(finalTotals.totalIgst) || 0,
+            total: Number(finalTotals.total) || 0,
             createdBy: currentUser?.name
         };
 
@@ -102,13 +216,10 @@ export const PurchaseRecordModule: React.FC = () => {
         setNewRecord({
             dateSupply: new Date().toISOString().split('T')[0],
             materialReceivedDate: new Date().toISOString().split('T')[0],
-            rate: 0,
-            qty: 1,
+            items: [],
             packingCharges: 0,
             forwardingCharges: 0,
             freightCharges: 0,
-            gst5: 0,
-            gst18: 0,
             totalGst: 0,
             totalIgst: 0,
             total: 0
@@ -117,7 +228,7 @@ export const PurchaseRecordModule: React.FC = () => {
     };
 
     const filteredRecords = useMemo(() => {
-        return purchaseRecords.filter(r => 
+        return purchaseRecords.filter(r =>
             (r.supplier || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (r.equipmentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (r.invoiceNo || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -147,26 +258,26 @@ export const PurchaseRecordModule: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-medical-600 rounded-2xl text-white shadow-lg shadow-medical-200/50"><ShoppingCart size={24} /></div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Purchase Entry Register</h2>
-                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">{purchaseRecords.length} Entries Logged</p>
+                        <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Purchase Entry</h2>
+                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">{purchaseRecords.length} Entries Logged</p>
                     </div>
                 </div>
                 <div className="flex flex-1 max-w-2xl gap-3 w-full">
                     <div className="relative flex-1">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Search registry..." 
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:border-medical-500 transition-all" 
-                            value={searchQuery} 
-                            onChange={(e) => setSearchQuery(e.target.value)} 
+                        <input
+                            type="text"
+                            placeholder="Search registry..."
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:border-medical-500 transition-all uppercase"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
                         />
                     </div>
-                    <button 
-                        onClick={() => setShowAddModal(true)} 
-                        className="bg-medical-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg shadow-medical-200/50"
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-medical-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg shadow-medical-200/50"
                     >
-                        <Plus size={16} /> New Entry
+                        <Plus size={14} /> New Entry
                     </button>
                 </div>
             </div>
@@ -175,49 +286,64 @@ export const PurchaseRecordModule: React.FC = () => {
             <div className="flex-1 bg-white rounded-3xl border border-slate-300 overflow-hidden flex flex-col shadow-sm">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500 sticky top-0 z-10">
+                        <thead className="bg-slate-50 border-b text-[9px] uppercase font-black text-slate-500 sticky top-0 z-10">
                             <tr>
-                                <th className="px-6 py-5">Date / Invoice</th>
-                                <th className="px-6 py-5">Supplier</th>
-                                <th className="px-6 py-5">Equipment</th>
-                                <th className="px-6 py-5 text-right">Qty / Rate</th>
-                                <th className="px-6 py-5 text-right">GST Details</th>
-                                <th className="px-6 py-5 text-right">Grand Total</th>
-                                <th className="px-6 py-5 text-right">Actions</th>
+                                <th className="px-4 py-3">Date / Invoice</th>
+                                <th className="px-4 py-3">Supplier</th>
+                                <th className="px-4 py-3">Equipment</th>
+                                <th className="px-4 py-3 text-right">Qty / Rate</th>
+                                <th className="px-4 py-3 text-right">GST Details</th>
+                                <th className="px-4 py-3 text-right">Grand Total</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredRecords.map(record => (
                                 <tr key={record.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setSelectedRecord(record)}>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-800">{record.dateSupply}</div>
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">INV: {record.invoiceNo}</div>
+                                    <td className="px-4 py-2">
+                                        <div className="text-[11px] font-bold text-slate-800">{record.dateSupply}</div>
+                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">INV: {record.invoiceNo}</div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-800 uppercase tracking-tight">{record.supplier}</div>
-                                        <div className="text-[9px] font-medium text-slate-400">Recv: {record.materialReceivedDate}</div>
+                                    <td className="px-4 py-2">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">{record.supplier}</div>
+                                        <div className="text-[8px] font-medium text-slate-400">Recv: {record.materialReceivedDate}</div>
                                     </td>
-                                    <td className="px-6 py-4 font-bold text-slate-700 uppercase text-xs">{record.equipmentName}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="font-black text-slate-800">{record.qty} Units</div>
-                                        <div className="text-[10px] font-bold text-slate-400">@ ₹{formatIndianNumber(record.rate)}</div>
+                                    <td className="px-4 py-2 font-bold text-slate-700 uppercase text-[10px]">
+                                        {record.items && record.items.length > 0 
+                                            ? record.items.map(i => <div key={i.id}>{i.equipmentName}</div>)
+                                            : record.equipmentName}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="text-[10px] font-black text-emerald-600">GST: ₹{formatIndianNumber(record.totalGst)}</div>
-                                        {record.totalIgst > 0 && <div className="text-[10px] font-black text-medical-600">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
+                                    <td className="px-4 py-2.5 text-right">
+                                        {record.items && record.items.length > 0 
+                                            ? record.items.map(i => (
+                                                <div key={i.id} className="mb-1">
+                                                    <div className="text-xs font-black text-slate-800">{i.qty} Units</div>
+                                                    <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(i.rate)}</div>
+                                                </div>
+                                            ))
+                                            : (
+                                                <>
+                                                    <div className="text-xs font-black text-slate-800">{record.qty} Units</div>
+                                                    <div className="text-[9px] font-bold text-slate-400">@ ₹{formatIndianNumber(record.rate || 0)}</div>
+                                                </>
+                                            )}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="font-black text-slate-900 text-base">₹{formatIndianNumber(record.total)}</div>
+                                    <td className="px-4 py-2 text-right">
+                                        <div className="text-[9px] font-black text-emerald-600">GST: ₹{formatIndianNumber(record.totalGst)}</div>
+                                        {record.totalIgst > 0 && <div className="text-[9px] font-black text-medical-600">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-4 py-2 text-right">
+                                        <div className="font-black text-slate-900 text-xs">₹{formatIndianNumber(record.total)}</div>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right">
                                         <div className="flex justify-end gap-2">
-                                            <button 
+                                            <button
                                                 onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
-                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={14} />
                                             </button>
-                                            <div className="p-2 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={18} /></div>
+                                            <div className="p-1.5 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={16} /></div>
                                         </div>
                                     </td>
                                 </tr>
@@ -241,88 +367,137 @@ export const PurchaseRecordModule: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
                     <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden scale-100 animate-in zoom-in-95 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-                        <div className="p-4 sm:p-6 md:p-8 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                                <div className="p-2 sm:p-3 bg-medical-600 rounded-xl sm:rounded-2xl text-white shadow-lg"><Plus size={20} /></div>
+                        <div className="p-3 sm:p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-medical-600 rounded-xl text-white shadow-lg"><Plus size={18} /></div>
                                 <div>
-                                    <h3 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight">Purchase Entry</h3>
-                                    <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Document Registry</p>
+                                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Purchase Entry</h3>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Document Registry</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-400" /></button>
+                            <button onClick={() => setShowAddModal(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-400" /></button>
                         </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 custom-scrollbar">
-                            <section className="space-y-4">
+
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5 custom-scrollbar">
+                            <section className="space-y-3">
                                 <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">1. Transaction Identity</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <FormRow label="Supplier Name *">
-                                        <input type="text" list="vendor-list" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" placeholder="Search Supplier" value={newRecord.supplier || ''} onChange={e => handleInputChange('supplier', e.target.value)} />
-                                    </FormRow>
-                                    <FormRow label="Equipment Name *">
-                                        <input type="text" list="prod-list" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" placeholder="Search Product" value={newRecord.equipmentName || ''} onChange={e => handleInputChange('equipmentName', e.target.value)} />
-                                    </FormRow>
-                                    <FormRow label="Invoice Number *">
-                                        <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" placeholder="INV-001" value={newRecord.invoiceNo || ''} onChange={e => handleInputChange('invoiceNo', e.target.value)} />
-                                    </FormRow>
-                                    <FormRow label="Supply Date">
-                                        <input type="date" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={newRecord.dateSupply || ''} onChange={e => handleInputChange('dateSupply', e.target.value)} />
-                                    </FormRow>
-                                    <FormRow label="Received Date">
-                                        <input type="date" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={newRecord.materialReceivedDate || ''} onChange={e => handleInputChange('materialReceivedDate', e.target.value)} />
-                                    </FormRow>
-                                </div>
-                            </section>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-                                <section className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">2. Basic Pricing</h4>
-                                    <div className="space-y-3">
-                                        <FormRow label="Unit Rate (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={newRecord.rate || 0} onChange={e => handleInputChange('rate', e.target.value)} />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <FormRow label="Supplier Name *">
+                                            <input type="text" list="vendor-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH SUPPLIER" value={newRecord.supplier || ''} onChange={e => handleInputChange('supplier', e.target.value)} />
                                         </FormRow>
-                                        <FormRow label="Quantity">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={newRecord.qty || 0} onChange={e => handleInputChange('qty', e.target.value)} />
+                                        <FormRow label="Invoice Number *">
+                                            <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="INV-001" value={newRecord.invoiceNo || ''} onChange={e => handleInputChange('invoiceNo', e.target.value)} />
+                                        </FormRow>
+                                        <FormRow label="Supply Date">
+                                            <input type="date" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none" value={newRecord.dateSupply || ''} onChange={e => handleInputChange('dateSupply', e.target.value)} />
+                                        </FormRow>
+                                        <FormRow label="Received Date">
+                                            <input type="date" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none" value={newRecord.materialReceivedDate || ''} onChange={e => handleInputChange('materialReceivedDate', e.target.value)} />
                                         </FormRow>
                                     </div>
                                 </section>
 
-                                <section className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">3. GST Components</h4>
-                                    <div className="space-y-3">
-                                        <FormRow label="GST @ 5% (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={newRecord.gst5 || 0} onChange={e => handleInputChange('gst5', e.target.value)} />
-                                        </FormRow>
-                                        <FormRow label="GST @ 18% (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={newRecord.gst18 || 0} onChange={e => handleInputChange('gst18', e.target.value)} />
-                                        </FormRow>
-                                        <FormRow label="Total IGST (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={newRecord.totalIgst || 0} onChange={e => handleInputChange('totalIgst', e.target.value)} />
-                                        </FormRow>
+                                <section className="space-y-3">
+                                    <div className="flex justify-between items-center border-b pb-1">
+                                        <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em]">2. Equipment Details</h4>
                                     </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                            <div className="lg:col-span-2">
+                                                <FormRow label="Equipment Name *">
+                                                    <input type="text" list="prod-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH PRODUCT" value={currentItem.equipmentName || ''} onChange={e => handleItemChange('equipmentName', e.target.value)} />
+                                                </FormRow>
+                                            </div>
+                                            <FormRow label="Unit Rate (₹)">
+                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.rate || ''} onChange={e => handleItemChange('rate', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="Quantity">
+                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.qty || ''} onChange={e => handleItemChange('qty', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="CGST %">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.cgstPercent || ''} onChange={e => handleItemChange('cgstPercent', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="SGST %">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.sgstPercent || ''} onChange={e => handleItemChange('sgstPercent', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="IGST %">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none focus:ring-2 focus:ring-medical-500/20" placeholder="0" value={currentItem.igstPercent || ''} onChange={e => handleItemChange('igstPercent', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="GST 5% (₹)">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.gst5 || ''} onChange={e => handleItemChange('gst5', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="GST 18% (₹)">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.gst18 || ''} onChange={e => handleItemChange('gst18', e.target.value)} />
+                                            </FormRow>
+                                            <FormRow label="IGST Amount (₹)">
+                                                <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-black outline-none" value={currentItem.totalIgst || ''} onChange={e => handleItemChange('totalIgst', e.target.value)} />
+                                            </FormRow>
+                                            <div className="flex items-end">
+                                                <button onClick={handleAddItem} className="w-full h-[32px] bg-medical-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wider hover:bg-medical-700 transition-colors flex items-center justify-center gap-2">
+                                                    <Plus size={12} /> Add Item
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {newRecord.items && newRecord.items.length > 0 && (
+                                        <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                                            <table className="w-full text-left text-xs">
+                                                <thead className="bg-slate-100 text-[9px] uppercase font-black text-slate-500">
+                                                    <tr>
+                                                        <th className="px-4 py-2">Equipment</th>
+                                                        <th className="px-4 py-2 text-right">Rate x Qty</th>
+                                                        <th className="px-4 py-2 text-right">GST %</th>
+                                                        <th className="px-4 py-2 text-right">Taxes (₹)</th>
+                                                        <th className="px-4 py-2 text-right">Total</th>
+                                                        <th className="px-4 py-2 text-center">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 bg-white">
+                                                    {newRecord.items.map((item, idx) => (
+                                                        <tr key={idx}>
+                                                            <td className="px-4 py-2 font-bold text-slate-800">{item.equipmentName}</td>
+                                                            <td className="px-4 py-2 text-right">₹{formatIndianNumber(item.rate)} x {item.qty}</td>
+                                                            <td className="px-4 py-2 text-right text-[10px]">
+                                                                {item.cgstPercent ? `CGST:${item.cgstPercent}% ` : ''}
+                                                                {item.sgstPercent ? `SGST:${item.sgstPercent}% ` : ''}
+                                                                {item.igstPercent ? `IGST:${item.igstPercent}%` : ''}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-right text-emerald-600 font-bold">₹{formatIndianNumber(item.totalGst + item.totalIgst)}</td>
+                                                            <td className="px-4 py-2 text-right font-black">₹{formatIndianNumber(item.total)}</td>
+                                                            <td className="px-4 py-2 text-center">
+                                                                <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                 </section>
 
-                                <section className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">4. Add-on Charges</h4>
-                                    <div className="space-y-3">
+                                <section className="space-y-3">
+                                    <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">3. Add-on Charges</h4>
+                                    <div className="grid grid-cols-3 gap-3">
                                         <FormRow label="Packing (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={newRecord.packingCharges || 0} onChange={e => handleInputChange('packingCharges', e.target.value)} />
+                                            <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-3 py-1 text-[10px] font-bold outline-none" value={newRecord.packingCharges || ''} onChange={e => handleInputChange('packingCharges', e.target.value)} />
                                         </FormRow>
                                         <FormRow label="Forwarding (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={newRecord.forwardingCharges || 0} onChange={e => handleInputChange('forwardingCharges', e.target.value)} />
+                                            <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-3 py-1 text-[10px] font-bold outline-none" value={newRecord.forwardingCharges || ''} onChange={e => handleInputChange('forwardingCharges', e.target.value)} />
                                         </FormRow>
                                         <FormRow label="Freight (₹)">
-                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={newRecord.freightCharges || 0} onChange={e => handleInputChange('freightCharges', e.target.value)} />
+                                            <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-3 py-1 text-[10px] font-bold outline-none" value={newRecord.freightCharges || ''} onChange={e => handleInputChange('freightCharges', e.target.value)} />
                                         </FormRow>
                                     </div>
                                 </section>
-                            </div>
 
-                            <div className="p-5 sm:p-6 bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] text-white flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6 shadow-xl">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 w-full sm:w-auto">
+                            <div className="p-4 sm:p-5 bg-slate-900 rounded-[1.25rem] sm:rounded-[1.5rem] text-white flex flex-col sm:flex-row justify-between items-center gap-4 shadow-xl">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 w-full sm:w-auto">
                                     <div>
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5 leading-none">Subtotal</p>
-                                        <p className="text-sm sm:text-base font-bold">₹{formatIndianNumber((Number(newRecord.rate) || 0) * (Number(newRecord.qty) || 0))}</p>
+                                        <p className="text-sm sm:text-base font-bold">₹{formatIndianNumber((newRecord.items || []).reduce((sum, item) => sum + (item.rate * item.qty), 0))}</p>
                                     </div>
                                     <div>
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5 leading-none">Total Tax</p>
@@ -340,7 +515,7 @@ export const PurchaseRecordModule: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="sticky bottom-0 left-0 right-0 p-4 sm:p-6 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
+                        <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
                             <button onClick={() => setShowAddModal(false)} className="flex-1 px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
                             <button onClick={handleSaveRecord} className="flex-[2] px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-medical-500/30 active:scale-95 transition-all text-[10px]">Save Purchase Entry</button>
                         </div>
@@ -362,7 +537,7 @@ export const PurchaseRecordModule: React.FC = () => {
                             </div>
                             <button onClick={() => setSelectedRecord(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-400" /></button>
                         </div>
-                        
+
                         <div className="p-8 space-y-6">
                             <div className="grid grid-cols-2 gap-8">
                                 <div className="space-y-4">
@@ -372,7 +547,11 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Equipment</p>
-                                        <p className="font-bold text-slate-800 uppercase">{selectedRecord.equipmentName}</p>
+                                        <div className="font-bold text-slate-800 uppercase">
+                                            {selectedRecord.items && selectedRecord.items.length > 0
+                                                ? selectedRecord.items.map(i => <div key={i.id}>{i.equipmentName} ({i.qty} units)</div>)
+                                                : selectedRecord.equipmentName}
+                                        </div>
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Invoice Info</p>
@@ -382,7 +561,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                 </div>
                                 <div className="space-y-4">
                                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                                        <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Rate x Qty:</span> <span>₹{formatIndianNumber((selectedRecord.rate || 0) * (selectedRecord.qty || 0))}</span></div>
+                                        <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Rate x Qty:</span> <span>₹{formatIndianNumber(selectedRecord.items && selectedRecord.items.length > 0 ? selectedRecord.items.reduce((sum, item) => sum + (item.rate * item.qty), 0) : ((selectedRecord.rate || 0) * (selectedRecord.qty || 0)))}</span></div>
                                         <div className="flex justify-between text-xs font-bold text-emerald-600"><span className="opacity-60">Total GST:</span> <span>₹{formatIndianNumber(selectedRecord.totalGst || 0)}</span></div>
                                         <div className="flex justify-between text-xs font-bold text-medical-600"><span className="opacity-60">Total IGST:</span> <span>₹{formatIndianNumber(selectedRecord.totalIgst || 0)}</span></div>
                                         <div className="flex justify-between text-xs font-bold text-amber-600"><span className="opacity-60">Add-on Charges:</span> <span>₹{formatIndianNumber((selectedRecord.packingCharges || 0) + (selectedRecord.forwardingCharges || 0) + (selectedRecord.freightCharges || 0))}</span></div>
@@ -413,14 +592,14 @@ export const PurchaseRecordModule: React.FC = () => {
                         </p>
                         <div className="flex gap-3 mt-8">
                             <button onClick={() => setPendingDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest">Cancel</button>
-                            <button 
+                            <button
                                 onClick={async () => {
                                     setIsDeleting(true);
                                     await removePurchaseRecord(pendingDelete.id);
                                     setPendingDelete(null);
                                     setIsDeleting(false);
                                     addNotification('Record Deleted', 'Entry removed from registry.', 'warning');
-                                }} 
+                                }}
                                 className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
                             >
                                 {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Delete Entry"}
@@ -429,8 +608,8 @@ export const PurchaseRecordModule: React.FC = () => {
                     </div>
                 </div>
             )}
-            <datalist id="vendor-list">{vendors.map(v => <option key={v.id} value={v.name} />)}</datalist>
-            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
+            <datalist id="vendor-list">{vendors.map(v => <option key={v.id} value={v.name.toUpperCase()} />)}</datalist>
+            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name.toUpperCase()} />)}</datalist>
         </div>
     );
 };

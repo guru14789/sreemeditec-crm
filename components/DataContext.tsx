@@ -1014,7 +1014,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const addPurchaseRecord = async (r: PurchaseRecord) => {
         await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
-        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${r.equipmentName}`);
+        const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
+        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
     };
 
     const updatePurchaseRecord = async (id: string, updates: Partial<PurchaseRecord>) => {

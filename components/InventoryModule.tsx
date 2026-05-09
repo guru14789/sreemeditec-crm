@@ -145,7 +145,7 @@ export const InventoryModule: React.FC = () => {
         const productToAdd: Product = {
             id: `P-${Date.now()}-${shortId}`,
             name: newProduct.name!,
-            category: newProduct.category as 'Equipment' | 'Consumable' | 'Spare Part' || 'Equipment',
+            category: newProduct.category as 'Equipment' | 'Consumable' | 'Spare Part' | 'Pipe Line' | 'Furniture' || 'Equipment',
             sku: newProduct.sku!,
             stock: Number(newProduct.stock) || 0,
             unit: newProduct.unit || 'nos',
@@ -780,7 +780,7 @@ export const InventoryModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-5">
                                 <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
                                 <select className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
-                                    <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option>
+                                    <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option><option>Furniture</option>
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-5">
