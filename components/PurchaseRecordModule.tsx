@@ -435,7 +435,6 @@ export const PurchaseRecordModule: React.FC = () => {
                             <tr>
                                 <th className="px-4 py-3">Date / Invoice</th>
                                 <th className="px-4 py-3">Supplier</th>
-                                <th className="px-4 py-3">Equipment Details</th>
                                 <th className="px-4 py-3 text-right">GST Details</th>
                                 <th className="px-4 py-3 text-right">Grand Total</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
@@ -452,21 +451,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
                                         <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600 uppercase text-[10px]">
-                                        {record.items && record.items.length > 0 
-                                            ? record.items.map(i => (
-                                                <div key={i.id} className="mb-1 last:mb-0 flex items-center gap-2">
-                                                    <span className="font-bold text-slate-700">{i.equipmentName}</span>
-                                                    <span className="text-[9px] font-bold text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded border border-medical-100">{i.qty} {i.unit || 'NOS'}</span>
-                                                </div>
-                                            ))
-                                            : (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-slate-700">{record.equipmentName}</span>
-                                                    <span className="text-[9px] font-bold text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded border border-medical-100">{record.qty} {record.unit || 'NOS'}</span>
-                                                </div>
-                                            )}
-                                    </td>
+
                                     <td className="px-4 py-3 text-right">
                                         <div className="text-[10px] font-bold text-emerald-600">
                                             GST: ₹{formatIndianNumber(record.totalGst)}
