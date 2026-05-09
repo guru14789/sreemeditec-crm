@@ -630,6 +630,7 @@ export interface PurchaseRecord {
   packingCharges: number;
   forwardingCharges: number;
   freightCharges: number;
+  freightGstPercent?: number;
   cgstPercent?: number;
   sgstPercent?: number;
   igstPercent?: number;

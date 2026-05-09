@@ -29,6 +29,7 @@ export const PurchaseRecordModule: React.FC = () => {
         packingCharges: 0,
         forwardingCharges: 0,
         freightCharges: 0,
+        freightGstPercent: 0,
         totalGst: 0,
         totalIgst: 0,
         total: 0,
@@ -75,6 +76,7 @@ export const PurchaseRecordModule: React.FC = () => {
         const packing = Number(data.packingCharges) || 0;
         const forwarding = Number(data.forwardingCharges) || 0;
         const freight = Number(data.freightCharges) || 0;
+        const freightGstPerc = Number(data.freightGstPercent) || 0;
         
         let totalGst = 0;
         let totalIgst = 0;
@@ -86,7 +88,17 @@ export const PurchaseRecordModule: React.FC = () => {
              totalItems += item.total || 0;
         });
 
-        let total = totalItems + packing + forwarding + freight;
+        // Calculate freight tax
+        const isInterstate = totalIgst > 0 || (itemsList.length > 0 && itemsList[0].igstPercent! > 0);
+        const freightTaxAmount = (freight * freightGstPerc) / 100;
+        
+        if (isInterstate) {
+            totalIgst += freightTaxAmount;
+        } else {
+            totalGst += freightTaxAmount;
+        }
+
+        let total = totalItems + packing + forwarding + freight + freightTaxAmount;
         let roundOff = 0;
 
         if (data.isRoundOff) {
@@ -322,6 +334,7 @@ export const PurchaseRecordModule: React.FC = () => {
             packingCharges: Number(finalTotals.packingCharges) || 0,
             forwardingCharges: Number(finalTotals.forwardingCharges) || 0,
             freightCharges: Number(finalTotals.freightCharges) || 0,
+            freightGstPercent: Number(finalTotals.freightGstPercent) || 0,
             totalGst: Number(finalTotals.totalGst) || 0,
             totalIgst: Number(finalTotals.totalIgst) || 0,
             total: Number(finalTotals.total) || 0,
@@ -663,7 +676,10 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-3 py-1 text-[10px] font-bold outline-none" value={newRecord.forwardingCharges || ''} onChange={e => handleInputChange('forwardingCharges', e.target.value)} />
                                         </FormRow>
                                         <FormRow label="Freight (₹)">
-                                            <input type="number" className="w-full h-[32px] bg-white border border-slate-300 rounded-lg px-3 py-1 text-[10px] font-bold outline-none" value={newRecord.freightCharges || ''} onChange={e => handleInputChange('freightCharges', e.target.value)} />
+                                            <div className="flex gap-1">
+                                                <input type="number" className="flex-1 h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-bold outline-none" placeholder="Amt" value={newRecord.freightCharges || ''} onChange={e => handleInputChange('freightCharges', e.target.value)} />
+                                                <input type="number" className="w-[60px] h-[32px] bg-white border border-slate-300 rounded-lg px-2 py-1 text-[10px] font-bold outline-none" placeholder="GST %" value={newRecord.freightGstPercent || ''} onChange={e => handleInputChange('freightGstPercent', e.target.value)} />
+                                            </div>
                                         </FormRow>
                                     </div>
                                 </section>
@@ -680,7 +696,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                     <div className="hidden sm:block">
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5 leading-none">Add-on</p>
-                                        <p className="text-sm sm:text-base font-bold text-medical-400">₹{formatIndianNumber((Number(newRecord.packingCharges) || 0) + (Number(newRecord.forwardingCharges) || 0) + (Number(newRecord.freightCharges) || 0))}</p>
+                                        <p className="text-sm sm:text-base font-bold text-medical-400">₹{formatIndianNumber((Number(newRecord.packingCharges) || 0) + (Number(newRecord.forwardingCharges) || 0) + (Number(newRecord.freightCharges) || 0) + ((Number(newRecord.freightCharges) || 0) * (Number(newRecord.freightGstPercent) || 0) / 100))}</p>
                                     </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
@@ -758,8 +774,9 @@ export const PurchaseRecordModule: React.FC = () => {
                                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                                         <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Rate x Qty:</span> <span>₹{formatIndianNumber(selectedRecord.items && selectedRecord.items.length > 0 ? selectedRecord.items.reduce((sum, item) => sum + (item.rate * item.qty), 0) : ((selectedRecord.rate || 0) * (selectedRecord.qty || 0)))}</span></div>
                                         <div className="flex justify-between text-xs font-bold text-emerald-600"><span className="opacity-60">Total GST:</span> <span>₹{formatIndianNumber(selectedRecord.totalGst || 0)}</span></div>
-                                        <div className="flex justify-between text-xs font-bold text-medical-600"><span className="opacity-60">Total IGST:</span> <span>₹{formatIndianNumber(selectedRecord.totalIgst || 0)}</span></div>
-                                        <div className="flex justify-between text-xs font-bold text-amber-600"><span className="opacity-60">Add-on Charges:</span> <span>₹{formatIndianNumber((selectedRecord.packingCharges || 0) + (selectedRecord.forwardingCharges || 0) + (selectedRecord.freightCharges || 0))}</span></div>
+                                        <div className="flex justify-between text-xs font-bold text-medical-600"><span className="opacity-60">Total IGST:</span> <span>₹{formatIndianNumber(selectedRecord.totalIgst || 0) || '0.00'}</span></div>
+                                        <div className="flex justify-between text-xs font-bold text-amber-600"><span className="opacity-60">Add-on Charges:</span> <span>₹{formatIndianNumber((selectedRecord.packingCharges || 0) + (selectedRecord.forwardingCharges || 0) + (selectedRecord.freightCharges || 0) + ((selectedRecord.freightCharges || 0) * (selectedRecord.freightGstPercent || 0) / 100))}</span></div>
+                                        {selectedRecord.freightGstPercent ? <div className="text-[8px] text-right text-slate-400 font-bold -mt-1">Inc. Freight GST ({selectedRecord.freightGstPercent}%)</div> : null}
                                         <div className="border-t border-slate-200 pt-2 flex justify-between text-base font-black text-slate-900"><span>Grand Total:</span> <span>₹{formatIndianNumber(selectedRecord.total || 0)}</span></div>
                                     </div>
                                     <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-right italic">Created By: {selectedRecord.createdBy || 'System'}</div>
