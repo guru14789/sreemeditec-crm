@@ -397,109 +397,104 @@ export const PurchaseRecordModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2 bg-slate-50/50">
             {/* Header */}
-            <div className="p-4 md:p-6 bg-white rounded-3xl border border-slate-300 flex flex-col md:flex-row justify-between items-center shadow-sm shrink-0 gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-medical-600 rounded-2xl text-white shadow-lg shadow-medical-200/50"><ShoppingCart size={24} /></div>
+            <div className="p-3 bg-white rounded-2xl border border-slate-300 flex flex-col md:flex-row justify-between items-center shadow-sm shrink-0 gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-medical-600 rounded-xl text-white shadow-lg shadow-medical-200/50"><ShoppingCart size={20} /></div>
                     <div>
-                        <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Purchase Entry</h2>
-                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">{purchaseRecords.length} Entries Logged</p>
+                        <h2 className="text-base font-black text-slate-800 uppercase tracking-tight leading-none">Purchase Entry</h2>
+                        <p className="text-[8px] text-slate-400 font-black uppercase tracking-[0.2em] mt-0.5">{purchaseRecords.length} Entries Logged</p>
                     </div>
                 </div>
-                <div className="flex flex-1 max-w-2xl gap-3 w-full">
+                <div className="flex flex-1 max-w-xl gap-2 w-full">
                     <div className="relative flex-1">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
                             placeholder="Search registry..."
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:border-medical-500 transition-all uppercase"
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold outline-none focus:border-medical-500 transition-all uppercase"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
                         />
                     </div>
                     <button
                         onClick={handleNewEntry}
-                        className="bg-medical-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg shadow-medical-200/50"
+                        className="bg-medical-600 text-white px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-lg shadow-medical-200/50 shrink-0"
                     >
-                        <Plus size={14} /> New Entry
+                        <Plus size={12} /> New Entry
                     </button>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="flex-1 bg-white rounded-3xl border border-slate-300 overflow-hidden flex flex-col shadow-sm">
+            <div className="flex-1 bg-white rounded-2xl border border-slate-300 overflow-hidden flex flex-col shadow-sm">
                 <div className="flex-1 overflow-auto custom-scrollbar">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b text-[9px] uppercase font-black text-slate-500 sticky top-0 z-10">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b text-[8px] uppercase font-black text-slate-500 sticky top-0 z-10">
                             <tr>
-                                <th className="px-4 py-3">Date / Invoice</th>
-                                <th className="px-4 py-3">Supplier</th>
-                                <th className="px-4 py-3">Equipment Details</th>
-                                <th className="px-4 py-3 text-right">GST Details</th>
-                                <th className="px-4 py-3 text-right">Grand Total</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
+                                <th className="px-3 py-2">Date / Invoice</th>
+                                <th className="px-3 py-2">Supplier</th>
+                                <th className="px-3 py-2">Equipment Details</th>
+                                <th className="px-3 py-2 text-right">GST Details</th>
+                                <th className="px-3 py-2 text-right">Grand Total</th>
+                                <th className="px-3 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredRecords.map(record => (
                                 <tr key={record.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setSelectedRecord(record)}>
-                                    <td className="px-4 py-2">
-                                        <div className="text-[11px] font-bold text-slate-800">{record.dateSupply}</div>
-                                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">INV: {record.invoiceNo}</div>
+                                    <td className="px-3 py-1.5">
+                                        <div className="text-[10px] font-bold text-slate-800 leading-tight">{record.dateSupply}</div>
+                                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">INV: {record.invoiceNo}</div>
                                     </td>
-                                    <td className="px-4 py-2">
-                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">{record.supplier}</div>
-                                        <div className="text-[8px] font-medium text-slate-400">Recv: {record.materialReceivedDate}</div>
+                                    <td className="px-3 py-1.5">
+                                        <div className="text-[10px] font-bold text-slate-800 uppercase tracking-tight leading-tight">{record.supplier}</div>
+                                        <div className="text-[7px] font-medium text-slate-400">Recv: {record.materialReceivedDate}</div>
                                     </td>
-                                    <td className="px-4 py-2 font-bold text-slate-700 uppercase text-[10px]">
+                                    <td className="px-3 py-1.5 font-bold text-slate-700 uppercase text-[9px]">
                                         {record.items && record.items.length > 0 
                                             ? record.items.map(i => (
-                                                <div key={i.id} className="mb-1.5 last:mb-0">
-                                                    <div className="flex items-baseline gap-2">
+                                                <div key={i.id} className="mb-1 last:mb-0">
+                                                    <div className="flex items-baseline gap-1.5">
                                                         <span className="text-slate-800">{i.equipmentName}</span>
-                                                        <span className="text-[9px] font-black text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded whitespace-nowrap">{i.qty} {i.unit || 'NOS'}</span>
-                                                        <span className="text-[8px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(i.rate)}</span>
+                                                        <span className="text-[8px] font-black text-medical-600 bg-medical-50 px-1 py-0.5 rounded whitespace-nowrap">{i.qty} {i.unit || 'NOS'}</span>
+                                                        <span className="text-[7px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(i.rate)}</span>
                                                     </div>
                                                 </div>
                                             ))
                                             : (
-                                                <div className="flex items-baseline gap-2">
+                                                <div className="flex items-baseline gap-1.5">
                                                     <span className="text-slate-800">{record.equipmentName}</span>
-                                                    <span className="text-[9px] font-black text-medical-600 bg-medical-50 px-1.5 py-0.5 rounded whitespace-nowrap">{record.qty} {record.unit || 'NOS'}</span>
-                                                    <span className="text-[8px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(record.rate || 0)}</span>
+                                                    <span className="text-[8px] font-black text-medical-600 bg-medical-50 px-1 py-0.5 rounded whitespace-nowrap">{record.qty} {record.unit || 'NOS'}</span>
+                                                    <span className="text-[7px] font-black text-slate-400 whitespace-nowrap">@ ₹{formatIndianNumber(record.rate || 0)}</span>
                                                 </div>
                                             )}
                                     </td>
-                                    <td className="px-4 py-2 text-right">
-                                        <div className="text-[9px] font-black text-emerald-600">
+                                    <td className="px-3 py-1.5 text-right">
+                                        <div className="text-[8px] font-black text-emerald-600 leading-none">
                                             GST: ₹{formatIndianNumber(record.totalGst)}
-                                            {record.items && record.items.length > 0 && (
-                                                <span className="ml-1 opacity-60 text-[7px] bg-emerald-50 px-1 rounded">
-                                                    ({record.items[0].gstPercent}%)
-                                                </span>
-                                            )}
                                         </div>
-                                        {record.totalIgst > 0 && <div className="text-[9px] font-black text-medical-600">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
+                                        {record.totalIgst > 0 && <div className="text-[8px] font-black text-medical-600 mt-0.5 leading-none">IGST: ₹{formatIndianNumber(record.totalIgst)}</div>}
                                     </td>
-                                    <td className="px-4 py-2 text-right">
-                                        <div className="font-black text-slate-900 text-xs">₹{formatIndianNumber(record.total)}</div>
+                                    <td className="px-3 py-1.5 text-right">
+                                        <div className="font-black text-slate-900 text-[10px]">₹{formatIndianNumber(record.total)}</div>
                                     </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                        <div className="flex justify-end gap-2">
+                                    <td className="px-3 py-1.5 text-right">
+                                        <div className="flex justify-end gap-1.5">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
-                                                className="p-1.5 text-slate-300 hover:text-medical-600 hover:bg-medical-50 rounded-lg transition-all"
+                                                className="p-1 text-slate-300 hover:text-medical-600 hover:bg-medical-50 rounded transition-all"
                                                 title="Edit Entry"
                                             >
-                                                <Edit size={14} />
+                                                <Edit size={12} />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
-                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
                                                 title="Delete Entry"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={12} />
                                             </button>
-                                            <div className="p-1.5 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={16} /></div>
+                                            <div className="p-1 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={14} /></div>
                                         </div>
                                     </td>
                                 </tr>
@@ -523,21 +518,21 @@ export const PurchaseRecordModule: React.FC = () => {
             {showAddModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
                     <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden scale-100 animate-in zoom-in-95 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-                        <div className="p-3 sm:p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-medical-600 rounded-xl text-white shadow-lg"><Plus size={18} /></div>
+                        <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50/50 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-medical-600 rounded-lg text-white shadow-lg"><Plus size={14} /></div>
                                 <div>
-                                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{editingId ? 'Edit Purchase' : 'Purchase Entry'}</h3>
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{editingId ? 'Modify Record' : 'Document Registry'}</p>
+                                    <h3 className="text-base font-black text-slate-800 uppercase tracking-tight leading-none">{editingId ? 'Edit Purchase' : 'Purchase Entry'}</h3>
+                                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{editingId ? 'Modify Record' : 'Document Registry'}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowAddModal(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"><X size={20} className="text-slate-400" /></button>
+                            <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-slate-100 rounded-full transition-colors"><X size={18} className="text-slate-400" /></button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5 custom-scrollbar">
-                            <section className="space-y-3">
-                                <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-1">1. Transaction Identity</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
+                            <section className="space-y-2">
+                                <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-0.5">1. Transaction Identity</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                         <FormRow label="Supplier Name *">
                                             <input type="text" list="vendor-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH SUPPLIER" value={newRecord.supplier || ''} onChange={e => handleInputChange('supplier', e.target.value)} />
                                         </FormRow>
@@ -553,12 +548,12 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                                <section className="space-y-3">
-                                    <div className="flex justify-between items-center border-b pb-1">
-                                        <h4 className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em]">2. Equipment Details</h4>
+                                <section className="space-y-2">
+                                    <div className="flex justify-between items-center border-b pb-0.5">
+                                        <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-[0.2em]">2. Equipment Details</h4>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                             <div className="lg:col-span-2">
                                                 <FormRow label="Equipment Name *">
                                                     <div className="relative">
@@ -640,27 +635,24 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <table className="w-full text-left text-xs">
                                                 <thead className="bg-slate-100 text-[9px] uppercase font-black text-slate-500">
                                                     <tr>
-                                                        <th className="px-4 py-2">Equipment</th>
-                                                        <th className="px-4 py-2 text-right">Rate x Qty</th>
-                                                        <th className="px-4 py-2 text-right">GST %</th>
-                                                        <th className="px-4 py-2 text-right">Taxes (₹)</th>
-                                                        <th className="px-4 py-2 text-right">Total</th>
-                                                        <th className="px-4 py-2 text-center">Action</th>
+                                                        <th className="px-3 py-1.5">Equipment</th>
+                                                        <th className="px-3 py-1.5 text-right">Rate x Qty</th>
+                                                        <th className="px-3 py-1.5 text-right">GST %</th>
+                                                        <th className="px-3 py-1.5 text-right">Taxes (₹)</th>
+                                                        <th className="px-3 py-1.5 text-right">Total</th>
+                                                        <th className="px-3 py-1.5 text-center">Action</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 bg-white">
                                                     {newRecord.items.map((item, idx) => (
                                                         <tr key={idx}>
-                                                            <td className="px-4 py-2 font-bold text-slate-800">{item.equipmentName}</td>
-                                                            <td className="px-4 py-2 text-right">₹{formatIndianNumber(item.rate)} x {item.qty} <span className="text-[9px] opacity-60 uppercase">{item.unit || 'NOS'}</span></td>
-                                                            <td className="px-4 py-2 text-right text-[10px]">
+                                                            <td className="px-3 py-1.5 font-bold text-slate-800">{item.equipmentName}</td>
+                                                            <td className="px-3 py-1.5 text-right">₹{formatIndianNumber(item.rate)} x {item.qty} <span className="text-[8px] opacity-60 uppercase">{item.unit || 'NOS'}</span></td>
+                                                            <td className="px-3 py-1.5 text-right text-[9px]">
                                                                 <span className="font-bold">{(item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0)}%</span>
-                                                                <span className="block text-[8px] text-slate-400 font-black">
-                                                                    {item.igstPercent ? 'INTERSTATE' : 'LOCAL'}
-                                                                </span>
                                                             </td>
-                                                            <td className="px-4 py-2 text-right text-emerald-600 font-bold">₹{formatIndianNumber(item.totalGst + item.totalIgst)}</td>
-                                                            <td className="px-4 py-2 text-right font-black">₹{formatIndianNumber(item.total)}</td>
+                                                            <td className="px-3 py-1.5 text-right text-emerald-600 font-bold">₹{formatIndianNumber(item.totalGst + item.totalIgst)}</td>
+                                                            <td className="px-3 py-1.5 text-right font-black">₹{formatIndianNumber(item.total)}</td>
                                                             <td className="px-4 py-2 text-center">
                                                                 <div className="flex justify-center gap-1">
                                                                     <button onClick={() => handleEditItem(item)} className="text-medical-600 hover:bg-medical-50 p-1 rounded transition-colors" title="Edit Item">
@@ -697,8 +689,8 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                 </section>
 
-                            <div className="p-4 sm:p-5 bg-slate-900 rounded-[1.25rem] sm:rounded-[1.5rem] text-white flex flex-col sm:flex-row justify-between items-center gap-4 shadow-xl">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 w-full sm:w-auto">
+                            <div className="p-3 sm:p-4 bg-slate-900 rounded-[1rem] sm:rounded-[1.25rem] text-white flex flex-col sm:flex-row justify-between items-center gap-3 shadow-xl">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 w-full sm:w-auto">
                                     <div>
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5 leading-none">Subtotal</p>
                                         <p className="text-sm sm:text-base font-bold">₹{formatIndianNumber((newRecord.items || []).reduce((sum, item) => sum + (item.rate * item.qty), 0))}</p>
@@ -734,12 +726,12 @@ export const PurchaseRecordModule: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
-                            <button onClick={() => setShowAddModal(false)} className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
-                            <button onClick={() => { setNewRecord(INITIAL_RECORD_STATE); setCurrentItem(INITIAL_ITEM_STATE); }} className="px-6 py-3 bg-slate-100 text-amber-600 border border-amber-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
-                                <RefreshCw size={14} /> Reset Form
+                        <div className="sticky bottom-0 left-0 right-0 p-2.5 sm:p-3 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-2.5 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
+                            <button onClick={() => setShowAddModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-500 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Cancel</button>
+                            <button onClick={() => { setNewRecord(INITIAL_RECORD_STATE); setCurrentItem(INITIAL_ITEM_STATE); }} className="px-5 py-2.5 bg-slate-100 text-amber-600 border border-amber-200 rounded-lg font-black text-[9px] uppercase tracking-widest hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
+                                <RefreshCw size={12} /> Reset Form
                             </button>
-                            <button onClick={handleSaveRecord} className="flex-[2] px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-xl shadow-xl shadow-medical-500/30 active:scale-95 transition-all text-[10px]">
+                            <button onClick={handleSaveRecord} className="flex-[2] px-5 py-2.5 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-lg shadow-xl shadow-medical-500/30 active:scale-95 transition-all text-[9px]">
                                 {editingId ? 'Update Purchase Entry' : 'Save Purchase Entry'}
                             </button>
                         </div>
