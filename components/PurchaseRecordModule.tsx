@@ -749,62 +749,147 @@ export const PurchaseRecordModule: React.FC = () => {
 
             {/* View/Edit Details Modal */}
             {selectedRecord && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden scale-100 animate-in zoom-in-95 flex flex-col">
-                        <div className="p-6 md:p-8 border-b flex justify-between items-center bg-medical-50/50 shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white rounded-2xl text-medical-600 shadow-sm border border-medical-100"><FileText size={24} /></div>
-                                <div>
-                                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Entry Details</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Record ID: {selectedRecord.id}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setSelectedRecord(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} className="text-slate-400" /></button>
-                        </div>
-
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Supplier</p>
-                                        <p className="font-bold text-slate-800 uppercase">{selectedRecord.supplier}</p>
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-[3rem] shadow-2xl max-w-3xl w-full overflow-hidden scale-100 animate-in zoom-in-95 duration-300 flex flex-col border border-white/20">
+                        {/* Header with Gradient */}
+                        <div className="relative p-8 md:p-10 overflow-hidden shrink-0">
+                            <div className="absolute inset-0 bg-gradient-to-br from-medical-600 via-medical-500 to-teal-500 opacity-90" />
+                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
+                            <div className="relative z-10 flex justify-between items-center">
+                                <div className="flex items-center gap-6">
+                                    <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl text-white shadow-xl border border-white/30">
+                                        <FileText size={32} strokeWidth={2.5} />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Equipment</p>
-                                        <div className="font-bold text-slate-800 uppercase">
-                                            {selectedRecord.items && selectedRecord.items.length > 0
-                                                ? selectedRecord.items.map(i => <div key={i.id}>{i.equipmentName} ({i.qty} {i.unit || 'NOS'})</div>)
-                                                : <div>{selectedRecord.equipmentName} ({selectedRecord.qty} {selectedRecord.unit || 'NOS'})</div>}
+                                        <h3 className="text-2xl font-black text-white uppercase tracking-tight">Entry Details</h3>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest bg-black/10 px-2 py-0.5 rounded-full border border-white/10">Record ID: {selectedRecord.id}</span>
+                                            <span className="text-[10px] font-black text-teal-100 uppercase tracking-widest bg-teal-500/20 px-2 py-0.5 rounded-full border border-teal-400/20">Verified</span>
                                         </div>
                                     </div>
+                                </div>
+                                <button onClick={() => setSelectedRecord(null)} className="p-3 bg-black/10 hover:bg-black/20 text-white rounded-full transition-all border border-white/10 group">
+                                    <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-8 md:p-10 space-y-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+                                <div className="md:col-span-3 space-y-8">
+                                    {/* Supplier Section */}
+                                    <div className="group">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-3 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-medical-500 rounded-full" />
+                                            Supplier Identity
+                                        </p>
+                                        <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 group-hover:border-medical-200 transition-colors">
+                                            <p className="text-xl font-black text-slate-800 uppercase leading-tight tracking-tight">{selectedRecord.supplier}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Equipment Section */}
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Invoice Info</p>
-                                        <p className="font-bold text-slate-800">#{selectedRecord.invoiceNo}</p>
-                                        <p className="text-xs text-slate-500">Dated: {selectedRecord.dateSupply}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-3 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
+                                            Equipment Manifest
+                                        </p>
+                                        <div className="space-y-3">
+                                            {(selectedRecord.items && selectedRecord.items.length > 0) ? (
+                                                selectedRecord.items.map((i, idx) => (
+                                                    <div key={i.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex justify-between items-center group hover:border-teal-200 transition-all">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 font-black text-xs">0{idx + 1}</div>
+                                                            <div>
+                                                                <p className="font-bold text-slate-800 uppercase text-sm">{i.equipmentName}</p>
+                                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">₹{formatIndianNumber(i.rate)} per {i.unit || 'NOS'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-xs font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-full border border-medical-100">{i.qty} {i.unit || 'NOS'}</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex justify-between items-center">
+                                                    <p className="font-bold text-slate-800 uppercase text-sm">{selectedRecord.equipmentName}</p>
+                                                    <p className="text-xs font-black text-medical-600 bg-medical-50 px-3 py-1 rounded-full border border-medical-100">{selectedRecord.qty} {selectedRecord.unit || 'NOS'}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Invoice Info Section */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><FileText size={64} /></div>
+                                            <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Invoice Number</p>
+                                            <p className="text-lg font-black tracking-tight">#{selectedRecord.invoiceNo}</p>
+                                        </div>
+                                        <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Supply Date</p>
+                                            <p className="text-lg font-bold text-slate-700">{selectedRecord.dateSupply}</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                                        <div className="flex justify-between text-xs font-bold"><span className="text-slate-400">Rate x Qty:</span> <span>₹{formatIndianNumber(selectedRecord.items && selectedRecord.items.length > 0 ? selectedRecord.items.reduce((sum, item) => sum + (item.rate * item.qty), 0) : ((selectedRecord.rate || 0) * (selectedRecord.qty || 0)))}</span></div>
-                                        <div className="flex justify-between text-xs font-bold text-emerald-600"><span className="opacity-60">Total GST:</span> <span>₹{formatIndianNumber(selectedRecord.totalGst || 0)}</span></div>
-                                        <div className="flex justify-between text-xs font-bold text-medical-600"><span className="opacity-60">Total IGST:</span> <span>₹{formatIndianNumber(selectedRecord.totalIgst || 0) || '0.00'}</span></div>
-                                        <div className="flex justify-between text-xs font-bold text-amber-600"><span className="opacity-60">Add-on Charges:</span> <span>₹{formatIndianNumber((selectedRecord.packingCharges || 0) + (selectedRecord.forwardingCharges || 0) + (selectedRecord.freightCharges || 0) + ((selectedRecord.freightCharges || 0) * (selectedRecord.freightGstPercent || 0) / 100))}</span></div>
-                                        {selectedRecord.freightGstPercent ? <div className="text-[8px] text-right text-slate-400 font-bold -mt-1">Inc. Freight GST ({selectedRecord.freightGstPercent}%)</div> : null}
-                                        <div className="border-t border-slate-200 pt-2 flex justify-between text-base font-black text-slate-900"><span>Grand Total:</span> <span>₹{formatIndianNumber(selectedRecord.total || 0)}</span></div>
+
+                                <div className="md:col-span-2 space-y-6">
+                                    {/* Financial Summary Card */}
+                                    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col h-full sticky top-0">
+                                        <div className="p-6 bg-slate-50 border-b border-slate-100">
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Financial Summary</h4>
+                                        </div>
+                                        <div className="p-6 flex-1 space-y-4">
+                                            <div className="flex justify-between items-center text-xs font-bold">
+                                                <span className="text-slate-400 uppercase tracking-widest text-[9px]">Rate x Qty</span>
+                                                <span className="text-slate-800">₹{formatIndianNumber(selectedRecord.items && selectedRecord.items.length > 0 ? selectedRecord.items.reduce((sum, item) => sum + (item.rate * item.qty), 0) : ((selectedRecord.rate || 0) * (selectedRecord.qty || 0)))}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs font-bold text-emerald-600">
+                                                <span className="opacity-60 uppercase tracking-widest text-[9px]">Total GST</span>
+                                                <span>₹{formatIndianNumber(selectedRecord.totalGst || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs font-bold text-medical-600">
+                                                <span className="opacity-60 uppercase tracking-widest text-[9px]">Total IGST</span>
+                                                <span>₹{formatIndianNumber(selectedRecord.totalIgst || 0) || '0.00'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs font-bold text-amber-600 pt-2 border-t border-dashed">
+                                                <span className="opacity-60 uppercase tracking-widest text-[9px]">Add-on Charges</span>
+                                                <span>₹{formatIndianNumber((selectedRecord.packingCharges || 0) + (selectedRecord.forwardingCharges || 0) + (selectedRecord.freightCharges || 0) + ((selectedRecord.freightCharges || 0) * (selectedRecord.freightGstPercent || 0) / 100))}</span>
+                                            </div>
+                                            {selectedRecord.freightGstPercent ? (
+                                                <div className="bg-amber-50 text-[8px] text-amber-700 font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border border-amber-100 text-center">
+                                                    Inc. Freight GST ({selectedRecord.freightGstPercent}%)
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                        <div className="p-8 bg-slate-900 text-white">
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-2">Grand Total Payable</p>
+                                            <p className="text-4xl font-black tracking-tighter flex items-baseline gap-1">
+                                                ₹{formatIndianNumber(selectedRecord.total || 0)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest text-right italic">Created By: {selectedRecord.createdBy || 'System'}</div>
+                                    <div className="px-4 text-center">
+                                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em] italic">Created By: {selectedRecord.createdBy || 'System'}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-8 border-t bg-slate-50 flex gap-4 shrink-0">
+                        {/* Actions Footer */}
+                        <div className="p-8 border-t bg-slate-50/50 backdrop-blur-md flex gap-4 shrink-0">
                             <button 
                                 onClick={() => { handleEdit(selectedRecord); setSelectedRecord(null); }}
-                                className="flex-1 px-8 py-4 bg-medical-600 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-medical-700 transition-all text-xs shadow-lg flex items-center justify-center gap-2"
+                                className="flex-[2] h-16 bg-gradient-to-r from-medical-600 to-teal-500 text-white font-black uppercase tracking-widest rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all text-xs shadow-xl shadow-medical-500/20 flex items-center justify-center gap-3"
                             >
-                                <Edit size={16} /> Edit Record
+                                <Edit size={18} strokeWidth={2.5} /> Edit Transaction
                             </button>
-                            <button onClick={() => setSelectedRecord(null)} className="flex-1 px-8 py-4 bg-slate-800 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-black transition-all text-xs shadow-lg">Close Record</button>
+                            <button 
+                                onClick={() => setSelectedRecord(null)} 
+                                className="flex-1 h-16 bg-slate-800 text-white font-black uppercase tracking-widest rounded-2xl hover:bg-black active:scale-[0.98] transition-all text-xs shadow-xl shadow-black/10"
+                            >
+                                Close Details
+                            </button>
                         </div>
                     </div>
                 </div>
