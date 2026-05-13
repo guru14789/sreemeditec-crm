@@ -344,14 +344,40 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
                 timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
             };
 
-            await updateTaskRemote(selectedTask.id, {
+            let updates: Partial<Task> = {
                 title: editTitle,
                 description: editDescription,
                 priority: editPriority,
                 assignedTo: editAssignedTo,
                 handoffChain: editHandoffChain,
                 logs: [...(selectedTask.logs || []), log]
-            });
+            };
+
+            // CRITICAL FIX: If task is currently 'Done' but a new handoff chain is added, 
+            // automatically trigger the handoff to the next person.
+            if (selectedTask.status === 'Done' && editHandoffChain.length > 0) {
+                const chain = [...editHandoffChain];
+                const nextUser = chain.shift();
+                
+                const handoffLog: TaskLog = {
+                    id: `LOG-H-${Date.now()}`,
+                    user: 'System',
+                    action: `Task Reactivated: New Chain Added by Admin. Handing off to: ${nextUser}`,
+                    timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                };
+
+                updates = {
+                    ...updates,
+                    assignedTo: nextUser,
+                    status: 'To Do',
+                    handoffChain: chain,
+                    pointsAwarded: false,
+                    submittedBy: undefined,
+                    logs: [...updates.logs!, handoffLog]
+                };
+            }
+
+            await updateTaskRemote(selectedTask.id, updates);
             setIsEditing(false);
             setEditHandoffChain([]);
             addNotification('Task Updated', 'Mission briefing updated successfully.', 'success');

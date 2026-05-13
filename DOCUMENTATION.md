@@ -50,6 +50,19 @@ A dedicated suite bypassing traditional manual document production. It automates
 ### D. Control (Administration)
 - **Staff Management (HR):** System Admins can add new personnel, designate roles (`SYSTEM_ADMIN` or `SYSTEM_STAFF`), manage granular module permissions, handle login states, and securely manage system access.
 
+### E. Finance & Compliance (Accounting & Tax)
+- **Accounting Module:** Professional financial management suite providing:
+  - **Ledger & Account Groups:** Centralized management of financial accounts and groupings.
+  - **Voucher System:** Advanced voucher entry (Receipt, Payment, Journal, Contra) with TDS automation and bill-wise settlement for matching payments to specific invoices.
+  - **Financial Reporting:** Real-time generation of Balance Sheets, Profit & Loss statements, and detailed Audit Trails.
+  - **Liquidity Analytics:** High-density tracking of Receivables, Payables, and overall cash liquidity.
+  - **Bank Reconciliation:** Integrated terminal for matching internal transactions with bank records.
+  - **Tally Integration:** One-click export of accounting data to Tally-compatible XML format.
+- **Compliance Dashboard:** Automated statutory reporting for Indian tax regulations:
+  - **GSTR-1:** Export outward supply data to JSON and CSV formats ready for GST portal upload.
+  - **GSTR-3B:** Automated computation of tax liability and Input Tax Credit (ITC) based on sales and supplier records.
+  - **TDS Logs:** Automated tracking of Tax Deducted at Source (TDS) entries categorized by regulatory sections (194C, 194J, 194I).
+
 ---
 
 ## 4. Pros & Advantages
@@ -79,5 +92,7 @@ While there are many CRMs and ERPs on the market, the **Sree Meditec Enterprise 
 4. **Niche Field-Service Integration**
    Through specialized Service Order Maker and Installation Report modules, engineers can fill out exact variables (such as "Software Version," "Machine Warranty Status," "Action Hardware," and "Spares Charges") on-site at hospitals/clinics and immediately close out highly professional reports, bridging the gap between back-office and physical field maintenance smoothly.
 
-5. **Integrated AI Architecture**
+5. **End-to-End Financial Transparency:** By integrating the Accounting and Compliance modules directly into the CRM, the business maintains a clear audit trail from lead conversion to invoice payment, TDS deduction, and final GST filing, eliminating the risk of data silos.
+
+6. **Integrated AI Architecture:**
    Through the `@google/genai` library embedded natively, it leapfrogs competitors by treating AI not as an afterthought but as a core component ready to provide smart assistance, generative documentation insights, and task summarization directly onto the users' dashboards.
