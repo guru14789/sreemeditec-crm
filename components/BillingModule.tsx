@@ -48,10 +48,17 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const cgst = taxTotal / 2;
     const sgst = taxTotal / 2;
     const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-    const grandTotal = taxableValue + taxTotal;
+    const grandTotalRaw = taxableValue + taxTotal;
     const freightTotal = freight + freightTax;
     
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, totalQty, freight, freightTax, itemsTax, freightTotal };
+    let roundOff = 0;
+    let grandTotal = grandTotalRaw;
+    if (invoice.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    
+    return { taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff };
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
@@ -92,7 +99,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         specialNote: 'Chennai',
         dispatchedThrough: 'Person',
         documentType: 'Invoice',
-        paidAmount: 0
+        paidAmount: 0,
+        isRoundOff: false
     });
 
 
@@ -649,6 +657,40 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <div className="p-6 bg-slate-900 rounded-[2rem] text-white flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl">
+                                            <div className="flex flex-wrap gap-8">
+                                                <div>
+                                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Subtotal</p>
+                                                    <p className="text-lg font-bold">₹{totals.taxableValue.toLocaleString()}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Tax</p>
+                                                    <p className="text-lg font-bold text-emerald-400">₹{totals.taxTotal.toLocaleString()}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                                <div className="flex items-center gap-3 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all cursor-pointer group" onClick={() => setInvoice(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                    <div className={`w-10 h-5 rounded-full relative transition-all ${invoice.isRoundOff ? 'bg-medical-500' : 'bg-slate-700'}`}>
+                                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${invoice.isRoundOff ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white transition-colors">Round Off</span>
+                                                </div>
+                                                
+                                                <div className="text-center md:text-right">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Grand Total</p>
+                                                    <p className="text-3xl font-black text-white tracking-tighter flex items-baseline gap-2">
+                                                        ₹{totals.grandTotal.toLocaleString()}
+                                                        {invoice.isRoundOff && totals.roundOff !== 0 && (
+                                                            <span className={`text-[12px] font-bold ${totals.roundOff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </section>
 
@@ -788,6 +830,14 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
                                                      <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.sgst.toFixed(2)}</td>
                                                  </tr>
+                                                {invoice.isRoundOff && (
+                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
+                                                        <td className="border-r border-black"></td>
+                                                        <td className="border-r border-black p-1 text-left flex items-center font-bold">Round Off</td>
+                                                        <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.roundOff.toFixed(2)}</td>
+                                                    </tr>
+                                                )}
                                                 {Array.from({ length: Math.max(0, 8 - (invoice.items?.length || 0)) }).map((_, i) => (
                                                     <tr key={`f-${i}`} className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-6 border-b border-slate-50 opacity-10">
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td>

@@ -266,6 +266,8 @@ export interface Invoice {
   subtotal: number;
   taxTotal: number;
   grandTotal: number;
+  isRoundOff?: boolean;
+  roundOff?: number;
   documentType?: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   createdBy?: string;
   smcpoNumber?: string;
