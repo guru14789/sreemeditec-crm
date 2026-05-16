@@ -6,7 +6,7 @@ import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, Download
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, Download, Landmark, Plus, Trash2
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -36,8 +36,10 @@ import { PayrollModule } from './components/PayrollModule';
 import { ArchiveModule } from './components/ArchiveModule';
 import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
+import { CompanyModule } from './components/CompanyModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
+import { BankDetailsForm } from './components/BankDetailsForm';
 import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord, Employee } from './types';
 import { useData } from './components/DataContext';
 
@@ -110,10 +112,9 @@ export const App: React.FC = () => {
         clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
         addNotification, expenseStats, updateEmployee
     } = useData();
+
     const [isEditingPrize, setIsEditingPrize] = useState(false);
     const [tempPrize, setTempPrize] = useState(prizePool.toString());
-
-    const isSuperAdmin = currentUser?.email?.toLowerCase() === 'sreekumar.career@gmail.com';
 
     // Anti-Gravity Safety Effect: Auto-normalize currentUser permissions if they arrive as Array
     useEffect(() => {
@@ -123,6 +124,23 @@ export const App: React.FC = () => {
             updateEmployee(currentUser.id, { permissions: normalized });
         }
     }, [currentUser?.permissions, currentUser?.id]);
+
+    const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 1024) setIsSidebarOpen(false);
+            else setIsSidebarOpen(true);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const [configSubTab, setConfigSubTab] = useState<'General' | 'Bank' | 'Companies'>('General');
+
+    const isSuperAdmin = currentUser?.email?.toLowerCase() === 'sreekumar.career@gmail.com';
 
     const handleMigratePermissions = async () => {
       if (!isSuperAdmin) return;
@@ -319,18 +337,6 @@ export const App: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
-  const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) setIsSidebarOpen(false);
-      else setIsSidebarOpen(true);
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // AUTH GUARD: If not logged in, show Login screen
   if (!isAuthenticated || !currentUser) {
@@ -406,6 +412,7 @@ export const App: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     const isCheckedInToday = attendanceRecords.some(r => r.userId === currentUser?.id && r.date === todayStr && (r.status === 'CheckedIn' || r.status === 'Completed'));
 
+
     const renderContent = () => {
     if (!hasAccess(activeTab)) return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -465,84 +472,126 @@ export const App: React.FC = () => {
       case TabView.ACCOUNTING: return <AccountingModule userRole={userRole} />;
       case TabView.COMPLIANCE: return <ComplianceModule userRole={userRole} />;
       case TabView.CONFIG: return (
-        <div className="h-full flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm animate-in fade-in zoom-in duration-500">
-            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
-                <Settings size={40} className="animate-[spin_4s_linear_infinite]" />
+        <div className="h-full flex flex-col p-4 md:p-8 bg-slate-50/30 dark:bg-slate-900/30 overflow-hidden">
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 w-fit mb-8 shadow-sm">
+                <button 
+                  onClick={() => setConfigSubTab('General')}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${configSubTab === 'General' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                >
+                  System Terminal
+                </button>
+                <button 
+                  onClick={() => setConfigSubTab('Bank')}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${configSubTab === 'Bank' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                >
+                  Bank Details
+                </button>
             </div>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Configuration</h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[320px] text-center font-medium">Core system parameters and business rules can be managed from this terminal.</p>
-            <div className="grid grid-cols-2 gap-4 mt-12 w-full max-w-lg">
-                <div 
-                    onClick={() => setActiveTab(TabView.LOGS)}
-                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/card"
-                >
-                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/card:text-indigo-500 transition-colors"><Activity size={16}/></div>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Audit Mode</p>
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Standard</p>
-                        <ChevronRight size={14} className="text-slate-300 group-hover/card:text-indigo-400 transition-colors" />
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                {configSubTab === 'General' ? (
+                    <div className="flex flex-col items-center justify-center min-h-full py-12">
+                        <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
+                            <Settings size={40} className="animate-[spin_4s_linear_infinite]" />
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Configuration</h3>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[320px] text-center font-medium">Core system parameters and business rules can be managed from this terminal.</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 w-full max-w-lg">
+                            <div 
+                                onClick={() => setActiveTab(TabView.LOGS)}
+                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/card shadow-sm"
+                            >
+                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/card:text-indigo-500 transition-colors"><Activity size={16}/></div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Audit Mode</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Standard</p>
+                                    <ChevronRight size={14} className="text-slate-300 group-hover/card:text-indigo-400 transition-colors" />
+                                </div>
+                            </div>
+                            <div 
+                                onClick={async () => {
+                                    if (userRole !== 'Admin') {
+                                        alert("Administrative privileges required for System Backup.");
+                                        return;
+                                    }
+                                    handleFullBackup();
+                                }}
+                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-1 transition-all group/backup shadow-sm"
+                            >
+                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/backup:text-emerald-500 transition-colors"><Database size={16}/></div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Data Vault</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Sync</p>
+                                    <ChevronRight size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
+                                </div>
+                            </div>
+                            {isSuperAdmin && (
+                            <div 
+                                onClick={handleMigratePermissions}
+                                className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all group/migrate md:col-span-2"
+                            >
+                                <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 mb-4 shadow-sm group-hover/migrate:bg-indigo-600 group-hover/migrate:text-white transition-all"><ShieldAlert size={16}/></div>
+                                <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-1">Security Maintenance</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Migrate Legacy Permissions</p>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 rounded-full uppercase tracking-tighter">Super Admin Only</span>
+                                        <ChevronRight size={14} className="text-indigo-300 group-hover/migrate:text-indigo-400 transition-colors" />
+                                    </div>
+                                </div>
+                            </div>
+                            )}
+                            <div 
+                                onClick={async () => {
+                                    if (userRole !== 'Admin') {
+                                        alert("Access Denied: Administrative privileges required.");
+                                        return;
+                                    }
+                                    const pass = window.prompt("Enter Admin Password to modify Fiscal Period:");
+                                    if (pass !== 'sree') {
+                                        alert("Invalid Password.");
+                                        return;
+                                    }
+                                    const nextFY = window.prompt("Enter New Financial Year (e.g. 26-27):", financialYear);
+                                    if (nextFY && nextFY !== financialYear) {
+                                        if (window.confirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`)) {
+                                            await updateFinancialYear(nextFY);
+                                        }
+                                    }
+                                }}
+                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-amber-500/5 hover:-translate-y-1 transition-all group/fy shadow-sm"
+                            >
+                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/fy:text-amber-500 transition-colors"><Calendar size={16}/></div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Fiscal Period</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{financialYear}</p>
+                                    <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm">Active</span>
+                                </div>
+                            </div>
+                            <div 
+                                onClick={() => setConfigSubTab('Companies')}
+                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/bank shadow-sm"
+                            >
+                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/bank:text-indigo-500 transition-colors"><Building2 size={16}/></div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Company Profile</p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Manage Business Entities</p>
+                                    <ChevronRight size={14} className="text-slate-300 group-hover/bank:text-indigo-400 transition-colors" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div 
-                    onClick={async () => {
-                        if (userRole !== 'Admin') {
-                            alert("Administrative privileges required for System Backup.");
-                            return;
-                        }
-                        handleFullBackup();
-                    }}
-                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-1 transition-all group/backup"
-                >
-                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/backup:text-emerald-500 transition-colors"><Database size={16}/></div>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Data Vault</p>
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Sync</p>
-                        <ChevronRight size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
+                ) : configSubTab === 'Bank' ? (
+                    <div className="flex flex-col items-center justify-center min-h-full py-12">
+                        <BankDetailsForm userRole={userRole} />
                     </div>
-                </div>
-                {isSuperAdmin && (
-                  <div 
-                      onClick={handleMigratePermissions}
-                      className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all group/migrate col-span-2"
-                  >
-                      <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 mb-4 shadow-sm group-hover/migrate:bg-indigo-600 group-hover/migrate:text-white transition-all"><ShieldAlert size={16}/></div>
-                      <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-1">Security Maintenance</p>
-                      <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Migrate Legacy Permissions</p>
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 rounded-full uppercase tracking-tighter">Super Admin Only</span>
-                            <ChevronRight size={14} className="text-indigo-300 group-hover/migrate:text-indigo-400 transition-colors" />
-                          </div>
-                      </div>
-                  </div>
+                ) : (
+                    <div className="h-full">
+                        <CompanyModule />
+                    </div>
                 )}
-                <div 
-                    onClick={async () => {
-                        if (userRole !== 'Admin') {
-                            alert("Access Denied: Administrative privileges required.");
-                            return;
-                        }
-                        const pass = window.prompt("Enter Admin Password to modify Fiscal Period:");
-                        if (pass !== 'sree') {
-                            alert("Invalid Password.");
-                            return;
-                        }
-                        const nextFY = window.prompt("Enter New Financial Year (e.g. 26-27):", financialYear);
-                        if (nextFY && nextFY !== financialYear) {
-                            if (window.confirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`)) {
-                                await updateFinancialYear(nextFY);
-                            }
-                        }
-                    }}
-                    className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-xl hover:shadow-amber-500/5 hover:-translate-y-1 transition-all group/fy"
-                >
-                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/fy:text-amber-500 transition-colors"><Calendar size={16}/></div>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Fiscal Period</p>
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{financialYear}</p>
-                        <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm">Active</span>
-                    </div>
-                </div>
             </div>
         </div>
       );

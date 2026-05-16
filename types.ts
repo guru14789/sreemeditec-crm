@@ -42,7 +42,8 @@ export enum TabView {
   CONFIG = 'CONFIG',
   PURCHASE_REGISTER = 'PURCHASE_REGISTER',
   ACCOUNTING = 'ACCOUNTING',
-  COMPLIANCE = 'COMPLIANCE'
+  COMPLIANCE = 'COMPLIANCE',
+  COMPANIES = 'COMPANIES'
 }
 
 export enum LeadStatus {
@@ -273,6 +274,7 @@ export interface Invoice {
   cpoNumber?: string;
   cpoDate?: string;
   bankDetails?: string;
+  selectedBank?: BankDetails;
   deliveryAddress?: string;
   bankAndBranch?: string;
   accountNo?: string;
@@ -296,6 +298,7 @@ export interface Invoice {
   paidAmount?: number;
   paymentDate?: string;
   paymentBank?: string;
+  sellerProfile?: CompanyProfile;
   equipmentName?: string;
   model?: string;
   serialNumber?: string;
@@ -415,10 +418,35 @@ export interface MonthlyWinner {
   points: number;
 }
 
+export interface CompanyProfile {
+  id: string;
+  companyName: string;
+  address: string;
+  gstin?: string;
+  email?: string;
+  phone?: string;
+  bankName: string;
+  accountNo: string;
+  branchIfsc: string;
+  cinNo?: string;
+  panNo?: string;
+}
+
+export interface BankDetails {
+  id: string;
+  bankName: string;
+  accountNo: string;
+  branchIfsc: string;
+  accountType?: string;
+  isDefault?: boolean;
+}
+
 export interface SystemSettings {
   id: string;
   lastResetMonth: string; // Format: YYYY-MM
   financialYear: string; // Format: 26-27
+  bankDetails?: BankDetails[];
+  companyProfiles?: CompanyProfile[];
 }
 
 export interface TaskLog {
@@ -514,6 +542,7 @@ export interface ServiceReport {
   smirNo?: string;
   installationOf?: string;
   trainedPersons?: string;
+  sellerProfile?: CompanyProfile;
 }
 
 export interface SupportMessage {
@@ -571,6 +600,7 @@ export interface DeliveryChallan {
   subject?: string;
   terms?: string;
   remarks?: string;
+  sellerProfile?: CompanyProfile;
 }
 
 export interface Holiday {

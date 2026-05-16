@@ -23,7 +23,7 @@ interface ExpenseModuleProps {
 
 export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userRole }) => {
     const { 
-        expenses, addExpense, updateExpense, updateExpenseStatus, 
+        expenses, addExpense, updateExpense, removeExpense, updateExpenseStatus, 
         addNotification, fetchMoreData, ledgers, addLedger, postToLedger 
     } = useData();
 
@@ -42,6 +42,11 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [dragScroll, setDragScroll] = useState({ left: 0, top: 0 });
+    const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const DEFAULT_EXPENSE: Partial<ExpenseRecord> = {
@@ -130,28 +135,41 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             return;
         }
 
-        if (builderMode === 'add') {
-            const record: ExpenseRecord = {
-                ...expense as ExpenseRecord,
-                id: `EXP-${Date.now()}`,
-                employeeName: currentUser,
-                receiptUrl: receiptPreview || undefined,
-                status: 'Pending'
-            };
-            await addExpense(record);
-            addNotification('Voucher Submitted', `Your claim for ₹${record.amount} is now pending approval.`, 'info');
-        } else {
-            const updates: Partial<ExpenseRecord> = {
-                ...expense,
-                receiptUrl: receiptPreview || expense.receiptUrl
-            };
-            await updateExpense(expense.id!, updates);
-            addNotification('Voucher Updated', `Changes to voucher claim ₹${updates.amount} saved.`, 'info');
+        setIsSaving(true);
+        try {
+            if (builderMode === 'add') {
+                const record: ExpenseRecord = {
+                    ...expense as ExpenseRecord,
+                    id: `EXP-${Date.now()}`,
+                    employeeName: currentUser,
+                    receiptUrl: receiptPreview || undefined,
+                    status: 'Pending'
+                };
+                await addExpense(record);
+                setShowSubmitSuccess(true);
+                // Modal remains visible until explicitly confirmed by user
+            } else {
+                const updates: Partial<ExpenseRecord> = {
+                    ...expense,
+                    receiptUrl: receiptPreview || expense.receiptUrl
+                };
+                await updateExpense(expense.id!, updates);
+                addNotification('Voucher Updated', `Changes saved.`, 'info');
+                setViewState('stock'); // Navigate back to console after edit
+            }
+            
+            if (builderMode === 'add') {
+                // Keep view as builder if they want to submit another, 
+                // but reset the form. Actually reset happens in handleAnother.
+            } else {
+                setExpense(DEFAULT_EXPENSE);
+                setReceiptPreview(null);
+            }
+        } catch (err: any) {
+            setSubmitError(err.message || 'Voucher submission failed. Please try again.');
+        } finally {
+            setIsSaving(false);
         }
-
-        setViewState('stock');
-        setExpense(DEFAULT_EXPENSE);
-        setReceiptPreview(null);
     };
 
     const handleApprove = async (id: string) => {
@@ -211,6 +229,21 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         }
     };
 
+    const handleDelete = async () => {
+        if (!deleteModalId) return;
+        setIsDeleting(true);
+        try {
+            await removeExpense(deleteModalId, currentUser);
+            addNotification('Expense Deleted', 'Voucher permanently removed from registry.', 'success');
+            setDeleteModalId(null);
+            if (selectedExpense?.id === deleteModalId) setSelectedExpense(null);
+        } catch (err: any) {
+            addNotification('Delete Failed', err.message || 'Operation failed', 'alert');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const filteredExpenses = useMemo(() => {
         let base = userRole === 'Admin' ? expenses : expenses.filter(e => e.employeeName === currentUser);
         if (!searchQuery.trim()) return base;
@@ -254,20 +287,56 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <div className="flex-1 overflow-auto custom-scrollbar">
                             <table className="w-full text-left text-[10px] md:text-[11px]">
                                 <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[8px] md:text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
-                                    <tr><th className="px-4 md:px-8 py-3 md:py-4">Entry</th>{userRole === 'Admin' && <th className="px-4 md:px-8 py-3 md:py-4 hidden sm:table-cell">Personnel</th>}<th className="px-4 md:px-8 py-3 md:py-4">Info</th><th className="px-4 md:px-8 py-3 md:py-4 text-right">Value</th><th className="px-4 md:px-8 py-3 md:py-4 text-right">Status</th></tr>
+                                    <tr>
+                                        <th className="px-4 md:px-8 py-3 md:py-4 text-left">Entry</th>
+                                        {userRole === 'Admin' && <th className="px-4 md:px-8 py-3 md:py-4 text-left hidden sm:table-cell">Personnel</th>}
+                                        <th className="px-4 md:px-8 py-3 md:py-4 text-left">Info</th>
+                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Value</th>
+                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Status</th>
+                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Action</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredExpenses.map(e => (
-                                        <tr key={e.id} className={`hover:bg-slate-50 transition-colors group cursor-pointer ${selectedExpense?.id === e.id ? 'bg-medical-50/50' : ''}`} onClick={() => setSelectedExpense(e)}>
-                                            <td className="px-4 md:px-8 py-3 md:py-4"><div className="font-black text-slate-400 uppercase text-[9px] tracking-widest">{e.date}</div><div className="text-[8px] font-bold text-slate-300 uppercase mt-0.5 hidden sm:block">#{e.id.slice(-6)}</div></td>
-                                            {userRole === 'Admin' && <td className="px-4 md:px-8 py-3 md:py-4 hidden sm:table-cell"><div className="flex items-center gap-2"><div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center font-black text-slate-500 border border-slate-200 text-[10px]">{e.employeeName.charAt(0)}</div><span className="font-black text-slate-700 uppercase tracking-tighter truncate max-w-[80px]">{e.employeeName}</span></div></td>}
-                                            <td className="px-4 md:px-8 py-3 md:py-4"><div className="flex flex-col gap-0.5"><div className="flex items-center gap-2"><span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{e.category}</span><span className="font-bold text-slate-700 uppercase truncate max-w-[150px] md:max-w-[250px]">{e.description}</span></div>{e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"><ImageIcon size={8}/> Proof</button>}</div></td>
-                                            <td className="px-4 md:px-8 py-3 md:py-4 text-right font-black text-[11px] md:text-[13px] text-slate-800 tracking-tighter">₹{e.amount.toLocaleString()}</td>
-                                            <td className="px-4 md:px-8 py-3 md:py-4 text-right"><span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span></td>
+                                        <tr key={e.id} className={`hover:bg-slate-50/80 transition-colors group cursor-pointer border-b border-slate-50 ${selectedExpense?.id === e.id ? 'bg-medical-50/40' : ''}`} onClick={() => { setSelectedExpense(e); if (window.innerWidth < 1024) { setTimeout(() => document.getElementById('expense-detail-view')?.scrollIntoView({ behavior: 'smooth' }), 100); } }}>
+                                            <td className="px-4 md:px-8 py-4 md:py-6 align-middle"><div className="font-black text-slate-400 uppercase text-[9px] tracking-widest">{e.date}</div><div className="text-[8px] font-bold text-slate-300 uppercase mt-0.5 hidden sm:block">#{e.id.slice(-6)}</div></td>
+                                            {userRole === 'Admin' && <td className="px-4 md:px-8 py-4 md:py-6 hidden sm:table-cell align-middle"><div className="flex items-center gap-2"><div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center font-black text-slate-500 border border-slate-200 text-[10px]">{e.employeeName.charAt(0)}</div><span className="font-black text-slate-700 uppercase tracking-tighter truncate max-w-[80px]">{e.employeeName}</span></div></td>}
+                                            <td className="px-4 md:px-8 py-4 md:py-6 align-middle">
+                                                <div className="flex flex-col gap-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase shrink-0">{e.category}</span>
+                                                        <span className="font-bold text-slate-700 uppercase truncate max-w-[150px] md:max-w-[250px]">{e.description}</span>
+                                                    </div>
+                                                    {e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"><ImageIcon size={8}/> Proof Available</button>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle"><div className="inline-block font-black text-[11px] md:text-[13px] text-slate-800 tracking-tighter min-w-[60px]">₹{e.amount.toLocaleString()}</div></td>
+                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle">
+                                                <div className="flex justify-center">
+                                                    <span className={`w-20 inline-flex items-center justify-center text-[8px] font-black uppercase tracking-widest py-1 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle">
+                                                <div className="flex justify-center">
+                                                    {e.status === 'Pending' && (userRole === 'Admin' || e.employeeName === currentUser) ? (
+                                                        <button 
+                                                            onClick={(ev) => { ev.stopPropagation(); setDeleteModalId(e.id); }}
+                                                            className="w-8 h-8 flex items-center justify-center text-rose-500 bg-rose-50 border border-rose-100 rounded-xl transition-all hover:bg-rose-100 hover:scale-110 shadow-sm active:scale-95"
+                                                            title="Delete Pending Expense"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    ) : (
+                                                        <div className="w-8 h-8 flex items-center justify-center opacity-10 grayscale">
+                                                            <Trash2 size={14} className="text-slate-300" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                     {filteredExpenses.length === 0 && (
-                                        <tr><td colSpan={5} className="py-20 md:py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">Registry Vacuum</td></tr>
+                                        <tr><td colSpan={userRole === 'Admin' ? 6 : 5} className="py-20 md:py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">Registry Vacuum</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -275,7 +344,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                     </div>
 
                     {selectedExpense && (
-                        <div className="w-full lg:w-[380px] bg-white rounded-2xl md:rounded-[2.5rem] shadow-2xl border border-slate-300 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4">
+                        <div id="expense-detail-view" className="w-full lg:w-[380px] bg-white rounded-2xl md:rounded-[2.5rem] shadow-2xl border border-slate-300 flex flex-col shrink-0 overflow-hidden animate-in slide-in-from-right-4 scroll-mt-24">
                             <div className="p-5 md:p-6 border-b border-slate-300 bg-slate-50/50 relative">
                                 <button onClick={() => setSelectedExpense(null)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-slate-500 transition-colors"><X size={20}/></button>
                                 <div className="flex items-center gap-3 mb-4">
@@ -340,6 +409,14 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     <>
                                         {selectedExpense.employeeName === currentUser && selectedExpense.status === 'Pending' && (
                                             <button onClick={() => { setExpense(selectedExpense); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-3 md:py-4 bg-slate-800 text-white rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 md:gap-3"><Edit2 size={14}/> Modify</button>
+                                        )}
+                                        {selectedExpense.status === 'Pending' && (userRole === 'Admin' || selectedExpense.employeeName === currentUser) && (
+                                            <button 
+                                                onClick={() => setDeleteModalId(selectedExpense.id)} 
+                                                className="flex-1 py-3 md:py-4 bg-white border border-rose-200 text-rose-500 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-sm hover:bg-rose-50 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Trash2 size={14}/> Trash
+                                            </button>
                                         )}
                                         <button onClick={() => setSelectedExpense(null)} className="w-full py-3 md:py-4 bg-white border border-slate-300 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest">Close Record</button>
                                     </>
@@ -406,7 +483,10 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
                     <div className="sticky bottom-0 left-0 right-0 p-4 md:p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-end gap-3 md:gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-6 md:px-10">
                         <button onClick={() => { setViewState('stock'); setExpense(DEFAULT_EXPENSE); }} className="px-6 md:px-10 py-3 md:py-4 bg-slate-100 text-slate-500 rounded-xl md:rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 shadow-inner">Abort</button>
-                        <button onClick={handleSave} disabled={isCompressing} className="px-10 md:px-16 py-3 md:py-4 bg-gradient-to-r from-emerald-600 to-indigo-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50">Authorize</button>
+                        <button onClick={handleSave} disabled={isCompressing || isSaving} className="px-10 md:px-16 py-3 md:py-4 bg-gradient-to-r from-emerald-600 to-indigo-500 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-widest shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50 flex items-center gap-2">
+                            {isSaving && <RotateCw size={14} className="animate-spin" />}
+                            {builderMode === 'add' ? 'Authorize Claim' : 'Save Changes'}
+                        </button>
                     </div>
                 </div>
             )}
@@ -482,6 +562,91 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 style={{ imageRendering: zoomScale > 1 ? 'crisp-edges' : 'auto' }}
                                 draggable={false}
                             />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {deleteModalId && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border-4 border-rose-50">
+                        <div className="p-8 text-center space-y-4">
+                            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto text-rose-600 border border-rose-100 shadow-inner">
+                                {isDeleting ? <RotateCw size={32} className="animate-spin" /> : <Trash2 size={32} />}
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Erase Voucher?</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-relaxed px-4">
+                                    Are you sure you want to delete this pending expense? This action is permanent.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-slate-50 flex gap-3 border-t border-slate-200">
+                            <button 
+                                disabled={isDeleting}
+                                onClick={() => setDeleteModalId(null)} 
+                                className="flex-1 py-3.5 bg-white text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-slate-300 hover:bg-slate-50 transition-all disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                disabled={isDeleting}
+                                onClick={handleDelete} 
+                                className="flex-[2] py-3.5 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/30 active:scale-95 transition-all hover:bg-rose-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isDeleting && <RotateCw size={14} className="animate-spin" />}
+                                Confirm Deletion
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showSubmitSuccess && (
+                <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-950/80 backdrop-blur-xl p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border-4 border-emerald-50">
+                        <div className="p-10 text-center space-y-6">
+                            <div className="w-24 h-24 bg-emerald-50 rounded-[2rem] flex items-center justify-center mx-auto text-emerald-600 border border-emerald-100 shadow-inner relative">
+                                <div className="absolute inset-0 bg-emerald-400/20 rounded-[2rem] animate-ping opacity-20"></div>
+                                <CheckCircle2 size={48} className="relative z-10 animate-in zoom-in duration-500" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Expense Submitted Successfully</h3>
+                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-relaxed px-6">
+                                    Your expense has been submitted and is pending admin approval.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-8 bg-slate-50/50 flex flex-col gap-3 border-t border-slate-100">
+                            <button 
+                                onClick={() => { setShowSubmitSuccess(false); setViewState('stock'); setExpense(DEFAULT_EXPENSE); setReceiptPreview(null); }} 
+                                className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all"
+                            >
+                                OK
+                            </button>
+                            <button 
+                                onClick={() => { setShowSubmitSuccess(false); setExpense(DEFAULT_EXPENSE); setReceiptPreview(null); }} 
+                                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Plus size={14} /> Submit Another Expense
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {submitError && (
+                <div className="fixed inset-0 z-[400] flex items-center justify-center bg-slate-950/80 backdrop-blur-xl p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden border-4 border-rose-50">
+                        <div className="p-10 text-center space-y-6">
+                            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto text-rose-600 border border-rose-100 shadow-inner"><XCircle size={40} /></div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Voucher Submission Failed</h3>
+                                <p className="text-xs font-bold text-rose-500 italic">"{submitError}"</p>
+                            </div>
+                        </div>
+                        <div className="p-8 bg-slate-50 border-t border-slate-100">
+                            <button onClick={() => setSubmitError(null)} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all">Try Again</button>
                         </div>
                     </div>
                 </div>

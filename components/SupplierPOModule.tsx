@@ -39,7 +39,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const SupplierPOModule: React.FC = () => {
-    const { vendors, products, invoices, addInvoice, updateInvoice, addNotification, currentUser, financialYear } = useData();
+    const { vendors, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -359,6 +359,21 @@ export const SupplierPOModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={async (e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    if (window.confirm('Are you sure you want to delete this PO?')) {
+                                                                        await removeInvoice(inv.id);
+                                                                        addNotification('Record Deleted', 'Supplier PO has been removed.', 'success');
+                                                                        setActiveMenuId(null);
+                                                                    }
+                                                                }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

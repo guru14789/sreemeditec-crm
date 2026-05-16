@@ -42,7 +42,17 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
 }
 
 export const ServiceReportModule: React.FC = () => {
-    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, financialYear, currentUser } = useData();
+    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin } = useData();
+
+    const handleDelete = async (id: string, num: string) => {
+        if (!confirm(`Are you sure you want to PERMANENTLY delete Service Report ${num}? This action cannot be undone.`)) return;
+        try {
+            await removeServiceReport(id);
+            addNotification('Report Deleted', `${num} has been removed.`, 'success');
+        } catch (err) {
+            addNotification('Error', 'Failed to delete report.', 'alert');
+        }
+    };
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -187,9 +197,9 @@ export const ServiceReportModule: React.FC = () => {
     const renderReportTemplate = (data: DetailedServiceReport, fin: any) => (
         <div id="service-report-print-area" className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col mx-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
             <div className="text-center mb-6">
-                <h1 className="text-4xl font-black uppercase mb-1">SREE MEDITEC</h1>
-                <p className="text-[11px] font-bold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
-                <p className="text-[11px] font-bold">Mob: 9884818398</p>
+                <h1 className="text-4xl font-black uppercase mb-1">{data.sellerProfile?.companyName || 'SREE MEDITEC'}</h1>
+                <p className="text-[11px] font-bold">{data.sellerProfile?.address || 'New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.'}</p>
+                <p className="text-[11px] font-bold">{data.sellerProfile?.phone ? `Mob: ${data.sellerProfile.phone}` : 'Mob: 9884818398'}</p>
             </div>
             
             <div className="text-center py-2 font-black text-sm uppercase tracking-widest border border-black bg-slate-50 mb-0">SERVICE REPORT</div>
@@ -290,7 +300,7 @@ export const ServiceReportModule: React.FC = () => {
                     <div className="flex-1 flex items-end justify-center p-4 border-t border-black">
                         <div className="w-full text-center">
                             <p className="font-black text-[11px] uppercase">Engineer Signature</p>
-                            <p className="text-[9px] font-bold text-medical-600 mt-1">FOR SREE MEDITEC</p>
+                            <p className="text-[9px] font-bold text-medical-600 mt-1 uppercase">FOR {data.sellerProfile?.companyName || 'SREE MEDITEC'}</p>
                         </div>
                     </div>
                 </div>
@@ -343,6 +353,15 @@ export const ServiceReportModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(r.id!, r.reportNumber || 'Report'); setActiveMenuId(null); }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                title="Delete Report"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -365,9 +384,35 @@ export const ServiceReportModule: React.FC = () => {
                             <div className="h-full flex flex-col bg-white">
                                 <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-8 custom-scrollbar">
                                     <section className="space-y-4">
+                                        <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-200 space-y-4 mb-4">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className="w-8 h-8 rounded-lg bg-medical-500 flex items-center justify-center text-white shadow-lg shadow-medical-200">
+                                                    <Shield size={16} />
+                                                </div>
+                                                <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">1. Issuing Entity</h3>
+                                            </div>
+                                            <div className="grid grid-cols-1">
+                                                <FormRow label="Select Seller Profile">
+                                                    <select 
+                                                        value={report.sellerProfile?.id || ''}
+                                                        onChange={(e) => {
+                                                            const profile = companyProfiles.find(p => p.id === e.target.value);
+                                                            setReport(prev => ({ ...prev, sellerProfile: profile }));
+                                                        }}
+                                                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-medical-500/20 focus:border-medical-500 transition-all appearance-none cursor-pointer"
+                                                    >
+                                                        <option value="">Default (Sree Meditec)</option>
+                                                        {companyProfiles.map(profile => (
+                                                            <option key={profile.id} value={profile.id}>{profile.companyName}</option>
+                                                        ))}
+                                                    </select>
+                                                </FormRow>
+                                            </div>
+                                        </div>
+
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <Clock size={14} className="text-medical-500" />
-                                            1. Registry Details
+                                            2. Registry Details
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="Report No. *">
@@ -388,7 +433,7 @@ export const ServiceReportModule: React.FC = () => {
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <Shield size={14} className="text-medical-500" />
-                                            2. Equipment & Facility
+                                            3. Equipment & Facility
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
@@ -436,7 +481,7 @@ export const ServiceReportModule: React.FC = () => {
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <Activity size={14} className="text-medical-500" />
-                                            3. Diagnosis & Findings
+                                            4. Detailed Observations
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <FormRow label="Complaint Reported">
@@ -463,7 +508,7 @@ export const ServiceReportModule: React.FC = () => {
                                         <div className="flex justify-between items-center border-b pb-1">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
                                                 <Wrench size={14} className="text-medical-500" />
-                                                4. Spares Manifest
+                                                5. Spares Manifest
                                             </h3>
                                             <div className="flex gap-2">
                                                 <button onClick={() => setBuilderTab('catalog')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Store</button>
@@ -519,7 +564,7 @@ export const ServiceReportModule: React.FC = () => {
                                     <section className="space-y-4 pb-20">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <CreditCard size={14} className="text-medical-500" />
-                                            5. Settlement & Remarks
+                                            6. Settlement & Remarks
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 bg-slate-50 p-5 rounded-2xl border border-slate-200">
                                             <FormRow label="Visit Charges (₹)">
@@ -537,7 +582,7 @@ export const ServiceReportModule: React.FC = () => {
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.memoNumber || ''} onChange={e => setReport({...report, memoNumber: e.target.value})} placeholder="SM-REC-001" />
                                             </FormRow>
                                             <FormRow label="Author / Engineer">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={report.engineerName || ''} readOnly />
+                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black text-slate-800 outline-none" value={report.engineerName || ''} onChange={e => setReport({...report, engineerName: e.target.value})} placeholder="Engineer Name" />
                                             </FormRow>
                                         </div>
                                         <FormRow label="Engineer's Queries / Follow-up">

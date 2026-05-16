@@ -55,7 +55,17 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, addInvoice, updateInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin } = useData();
+
+    const handleDelete = async (id: string, num: string) => {
+        if (!confirm(`Are you sure you want to PERMANENTLY delete document ${num}? This action cannot be undone.`)) return;
+        try {
+            await removeInvoice(id);
+            addNotification('Document Deleted', `${num} has been removed.`, 'success');
+        } catch (err) {
+            addNotification('Error', 'Failed to delete document.', 'alert');
+        }
+    };
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -435,6 +445,15 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                                 <XCircle size={18} />
                                                             </button>
                                                         )}
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber || 'Document'); setActiveMenuId(null); }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                                title="Delete Document"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -494,6 +513,21 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                         </FormRow>
                                         <FormRow label="Destination"><input type="text" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" value={invoice.specialNote || ''} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
                                         <FormRow label="Paid Amount"><input type="number" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/5 transition-all text-center" value={invoice.paidAmount || 0} onChange={e => setInvoice({...invoice, paidAmount: Number(e.target.value)})} /></FormRow>
+                                        <FormRow label="Seller Profile">
+                                            <select 
+                                                className="w-full h-[46px] bg-white border border-medical-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                                value={invoice.sellerProfile?.id || ''}
+                                                onChange={e => {
+                                                    const selected = companyProfiles.find(p => p.id === e.target.value);
+                                                    setInvoice({ ...invoice, sellerProfile: selected });
+                                                }}
+                                            >
+                                                <option value="">Default (Sree Meditec)</option>
+                                                {companyProfiles.map(profile => (
+                                                    <option key={profile.id} value={profile.id}>{profile.companyName}</option>
+                                                ))}
+                                            </select>
+                                        </FormRow>
                                     </div>
                                 </section>
 
@@ -640,13 +674,12 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                             {/* LEFT COLUMN */}
                                             <div className="flex flex-col border-r border-black overflow-hidden">
                                                 <div className="p-3 border-b border-black">
-                                                    <h1 className="text-xl font-bold text-black mb-1 leading-none">SREE MEDITEC</h1>
-                                                    <p className="text-[10px]">Old No.2 New No.18, Bajanai Koil Street,</p>
-                                                    <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>
-                                                    <p className="text-[10px]">Ph.9884818398/ 7200025642</p>
-                                                    <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: 33APGPS4675G2ZL</p>
-                                                    <p className="text-[9px]">E-Mail : sreemeditec@gmail.com</p>
-
+                                                    <h1 className="text-xl font-bold text-black mb-1 leading-none uppercase">{invoice.sellerProfile?.companyName || 'SREE MEDITEC'}</h1>
+                                                    <p className="text-[10px]">{invoice.sellerProfile?.address || 'Old No.2 New No.18, Bajanai Koil Street,'}</p>
+                                                    {!invoice.sellerProfile && <p className="text-[10px]">Rajakilpakkam, Chennai -73</p>}
+                                                    <p className="text-[10px]">Ph: {invoice.sellerProfile?.phone || '9884818398/ 7200025642'}</p>
+                                                    <p className="font-bold mt-1 text-[10px]">GSTIN/UIN: {invoice.sellerProfile?.gstin || '33APGPS4675G2ZL'}</p>
+                                                    <p className="text-[9px]">E-Mail : {invoice.sellerProfile?.email || 'sreemeditec@gmail.com'}</p>
                                                 </div>
                                                 <div className="p-2 border-b border-black min-h-[85px] flex flex-col text-[10px] leading-tight">
                                                     <p className="text-[8px] font-black uppercase text-slate-400 mb-1 tracking-widest">Consignee (Ship to)</p>
@@ -842,7 +875,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                     <p className="text-[8px] uppercase">Customer's Seal and Signature</p>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end">
-                                                    <p className="font-bold text-[10px]">for SREE MEDITEC</p>
+                                                    <p className="font-bold text-[10px]">for {invoice.sellerProfile?.companyName || 'SREE MEDITEC'}</p>
                                                     <div className="h-32"></div>
                                                     <p className="font-bold border-t border-black w-fit pt-1">Authorised Signatory</p>
                                                 </div>

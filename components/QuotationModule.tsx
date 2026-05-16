@@ -4,7 +4,7 @@ import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, Building2
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -51,7 +51,8 @@ const INITIAL_QUOTE_STATE: Partial<Invoice> = {
     deliveryTerms: 'Ex-stock, subject to prior sale.',
     warrantyTerms: 'Standard 1 year warranty.',
     bankAndBranch: 'ICICI Bank, Branch: Selaiyur',
-    accountNo: '603705016939'
+    accountNo: '603705016939',
+    sellerProfile: undefined
 };
 
 const getQuoteNumberParts = (ref: string) => {
@@ -97,7 +98,7 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 };
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export const QuotationModule: React.FC = () => {
     const [seal, setSeal] = useState<string | null>(null);
     const [repName, setRepName] = useState('S. Suresh Kumar.');
     const [repPhone, setRepPhone] = useState('9884818398');
+    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
     const [quote, setQuote] = useState<Partial<Invoice>>(INITIAL_QUOTE_STATE);
 
@@ -293,8 +295,20 @@ export const QuotationModule: React.FC = () => {
         else addInvoice(finalData);
         setViewState('history');
         setEditingId(null);
-        addNotification('Registry Updated', `Quotation ${finalData.invoiceNumber} saved as ${status}.`, 'success');
+        addNotification('Registry Updated', `Quotation ${finalData.invoiceNumber} saved as ${status}.` , 'success');
         return finalData;
+    };
+
+    const handleDelete = async (id: string, ref: string) => {
+        if (window.confirm(`Are you sure you want to delete quotation ${ref}? This action cannot be undone.`)) {
+            try {
+                await removeInvoice(id);
+                addNotification('Quotation Deleted', `Successfully removed ${ref} from the registry.`, 'success');
+            } catch (error) {
+                console.error("Deletion failed:", error);
+                addNotification('Error', 'Failed to delete quotation.', 'error');
+            }
+        }
     };
 
     const totals = useMemo(() => calculateDetailedTotals(quote), [quote]);
@@ -444,6 +458,16 @@ export const QuotationModule: React.FC = () => {
                                                         >
                                                             <Download size={18} />
                                                         </button>
+
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber); setActiveMenuId(null); }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                                title="Delete Quotation"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -516,12 +540,110 @@ export const QuotationModule: React.FC = () => {
                                 </section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" /></div></div></section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Payment Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.paymentTerms} onChange={e => setQuote({...quote, paymentTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Delivery Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.deliveryTerms} onChange={e => setQuote({...quote, deliveryTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warranty Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.warrantyTerms} onChange={e => setQuote({...quote, warrantyTerms: e.target.value})} /></div></div></section>
-                                <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
+                                <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div><div className="sm:col-span-2 lg:col-span-1"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Seller Profile</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.sellerProfile?.id || ''} onChange={e => { const selected = companyProfiles.find(p => p.id === e.target.value); setQuote(prev => ({ ...prev, sellerProfile: selected })); }}><option value="">Default (Sree Meditec)</option>{companyProfiles.map(profile => (<option key={profile.id} value={profile.id}>{profile.companyName}</option>))}</select></div></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
                                 <div className="flex flex-col sm:flex-row gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30"><button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button><button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button><button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">Finalize & PDF</button></div>
                             </div>
                         )}
                         {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50"><div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.5] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}><div className="bg-white p-[15mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 shadow-2xl mx-auto" style={{ fontFamily: 'Calibri, sans-serif' }}><div className="text-center mb-4">{logo && <img src={logo} className="h-16 object-contain mb-2 mx-auto" />}<h1 className="text-4xl font-bold uppercase mb-1">SREE MEDITEC</h1><p className="text-[10px] font-semibold">New No: 18, Old No: 2, Bajanai Koil Street, Rajajipakkam, Chennai 600 073.</p><p className="text-[10px] font-semibold">Mob: 9884818398.</p><p className="text-[10px] font-bold mt-1">GST NO: 33APGPS4675G2ZL</p></div><div className="text-center mb-8"><h2 className="text-xl font-bold underline uppercase tracking-widest">Quotation</h2></div><div className="flex justify-between font-bold mb-6 text-sm"><div>Ref: {quote.invoiceNumber}</div><div>Date: {formatDateDDMMYYYY(quote.date)}</div></div><div className="mb-6"><p className="font-bold text-sm">To,</p><p className="font-bold uppercase text-sm leading-tight">{quote.customerName || '---'}</p><p className="text-sm whitespace-pre-wrap leading-snug">{quote.customerAddress}</p>{quote.customerGstin && <p className="text-sm font-bold">GST: {quote.customerGstin}</p>}</div><div className="mt-6 mb-4 text-sm font-bold italic">Sub: Reg. Price Quotation for {quote.subject || 'Medical Equipment'}.</div><div className="mb-6 text-sm">Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.</div><table className="w-full border-collapse border border-black text-[10px] mb-8"><thead><tr className="bg-slate-100 font-bold border-b border-black"><th className="border-r border-black p-1">Product</th><th className="border-r border-black p-1">Model</th><th className="border-r border-black p-1">Features</th><th className="border-r border-black p-1">Qty</th><th className="border-r border-black p-1">Rate</th><th className="border-r border-black p-1">GST%</th><th className="border-r border-black p-1">GST Amt</th><th className="p-1">Amount</th></tr></thead><tbody>{(quote.items || []).map(it => { const rowGst = (it.unitPrice * it.quantity) * (it.taxRate / 100); const rowTotal = (it.unitPrice * it.quantity) + rowGst; return (<tr key={it.id} className="border-b border-black text-center align-top"><td className="border-r border-black p-1 text-left font-bold">{it.description}</td><td className="border-r border-black p-1">{it.model}</td><td className="border-r border-black p-1 text-left whitespace-pre-wrap">{it.features}</td><td className="border-r border-black p-1 font-bold">{it.quantity} {it.unit}</td><td className="border-r border-black p-1 text-right">Rs.{it.unitPrice.toFixed(2)}</td><td className="border-r border-black p-1">{it.taxRate}%</td><td className="border-r border-black p-1 text-right">Rs.{rowGst.toFixed(2)}</td><td className="p-1 text-right font-bold"><div>Rs.{rowTotal.toFixed(2)}</div><div className="text-[8px] font-normal italic">{numberToWords(rowTotal)}</div></td></tr>); })}</tbody></table><div className="flex flex-col items-end text-xs font-bold mb-10 space-y-1"><div className="w-[200px] flex justify-between border-b border-slate-300 py-1"><span>Gross Total:</span><span>Rs.{totals.subtotal.toFixed(2)}</span></div><div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-medical-600"><span>Freight:</span><span>Rs.{(totals.freight + totals.freightGst).toFixed(2)}</span></div><div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-teal-600"><span>Total GST:</span><span>Rs.{totals.itemGstTotal.toFixed(2)}</span></div><div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-rose-500"><span>Discount:</span><span>(-) Rs.{(quote.discount || 0).toFixed(2)}</span></div><div className="w-[250px] flex justify-between pt-3 text-lg border-t-2 border-black"><span>Grand Total:</span><span>Rs.{totals.grandTotal.toFixed(2)}</span></div></div><div className="text-sm space-y-2 mb-10"><h4 className="font-bold underline text-base">Terms and condition:</h4><div className="grid grid-cols-[120px_1fr] gap-x-2 gap-y-1 text-xs"><span className="font-bold">Validity:</span><span>: The above price is valid up to 30 days from the date of submission of the Quotation.</span><span className="font-bold">Taxes:</span><span>: GST is applicable to the price mentioned as per item-wise rates.</span><span className="font-bold">Payment:</span><span>: {quote.paymentTerms}</span><span className="font-bold">Banking details:</span><div className="pl-1">: Bank name: ICICI Bank<br/>Branch name: Selaiyur<br/>A/C name: Sreemeditec, A/C type: CA<br/>A/C No: 603705016939, IFSC Code: ICIC0006037</div><span className="font-bold">Delivery:</span><span>: {quote.deliveryTerms}</span><span className="font-bold">Warranty:</span><span>: {quote.warrantyTerms}</span></div></div><div className="text-base mb-12">Thanking you and looking forward for your order.</div><div className="flex justify-between items-end pb-6"><div className="flex flex-col items-start"><p className="text-base">With Regards,</p><p className="text-base font-bold">For SREE MEDITEC,</p><div className="h-12 flex items-center gap-4">{signature && <img src={signature} className="h-10 object-contain" />}{seal && <img src={seal} className="h-16 w-16 object-contain opacity-80" />}</div><p className="text-base font-bold mt-2">{repName}</p><p className="text-base">{repPhone}</p></div></div></div></div></div>
+                            <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50">
+                                <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.5] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.7] xl:scale-[0.85] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
+                                    <div className="bg-white p-[15mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 shadow-2xl mx-auto" style={{ fontFamily: 'Calibri, sans-serif' }}>
+                                        <div className="text-center mb-4">
+                                            {logo && <img src={logo} className="h-16 object-contain mb-2 mx-auto" />}
+                                            <h1 className="text-4xl font-bold uppercase mb-1">{quote.sellerProfile?.companyName || 'SREE MEDITEC'}</h1>
+                                            <p className="text-[10px] font-semibold">{quote.sellerProfile?.address || 'New No: 18, Old No: 2, Bajanai Koil Street, Rajajipakkam, Chennai 600 073.'}</p>
+                                            <p className="text-[10px] font-semibold">Mob: {quote.sellerProfile?.phone || '9884818398'}.</p>
+                                            <p className="text-[10px] font-bold mt-1">GST NO: {quote.sellerProfile?.gstin || '33APGPS4675G2ZL'}</p>
+                                        </div>
+                                        <div className="text-center mb-8">
+                                            <h2 className="text-xl font-bold underline uppercase tracking-widest">Quotation</h2>
+                                        </div>
+                                        <div className="flex justify-between font-bold mb-6 text-sm">
+                                            <div>Ref: {quote.invoiceNumber}</div>
+                                            <div>Date: {formatDateDDMMYYYY(quote.date)}</div>
+                                        </div>
+                                        <div className="mb-6">
+                                            <p className="font-bold text-sm">To,</p>
+                                            <p className="font-bold uppercase text-sm leading-tight">{quote.customerName || '---'}</p>
+                                            <p className="text-sm whitespace-pre-wrap leading-snug">{quote.customerAddress}</p>
+                                            {quote.customerGstin && <p className="text-sm font-bold">GST: {quote.customerGstin}</p>}
+                                        </div>
+                                        <div className="mt-6 mb-4 text-sm font-bold italic">Sub: Reg. Price Quotation for {quote.subject || 'Medical Equipment'}.</div>
+                                        <div className="mb-6 text-sm">Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.</div>
+                                        <table className="w-full border-collapse border border-black text-[10px] mb-8">
+                                            <thead>
+                                                <tr className="bg-slate-100 font-bold border-b border-black">
+                                                    <th className="border-r border-black p-1">Product</th>
+                                                    <th className="border-r border-black p-1">Model</th>
+                                                    <th className="border-r border-black p-1">Features</th>
+                                                    <th className="border-r border-black p-1">Qty</th>
+                                                    <th className="border-r border-black p-1">Rate</th>
+                                                    <th className="border-r border-black p-1">GST%</th>
+                                                    <th className="border-r border-black p-1">GST Amt</th>
+                                                    <th className="p-1">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(quote.items || []).map(it => { 
+                                                    const rowGst = (it.unitPrice * it.quantity) * (it.taxRate / 100); 
+                                                    const rowTotal = (it.unitPrice * it.quantity) + rowGst; 
+                                                    return (
+                                                        <tr key={it.id} className="border-b border-black text-center align-top">
+                                                            <td className="border-r border-black p-1 text-left font-bold">{it.description}</td>
+                                                            <td className="border-r border-black p-1">{it.model}</td>
+                                                            <td className="border-r border-black p-1 text-left whitespace-pre-wrap">{it.features}</td>
+                                                            <td className="border-r border-black p-1 font-bold">{it.quantity} {it.unit}</td>
+                                                            <td className="border-r border-black p-1 text-right">Rs.{it.unitPrice.toFixed(2)}</td>
+                                                            <td className="border-r border-black p-1">{it.taxRate}%</td>
+                                                            <td className="border-r border-black p-1 text-right">Rs.{rowGst.toFixed(2)}</td>
+                                                            <td className="p-1 text-right font-bold">
+                                                                <div>Rs.{rowTotal.toFixed(2)}</div>
+                                                                <div className="text-[8px] font-normal italic">{numberToWords(rowTotal)}</div>
+                                                            </td>
+                                                        </tr>
+                                                    ); 
+                                                })}
+                                            </tbody>
+                                        </table>
+                                        <div className="flex flex-col items-end text-xs font-bold mb-10 space-y-1">
+                                            <div className="w-[200px] flex justify-between border-b border-slate-300 py-1"><span>Gross Total:</span><span>Rs.{totals.subtotal.toFixed(2)}</span></div>
+                                            <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-medical-600"><span>Freight:</span><span>Rs.{(totals.freight + totals.freightGst).toFixed(2)}</span></div>
+                                            <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-teal-600"><span>Total GST:</span><span>Rs.{totals.itemGstTotal.toFixed(2)}</span></div>
+                                            <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-rose-500"><span>Discount:</span><span>(-) Rs.{(quote.discount || 0).toFixed(2)}</span></div>
+                                            <div className="w-[250px] flex justify-between pt-3 text-lg border-t-2 border-black"><span>Grand Total:</span><span>Rs.{totals.grandTotal.toFixed(2)}</span></div>
+                                        </div>
+                                        <div className="text-sm space-y-2 mb-10">
+                                            <h4 className="font-bold underline text-base">Terms and condition:</h4>
+                                            <div className="grid grid-cols-[120px_1fr] gap-x-2 gap-y-1 text-xs">
+                                                <span className="font-bold">Validity:</span><span>: The above price is valid up to 30 days from the date of submission of the Quotation.</span>
+                                                <span className="font-bold">Taxes:</span><span>: GST is applicable to the price mentioned as per item-wise rates.</span>
+                                                <span className="font-bold">Payment:</span><span>: {quote.paymentTerms}</span>
+                                                <span className="font-bold">Banking details:</span>
+                                                <div className="pl-1">
+                                                    : Bank name: {quote.sellerProfile?.bankName || 'ICICI Bank'}<br/>
+                                                    Branch name: {quote.sellerProfile?.branchIfsc || 'Selaiyur'}<br/>
+                                                    A/C No: {quote.sellerProfile?.accountNo || '603705016939'}
+                                                </div>
+                                                <span className="font-bold">Delivery:</span><span>: {quote.deliveryTerms}</span>
+                                                <span className="font-bold">Warranty:</span><span>: {quote.warrantyTerms}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-base mb-12">Thanking you and looking forward for your order.</div>
+                                        <div className="flex justify-between items-end pb-6">
+                                            <div className="flex flex-col items-start">
+                                                <p className="text-base">With Regards,</p>
+                                                <p className="text-base font-bold">For {quote.sellerProfile?.companyName || 'SREE MEDITEC'},</p>
+                                                <div className="h-12 flex items-center gap-4">
+                                                    {signature && <img src={signature} className="h-10 object-contain" />}
+                                                    {seal && <img src={seal} className="h-16 w-16 object-contain opacity-80" />}
+                                                </div>
+                                                <p className="text-base font-bold mt-2">{repName}</p>
+                                                <p className="text-base">{repPhone}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                         {builderTab === 'catalog' && (
                             <div className="h-full bg-white flex flex-col p-4 sm:p-8 overflow-hidden animate-in fade-in"><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4"><div><h3 className="font-black text-slate-800 uppercase tracking-widest text-lg">Product Registry</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select items to populate quote lines</p></div><div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Filter index..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value.toUpperCase())} /></div></div><div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{filteredCatalog.map(prod => (<div key={prod.id} className="p-5 sm:p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}><div className="flex-1"><h4 className="font-black text-slate-800 text-base group-hover:text-medical-700 transition-colors leading-tight">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{(prod.sellingPrice || 0).toLocaleString()} • {prod.sku}</p></div><div className="mt-4 flex justify-end"><div className="p-2 bg-white rounded-xl border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm"><Plus size={18} /></div></div></div>))}{filteredCatalog.length === 0 && (<div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400"><Search size={32} className="mb-2 opacity-20" /><p className="text-xs font-black uppercase">No matching products</p></div>)}</div></div>

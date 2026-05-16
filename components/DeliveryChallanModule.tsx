@@ -25,7 +25,17 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const DeliveryChallanModule: React.FC = () => {
-    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, updateProduct, recordStockMovement, addNotification, currentUser, financialYear } = useData();
+    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan, updateProduct, recordStockMovement, addNotification, currentUser, financialYear, companyProfiles, isSystemAdmin } = useData();
+
+    const handleDelete = async (id: string, num: string) => {
+        if (!confirm(`Are you sure you want to PERMANENTLY delete Challan ${num}? This action cannot be undone.`)) return;
+        try {
+            await removeDeliveryChallan(id);
+            addNotification('Challan Deleted', `${num} has been removed.`, 'success');
+        } catch (err) {
+            addNotification('Error', 'Failed to delete challan.', 'alert');
+        }
+    };
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,7 +51,8 @@ export const DeliveryChallanModule: React.FC = () => {
         customerAddress: '',
         terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.',
         remarks: '',
-        subject: ''
+        subject: '',
+        sellerProfile: undefined
     });
 
     useEffect(() => {
@@ -172,7 +183,7 @@ export const DeliveryChallanModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '' }); setViewState('builder'); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Challan</button>
+                <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Challan</button>
             </div>
 
             {viewState === 'history' ? (
@@ -213,6 +224,15 @@ export const DeliveryChallanModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(c); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(c.id, c.challanNumber || 'Challan'); setActiveMenuId(null); }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                title="Delete Challan"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -237,9 +257,26 @@ export const DeliveryChallanModule: React.FC = () => {
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <FileText size={14} className="text-medical-500" />
-                                            1. Registry Details
+                                            1. Registry & Issuing Entity
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <div className="sm:col-span-2 lg:col-span-1">
+                                                <FormRow label="Issuing Entity (Seller)">
+                                                    <select 
+                                                        className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                                        value={challan.sellerProfile?.id || ''}
+                                                        onChange={e => {
+                                                            const selected = companyProfiles.find(p => p.id === e.target.value);
+                                                            setChallan(prev => ({ ...prev, sellerProfile: selected }));
+                                                        }}
+                                                    >
+                                                        <option value="">Default (Sree Meditec)</option>
+                                                        {companyProfiles.map(profile => (
+                                                            <option key={profile.id} value={profile.id}>{profile.companyName}</option>
+                                                        ))}
+                                                    </select>
+                                                </FormRow>
+                                            </div>
                                             <FormRow label="Challan No. *">
                                                 <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={challan.challanNumber || ''} onChange={e => setChallan({...challan, challanNumber: e.target.value})} placeholder="SM/DC-001" />
                                             </FormRow>
@@ -391,8 +428,11 @@ export const DeliveryChallanModule: React.FC = () => {
                             <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50">
                                 <div className="bg-white w-[800px] shadow-2xl p-12 space-y-8 font-sans leading-relaxed text-slate-800 border border-slate-200">
                                     <div className="text-center space-y-1">
-                                        <h2 className="text-4xl font-black tracking-tighter">SREE MEDITEC</h2>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Execution & Delivery Division</p>
+                                        <h2 className="text-4xl font-black tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>
+                                        {challan.sellerProfile && (
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase">{challan.sellerProfile.address}</p>
+                                        )}
                                     </div>
                                     <div className="flex justify-between items-start border-y-2 border-slate-100 py-6">
                                         <div className="max-w-[60%]">

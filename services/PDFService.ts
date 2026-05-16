@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Invoice, ServiceReport, DeliveryChallan, InvoiceItem, ChallanItem } from '../types';
+import { Invoice, ServiceReport, DeliveryChallan, InvoiceItem, ChallanItem, BankDetails } from '../types';
 import { COMPANY_DETAILS, BANK_DETAILS, PDF_STYLES } from './PDFConstants';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -44,7 +44,7 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
 
 
 export const PDFService = {
-    async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false) {
+    async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false, bankDetails?: BankDetails) {
         const doc = new jsPDF();
         const docTotals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -66,15 +66,17 @@ export const PDFService = {
         doc.rect(margin, startY, pageWidth - (margin * 2), totalHeaderH);
         doc.line(midX, startY, midX, startY + totalHeaderH);
 
+        const seller = data.sellerProfile || COMPANY_DETAILS;
+        
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text(COMPANY_DETAILS.name, margin + 2, startY + 6);
+        doc.text(seller.name || (seller as any).companyName || 'SREE MEDITEC', margin + 2, startY + 6);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(COMPANY_DETAILS.address, margin + 2, startY + 11);
-        doc.text(`Ph.${COMPANY_DETAILS.phone}`, margin + 2, startY + 19);
-        doc.text(`GSTIN/UIN: ${COMPANY_DETAILS.gstin}`, margin + 2, startY + 23);
-        doc.text(`E-Mail : ${COMPANY_DETAILS.email}`, margin + 2, startY + 27);
+        doc.text(seller.address || '', margin + 2, startY + 11);
+        doc.text(`Ph.${seller.phone || ''}`, margin + 2, startY + 19);
+        doc.text(`GSTIN/UIN: ${seller.gstin || ''}`, margin + 2, startY + 23);
+        doc.text(`E-Mail : ${seller.email || ''}`, margin + 2, startY + 27);
 
         doc.line(margin, startY + 35, midX, startY + 35);
         doc.setFontSize(7);
@@ -239,14 +241,15 @@ export const PDFService = {
         doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
-        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${BANK_DETAILS.bankName}`, midX + 30, bottomY + 10);
-        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${BANK_DETAILS.accountNo}`, midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${BANK_DETAILS.branch} & ${BANK_DETAILS.ifsc}`, midX + 30, bottomY + 18);
+        const displayBank = bankDetails || BANK_DETAILS.icici;
+        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${displayBank.bankName}`, midX + 30, bottomY + 10);
+        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${displayBank.accountNo}`, midX + 30, bottomY + 14);
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank.branchIfsc || (displayBank as any).branch + ' & ' + (displayBank as any).ifsc}`, midX + 30, bottomY + 18);
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Customer\'s Seal and Signature', margin + 2, bottomY + 55);
-        doc.text(`for ${COMPANY_DETAILS.name}`, pageWidth - margin - 2, bottomY + 35, { align: 'right' });
+        doc.text(`For ${seller.companyName || seller.name || 'SREE MEDITEC'}`, pageWidth - margin, bottomY + 35, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 2, bottomY + 55, { align: 'right' });
 
         doc.setFontSize(7);
@@ -256,23 +259,24 @@ export const PDFService = {
         return doc.output('blob');
     },
 
-    async generateQuotationPDF(data: Partial<Invoice>, brandAssets: { logo: string | null, signature: string | null, seal: string | null, repName: string, repPhone: string }) {
+    async generateQuotationPDF(data: Partial<Invoice>, brandAssets: { logo: string | null, signature: string | null, seal: string | null, repName: string, repPhone: string }, bankDetails?: BankDetails) {
         const doc = new jsPDF();
         const totals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 15;
+        const seller = data.sellerProfile || COMPANY_DETAILS;
 
         const drawHeader = () => {
             if (brandAssets.logo) doc.addImage(brandAssets.logo, 'PNG', 10, 10, 25, 25);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(22);
-            doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
+            doc.text(seller.companyName || seller.name || 'SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
-            doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
-            doc.text(`Mob: ${COMPANY_DETAILS.phone}.`, pageWidth / 2, 28, { align: 'center' });
-            doc.text(`GST NO: ${COMPANY_DETAILS.gstin}`, pageWidth / 2, 32, { align: 'center' });
+            doc.text(seller.address, pageWidth / 2, 24, { align: 'center' });
+            doc.text(`Mob: ${seller.phone}.`, pageWidth / 2, 28, { align: 'center' });
+            doc.text(`GST NO: ${seller.gstin}`, pageWidth / 2, 32, { align: 'center' });
         };
         drawHeader();
 
@@ -353,7 +357,7 @@ export const PDFService = {
             ['Validity', `: The above price is valid up to 30 days from the date of submission of the Quotation.`],
             ['Taxes', `: GST is applicable to the price mentioned as per item-wise rates.`],
             ['Payment', `: ${data.paymentTerms}`],
-            ['Banking details', `: Bank name: ICICI Bank, Branch: Selaiyur, A/C name: Sreemeditec,\n  A/C type: CA, A/C No: 603705016939, IFSC Code: ICIC0006037`],
+            ['Banking details', `: Bank name: ${bankDetails?.bankName || 'ICICI Bank'}, Branch & IFS Code: ${bankDetails?.branchIfsc || 'Selaiyur & ICIC0006037'},\n  A/C No: ${bankDetails?.accountNo || '603705016939'}, A/C name: Sreemeditec, A/C type: CA`],
             ['Delivery', `: ${data.deliveryTerms}`],
             ['Warranty', `: ${data.warrantyTerms}`]
         ];
@@ -366,7 +370,7 @@ export const PDFService = {
         doc.text('Thanking you and looking forward for your order.', 15, signOffY);
         doc.text('With Regards,', 15, signOffY + 8);
         doc.setFont('helvetica', 'bold');
-        doc.text(`For ${COMPANY_DETAILS.name},`, 15, signOffY + 14);
+        doc.text(`For ${seller.companyName || seller.name || 'SREE MEDITEC'},`, 15, signOffY + 14);
         if (brandAssets.signature) doc.addImage(brandAssets.signature, 'PNG', 15, signOffY + 16, 35, 12);
         if (brandAssets.seal) doc.addImage(brandAssets.seal, 'PNG', 70, signOffY + 14, 22, 22);
         doc.text(brandAssets.repName, 15, signOffY + 36);
@@ -378,6 +382,7 @@ export const PDFService = {
 
     async generatePurchaseOrderPDF(data: Partial<Invoice>, isCustomerPO: boolean = true) {
         const doc = new jsPDF();
+        const seller = data.sellerProfile || COMPANY_DETAILS;
         
         const calculatePOTotals = (order: Partial<Invoice>) => {
             const items = order.items || [];
@@ -396,11 +401,11 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
-        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 29, { align: 'center' });
+        doc.text(seller.address, pageWidth / 2, 24, { align: 'center' });
+        doc.text(`Mob: ${seller.phone}`, pageWidth / 2, 29, { align: 'center' });
 
         doc.setLineWidth(0.1);
         doc.rect(margin, 34, pageWidth - 20, 8);
@@ -514,15 +519,16 @@ export const PDFService = {
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         const colWidth = (pageWidth - 20) / 2;
+        const seller = data.sellerProfile || COMPANY_DETAILS;
 
         // Header
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(22);
-        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 24, { align: 'center' });
-        doc.text(`Mob: ${COMPANY_DETAILS.phone} | Email: ${COMPANY_DETAILS.email}`, pageWidth / 2, 29, { align: 'center' });
+        doc.text(seller.address, pageWidth / 2, 24, { align: 'center' });
+        doc.text(`Mob: ${seller.phone} | Email: ${seller.email}`, pageWidth / 2, 29, { align: 'center' });
 
         doc.setLineWidth(0.1);
         doc.rect(margin, 34, pageWidth - 20, 8);
@@ -639,7 +645,7 @@ export const PDFService = {
         doc.line(margin, finalY - 5, margin + 50, finalY - 5);
         doc.text('Seal & Signature', margin, finalY);
 
-        doc.text(`For ${COMPANY_DETAILS.name}`, pageWidth - margin - 50, finalY - 20, { align: 'left' });
+        doc.text(`For ${seller.companyName || seller.name || 'SREE MEDITEC'}`, pageWidth - margin - 50, finalY - 20, { align: 'left' });
         doc.line(pageWidth - margin - 50, finalY - 5, pageWidth - margin, finalY - 5);
         doc.text('Authorised Signatory', pageWidth - margin - 50, finalY);
 
@@ -654,6 +660,7 @@ export const PDFService = {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
+        const seller = data.sellerProfile || COMPANY_DETAILS;
         
         // Custom Colors from Tailwind Config
         const medical600 = [5, 150, 105]; // #059669
@@ -664,11 +671,11 @@ export const PDFService = {
         // 1. Header Section
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(28);
-        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 18, { align: 'center' });
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', pageWidth / 2, 18, { align: 'center' });
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'bold');
-        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 23, { align: 'center' });
-        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 27, { align: 'center' });
+        doc.text(seller.address, pageWidth / 2, 23, { align: 'center' });
+        doc.text(`Mob: ${seller.phone}`, pageWidth / 2, 27, { align: 'center' });
         
         // 2. Service Report Banner
         doc.setLineWidth(0.2);
@@ -875,7 +882,7 @@ export const PDFService = {
                     doc.text('Engineer Signature', dataCell.cell.x + (dataCell.cell.width / 2), finalY + 15, { align: 'center' });
                     doc.setFontSize(8);
                     doc.setTextColor(PDF_STYLES.colors.medical600[0], PDF_STYLES.colors.medical600[1], PDF_STYLES.colors.medical600[2]);
-                    doc.text(`FOR ${COMPANY_DETAILS.name}`, dataCell.cell.x + (dataCell.cell.width / 2), finalY + 20, { align: 'center' });
+                    doc.text(`FOR ${seller.companyName || seller.name || 'SREE MEDITEC'}`, dataCell.cell.x + (dataCell.cell.width / 2), finalY + 20, { align: 'center' });
                     doc.setTextColor(0);
                 }
             }
@@ -889,6 +896,7 @@ export const PDFService = {
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         const midX = pageWidth / 2;
+        const seller = data.sellerProfile || COMPANY_DETAILS;
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
@@ -903,12 +911,12 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text(COMPANY_DETAILS.name, margin + 2, 18);
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', margin + 2, 18);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(COMPANY_DETAILS.address, margin + 2, 23);
-        doc.text(`Ph: ${COMPANY_DETAILS.phone}`, margin + 2, 27);
-        doc.text(`GSTIN/UIN: ${COMPANY_DETAILS.gstin}`, margin + 2, 31);
+        doc.text(seller.address, margin + 2, 23);
+        doc.text(`Ph: ${seller.phone}`, margin + 2, 27);
+        doc.text(`GSTIN/UIN: ${seller.gstin}`, margin + 2, 31);
 
         // Metadata on right
         const metadataY = 18;
@@ -966,7 +974,7 @@ export const PDFService = {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
         doc.text('Receiver\'s Signature', margin, footerY);
-        doc.text(`for ${COMPANY_DETAILS.name}`, pageWidth - margin - 5, footerY - 15, { align: 'right' });
+        doc.text(`for ${seller.companyName || seller.name || 'SREE MEDITEC'}`, pageWidth - margin - 5, footerY - 15, { align: 'right' });
         doc.text('Authorised Signatory', pageWidth - margin - 5, footerY, { align: 'right' });
 
         return doc.output('blob');
@@ -975,13 +983,15 @@ export const PDFService = {
     async generateInstallationReportPDF(data: any) {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;        doc.setFont('helvetica', 'bold');
+        const margin = 15;
+        const seller = data.sellerProfile || COMPANY_DETAILS;
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
-        doc.text(COMPANY_DETAILS.name, pageWidth / 2, 25, { align: 'center' });
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', pageWidth / 2, 25, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(COMPANY_DETAILS.address, pageWidth / 2, 32, { align: 'center' });
-        doc.text(`Mob: ${COMPANY_DETAILS.phone}`, pageWidth / 2, 38, { align: 'center' });
+        doc.text(seller.address, pageWidth / 2, 32, { align: 'center' });
+        doc.text(`Mob: ${seller.phone}`, pageWidth / 2, 38, { align: 'center' });
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
@@ -1008,13 +1018,14 @@ export const PDFService = {
             body: [
                 ['1', 'Equipment Details', `${data.installationOf || '---'}\nModel: ${data.model || '---'}`],
                 ['2', 'Serial Number', data.serialNumber || '---'],
-                ['3', 'Customer Name', (data.customerName || '').toUpperCase()],
-                ['4', 'Hospital / Clinic', data.customerHospital || '---'],
-                ['5', 'Address', data.customerAddress || '---'],
-                ['6', 'Installation Date', formatDateDDMMYYYY(data.date)],
-                ['7', 'Trained Personnel', data.trainedPersons || '---'],
-                ['8', 'Working Status', { content: data.status || 'Successfully Installed & Working', styles: { fontStyle: 'bold', textColor: [5, 150, 105] } }],
-                ['9', 'Warranty Period', data.warrantyPeriod || '1 Year Standard']
+                ['3', 'Software Version', data.softwareVersion || '---'],
+                ['4', 'Customer Name', (data.customerName || '').toUpperCase()],
+                ['5', 'Hospital / Clinic', data.customerHospital || '---'],
+                ['6', 'Address', data.customerAddress || '---'],
+                ['7', 'Installation Date', formatDateDDMMYYYY(data.date)],
+                ['8', 'Trained Personnel', data.trainedPersons || '---'],
+                ['9', 'Working Status', { content: data.status || 'Successfully Installed & Working', styles: { fontStyle: 'bold', textColor: [5, 150, 105] } }],
+                ['10', 'Warranty Period', data.warrantyPeriod || '1 Year Standard']
             ]
         });
 

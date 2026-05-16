@@ -77,6 +77,14 @@ export interface DataContextType {
     updatePrizePool: (amount: number) => void;
     financialYear: string;
     updateFinancialYear: (newFY: string) => Promise<void>;
+    bankDetailsList: BankDetails[];
+    addBankDetails: (details: BankDetails) => Promise<void>;
+    updateBankDetails: (id: string, details: Partial<BankDetails>) => Promise<void>;
+    removeBankDetails: (id: string) => Promise<void>;
+    companyProfiles: CompanyProfile[];
+    addCompanyProfile: (profile: CompanyProfile) => Promise<void>;
+    updateCompanyProfile: (id: string, profile: Partial<CompanyProfile>) => Promise<void>;
+    removeCompanyProfile: (id: string) => Promise<void>;
 
     // Activity Logs
     logs: LogEntry[];
@@ -96,6 +104,7 @@ export interface DataContextType {
     removeProduct: (id: string) => Promise<void>;
     addInvoice: (invoice: Invoice) => Promise<void>;
     updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
+    removeInvoice: (id: string) => Promise<void>;
     recordStockMovement: (movement: StockMovement) => Promise<void>;
     addStockBatch: (batch: StockBatch) => Promise<void>;
     updateStockBatch: (id: string, updates: Partial<StockBatch>) => Promise<void>;
@@ -151,6 +160,7 @@ export interface DataContextType {
     // Search
     searchRecords: <T>(collectionName: string, field: string, value: string) => Promise<T[]>;
     fetchMoreData: (collectionName: string, orderByField?: string) => Promise<void>;
+    isSystemAdmin: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -242,6 +252,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
     const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
+    const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
     
     // Accounting States
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
@@ -254,6 +265,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [pointHistory, setPointHistory] = useState<PointHistory[]>([]);
     const [prizePool, setPrizePool] = useState<number>(1500);
     const [financialYear, setFinancialYear] = useState<string>("26-27");
+    const [bankDetailsList, setBankDetailsList] = useState<BankDetails[]>([]);
     const [dbError] = useState<string | null>(null);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -262,6 +274,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const loginLoggedRef = React.useRef(false);
 
     const isAuthenticated = !!currentUser;
+    const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
 
     // 2. LOGGING HELPER
     const addLog = async (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => {
@@ -412,6 +425,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const data = s.data();
                 if (data.prizePool) setPrizePool(data.prizePool);
                 if (data.financialYear) setFinancialYear(data.financialYear);
+                if (data.bankDetails) {
+                    const banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                    setBankDetailsList(banks);
+                }
+                if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
             }
         });
         
@@ -934,6 +952,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const removeExpense = async (id: string, operator: string) => {
+        const existing = expenses.find(e => e.id === id);
+        if (!existing) throw new Error('Expense not found');
+        
+        if (existing.status !== 'Pending') {
+            throw new Error('Only Pending expenses can be deleted');
+        }
+
+        await deleteDoc(doc(db, "expenses", id));
+        await addLog('Billing', 'Expense Deleted', `ID: ${id} by ${operator}`, existing);
+        
+        // Note: Since it's Pending, it hasn't impacted monthlySummary yet based on addExpense logic.
+    };
+
     const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), sanitizeData(e)); await addLog('System', 'New Employee', e.name); };
     const updateEmployee = async (id: string, u: Partial<Employee>) => {
         const existing = employees.find(e => e.id === id);
@@ -1149,6 +1181,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     };
+    const removeInvoice = async (id: string) => {
+        const existing = invoices.find(i => i.id === id);
+        if (existing) {
+            await addLog('Billing', 'Removed Invoice/Quotation', existing.invoiceNumber || id);
+            await deleteDoc(doc(db, "invoices", id));
+            
+            // If it was a revenue/expense impacting document, we might need to adjust summaries
+            // However, quotations (documentType === 'Quotation') usually don't impact revenue summaries in this system
+            // based on the logic in addInvoice (line 1144). 
+            // If it's a real invoice, we should subtract from summaries.
+            if (existing.status !== 'Draft' && existing.status !== 'Cancelled' && existing.documentType !== 'Quotation') {
+                const type = existing.documentType === 'SupplierPO' ? 'expense' : 'revenue';
+                await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
+                if (currentUser) {
+                    await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
+                }
+            }
+        }
+    };
     const fetchAuditLogs = async (isLoadMore: boolean = false) => {
         try {
             const logsRef = collection(db, "logs");
@@ -1209,6 +1260,48 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Updated Fiscal Period', `New Period: ${fy}`);
     };
 
+    const addBankDetails = async (details: BankDetails) => {
+        const updated = [...bankDetailsList, details];
+        setBankDetailsList(updated);
+        await setDoc(doc(db, "settings", "system"), { bankDetails: updated }, { merge: true });
+        await addLog('System', 'Added Bank Details', details.bankName);
+    };
+
+    const updateBankDetails = async (id: string, p: Partial<BankDetails>) => {
+        const updated = bankDetailsList.map(b => b.id === id ? { ...b, ...p } : b);
+        setBankDetailsList(updated);
+        await setDoc(doc(db, "settings", "system"), { bankDetails: updated }, { merge: true });
+        await addLog('System', 'Updated Bank Details', id);
+    };
+
+    const removeBankDetails = async (id: string) => {
+        const updated = bankDetailsList.filter(b => b.id !== id);
+        setBankDetailsList(updated);
+        await setDoc(doc(db, "settings", "system"), { bankDetails: updated }, { merge: true });
+        await addLog('System', 'Removed Bank Details', id);
+    };
+
+    const addCompanyProfile = async (profile: CompanyProfile) => {
+        const updated = [...companyProfiles, profile];
+        setCompanyProfiles(updated);
+        await setDoc(doc(db, "settings", "system"), { companyProfiles: updated }, { merge: true });
+        await addLog('System', 'Added Company Profile', profile.companyName);
+    };
+
+    const updateCompanyProfile = async (id: string, p: Partial<CompanyProfile>) => {
+        const updated = companyProfiles.map(prof => prof.id === id ? { ...prof, ...p } : prof);
+        setCompanyProfiles(updated);
+        await setDoc(doc(db, "settings", "system"), { companyProfiles: updated }, { merge: true });
+        await addLog('System', 'Updated Company Profile', id);
+    };
+
+    const removeCompanyProfile = async (id: string) => {
+        const updated = companyProfiles.filter(prof => prof.id !== id);
+        setCompanyProfiles(updated);
+        await setDoc(doc(db, "settings", "system"), { companyProfiles: updated }, { merge: true });
+        await addLog('System', 'Removed Company Profile', id);
+    };
+
     return (
         <DataContext.Provider value={{
             clients, vendors, products, invoices, stockMovements, expenses, employees, notifications: [], tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
@@ -1216,7 +1309,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
-            addInvoice, updateInvoice, recordStockMovement, addExpense, updateExpense, updateExpenseStatus,
+            addInvoice, updateInvoice, removeInvoice, recordStockMovement, addExpense, updateExpense, removeExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             addTask, removeTask, updateTaskRemote,
             dbError, authError, isAuthenticating,
@@ -1228,10 +1321,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
-            searchRecords, fetchMoreData, financialYear, updateFinancialYear,
+            searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails,
+            companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile,
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
             ledgers, accountGroups, vouchers, stockTransfers, expenseStats,
-            addLedger, updateLedger, addAccountGroup, addVoucher, updateVoucher, postToLedger, addStockTransfer
+            addLedger, updateLedger, addAccountGroup, addVoucher, updateVoucher, postToLedger, addStockTransfer,
+            isSystemAdmin
         }}>
             {children}
         </DataContext.Provider>

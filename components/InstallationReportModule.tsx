@@ -29,7 +29,18 @@ interface SimpleInstallationReport extends Partial<ServiceReport> {
 }
 
 export const InstallationReportModule: React.FC = () => {
-    const { clients, products, addNotification, installationReports, addInstallationReport, updateInstallationReport, financialYear, currentUser } = useData();
+    const { 
+        clients, 
+        products, 
+        installationReports, 
+        addInstallationReport, 
+        updateInstallationReport, 
+        removeInstallationReport,
+        addNotification, 
+        financialYear, 
+        currentUser,
+        isSystemAdmin
+    } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -217,6 +228,21 @@ export const InstallationReportModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        {isSystemAdmin && (
+                                                            <button 
+                                                                onClick={async (e) => { 
+                                                                    e.stopPropagation(); 
+                                                                    if (window.confirm('Are you sure you want to delete this report?')) {
+                                                                        await removeInstallationReport(r.id);
+                                                                        addNotification('Record Deleted', 'Installation report has been removed.', 'success');
+                                                                        setActiveMenuId(null);
+                                                                    }
+                                                                }} 
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -304,8 +330,11 @@ export const InstallationReportModule: React.FC = () => {
                                             <FormRow label="Machine Serial #">
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={report.serialNumber || ''} onChange={e => setReport({...report, serialNumber: e.target.value})} placeholder="SN-123456" />
                                             </FormRow>
+                                            <FormRow label="Software Version">
+                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.softwareVersion || ''} onChange={e => setReport({...report, softwareVersion: e.target.value})} placeholder="V1.0.0" />
+                                            </FormRow>
                                             <FormRow label="Assigned Engineer">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={report.engineerName || ''} readOnly />
+                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black text-slate-800 outline-none" value={report.engineerName || ''} onChange={e => setReport({...report, engineerName: e.target.value})} placeholder="Engineer Name" />
                                             </FormRow>
                                             <div className="sm:col-span-2">
                                                 <FormRow label="Trained Personnel (Site Doctors/Staff)">
