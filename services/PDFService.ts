@@ -38,8 +38,18 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     const freightGst = freight * ((Number(data.freightTaxRate) || 0) / 100);
     const discount = Number(data.discount) || 0;
 
+    // Split GST into CGST/SGST halves (intra-state) for the tax breakdown table
+    const cgst = itemGstTotal / 2;
+    const sgst = itemGstTotal / 2;
+
+    // Sum of quantities across all line items
+    const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+
+    // Taxable value = subtotal before GST, after discount
+    const taxableValue = subtotal - discount;
+
     const grandTotal = subtotal + itemGstTotal + freight + freightGst - discount;
-    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal };
+    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue };
 };
 
 
@@ -756,7 +766,7 @@ export const PDFService = {
                         const optX = x + (idx * 30);
                         doc.rect(optX, y, checkboxSize, checkboxSize);
                         if (status === opt) {
-                            doc.setFillColor(0);
+                            doc.setFillColor(0, 0, 0);
                             doc.rect(optX + 0.5, y + 0.5, checkboxSize - 1, checkboxSize - 1, 'F');
                         }
                         doc.text(opt, optX + 5, y + 2.5);
@@ -788,7 +798,7 @@ export const PDFService = {
                 { content: 'COMPLAINT SUMMARY', styles: { fontSize: 7, fontStyle: 'bold' } },
                 { content: "ENGINEER'S OBSERVATIONS", styles: { fontSize: 7, fontStyle: 'bold' } }
             ]],
-            showHead: 'always'
+            showHead: 'everyPage' as any
         });
 
         // 7. PO/WO Number

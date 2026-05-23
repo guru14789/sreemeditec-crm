@@ -55,15 +55,28 @@ export const ClientModule: React.FC = () => {
         else { addNotification('Access Denied', 'Incorrect security password.', 'alert'); setPassword(''); }
     };
 
+    const getClientTotalRevenue = (clientName: string) => {
+        const target = clientName.toLowerCase().trim();
+        return invoices
+            .filter(inv => (inv.customerName || '').toLowerCase().trim() === target && inv.documentType !== 'Quotation')
+            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+    };
+
     const filteredClients = useMemo(() => {
         const lowQuery = searchQuery.toLowerCase();
-        return clients.filter(c => 
-            (c.name || '').toLowerCase().includes(lowQuery) || 
-            (c.id || '').toLowerCase().includes(lowQuery) ||
-            (c.hospital || '').toLowerCase().includes(lowQuery)
-        );
-    }, [clients, searchQuery]);
-
+        return clients
+            .filter(c => 
+                (c.name || '').toLowerCase().includes(lowQuery) || 
+                (c.id || '').toLowerCase().includes(lowQuery) ||
+                (c.hospital || '').toLowerCase().includes(lowQuery)
+            )
+            .sort((a, b) => {
+                const ltvA = getClientTotalRevenue(a.name);
+                const ltvB = getClientTotalRevenue(b.name);
+                if (ltvB !== ltvA) return ltvB - ltvA;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+    }, [clients, searchQuery, invoices]);
     if (!isAuthenticated) {
         return (
             <div className="h-full flex items-center justify-center bg-slate-50 p-4 animate-in fade-in">
@@ -79,13 +92,6 @@ export const ClientModule: React.FC = () => {
             </div>
         );
     }
-
-    const getClientTotalRevenue = (clientName: string) => {
-        const target = clientName.toLowerCase().trim();
-        return invoices
-            .filter(inv => (inv.customerName || '').toLowerCase().trim() === target && inv.documentType !== 'Quotation')
-            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-    };
 
     const handleSave = async () => {
         if (!client.name || !client.address) {
@@ -145,11 +151,19 @@ export const ClientModule: React.FC = () => {
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
-                                <tr><th className="px-8 py-5">Entity Identification</th><th className="px-8 py-5">Facility / Hospital</th><th className="px-8 py-5 text-right">LTV Value</th><th className="px-8 py-5 text-right">Status</th><th className="px-8 py-5 text-right">Management</th></tr>
+                                <tr>
+                                    <th className="px-8 py-5 w-16 text-center">S.No</th>
+                                    <th className="px-8 py-5">Entity Identification</th>
+                                    <th className="px-8 py-5">Facility / Hospital</th>
+                                    <th className="px-8 py-5 text-right">LTV Value</th>
+                                    <th className="px-8 py-5 text-right">Status</th>
+                                    <th className="px-8 py-5 text-right">Management</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredClients.map(c => (
+                                {filteredClients.map((c, idx) => (
                                     <tr key={c.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setClient(c); setEditingId(c.id); setViewState('builder'); setBuilderMode('edit'); }}>
+                                        <td className="px-8 py-6 font-black text-slate-400 text-center w-16">{idx + 1}</td>
                                         <td className="px-8 py-6"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-400 uppercase text-[14px]">{c.name.charAt(0)}</div><div><div className="font-black text-slate-800 uppercase text-[13px] tracking-tight">{c.name}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{c.id}</div></div></div></td>
                                         <td className="px-8 py-6"><div className="flex flex-col gap-1"><span className="text-[10px] font-black text-medical-600 uppercase tracking-widest bg-medical-50 px-3 py-1 rounded-lg border border-medical-100 w-fit">{c.hospital || 'Private Healthcare'}</span><div className="text-[9px] text-slate-400 font-bold flex items-center gap-1"><MapPin size={10} /> {c.address.slice(0, 40)}...</div></div></td>
                                         <td className="px-8 py-6 text-right font-black text-emerald-700 text-[14px]">₹{formatIndianNumber(getClientTotalRevenue(c.name))}</td>
@@ -163,7 +177,7 @@ export const ClientModule: React.FC = () => {
                                     </tr>
                                 ))}
                                 {filteredClients.length === 0 && (
-                                    <tr><td colSpan={5} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Registry Found</td></tr>
+                                    <tr><td colSpan={6} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Registry Found</td></tr>
                                 )}
                             </tbody>
                         </table>

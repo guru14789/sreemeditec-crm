@@ -38,7 +38,7 @@ export const ReportsModule: React.FC = () => {
   // 1. Fetch Aggregated Summaries (Optimized for multiple views)
   useEffect(() => {
     // Fetch last 36 months of summaries for comprehensive views
-    const q = query(collection(db, "summaries"), orderBy('month', 'desc'), limit(36));
+    const q = query(collection(db, "summaries"), orderBy('month', 'desc'), limit(60));
     const unsub = onSnapshot(q, (snap) => {
         setSummaries(snap.docs.map(d => d.data()));
     });

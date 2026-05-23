@@ -18,7 +18,7 @@ import { db } from '../firebase';
  */
 export function useRealtimeCollection<T = DocumentData>(
     collectionPath: string,
-    initialConstraints: QueryConstraint[] = [orderBy('timestamp', 'desc'), limit(50)]
+    initialConstraints: QueryConstraint[] = [orderBy('timestamp', 'desc'), limit(200)]
 ) {
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ export function useRealtimeCollection<T = DocumentData>(
                 
                 setData(items);
                 setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-                setHasMore(snapshot.docs.length >= ((initialConstraints.find(c => (c as any).type === 'limit') as any)?.limit || 50));
+                setHasMore(snapshot.docs.length >= ((initialConstraints.find(c => (c as any).type === 'limit') as any)?.limit || 200));
                 setLoading(false);
                 setError(null);
             },

@@ -120,7 +120,7 @@ export const PurchaseRecordModule: React.FC = () => {
         setNewRecord(calculateTotals(updated, newRecord.items || []));
     };
 
-    const handleItemChange = (field: keyof PurchaseItem | 'gstType', value: any) => {
+    const handleItemChange = (field: keyof PurchaseItem | 'gstType' | 'taxType', value: any) => {
         let val = value;
         if (field === 'equipmentName' && typeof value === 'string') {
             val = value.toUpperCase();

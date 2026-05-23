@@ -225,6 +225,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
             status: 'To Do',
             dueDate: newTask.dueDate || new Date().toISOString().split('T')[0],
             locationName: newTask.locationName || 'Main Office',
+            handoffChain: newTask.handoffChain || [],
             subTasks: [],
             pointsAwarded: false,
             logs: [{ id: 'L1', user: authUser?.name || 'System', action: 'Task Dispatched', timestamp: new Date().toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) }]

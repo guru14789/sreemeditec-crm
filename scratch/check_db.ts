@@ -1,5 +1,5 @@
 
-import { db } from './firebase';
+import { db } from '../firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
 async function checkCollections() {

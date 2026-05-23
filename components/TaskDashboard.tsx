@@ -15,7 +15,7 @@ export const TaskDashboard: React.FC = () => {
     // Explicit use of the hook for a separate collection (e.g., recent notifications)
     const { data: recentNotifications } = useRealtimeCollection<AppNotification>('notifications', [
         orderBy('createdAt', 'desc'),
-        limit(5)
+        limit(50)
     ]);
 
     const toggleTaskStatus = (task: Task) => {

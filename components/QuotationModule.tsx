@@ -225,7 +225,7 @@ export const QuotationModule: React.FC = () => {
                 if (item.id === id) {
                     const updated = { ...item, [field]: value };
                     if (field === 'description') {
-                        const masterProd = products.find(p => p.name === value);
+                        const masterProd = products.find(p => p.name.toUpperCase() === value.toUpperCase());
                         if (masterProd) {
                             updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
                             updated.taxRate = masterProd.taxRate || 12;
@@ -532,7 +532,7 @@ export const QuotationModule: React.FC = () => {
                                                     <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
                                                     <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
                                                     <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString()}</div></div>
-                                                    <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
+                                                    <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
                                                 </div>
                                             </div>
                                         ))}

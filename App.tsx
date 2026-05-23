@@ -6,7 +6,7 @@ import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, Download, Landmark, Plus, Trash2
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
@@ -40,7 +40,7 @@ import { CompanyModule } from './components/CompanyModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { BankDetailsForm } from './components/BankDetailsForm';
-import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord, Employee } from './types';
+import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord } from './types';
 import { useData } from './components/DataContext';
 
 const NavItem: React.FC<{
@@ -237,7 +237,7 @@ export const App: React.FC = () => {
             for (const doc of allInvoices) {
                 try {
                     // Smart Type Detection (Corrects mislabeled 'PO' tags from BillingModule bug)
-                    let type = doc.documentType || 'Invoice';
+                    let type: string = doc.documentType || 'Invoice';
                     const invNum = (doc.invoiceNumber || '').toUpperCase();
                     if (invNum.startsWith('SM/')) type = 'Invoice';
                     else if (invNum.startsWith('SMQ/')) type = 'Quotation';
@@ -293,7 +293,7 @@ export const App: React.FC = () => {
 
             // Populate JSON Backups (RAW DATA)
             allInvoices.forEach(doc => {
-                let type = doc.documentType || 'Invoice';
+                let type: string = doc.documentType || 'Invoice';
                 const invNum = (doc.invoiceNumber || '').toUpperCase();
                 if (invNum.startsWith('SM/')) type = 'Invoice';
                 else if (invNum.startsWith('SMQ/')) type = 'Quotation';
@@ -585,7 +585,7 @@ export const App: React.FC = () => {
                     </div>
                 ) : configSubTab === 'Bank' ? (
                     <div className="flex flex-col items-center justify-center min-h-full py-12">
-                        <BankDetailsForm userRole={userRole} />
+                        <BankDetailsForm />
                     </div>
                 ) : (
                     <div className="h-full">

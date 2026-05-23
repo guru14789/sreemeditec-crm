@@ -14,7 +14,8 @@ import {
     orderBy,
     limit,
     increment,
-    startAfter
+    startAfter,
+    runTransaction
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
@@ -22,7 +23,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -51,6 +52,10 @@ export interface DataContextType {
     accountGroups: AccountGroup[];
     vouchers: AccountingVoucher[];
     stockTransfers: StockTransfer[];
+    costCentres: CostCentre[];
+    fixedAssets: FixedAsset[];
+    depreciationSchedule: DepreciationScheduleEntry[];
+    bankStatements: BankStatementEntry[];
     expenseStats: { approved: number, pending: number, rejected: number };
     showWinnerPopup: boolean;
     setShowWinnerPopup: (show: boolean) => void;
@@ -147,13 +152,37 @@ export interface DataContextType {
     updatePurchaseRecord: (id: string, updates: Partial<PurchaseRecord>) => Promise<void>;
     removePurchaseRecord: (id: string) => Promise<void>;
 
+    // Expense deletion
+    removeExpense: (id: string, operator: string) => Promise<void>;
+
     // Accounting Methods
     addLedger: (ledger: Ledger) => Promise<void>;
     updateLedger: (id: string, updates: Partial<Ledger>) => Promise<void>;
+    removeLedger: (id: string) => Promise<void>;
     addAccountGroup: (group: AccountGroup) => Promise<void>;
+    removeAccountGroup: (id: string) => Promise<void>;
+    updateAccountGroup: (id: string, updates: Partial<AccountGroup>) => Promise<void>;
     addVoucher: (voucher: AccountingVoucher) => Promise<void>;
+    updateVoucher: (id: string, updates: Partial<AccountingVoucher>, reason?: string) => Promise<void>;
+    reverseVoucher: (id: string, reason: string) => Promise<void>;
     postToLedger: (voucherData: Partial<AccountingVoucher>) => Promise<void>;
     addStockTransfer: (transfer: StockTransfer) => Promise<void>;
+
+    // Cost Centre Methods
+    addCostCentre: (cc: CostCentre) => Promise<void>;
+    updateCostCentre: (id: string, updates: Partial<CostCentre>) => Promise<void>;
+    removeCostCentre: (id: string) => Promise<void>;
+
+    // Fixed Asset Methods
+    addFixedAsset: (asset: FixedAsset) => Promise<void>;
+    updateFixedAsset: (id: string, updates: Partial<FixedAsset>) => Promise<void>;
+    removeFixedAsset: (id: string) => Promise<void>;
+    computeDepreciation: (assetId: string) => Promise<void>;
+    postDepreciationEntry: (assetId: string, scheduleEntry: DepreciationScheduleEntry) => Promise<void>;
+
+    // Bank Statement Methods
+    uploadBankStatement: (ledgerId: string, entries: BankStatementEntry[]) => Promise<void>;
+    autoMatchBankEntries: (ledgerId: string) => Promise<number>;
 
     checkAndPerformMonthReset: () => Promise<void>;
     
@@ -258,6 +287,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
     const [accountGroups, setAccountGroups] = useState<AccountGroup[]>([]);
     const [stockTransfers, setStockTransfers] = useState<StockTransfer[]>([]);
+    const [costCentres, setCostCentres] = useState<CostCentre[]>([]);
+    const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([]);
+    const [depreciationSchedule, setDepreciationSchedule] = useState<DepreciationScheduleEntry[]>([]);
+    const [bankStatements, setBankStatements] = useState<BankStatementEntry[]>([]);
     const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
 
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
@@ -376,14 +409,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
         const loadRegistries = async () => {
             try {
-                const [cSnap, vSnap, pSnap, hSnap] = await Promise.all([
+                const [cSnap, vSnap, pSnap, hSnap, purSnap] = await Promise.all([
                     getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
                     getDocs(query(collection(db, "vendors"), orderBy('name', 'asc'))),
                     getDocs(query(collection(db, "products"), orderBy('name', 'asc'))),
-                    getDocs(collection(db, "holidays"))
+                    getDocs(collection(db, "holidays")),
+                    getDocs(collection(db, "purchaseRecords"))
                 ]);
+
+                const loadedVendors = vSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor);
+                const allPurchases = purSnap.docs.map(d => sanitizeData(d.data()) as PurchaseRecord);
+
+                const updatedVendors = loadedVendors.map(vendor => {
+                    const totalVolume = allPurchases
+                        .filter(p => (p.supplier || '').toUpperCase() === vendor.name.toUpperCase())
+                        .reduce((sum, p) => sum + (Number(p.total) || 0), 0);
+                    
+                    if (vendor.procurementVolume !== totalVolume) {
+                        updateDoc(doc(db, "vendors", vendor.id), { procurementVolume: totalVolume })
+                            .catch(err => console.error("Auto-sync vendor procurementVolume failed", err));
+                    }
+
+                    return {
+                        ...vendor,
+                        procurementVolume: totalVolume
+                    };
+                });
+
                 setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
-                setVendors(vSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor));
+                setVendors(updatedVendors);
                 setProducts(pSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
                 setHolidays(hSnap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
             } catch (err) { console.error("Registry load failed", err); }
@@ -391,7 +445,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loadRegistries();
 
         // Dynamic Collections (High Growth): Initial small batch, then paginated
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(150)), (s) => handleSnap('tasks', s, setTaskSnap));
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(500)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
         
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
@@ -401,24 +455,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setter(snap.docs.map((d: any) => ({...sanitizeData(d.data()), id: d.id})));
         };
 
-        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap));
-        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(25)), (s) => handleSnap('leads', s, setLeadSnap));
-        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(20)), (s) => handleSnap('expenses', s, setExpenseSnap));
-        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(30)), (s) => handleSnap('serviceTickets', s, setServiceTickets));
-        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(1000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)));
-        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(50)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
-        const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(100)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)));
-        const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(100)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
-        const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(100)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)));
-        const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(100)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)));
-        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)));
-        const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)));
+        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(500)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
+        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(500)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
+        const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
+        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => handleSnap('serviceTickets', s, setServiceTickets), (err) => console.warn("serviceTickets listener:", err));
+        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)), (err) => console.warn("attendance listener:", err));
+        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(200)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
+        const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(500)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)), (err) => console.warn("deliveryChallans listener:", err));
+        const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(500)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("serviceReports listener:", err));
+        const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(500)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("installationReports listener:", err));
+        const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(500)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)), (err) => console.warn("leave_requests listener:", err));
+        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(500)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
+        const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)), (err) => console.warn("stockBatches listener:", err));
         
         // Accounting Listeners
-        const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)));
-        const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)));
-        const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(20)), (s) => handleSnap('vouchers', s, setVoucherSnap));
-        const unsubTransfers = onSnapshot(query(collection(db, "stockTransfers"), orderBy('date', 'desc'), limit(100)), (s) => setStockTransfers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockTransfer)));
+        const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)), (err) => console.warn("ledgers listener:", err));
+        const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)), (err) => console.warn("accountGroups listener:", err));
+        const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
+        const unsubTransfers = onSnapshot(query(collection(db, "stockTransfers"), orderBy('date', 'desc'), limit(500)), (s) => setStockTransfers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockTransfer)), (err) => console.warn("stockTransfers listener:", err));
+
+        // Phase 3 Listeners
+        const unsubCostCentres = onSnapshot(collection(db, "costCentres"), (s) => setCostCentres(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as CostCentre)), (err) => console.warn("costCentres listener:", err));
+        const unsubFixedAssets = onSnapshot(collection(db, "fixedAssets"), (s) => setFixedAssets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as FixedAsset)), (err) => console.warn("fixedAssets listener:", err));
+        const unsubDepreciation = onSnapshot(query(collection(db, "depreciationSchedule"), orderBy('date', 'desc'), limit(1000)), (s) => setDepreciationSchedule(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DepreciationScheduleEntry)), (err) => console.warn("depreciationSchedule listener:", err));
+        const unsubBankStatements = onSnapshot(collection(db, "bankStatements"), (s) => setBankStatements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankStatementEntry)), (err) => console.warn("bankStatements listener:", err));
 
         const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
             if (s.exists()) {
@@ -431,7 +491,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 }
                 if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
             }
-        });
+        }, (err) => console.warn("settings listener:", err));
         
         const qStats = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration') 
             ? query(collection(db, "expenses"))
@@ -447,7 +507,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 else pending += amt;
             });
             setExpenseStats({ approved, pending, rejected });
-        });
+        }, (err) => console.warn("stats listener:", err));
 
         return () => {
             unsubLeads(); unsubTickets();
@@ -455,6 +515,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             unsubChallans(); unsubServiceReports(); unsubInstallReports();
             unsubLeave(); unsubSettings(); unsubPurchases(); unsubBatches();
             unsubLedgers(); unsubGroups(); unsubVouchers(); unsubTransfers();
+            unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements();
             unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
@@ -464,10 +525,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         // Scope optimization: Only listen to user's point history if not admin (though currently fetching all for ledger)
         // Tightening limit from infinite to most recent 200
-        const qPoints = query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(200));
-        const unsubPoints = onSnapshot(qPoints, (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)));
+        const qPoints = query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500));
+        const unsubPoints = onSnapshot(qPoints, (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
         
-        const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)));
+        const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)), (err) => console.warn("monthlyWinners listener:", err));
         
         return () => { unsubPoints(); unsubWinners(); };
     }, [firebaseUser?.uid, currentUser?.id]);
@@ -675,7 +736,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, collectionName),
             where(field, ">=", value),
             where(field, "<=", value + "\uf8ff"),
-            limit(20)
+            limit(50)
         );
         const snap = await getDocs(q);
         return snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
@@ -690,7 +751,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, colName),
             orderBy(orderByField, 'desc'),
             startAfter(lastDoc),
-            limit(20)
+            limit(50)
         );
         const snap = await getDocs(q);
         if (snap.empty) return;
@@ -790,8 +851,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             { id: 'LDG-CASH', name: 'Cash', groupId: 'GRP-CASH', openingBalance: 0, currentBalance: 0 },
             { id: 'LDG-SALES', name: 'Sales Account', groupId: 'GRP-INCOME', openingBalance: 0, currentBalance: 0 },
             { id: 'LDG-CGST-OUT', name: 'Output CGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
-            { id: 'LDG-SGST-OUT', name: 'Output SGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 }
+            { id: 'LDG-SGST-OUT', name: 'Output SGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LED-TDS-PAYABLE', name: 'TDS Payable', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LED-DEPRECIATION', name: 'Depreciation Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 }
         ];
+
+        // Also seed fixed asset / depreciation groups if missing
+        if (!accountGroups.find(ag => ag.id === 'GRP-FIXED-ASSETS')) {
+            await addAccountGroup({ id: 'GRP-FIXED-ASSETS', name: 'Fixed Assets', parentGroupId: 'GRP-ASSETS', type: 'Asset' });
+        }
+        if (!accountGroups.find(ag => ag.id === 'GRP-DEPRECIATION')) {
+            await addAccountGroup({ id: 'GRP-DEPRECIATION', name: 'Depreciation', parentGroupId: 'GRP-EXPENSES', type: 'Expense' });
+        }
 
         for (const l of defaultLedgers) {
             if (!ledgers.find(lg => lg.id === l.id)) {
@@ -827,6 +898,51 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // Cancelled or moved to draft
                 await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
                 if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
+            }
+        }
+
+        // Event-driven accounting: status transitions
+        if (existing.documentType === 'Invoice') {
+            const newStatus = u.status || existing.status;
+
+            // Invoice marked as Paid → auto-post Receipt voucher
+            if (u.status === 'Paid' && existing.status !== 'Paid') {
+                try {
+                    const debtorId = await ensurePartyLedger(existing.customerName, 'GRP-DEBTORS', { gstin: existing.customerGstin, email: existing.email, phone: existing.phone });
+                    const bankLdg = ledgers.find(l => l.id === 'LDG-BANK') || ledgers.find(l => l.id === 'LDG-CASH');
+                    if (!bankLdg) console.warn('No Bank or Cash ledger found — Receipt entry will have empty ledgerId');
+                    const amount = u.paidAmount || existing.paidAmount || existing.grandTotal || 0;
+                    if (amount > 0) {
+                        await postToLedger({
+                            date: new Date().toISOString().split('T')[0],
+                            type: 'Receipt',
+                            entries: [
+                                { id: `${existing.id}-RCV-BANK`, ledgerId: bankLdg?.id || '', ledgerName: bankLdg?.name || 'Bank Account', debit: amount, credit: 0 },
+                                { id: `${existing.id}-RCV-DEBTOR`, ledgerId: debtorId, ledgerName: existing.customerName, debit: 0, credit: amount },
+                            ],
+                            totalAmount: amount,
+                            narration: `Auto: Payment received for ${existing.invoiceNumber} — ${existing.customerName}`,
+                            referenceId: existing.id,
+                            referenceNumber: existing.invoiceNumber
+                        });
+                        await addLog('Accounting', 'Auto Receipt Entry', `Invoice ${existing.invoiceNumber} → Receipt voucher posted`);
+                    }
+                } catch (err) {
+                    console.warn('Auto-accounting failed for invoice payment:', err);
+                    await addLog('Accounting', 'Auto-Entry Failed', `Payment for ${existing.invoiceNumber}: ${err}`);
+                }
+            }
+
+            // Invoice cancelled → reverse existing vouchers
+            if (u.status === 'Cancelled' && existing.status !== 'Cancelled') {
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Invoice ${existing.invoiceNumber} cancelled`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for voucher:', err);
+                    }
+                }
             }
         }
     };
@@ -1044,21 +1160,105 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
 
+    const updateVendorProcurementVolume = async (vendorName: string) => {
+        const vendor = vendors.find(v => v.name.toUpperCase() === vendorName.toUpperCase());
+        if (!vendor) return;
+
+        try {
+            const q = query(
+                collection(db, "purchaseRecords"),
+                where("supplier", "==", vendorName.toUpperCase())
+            );
+            const snap = await getDocs(q);
+            let totalVolume = 0;
+            snap.forEach(doc => {
+                const data = doc.data();
+                totalVolume += Number(data.total) || 0;
+            });
+
+            // Update local state
+            setVendors(prev => prev.map(v => v.id === vendor.id ? { ...v, procurementVolume: totalVolume } : v));
+            // Update Firestore
+            await updateDoc(doc(db, "vendors", vendor.id), { procurementVolume: totalVolume });
+        } catch (err) {
+            console.error("Failed to update vendor procurement volume:", err);
+        }
+    };
+
     const addPurchaseRecord = async (r: PurchaseRecord) => {
         await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
         const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
         await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
+        if (r.supplier) {
+            await updateVendorProcurementVolume(r.supplier);
+        }
+
+        // Event-driven accounting: auto-post Purchase voucher
+        try {
+            const total = r.total || 0;
+            if (total > 0 && r.supplier) {
+                const creditorId = await ensurePartyLedger(r.supplier, 'GRP-CREDITORS');
+                const purchaseLdg = ledgers.find(l => l.id === 'LDG-PURCHASE');
+                if (!purchaseLdg) console.warn('LDG-PURCHASE ledger not found — purchase entry will have empty ledgerId');
+                await postToLedger({
+                    date: r.dateSupply || new Date().toISOString().split('T')[0],
+                    type: 'Purchase',
+                    entries: [
+                        { id: `${r.id}-PUR`, ledgerId: purchaseLdg?.id || '', ledgerName: 'Purchase Account', debit: total, credit: 0 },
+                        { id: `${r.id}-CREDITOR`, ledgerId: creditorId, ledgerName: r.supplier, debit: 0, credit: total },
+                    ],
+                    totalAmount: total,
+                    narration: `Auto: Purchase from ${r.supplier} — ${itemsStr}`,
+                    referenceId: r.id,
+                    referenceNumber: r.invoiceNo || ''
+                });
+                await addLog('Accounting', 'Auto Purchase Entry', `Purchase ${r.id} → Purchase voucher posted`);
+            }
+        } catch (err) {
+            console.warn('Auto-accounting failed for purchase:', err);
+            await addLog('Accounting', 'Auto-Entry Failed', `Purchase ${r.id}: ${err}`);
+        }
     };
 
     const updatePurchaseRecord = async (id: string, updates: Partial<PurchaseRecord>) => {
         const existing = purchaseRecords.find(r => r.id === id);
+        let oldSupplier = existing?.supplier;
+        if (!oldSupplier) {
+            const docRef = doc(db, "purchaseRecords", id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                oldSupplier = docSnap.data().supplier;
+            }
+        }
+
         await updateDoc(doc(db, "purchaseRecords", id), sanitizeData(updates));
         await addLog('Inventory', 'Updated Purchase Entry', `ID: ${id}`, existing, { ...existing, ...updates });
+
+        if (oldSupplier) {
+            await updateVendorProcurementVolume(oldSupplier);
+        }
+        if (updates.supplier && updates.supplier !== oldSupplier) {
+            await updateVendorProcurementVolume(updates.supplier);
+        }
     };
 
     const removePurchaseRecord = async (id: string) => {
+        const existing = purchaseRecords.find(r => r.id === id);
+        let supplier = existing?.supplier;
+        if (!supplier) {
+            const docRef = doc(db, "purchaseRecords", id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                supplier = docSnap.data().supplier;
+            }
+        }
+
         await deleteDoc(doc(db, "purchaseRecords", id));
         await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
+
+        if (supplier) {
+            await updateVendorProcurementVolume(supplier);
+        }
     };
 
     // --- NEW ACCOUNTING METHODS ---
@@ -1068,6 +1268,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Accounting Group Created', group.name);
     };
 
+    const removeAccountGroup = async (id: string) => {
+        await deleteDoc(doc(db, "accountGroups", id));
+        await addLog('System', 'Accounting Group Removed', id);
+    };
+
+    const updateAccountGroup = async (id: string, updates: Partial<AccountGroup>) => {
+        const existing = accountGroups.find(g => g.id === id);
+        await updateDoc(doc(db, "accountGroups", id), sanitizeData(updates));
+        await addLog('System', 'Accounting Group Updated', existing?.name || id, existing, { ...existing, ...updates });
+    };
+
     const addLedger = async (l: Ledger) => {
         await setDoc(doc(db, "ledgers", l.id), sanitizeData(l));
         await addLog('System', 'Accounting Ledger Created', l.name);
@@ -1075,6 +1286,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updateLedger = async (id: string, u: Partial<Ledger>) => {
         await updateDoc(doc(db, "ledgers", id), sanitizeData(u));
+    };
+
+    const removeLedger = async (id: string) => {
+        const l = ledgers.find(x => x.id === id);
+        if (l && (l.currentBalance || 0) !== 0) throw new Error('Cannot delete ledger with non-zero balance');
+        await deleteDoc(doc(db, "ledgers", id));
+        await addLog('System', 'Accounting Ledger Removed', id);
+    };
+
+    // Ensure a party (customer/supplier) ledger exists; creates one if missing
+    const ensurePartyLedger = async (name: string, groupId: string, contact?: { gstin?: string; email?: string; phone?: string }): Promise<string> => {
+        const existing = ledgers.find(l => l.name === name && l.groupId === groupId);
+        if (existing) return existing.id;
+        const id = `LED-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const ledger: Ledger = { id, name, groupId, openingBalance: 0, currentBalance: 0 };
+        if (contact?.gstin) ledger.gstin = contact.gstin;
+        if (contact?.email) ledger.email = contact.email;
+        if (contact?.phone) ledger.phone = contact.phone;
+        await addLedger(ledger);
+        return id;
     };
 
     const updateVoucher = async (id: string, updates: Partial<AccountingVoucher>, reason?: string) => {
@@ -1121,14 +1352,105 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Billing', 'Voucher Generated', `${v.type} - ${v.voucherNumber}`);
     };
 
+    const reverseVoucher = async (id: string, reason: string) => {
+        const original = vouchers.find(v => v.id === id);
+        if (!original) return;
+
+        // Mark original as cancelled
+        const cancelAudit = createAuditEntry('Cancelled', original, { ...original }, reason);
+        await updateDoc(doc(db, "vouchers", id), {
+            narration: `[CANCELLED] ${original.narration}`,
+            editHistory: [cancelAudit, ...(original.editHistory || [])].slice(0, 50)
+        });
+
+        // Post a mirror reversal voucher to roll back ledger balances
+        const reversalId = `VCH-REV-${Date.now()}`;
+        const reversalEntries = original.entries.map(e => ({
+            ...e,
+            id: `${e.id}-REV`,
+            debit: e.credit,
+            credit: e.debit
+        }));
+        const reversalVoucher: AccountingVoucher = {
+            id: reversalId,
+            voucherNumber: `REV/${original.voucherNumber}`,
+            date: new Date().toISOString().split('T')[0],
+            type: original.type,
+            entries: reversalEntries,
+            narration: `Reversal of ${original.voucherNumber} — ${reason}`,
+            totalAmount: original.totalAmount,
+            settlements: [],
+            createdBy: currentUser?.name || 'System'
+        };
+        await addVoucher(reversalVoucher);
+        await addLog('Billing', 'Voucher Reversed', `${original.voucherNumber} — ${reason}`);
+    };
+
     const postToLedger = async (vData: Partial<AccountingVoucher>) => {
         const id = `VCH-${Date.now()}`;
+        const vDate = vData.date || new Date().toISOString().split('T')[0];
+        const vType = vData.type || 'Journal';
+
+        // FY-aware sequential voucher numbering (Apr-Mar Indian fiscal year)
+        const dateObj = new Date(vDate);
+        const month = dateObj.getMonth(); // 0=Jan ... 11=Dec
+        const year = dateObj.getFullYear();
+        const fyStart = month >= 3 ? year : year - 1; // Apr onwards = new FY
+        const fyCode = `${String(fyStart).slice(2)}${String(fyStart + 1).slice(2)}`; // e.g. "2425"
+        const counterKey = `${vType}_${fyCode}`;
+
+        const prefixMap: Record<string, string> = {
+            Journal: 'JV', Contra: 'CON', Payment: 'PV', Receipt: 'RV',
+            'Debit Note': 'DN', 'Credit Note': 'CN',
+            Sales: 'INV', Purchase: 'PUR'
+        };
+        const prefix = prefixMap[vType] || 'VCH';
+
+        let voucherNumber = vData.voucherNumber || '';
+        if (!voucherNumber) {
+            try {
+                const counterRef = doc(db, 'settings', 'voucherCounters');
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(counterRef);
+                    const counters = snap.exists() ? snap.data() : {};
+                    const next = (counters[counterKey] || 0) + 1;
+                    tx.set(counterRef, { ...counters, [counterKey]: next }, { merge: true });
+                    voucherNumber = `${prefix}/${fyCode}/${String(next).padStart(4, '0')}`;
+                });
+            } catch (err) {
+                console.warn('Voucher counter transaction failed, using fallback:', err);
+                voucherNumber = `${prefix}/${fyCode}/${id.slice(-6)}`;
+            }
+        }
+
+        // Auto-accounting for Sales / Purchase vouchers
+        let entries = (vData.entries || []).map(({ autoGenerated, ...rest }) => rest);
+        if (vType === 'Sales' && entries.length === 0) {
+            // Auto-debit debtor, credit sales + tax ledgers
+            const totalAmount = vData.totalAmount || 0;
+            const salesLedger = ledgers.find(l => l.id === 'LDG-SALES');
+            const cgstLedger = ledgers.find(l => l.id === 'LDG-CGST-OUT');
+            const sgstLedger = ledgers.find(l => l.id === 'LDG-SGST-OUT');
+            entries = [
+                { id: `${id}-DEBTOR`, ledgerId: '', ledgerName: vData.narration || 'Sundry Debtor', debit: totalAmount, credit: 0 },
+                { id: `${id}-SALES`, ledgerId: salesLedger?.id || '', ledgerName: 'Sales Account', debit: 0, credit: totalAmount * 0.82 },
+                { id: `${id}-CGST`, ledgerId: cgstLedger?.id || '', ledgerName: 'Output CGST', debit: 0, credit: totalAmount * 0.09 },
+                { id: `${id}-SGST`, ledgerId: sgstLedger?.id || '', ledgerName: 'Output SGST', debit: 0, credit: totalAmount * 0.09 },
+            ];
+        } else if (vType === 'Purchase' && entries.length === 0) {
+            const totalAmount = vData.totalAmount || 0;
+            entries = [
+                { id: `${id}-PUR`, ledgerId: '', ledgerName: 'Purchase Account', debit: totalAmount, credit: 0 },
+                { id: `${id}-CREDITOR`, ledgerId: '', ledgerName: vData.narration || 'Sundry Creditor', debit: 0, credit: totalAmount },
+            ];
+        }
+
         const voucher: AccountingVoucher = {
             id,
-            voucherNumber: vData.voucherNumber || `VCH-${id.slice(-4)}`,
-            date: vData.date || new Date().toISOString().split('T')[0],
-            type: vData.type || 'Journal',
-            entries: vData.entries || [],
+            voucherNumber,
+            date: vDate,
+            type: vType,
+            entries,
             narration: vData.narration || '',
             referenceId: vData.referenceId,
             referenceNumber: vData.referenceNumber,
@@ -1149,6 +1471,196 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // you'd update specific GodownStock records.
             await addLog('Inventory', 'Stock Transfer', `${t.quantity} ${t.productName} from ${t.fromLocation} to ${t.toLocation}`);
         }
+    };
+
+    // --- COST CENTRE METHODS ---
+    const addCostCentre = async (cc: CostCentre) => {
+        await setDoc(doc(db, "costCentres", cc.id), sanitizeData(cc));
+        await addLog('System', 'Cost Centre Created', cc.name);
+    };
+    const updateCostCentre = async (id: string, updates: Partial<CostCentre>) => {
+        const existing = costCentres.find(c => c.id === id);
+        await updateDoc(doc(db, "costCentres", id), sanitizeData(updates));
+        await addLog('System', 'Cost Centre Updated', existing?.name || id, existing, { ...existing, ...updates });
+    };
+    const removeCostCentre = async (id: string) => {
+        await deleteDoc(doc(db, "costCentres", id));
+        await addLog('System', 'Cost Centre Removed', id);
+    };
+
+    // --- FIXED ASSET METHODS ---
+    const addFixedAsset = async (asset: FixedAsset) => {
+        await setDoc(doc(db, "fixedAssets", asset.id), sanitizeData(asset));
+        await addLog('System', 'Fixed Asset Registered', asset.name);
+    };
+    const updateFixedAsset = async (id: string, updates: Partial<FixedAsset>) => {
+        const existing = fixedAssets.find(a => a.id === id);
+        await updateDoc(doc(db, "fixedAssets", id), sanitizeData(updates));
+        await addLog('System', 'Fixed Asset Updated', existing?.name || id, existing, { ...existing, ...updates });
+    };
+    const removeFixedAsset = async (id: string) => {
+        await deleteDoc(doc(db, "fixedAssets", id));
+        await addLog('System', 'Fixed Asset Removed', id);
+    };
+
+    const computeDepreciation = async (assetId: string) => {
+        const asset = fixedAssets.find(a => a.id === assetId);
+        if (!asset || asset.status === 'Disposed' || asset.status === 'Fully Depreciated') return;
+
+        const purchaseDate = new Date(asset.purchaseDate);
+        const now = new Date();
+        const monthsElapsed = (now.getFullYear() - purchaseDate.getFullYear()) * 12 + (now.getMonth() - purchaseDate.getMonth());
+        if (monthsElapsed <= 0) return;
+
+        const monthsToCompute = Math.min(monthsElapsed, asset.usefulLifeYears * 12);
+        const existingEntries = depreciationSchedule.filter(d => d.assetId === assetId);
+        const existingMonths = existingEntries.length;
+
+        let accumulatedDep = asset.accumulatedDepreciation || 0;
+        let netBookValue = asset.purchaseCost - accumulatedDep;
+
+        for (let m = existingMonths; m < monthsToCompute; m++) {
+            let depAmount = 0;
+            if (asset.depreciationMethod === 'SLM') {
+                depAmount = (asset.purchaseCost - asset.salvageValue) / (asset.usefulLifeYears * 12);
+            } else {
+                // WDV: 2x straight-line rate on reducing balance
+                const wdvRate = (2 / (asset.usefulLifeYears * 12));
+                depAmount = netBookValue * wdvRate;
+            }
+
+            const entryDate = new Date(purchaseDate);
+            entryDate.setMonth(entryDate.getMonth() + m + 1);
+            const dateStr = entryDate.toISOString().split('T')[0];
+
+            accumulatedDep += depAmount;
+            netBookValue = Math.max(asset.salvageValue, asset.purchaseCost - accumulatedDep);
+            if (netBookValue <= asset.salvageValue) {
+                depAmount = asset.purchaseCost - asset.salvageValue - (accumulatedDep - depAmount);
+                if (depAmount <= 0) break;
+                accumulatedDep = asset.purchaseCost - asset.salvageValue;
+                netBookValue = asset.salvageValue;
+            }
+
+            const scheduleEntry: DepreciationScheduleEntry = {
+                id: `DEP-${assetId}-${dateStr}`,
+                assetId,
+                date: dateStr,
+                amount: Math.round(depAmount),
+                accumulatedDepreciation: Math.round(accumulatedDep),
+                netBookValue: Math.round(netBookValue)
+            };
+
+            await setDoc(doc(db, "depreciationSchedule", scheduleEntry.id), sanitizeData(scheduleEntry));
+        }
+
+        // Update asset accumulated depreciation
+        const lastEntry = depreciationSchedule.filter(d => d.assetId === assetId)
+            .sort((a, b) => b.date.localeCompare(a.date))[0];
+        const finalAccumulated = lastEntry ? lastEntry.accumulatedDepreciation : accumulatedDep;
+        const finalNBV = lastEntry ? lastEntry.netBookValue : (asset.purchaseCost - finalAccumulated);
+        const assetStatus: FixedAsset['status'] = finalNBV <= asset.salvageValue ? 'Fully Depreciated' : 'Active';
+
+        await updateDoc(doc(db, "fixedAssets", assetId), sanitizeData({
+            accumulatedDepreciation: Math.round(finalAccumulated),
+            netBookValue: Math.round(finalNBV),
+            status: assetStatus
+        }));
+    };
+
+    const postDepreciationEntry = async (assetId: string, scheduleEntry: DepreciationScheduleEntry) => {
+        const asset = fixedAssets.find(a => a.id === assetId);
+        if (!asset) return;
+
+        const voucherId = `VCH-DEP-${Date.now()}`;
+        const fyDate = new Date(scheduleEntry.date);
+        const fyMonth = fyDate.getMonth();
+        const fyYear = fyDate.getFullYear();
+        const fyStart = fyMonth >= 3 ? fyYear : fyYear - 1;
+        const fyCode = `${String(fyStart).slice(2)}${String(fyStart + 1).slice(2)}`;
+
+        const depVoucher: AccountingVoucher = {
+            id: voucherId,
+            voucherNumber: `DEP/${fyCode}/${String(depreciationSchedule.filter(d => d.assetId === assetId).length + 1).padStart(4, '0')}`,
+            date: scheduleEntry.date,
+            type: 'Journal',
+            entries: [
+                {
+                    id: `${voucherId}-DEP`,
+                    ledgerId: asset.ledgerId,
+                    ledgerName: asset.name,
+                    debit: 0,
+                    credit: scheduleEntry.amount,
+                    narration: `Depreciation for ${asset.name}`
+                },
+                {
+                    id: `${voucherId}-EXP`,
+                    ledgerId: 'LED-DEPRECIATION',
+                    ledgerName: 'Depreciation Expense',
+                    debit: scheduleEntry.amount,
+                    credit: 0,
+                    narration: `Depreciation for ${asset.name}`
+                }
+            ],
+            narration: `Auto-posted depreciation for ${asset.name} — ${scheduleEntry.date}`,
+            totalAmount: scheduleEntry.amount,
+            settlements: [],
+            createdBy: currentUser?.name || 'System'
+        };
+
+        await addVoucher(depVoucher);
+        await addLog('System', 'Depreciation Posted', `₹${scheduleEntry.amount} for ${asset.name} on ${scheduleEntry.date}`);
+    };
+
+    // --- BANK STATEMENT METHODS ---
+    const uploadBankStatement = async (ledgerId: string, entries: BankStatementEntry[]) => {
+        for (const entry of entries) {
+            await setDoc(doc(db, "bankStatements", entry.id), sanitizeData({ ...entry, ledgerId }));
+        }
+        await addLog('System', 'Bank Statement Uploaded', `${entries.length} entries for ${ledgerId}`);
+    };
+
+    const autoMatchBankEntries = async (ledgerId: string): Promise<number> => {
+        const statements = bankStatements.filter(s => (s as any).ledgerId === ledgerId && !s.isMatched);
+        const bankVouchers = vouchers.filter(v =>
+            (v.entries || []).some(e => e.ledgerId === ledgerId) && !v.bankReconciliationDate
+        );
+
+        let matchedCount = 0;
+
+        for (const stmt of statements) {
+            // Try exact amount + date proximity match
+            const candidates = bankVouchers.filter(v => {
+                const entry = v.entries.find(e => e.ledgerId === ledgerId)!;
+                const vAmount = (entry.debit || entry.credit || 0);
+                if (Math.abs(vAmount - Math.abs(stmt.amount)) > 0.01) return false;
+
+                // Date proximity: within 3 days
+                const stmtDate = new Date(stmt.date);
+                const vDate = new Date(v.date);
+                const diffDays = Math.abs((stmtDate.getTime() - vDate.getTime()) / (1000 * 60 * 60 * 24));
+                return diffDays <= 3;
+            });
+
+            if (candidates.length === 1) {
+                const match = candidates[0];
+                try {
+                    await updateDoc(doc(db, "vouchers", match.id), {
+                        bankReconciliationDate: new Date().toISOString().split('T')[0]
+                    } as any);
+                    await updateDoc(doc(db, "bankStatements", stmt.id), {
+                        isMatched: true,
+                        matchedVoucherId: match.id
+                    } as any);
+                    matchedCount++;
+                } catch (err) {
+                    console.warn("Auto-match update failed:", err);
+                }
+            }
+        }
+
+        await addLog('System', 'Auto Bank Reco', `${matchedCount} entries auto-matched for ${ledgerId}`);
+        return matchedCount;
     };
 
     const addVendor = async (v: Vendor) => { 
@@ -1180,6 +1692,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 await updateUserSummary(currentUser.id, currentUser.name, i.grandTotal || 0);
             }
         }
+
+        // Event-driven accounting: auto-post Sales voucher for finalized invoices
+        if (i.documentType === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled') {
+            try {
+                const total = i.grandTotal || 0;
+                if (total <= 0) return;
+                const debtorId = await ensurePartyLedger(i.customerName, 'GRP-DEBTORS', { gstin: i.customerGstin, email: i.email, phone: i.phone });
+                const salesLdg = ledgers.find(l => l.id === 'LDG-SALES');
+                const cgstLdg = ledgers.find(l => l.id === 'LDG-CGST-OUT');
+                const sgstLdg = ledgers.find(l => l.id === 'LDG-SGST-OUT');
+                if (!salesLdg) console.warn('LDG-SALES ledger not found — sales entry will have empty ledgerId');
+                if (!cgstLdg) console.warn('LDG-CGST-OUT ledger not found — CGST entry will have empty ledgerId');
+                if (!sgstLdg) console.warn('LDG-SGST-OUT ledger not found — SGST entry will have empty ledgerId');
+                const salesAmt = Math.round(total * 0.82 * 100) / 100;
+                const taxAmt = Math.round(total * 0.09 * 100) / 100;
+                await postToLedger({
+                    date: i.date,
+                    type: 'Sales',
+                    entries: [
+                        { id: `${i.id}-DEBTOR`, ledgerId: debtorId, ledgerName: i.customerName, debit: total, credit: 0 },
+                        { id: `${i.id}-SALES`, ledgerId: salesLdg?.id || '', ledgerName: 'Sales Account', debit: 0, credit: salesAmt },
+                        { id: `${i.id}-CGST`, ledgerId: cgstLdg?.id || '', ledgerName: 'Output CGST', debit: 0, credit: taxAmt },
+                        { id: `${i.id}-SGST`, ledgerId: sgstLdg?.id || '', ledgerName: 'Output SGST', debit: 0, credit: taxAmt },
+                    ],
+                    totalAmount: total,
+                    narration: `Auto: Invoice ${i.invoiceNumber} — ${i.customerName}`,
+                    referenceId: i.id,
+                    referenceNumber: i.invoiceNumber
+                });
+                await addLog('Accounting', 'Auto Sales Entry', `Invoice ${i.invoiceNumber} → Sales voucher posted`);
+            } catch (err) {
+                console.warn('Auto-accounting failed for invoice:', err);
+                await addLog('Accounting', 'Auto-Entry Failed', `Invoice ${i.invoiceNumber}: ${err}`);
+            }
+        }
     };
     const removeInvoice = async (id: string) => {
         const existing = invoices.find(i => i.id === id);
@@ -1206,9 +1753,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let q;
             
             if (isLoadMore && lastLogDoc) {
-                q = query(logsRef, orderBy("timestamp", "desc"), startAfter(lastLogDoc), limit(15));
+                q = query(logsRef, orderBy("timestamp", "desc"), startAfter(lastLogDoc), limit(50));
             } else {
-                q = query(logsRef, orderBy("timestamp", "desc"), limit(15));
+                q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
                 setHasMoreLogs(true);
             }
 
@@ -1216,7 +1763,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let entries = snap.docs.map(d => ({ ...d.data(), id: d.id } as LogEntry));
             
             // If new collection is empty or has very few items, try falling back to legacy daily docs
-            if (entries.length < 15) {
+            if (entries.length < 50) {
                 // Fallback: Check last 7 days of daily audit logs
                 let legacyEntries: LogEntry[] = [];
                 for (let i = 0; i < 7; i++) {
@@ -1325,7 +1872,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile,
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
             ledgers, accountGroups, vouchers, stockTransfers, expenseStats,
-            addLedger, updateLedger, addAccountGroup, addVoucher, updateVoucher, postToLedger, addStockTransfer,
+            costCentres, fixedAssets, depreciationSchedule, bankStatements,
+            addLedger, updateLedger, removeLedger, addAccountGroup, removeAccountGroup, updateAccountGroup, addVoucher, updateVoucher, reverseVoucher, postToLedger, addStockTransfer,
+            addCostCentre, updateCostCentre, removeCostCentre,
+            addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry,
+            uploadBankStatement, autoMatchBankEntries,
             isSystemAdmin
         }}>
             {children}

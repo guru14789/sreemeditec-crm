@@ -65,7 +65,8 @@ export const InventoryModule: React.FC = () => {
         purchasePrice: 0,
         sellingPrice: 0,
         hsn: '',
-        taxRate: 5
+        taxRate: 5,
+        description: ''
     });
 
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -755,6 +756,10 @@ export const InventoryModule: React.FC = () => {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
                                 <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Features</label>
+                                <textarea className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none min-h-[80px]" placeholder="Describe features..." value={editingProduct.description || ''} onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                            </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
                             <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
@@ -819,6 +824,10 @@ export const InventoryModule: React.FC = () => {
                                 </div>
                             </div>
                             <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Features</label>
+                                <textarea className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none min-h-[80px]" placeholder="Describe features..." value={newProduct.description || ''} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} />
+                            </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
                             <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>

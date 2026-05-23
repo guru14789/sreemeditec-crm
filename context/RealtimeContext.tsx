@@ -53,7 +53,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
         const q = query(
             collection(db, 'tasks'),
             orderBy('timestamp', 'desc'),
-            limit(50)
+            limit(200)
         );
 
         const unsubscribe = onSnapshot(q,

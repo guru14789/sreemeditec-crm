@@ -390,7 +390,7 @@ export const ServiceOrderModule: React.FC = () => {
                                                 <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.visitType} onChange={e => setOrder({...order, visitType: e.target.value})}><option value="Breakdown">Breakdown</option><option value="AMC / PM">AMC / PM</option><option value="Installation">Installation</option><option value="Demo">Demo</option></select>
                                             </FormRow>
                                             <FormRow label="Priority">
-                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.priority} onChange={e => setOrder({...order, priority: e.target.value})}><option value="Urgent">Urgent</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
+                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.priority} onChange={e => setOrder({...order, priority: e.target.value as 'Urgent' | 'High' | 'Medium' | 'Low'})}><option value="Urgent">Urgent</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
                                             </FormRow>
                                         </div>
                                     </section>

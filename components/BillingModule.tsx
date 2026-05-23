@@ -259,7 +259,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                     
                     const updated = { ...item, [field]: finalVal };
                     if (field === 'description') {
-                        const masterProd = products.find(p => p.name === value);
+                        const masterProd = products.find(p => p.name.toUpperCase() === value.toUpperCase());
                         if (masterProd) {
                             updated.unitPrice = masterProd.sellingPrice;
                             updated.hsn = masterProd.hsn || '';

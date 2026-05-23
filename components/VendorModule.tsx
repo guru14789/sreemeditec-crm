@@ -57,11 +57,18 @@ export const VendorModule: React.FC = () => {
 
     const filteredVendors = useMemo(() => {
         const lowQuery = searchQuery.toLowerCase();
-        return vendors.filter(v => 
-            (v.name || '').toLowerCase().includes(lowQuery) || 
-            (v.id || '').toLowerCase().includes(lowQuery) ||
-            (v.contactPerson || '').toLowerCase().includes(lowQuery)
-        );
+        return vendors
+            .filter(v => 
+                (v.name || '').toLowerCase().includes(lowQuery) || 
+                (v.id || '').toLowerCase().includes(lowQuery) ||
+                (v.contactPerson || '').toLowerCase().includes(lowQuery)
+            )
+            .sort((a, b) => {
+                const volA = a.procurementVolume ?? 0;
+                const volB = b.procurementVolume ?? 0;
+                if (volB !== volA) return volB - volA;
+                return (a.name || '').localeCompare(b.name || '');
+            });
     }, [vendors, searchQuery]);
 
     if (!isAuthenticated) {
@@ -80,12 +87,6 @@ export const VendorModule: React.FC = () => {
         );
     }
 
-    const getVendorProcurementValue = (vendorName: string) => {
-        const target = vendorName.toLowerCase().trim();
-        return invoices
-            .filter(inv => inv.documentType === 'SupplierPO' && (inv.customerName || '').toLowerCase().trim() === target)
-            .reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-    };
 
     const handleSave = async () => {
         if (!vendor.name) {
@@ -145,14 +146,22 @@ export const VendorModule: React.FC = () => {
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
-                                <tr><th className="px-8 py-5">Vendor Details</th><th className="px-8 py-5">Contact Person</th><th className="px-8 py-5 text-right">Procurement Volume</th><th className="px-8 py-5 text-right">Status</th><th className="px-8 py-5 text-right">Management</th></tr>
+                                <tr>
+                                    <th className="px-8 py-5 w-16 text-center">S.No</th>
+                                    <th className="px-8 py-5">Vendor Details</th>
+                                    <th className="px-8 py-5">Contact Person</th>
+                                    <th className="px-8 py-5 text-right">Procurement Volume</th>
+                                    <th className="px-8 py-5 text-right">Status</th>
+                                    <th className="px-8 py-5 text-right">Management</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {filteredVendors.map(v => (
+                                {filteredVendors.map((v, idx) => (
                                     <tr key={v.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { setVendor(v); setEditingId(v.id); setViewState('builder'); setBuilderMode('edit'); }}>
+                                        <td className="px-8 py-6 font-black text-slate-400 text-center w-16">{idx + 1}</td>
                                         <td className="px-8 py-6"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-400 uppercase text-[14px]">{v.name.charAt(0)}</div><div><div className="font-black text-slate-800 uppercase text-[13px] tracking-tight">{v.name}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{v.id}</div></div></div></td>
                                         <td className="px-8 py-6"><div className="flex flex-col gap-1"><span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100 w-fit">{v.contactPerson || 'General Supplier'}</span><div className="text-[9px] text-slate-400 font-bold flex items-center gap-1"><MapPin size={10} /> {v.address.slice(0, 40)}...</div></div></td>
-                                        <td className="px-8 py-6 text-right font-black text-indigo-700 text-[14px]">₹{formatIndianNumber(getVendorProcurementValue(v.name))}</td>
+                                        <td className="px-8 py-6 text-right font-black text-indigo-700 text-[14px]">₹{formatIndianNumber(v.procurementVolume ?? 0)}</td>
                                         <td className="px-8 py-6 text-right"><span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border ${v.status === 'Draft' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>{v.status || 'Finalized'}</span></td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="flex justify-end items-center gap-4 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
@@ -163,7 +172,7 @@ export const VendorModule: React.FC = () => {
                                     </tr>
                                 ))}
                                 {filteredVendors.length === 0 && (
-                                    <tr><td colSpan={5} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Suppliers Indexed</td></tr>
+                                    <tr><td colSpan={6} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Suppliers Indexed</td></tr>
                                 )}
                             </tbody>
                         </table>
