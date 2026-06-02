@@ -103,7 +103,7 @@ export const PurchaseOrderModule: React.FC = () => {
         }
     };
 
-    const handleAddItem = (prod?: any) => {
+    const handleAddItem = (prod?: any, index?: number) => {
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
@@ -115,7 +115,11 @@ export const PurchaseOrderModule: React.FC = () => {
             gstValue: (prod?.sellingPrice || 0) * ((prod?.taxRate || 18) / 100),
             priceWithGst: (prod?.sellingPrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
         };
-        setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
+        setOrder(prev => {
+            const current = prev.items || [];
+            const idx = index ?? current.length;
+            return { ...prev, items: [...current.slice(0, idx), newItem, ...current.slice(idx)] };
+        });
         if (builderTab === 'catalog') setBuilderTab('form');
     };
 
@@ -448,55 +452,69 @@ export const PurchaseOrderModule: React.FC = () => {
                                     </section>
 
                                     <section className="space-y-4">
-                                        <div className="flex justify-between items-center border-b pb-1">
+                                        <div className="border-b pb-1">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
                                                 <ListIcon size={14} className="text-medical-500" />
                                                 3. Order Manifest
                                             </h3>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setBuilderTab('catalog')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Catalog</button>
-                                                <button onClick={() => handleAddItem()} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
-                                            </div>
                                         </div>
                                         <div className="space-y-3 pb-4">
-                                            {order.items?.map((item, idx) => (
-                                                <div key={item.id} className="group p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
-                                                    <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="absolute -top-2 -right-2 bg-white text-rose-400 hover:text-rose-600 p-2 rounded-full shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"><Trash2 size={14}/></button>
-                                                    <div className="sm:col-span-6">
-                                                        <FormRow label={`Item #${idx + 1}`}>
-                                                            <AutoSuggest
-                                                                value={item.description || ''}
-                                                                onChange={(val) => updateItem(item.id, 'description', val)}
-                                                                onSelect={(prod) => {
-                                                                    updateItem(item.id, 'description', prod.name);
-                                                                    updateItem(item.id, 'unitPrice', prod.sellingPrice || 0);
-                                                                    updateItem(item.id, 'taxRate', prod.taxRate || 18);
-                                                                    updateItem(item.id, 'hsn', prod.hsn || '');
-                                                                }}
-                                                                suggestions={products}
-                                                                filterKey="name"
-                                                                placeholder="Search product..."
-                                                                className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none"
-                                                            />
-                                                        </FormRow>
+                                            {(order.items?.length ?? 0) > 0 ? order.items.map((item, idx) => (
+                                                <div key={item.id} className="group space-y-3">
+                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
+                                                        <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="absolute -top-2 -right-2 bg-white text-rose-400 hover:text-rose-600 p-2 rounded-full shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"><Trash2 size={14}/></button>
+                                                        <div className="sm:col-span-4">
+                                                            <FormRow label={`Item #${idx + 1}`}>
+                                                                <AutoSuggest
+                                                                    value={item.description || ''}
+                                                                    onChange={(val) => updateItem(item.id, 'description', val)}
+                                                                    onSelect={(prod) => {
+                                                                        updateItem(item.id, 'description', prod.name);
+                                                                        updateItem(item.id, 'unitPrice', prod.sellingPrice || 0);
+                                                                        updateItem(item.id, 'taxRate', prod.taxRate || 18);
+                                                                        updateItem(item.id, 'hsn', prod.hsn || '');
+                                                                    }}
+                                                                    suggestions={products}
+                                                                    filterKey="name"
+                                                                    placeholder="Search product..."
+                                                                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none"
+                                                                />
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="Qty">
+                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-center font-black text-sm outline-none" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="Unit Rate">
+                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right font-black text-sm outline-none" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="GST %">
+                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-center font-black text-sm outline-none" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="Subtotal (₹)">
+                                                                <div className="h-[42px] flex items-center justify-end px-2 font-black text-medical-600 text-sm">₹{(item.amount || 0).toLocaleString('en-IN')}</div>
+                                                            </FormRow>
+                                                        </div>
                                                     </div>
-                                                    <div className="sm:col-span-2">
-                                                        <FormRow label="Qty">
-                                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-center font-black text-sm outline-none" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
-                                                        </FormRow>
-                                                    </div>
-                                                    <div className="sm:col-span-2">
-                                                        <FormRow label="Unit Rate">
-                                                            <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right font-black text-sm outline-none" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
-                                                        </FormRow>
-                                                    </div>
-                                                    <div className="sm:col-span-2">
-                                                        <FormRow label="Subtotal (₹)">
-                                                            <div className="h-[42px] flex items-center justify-end px-2 font-black text-medical-600 text-sm">₹{(item.amount || 0).toLocaleString('en-IN')}</div>
-                                                        </FormRow>
+                                                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100 shadow-sm">+ Catalog</button>
+                                                            <button onClick={() => handleAddItem(undefined, idx + 1)} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100 shadow-sm">+ Row</button>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )) : (
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Catalog</button>
+                                                    <button onClick={() => handleAddItem()} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
+                                                </div>
+                                            )}
                                         </div>
                                     </section>
 

@@ -137,7 +137,7 @@ export const ServiceReportModule: React.FC = () => {
         }));
     };
 
-    const handleAddItem = (prod?: any) => {
+    const handleAddItem = (prod?: any, index?: number) => {
         const newItem: ServiceReportItem = {
             id: `PART-${Date.now()}`,
             description: prod?.name || '',
@@ -145,7 +145,11 @@ export const ServiceReportModule: React.FC = () => {
             unitPrice: prod?.sellingPrice || 0,
             amount: prod?.sellingPrice || 0
         };
-        setReport(prev => ({ ...prev, itemsUsed: [...(prev.itemsUsed || []), newItem] }));
+        setReport(prev => {
+            const current = prev.itemsUsed || [];
+            const idx = index ?? current.length;
+            return { ...prev, itemsUsed: [...current.slice(0, idx), newItem, ...current.slice(idx)] };
+        });
         if (builderTab === 'catalog') setBuilderTab('form');
     };
 
@@ -504,60 +508,69 @@ export const ServiceReportModule: React.FC = () => {
                                         </div>
                                     </section>
 
-                                    <section className="space-y-4">
-                                        <div className="flex justify-between items-center border-b pb-1">
+                                    <section className="space-y-2">
+                                        <div className="border-b pb-1">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
                                                 <Wrench size={14} className="text-medical-500" />
                                                 5. Spares Manifest
                                             </h3>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setBuilderTab('catalog')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Store</button>
-                                                <button onClick={() => handleAddItem()} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
-                                            </div>
                                         </div>
                                         <div className="space-y-3 pb-4">
-                                            {report.itemsUsed?.map((item, idx) => (
-                                                <div key={item.id} className="group relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-medical-500 group-hover:text-white transition-all shrink-0 shadow-sm">
-                                                        {idx + 1}
+                                            {(report.itemsUsed?.length ?? 0) > 0 ? report.itemsUsed.map((item, idx) => (
+                                                <div key={item.id} className="group space-y-3">
+                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                        <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 w-full">
+                                                            <AutoSuggest
+                                                                value={item.description || ''}
+                                                                onChange={(val) => updateItem(item.id, 'description', val)}
+                                                                onSelect={(prod) => {
+                                                                    updateItem(item.id, 'description', prod.name);
+                                                                    updateItem(item.id, 'unitPrice', prod.sellingPrice || 0);
+                                                                }}
+                                                                suggestions={products}
+                                                                filterKey="name"
+                                                                className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
+                                                                placeholder="Select Spare..."
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
+                                                            <input 
+                                                                type="number"
+                                                                value={item.quantity || ''}
+                                                                onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
+                                                                className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm"
+                                                            />
+                                                            <span className="text-[9px] font-black text-slate-300">×</span>
+                                                            <input 
+                                                                type="number"
+                                                                value={item.unitPrice || ''}
+                                                                onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
+                                                                className="w-24 bg-transparent font-black text-slate-700 outline-none text-sm"
+                                                            />
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => setReport(prev => ({ ...prev, itemsUsed: prev.itemsUsed?.filter(it => it.id !== item.id) }))}
+                                                            className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all self-end sm:self-center opacity-0 group-hover:opacity-100"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
-                                                    <div className="flex-1 min-w-0 w-full">
-                                                        <AutoSuggest
-                                                            value={item.description || ''}
-                                                            onChange={(val) => updateItem(item.id, 'description', val)}
-                                                            onSelect={(prod) => {
-                                                                updateItem(item.id, 'description', prod.name);
-                                                                updateItem(item.id, 'unitPrice', prod.sellingPrice || 0);
-                                                            }}
-                                                            suggestions={products}
-                                                            filterKey="name"
-                                                            className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
-                                                            placeholder="Select Spare..."
-                                                        />
+                                                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setBuilderTab('catalog')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Store</button>
+                                                            <button onClick={() => handleAddItem(undefined, idx + 1)} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
-                                                        <input 
-                                                            type="number"
-                                                            value={item.quantity || ''}
-                                                            onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                                                            className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm"
-                                                        />
-                                                        <span className="text-[9px] font-black text-slate-300">×</span>
-                                                        <input 
-                                                            type="number"
-                                                            value={item.unitPrice || ''}
-                                                            onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))}
-                                                            className="w-24 bg-transparent font-black text-slate-700 outline-none text-sm"
-                                                        />
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => setReport(prev => ({ ...prev, itemsUsed: prev.itemsUsed?.filter(it => it.id !== item.id) }))}
-                                                        className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all self-end sm:self-center"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
                                                 </div>
-                                            ))}
+                                            )) : (
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setBuilderTab('catalog')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Store</button>
+                                                    <button onClick={() => handleAddItem()} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
+                                                </div>
+                                            )}
                                         </div>
                                     </section>
 

@@ -83,6 +83,9 @@ export const CatalogModule: React.FC = () => {
                                     <div>
                                         <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">{product.name}</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{product.model || 'Standard Model'}</p>
+                                        {product.description && (
+                                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2 leading-relaxed line-clamp-3">{product.description}</p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -126,8 +129,8 @@ export const CatalogModule: React.FC = () => {
                         {/* List Items */}
                         {filteredProducts.map(product => (
                             <div key={product.id} className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 p-4 md:px-8 md:py-6 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all flex flex-col md:flex-row md:items-center gap-4 group">
-                                <div className="flex md:flex-[2] items-center gap-4">
-                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform"><Layers size={20} /></div>
+                                <div className="flex md:flex-[2] items-start gap-4">
+                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform shrink-0"><Layers size={20} /></div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-[11px] md:text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight line-clamp-2">{product.name}</p>
                                         <div className="flex items-center gap-2 mt-1.5 overflow-hidden">
@@ -135,6 +138,9 @@ export const CatalogModule: React.FC = () => {
                                             <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
                                             <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest truncate">{product.sku}</span>
                                         </div>
+                                        {product.description && (
+                                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2 leading-relaxed line-clamp-2">{product.description}</p>
+                                        )}
                                     </div>
                                 </div>
 

@@ -120,7 +120,7 @@ export const ServiceOrderModule: React.FC = () => {
         }
     };
 
-    const handleAddItem = (prod?: Product) => {
+    const handleAddItem = (prod?: Product, index?: number) => {
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
@@ -132,7 +132,11 @@ export const ServiceOrderModule: React.FC = () => {
             gstValue: (prod?.sellingPrice || 0) * ((prod?.taxRate || 18) / 100),
             priceWithGst: (prod?.sellingPrice || 0) * (1 + ((prod?.taxRate || 18) / 100))
         };
-        setOrder(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
+        setOrder(prev => {
+            const current = prev.items || [];
+            const idx = index ?? current.length;
+            return { ...prev, items: [...current.slice(0, idx), newItem, ...current.slice(idx)] };
+        });
         if (builderTab === 'spares') setBuilderTab('form');
     };
 
@@ -443,58 +447,67 @@ export const ServiceOrderModule: React.FC = () => {
                                         </div>
                                     </section>
 
-                                    <section className="space-y-4">
-                                        <div className="flex justify-between items-center border-b pb-1">
+                                    <section className="space-y-2">
+                                        <div className="border-b pb-1">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">4. Spares & Service Manifest</h3>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setBuilderTab('spares')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Inventory</button>
-                                                <button onClick={() => handleAddItem()} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
-                                            </div>
                                         </div>
                                         <div className="space-y-3 pb-24">
-                                            {order.items?.map((item, idx) => (
-                                                <div key={item.id} className="group relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-medical-500 group-hover:text-white transition-all shrink-0 shadow-sm">{idx + 1}</div>
-                                                    <div className="flex-1 min-w-0 w-full">
-                                                        <AutoSuggest
-                                                            value={item.description || ''}
-                                                            onChange={(val) => updateItem(item.id, 'description', val)}
-                                                            onSelect={(prod) => {
-                                                                setOrder(prev => {
-                                                                    const updatedItems = (prev.items || []).map(it => {
-                                                                        if (it.id === item.id) {
-                                                                            return {
-                                                                                ...it,
-                                                                                description: prod.name,
-                                                                                unitPrice: prod.sellingPrice || 0,
-                                                                                taxRate: prod.taxRate || 18,
-                                                                                hsn: prod.hsn || '',
-                                                                                amount: it.quantity * (prod.sellingPrice || 0)
-                                                                            };
-                                                                        }
-                                                                        return it;
+                                            {(order.items?.length ?? 0) > 0 ? order.items.map((item, idx) => (
+                                                <div key={item.id} className="group space-y-3">
+                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                        <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">{idx + 1}</div>
+                                                        <div className="flex-1 min-w-0 w-full">
+                                                            <AutoSuggest
+                                                                value={item.description || ''}
+                                                                onChange={(val) => updateItem(item.id, 'description', val)}
+                                                                onSelect={(prod) => {
+                                                                    setOrder(prev => {
+                                                                        const updatedItems = (prev.items || []).map(it => {
+                                                                            if (it.id === item.id) {
+                                                                                return {
+                                                                                    ...it,
+                                                                                    description: prod.name,
+                                                                                    unitPrice: prod.sellingPrice || 0,
+                                                                                    taxRate: prod.taxRate || 18,
+                                                                                    hsn: prod.hsn || '',
+                                                                                    amount: it.quantity * (prod.sellingPrice || 0)
+                                                                                };
+                                                                            }
+                                                                            return it;
+                                                                        });
+                                                                        return { ...prev, items: updatedItems };
                                                                     });
-                                                                    return { ...prev, items: updatedItems };
-                                                                });
-                                                            }}
-                                                            suggestions={products}
-                                                            filterKey="name"
-                                                            className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
-                                                            placeholder="Select Part / Service..."
-                                                        />
+                                                                }}
+                                                                suggestions={products}
+                                                                filterKey="name"
+                                                                className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
+                                                                placeholder="Select Part / Service..."
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
+                                                            <input type="number" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm" />
+                                                            <span className="text-[9px] font-black text-slate-300">×</span>
+                                                            <input type="number" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} className="w-20 bg-transparent font-black text-slate-700 outline-none text-sm" />
+                                                            <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                                                                <input type="number" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} className="w-8 bg-transparent text-center font-black text-emerald-600 outline-none text-xs" />
+                                                                <span className="text-[9px] font-black text-slate-400">%</span>
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16} /></button>
                                                     </div>
-                                                    <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
-                                                        <input type="number" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} className="w-10 bg-transparent text-center font-black text-medical-600 outline-none text-sm" />
-                                                        <span className="text-[9px] font-black text-slate-300">×</span>
-                                                        <input type="number" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} className="w-20 bg-transparent font-black text-slate-700 outline-none text-sm" />
-                                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-                                                            <input type="number" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} className="w-8 bg-transparent text-center font-black text-emerald-600 outline-none text-xs" />
-                                                            <span className="text-[9px] font-black text-slate-400">%</span>
+                                                    <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setBuilderTab('spares')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Inventory</button>
+                                                            <button onClick={() => handleAddItem(undefined, idx + 1)} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
                                                         </div>
                                                     </div>
-                                                    <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all"><Trash2 size={16} /></button>
                                                 </div>
-                                            ))}
+                                            )) : (
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setBuilderTab('spares')} className="px-3 py-1 bg-teal-50 text-teal-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Inventory</button>
+                                                    <button onClick={() => handleAddItem()} className="px-3 py-1 bg-medical-50 text-medical-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
+                                                </div>
+                                            )}
                                         </div>
                                     </section>
                                 </div>

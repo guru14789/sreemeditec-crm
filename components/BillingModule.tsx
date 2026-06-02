@@ -230,20 +230,24 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         }
     };
 
-    const handleAddItem = (prod?: any) => {
+    const handleAddItem = (prod?: any, index?: number) => {
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             features: prod?.description || '',
             quantity: 1,
-            unitPrice: prod?.sellingPrice || 0, // USE sellingPrice for outward Invoice
+            unitPrice: prod?.sellingPrice || 0,
             taxRate: prod?.taxRate || 18,
             amount: prod?.sellingPrice || 0,
             gstValue: (prod?.sellingPrice || 0) * 0.18,
             priceWithGst: (prod?.sellingPrice || 0) * 1.18
         };
-        setInvoice(prev => ({ ...prev, items: [...(prev.items || []), newItem] }));
+        setInvoice(prev => {
+            const current = prev.items || [];
+            const idx = index ?? current.length;
+            return { ...prev, items: [...current.slice(0, idx), newItem, ...current.slice(idx)] };
+        });
     };
 
     const updateItem = (id: string, field: keyof InvoiceItem, value: any) => {
@@ -600,46 +604,55 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                     </div>
                                 </section>
 
-                                <section className="space-y-6">
-                                    <div className="flex justify-between items-center border-b border-slate-300 pb-2">
+                                <section className="space-y-2">
+                                    <div className="border-b border-slate-300 pb-2">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">3. Manifest Items</h3>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setBuilderTab('catalog')} className="text-[9px] font-black text-teal-600 bg-teal-50 px-4 py-2 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all uppercase tracking-widest">+ Store</button>
-                                            <button onClick={() => handleAddItem()} className="text-[9px] font-black text-medical-600 bg-medical-50 px-4 py-2 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all uppercase tracking-widest">+ Custom Row</button>
-                                        </div>
                                     </div>
-                                    <div className="space-y-4">
-                                        {invoice.items?.map((item) => (
-                                            <div key={item.id} className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative group hover:bg-white hover:border-medical-200 transition-all">
-                                                <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
-                                                <div className="grid grid-cols-12 gap-6">
-                                                    <div className="col-span-12 md:col-span-5">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                                                        <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                                    <div className="space-y-3">
+                                        {(invoice.items?.length ?? 0) > 0 ? invoice.items.map((item, idx) => (
+                                            <div key={item.id} className="group space-y-3">
+                                                <div className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative hover:bg-white hover:border-medical-200 transition-all">
+                                                    <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
+                                                    <div className="grid grid-cols-12 gap-6">
+                                                        <div className="col-span-12 md:col-span-5">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
+                                                            <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black" placeholder="Item Name" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-4 md:col-span-2">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
+                                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-3 md:col-span-1">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
+                                                            <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-3 md:col-span-2">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
+                                                            <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-2 md:col-span-2">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
+                                                            <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-12">
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
+                                                            <textarea rows={2} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-[11px] font-bold outline-none resize-none" placeholder="Detailed specifications..." value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} />
+                                                        </div>
                                                     </div>
-                                                    <div className="col-span-4 md:col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
-                                                        <input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
-                                                    </div>
-                                                    <div className="col-span-3 md:col-span-1">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
-                                                    </div>
-                                                    <div className="col-span-3 md:col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
-                                                    </div>
-                                                    <div className="col-span-2 md:col-span-2">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
-                                                        <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-center" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
-                                                    </div>
-                                                    <div className="col-span-12">
-                                                        <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
-                                                        <textarea rows={2} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-[11px] font-bold outline-none resize-none" placeholder="Detailed specifications..." value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} />
+                                                </div>
+                                                <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setBuilderTab('catalog')} className="text-[9px] font-black text-teal-600 bg-teal-50 px-4 py-2 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all uppercase tracking-widest">+ Store</button>
+                                                        <button onClick={() => handleAddItem(undefined, idx + 1)} className="text-[9px] font-black text-medical-600 bg-medical-50 px-4 py-2 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all uppercase tracking-widest">+ Custom Row</button>
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setBuilderTab('catalog')} className="text-[9px] font-black text-teal-600 bg-teal-50 px-4 py-2 rounded-lg border border-teal-100 hover:bg-teal-100 transition-all uppercase tracking-widest">+ Store</button>
+                                                <button onClick={() => handleAddItem()} className="text-[9px] font-black text-medical-600 bg-medical-50 px-4 py-2 rounded-lg border border-medical-100 hover:bg-medical-100 transition-all uppercase tracking-widest">+ Custom Row</button>
+                                            </div>
+                                        )}
 
                                         <div className="p-6 bg-medical-50/30 border border-medical-200 rounded-[1.5rem] mt-6">
                                             <div className="grid grid-cols-12 gap-6 items-center">
