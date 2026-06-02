@@ -348,8 +348,8 @@ export const ServiceOrderModule: React.FC = () => {
                                         <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{inv.equipmentName} ({inv.model})</td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="relative flex justify-end">
+                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>

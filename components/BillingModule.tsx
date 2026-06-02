@@ -188,7 +188,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
             subtotal: invTotals.taxableValue,
             taxTotal: invTotals.taxTotal,
             grandTotal: invTotals.grandTotal,
-            status: status === 'Draft' ? 'Draft' : 'Pending',
+            status: status === 'Draft' ? 'Draft' : (invTotals.grandTotal - (Number(invoice.paidAmount) || 0) <= 0 ? 'Completed' : 'Pending'),
             documentType: variant === 'billing' ? 'Invoice' : 'Quotation',
             createdBy: currentUser?.name || 'System'
         };
@@ -299,7 +299,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                         <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
                         <p className="text-lg font-black text-emerald-900 leading-none tabular-nums">
                             ₹{invoices
-                                .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status !== 'Cancelled')
+                                .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status === 'Pending')
                                 .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0)
                                 .toLocaleString()}
                         </p>
@@ -381,8 +381,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 defaultValue={inv.paidAmount || 0}
                                                 onBlur={(e) => {
                                                     const val = Number(e.target.value);
-                                                    if (val !== inv.paidAmount) {
-                                                        updateInvoice(inv.id, { paidAmount: val });
+                                                    const balance = (inv.grandTotal || 0) - val;
+                                                    const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
+                                                        ? (balance <= 0 ? 'Completed' : 'Pending')
+                                                        : inv.status;
+                                                    
+                                                    if (val !== inv.paidAmount || expectedStatus !== inv.status) {
+                                                        updateInvoice(inv.id, { paidAmount: val, status: expectedStatus });
                                                         addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to ₹${val}`, 'success');
                                                     }
                                                 }}
@@ -392,16 +397,23 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                                inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                                                inv.status === 'Cancelled' ? 'bg-rose-100 text-rose-700 border-rose-200' : 
-                                                inv.status === 'Draft' ? 'bg-slate-100 text-slate-500 border-slate-200' :
-                                                'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
-                                                {inv.status || 'Pending'}
-                                            </span>
+                                            {(() => {
+                                                const displayStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
+                                                    ? (((inv.grandTotal || 0) - (inv.paidAmount || 0) <= 0) ? 'Completed' : 'Pending')
+                                                    : (inv.status || 'Pending');
+                                                return (
+                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                        (displayStatus === 'Paid' || displayStatus === 'Completed') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                                                        displayStatus === 'Cancelled' ? 'bg-rose-100 text-rose-700 border-rose-200' : 
+                                                        displayStatus === 'Draft' ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                                                        'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+                                                        {displayStatus}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="relative flex justify-end">
+                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button 
                                                     onClick={(e) => { 
                                                         e.stopPropagation(); 
@@ -433,7 +445,8 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                                 onClick={(e) => { 
                                                                     e.stopPropagation(); 
                                                                     if(confirm('Restore this invoice? it will be re-added to calculations.')) {
-                                                                        updateInvoice(inv.id, { status: 'Paid' });
+                                                                        const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
+                                                                        updateInvoice(inv.id, { status: balance <= 0 ? 'Completed' : 'Pending' });
                                                                     }
                                                                     setActiveMenuId(null); 
                                                                 }} 

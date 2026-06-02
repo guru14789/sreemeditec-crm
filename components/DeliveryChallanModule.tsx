@@ -214,8 +214,8 @@ export const DeliveryChallanModule: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{c.status}</span></td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="relative flex justify-end">
+                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className={`relative flex justify-end ${activeMenuId === c.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === c.id ? null : c.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === c.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>

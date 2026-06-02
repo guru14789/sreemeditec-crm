@@ -905,8 +905,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (existing.documentType === 'Invoice') {
             const newStatus = u.status || existing.status;
 
-            // Invoice marked as Paid → auto-post Receipt voucher
-            if (u.status === 'Paid' && existing.status !== 'Paid') {
+            // Invoice marked as Paid or Completed → auto-post Receipt voucher
+            if ((u.status === 'Paid' || u.status === 'Completed') && existing.status !== 'Paid' && existing.status !== 'Completed') {
                 try {
                     const debtorId = await ensurePartyLedger(existing.customerName, 'GRP-DEBTORS', { gstin: existing.customerGstin, email: existing.email, phone: existing.phone });
                     const bankLdg = ledgers.find(l => l.id === 'LDG-BANK') || ledgers.find(l => l.id === 'LDG-CASH');
@@ -1343,7 +1343,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const newBalance = Math.max(0, currentBalance - settlement.amount);
                     await updateDoc(doc(db, "invoices", inv.id), {
                         balanceDue: newBalance,
-                        status: newBalance <= 0 ? 'Paid' : inv.status
+                        status: newBalance <= 0 ? 'Completed' : inv.status
                     });
                 }
             }

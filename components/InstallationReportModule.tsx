@@ -219,8 +219,8 @@ export const InstallationReportModule: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 font-bold uppercase text-[10px] truncate max-w-[150px]">{r.installationOf}</td>
                                         <td className="px-6 py-4 text-center font-bold text-slate-400">{formatDateDDMMYYYY(r.date)}</td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="relative flex justify-end">
+                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className={`relative flex justify-end ${activeMenuId === r.id! ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === r.id! ? null : r.id!); }} className={`p-2 rounded-xl transition-all ${activeMenuId === r.id! ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>

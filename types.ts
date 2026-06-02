@@ -293,7 +293,7 @@ export interface Invoice {
   invoiceNumber: string;
   date: string;
   items: InvoiceItem[];
-  status: 'Pending' | 'Paid' | 'Draft' | 'Finalized' | 'Cancelled';
+  status: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
   customerName: string;
   customerHospital?: string;
   customerAddress?: string;
