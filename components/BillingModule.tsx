@@ -4,7 +4,7 @@ import {
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
     History, MoreVertical, XCircle, RotateCcw, Wallet,
-    ChevronDown, ArrowUpRight
+    ChevronDown, ArrowUpRight, CheckCheck
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -376,24 +376,40 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
                                         <td className="px-6 py-4">
-                                            <input 
-                                                type="number"
-                                                defaultValue={inv.paidAmount || 0}
-                                                onBlur={(e) => {
-                                                    const val = Number(e.target.value);
-                                                    const balance = (inv.grandTotal || 0) - val;
-                                                    const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
-                                                        ? (balance <= 0 ? 'Completed' : 'Pending')
-                                                        : inv.status;
-                                                    
-                                                    if (val !== inv.paidAmount || expectedStatus !== inv.status) {
-                                                        updateInvoice(inv.id, { paidAmount: val, status: expectedStatus });
-                                                        addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to ₹${val}`, 'success');
-                                                    }
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="w-20 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-right outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                                            />
+                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <input 
+                                                    type="number"
+                                                    key={`${inv.id}-${inv.paidAmount}`}
+                                                    defaultValue={inv.paidAmount || 0}
+                                                    onBlur={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        const balance = (inv.grandTotal || 0) - val;
+                                                        const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
+                                                            ? (balance <= 0 ? 'Completed' : 'Pending')
+                                                            : inv.status;
+                                                        
+                                                        if (val !== inv.paidAmount || expectedStatus !== inv.status) {
+                                                            updateInvoice(inv.id, { paidAmount: val, status: expectedStatus });
+                                                            addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to ₹${val}`, 'success');
+                                                        }
+                                                    }}
+                                                    className="w-20 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-right outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                                />
+                                                <button 
+                                                    onClick={() => {
+                                                        const total = inv.grandTotal || 0;
+                                                        if ((inv.paidAmount || 0) !== total) {
+                                                            const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled') ? 'Completed' : inv.status;
+                                                            updateInvoice(inv.id, { paidAmount: total, status: expectedStatus });
+                                                            addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to full amount ₹${total}`, 'success');
+                                                        }
+                                                    }}
+                                                    title="Copy Grand Total"
+                                                    className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+                                                >
+                                                    <CheckCheck size={12} />
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString()}</td>
                                         <td className="px-6 py-4 text-center">
@@ -537,7 +553,19 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                             </select>
                                         </FormRow>
                                         <FormRow label="Destination"><input type="text" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold" value={invoice.specialNote || ''} onChange={e => setInvoice({...invoice, specialNote: e.target.value})} /></FormRow>
-                                        <FormRow label="Paid Amount"><input type="number" className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/5 transition-all text-center" value={invoice.paidAmount || 0} onChange={e => setInvoice({...invoice, paidAmount: Number(e.target.value)})} /></FormRow>
+                                        <FormRow label="Paid Amount">
+                                             <div className="flex gap-1">
+                                                 <input type="number" className="flex-1 h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/5 transition-all text-center outline-none" value={invoice.paidAmount || 0} onChange={e => setInvoice({...invoice, paidAmount: Number(e.target.value)})} />
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => setInvoice({...invoice, paidAmount: Number(totals.grandTotal || 0)})}
+                                                     title="Copy Grand Total"
+                                                     className="px-3 h-[46px] bg-slate-50 border border-slate-300 hover:bg-emerald-50 hover:text-emerald-600 text-slate-400 rounded-xl flex items-center justify-center transition-all shrink-0"
+                                                 >
+                                                     <CheckCheck size={16} />
+                                                 </button>
+                                             </div>
+                                         </FormRow>
                                         <FormRow label="Seller Profile">
                                             <select 
                                                 className="w-full h-[46px] bg-white border border-medical-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
