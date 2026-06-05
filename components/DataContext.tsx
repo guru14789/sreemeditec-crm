@@ -905,7 +905,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
                     if (existingProdIndex !== -1) {
                         const existingProd = currentProducts[existingProdIndex];
-                        const newStock = (existingProd.stock || 0) + item.qty;
+                        const newStock = Number(existingProd.stock || 0) + item.qty;
                         const updatedProduct = { ...existingProd, stock: newStock };
                         currentProducts[existingProdIndex] = updatedProduct;
 
@@ -934,7 +934,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 if (existingProdIndex !== -1) {
                     const existingProd = currentProducts[existingProdIndex];
-                    const newStock = Math.max(0, (existingProd.stock || 0) - item.qty);
+                    const newStock = Math.max(0, Number(existingProd.stock || 0) - item.qty);
                     const updatedProduct = { ...existingProd, stock: newStock };
                     currentProducts[existingProdIndex] = updatedProduct;
 
@@ -1328,7 +1328,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
                     if (existingProdIndex !== -1) {
                         const existingProd = currentProducts[existingProdIndex];
-                        const newStock = Math.max(0, (existingProd.stock || 0) - item.qty);
+                        const newStock = Math.max(0, Number(existingProd.stock || 0) - item.qty);
                         const updatedProduct = { ...existingProd, stock: newStock };
                         currentProducts[existingProdIndex] = updatedProduct;
 
@@ -1357,7 +1357,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 if (existingProdIndex !== -1) {
                     const existingProd = currentProducts[existingProdIndex];
-                    const newStock = (existingProd.stock || 0) + item.qty;
+                    const newStock = Number(existingProd.stock || 0) + item.qty;
                     const updatedProduct = {
                         ...existingProd,
                         stock: newStock,
