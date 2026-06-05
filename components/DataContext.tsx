@@ -1193,6 +1193,103 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await updateVendorProcurementVolume(r.supplier);
         }
 
+        // Automatically sync with Inventory stock
+        try {
+            interface PurchaseItemDetails {
+                name: string;
+                qty: number;
+                rate: number;
+                unit: string;
+                gstPercent: number;
+            }
+
+            const purchasedItems: PurchaseItemDetails[] = [];
+            if (r.items && r.items.length > 0) {
+                r.items.forEach(item => {
+                    purchasedItems.push({
+                        name: item.equipmentName || '',
+                        qty: Number(item.qty) || 0,
+                        rate: Number(item.rate) || 0,
+                        unit: item.unit || 'nos',
+                        gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                    });
+                });
+            } else if (r.equipmentName) {
+                purchasedItems.push({
+                    name: r.equipmentName,
+                    qty: Number(r.qty) || 0,
+                    rate: Number(r.rate) || 0,
+                    unit: r.unit || 'nos',
+                    gstPercent: Number(r.gstPercent || (r.cgstPercent || 0) + (r.sgstPercent || 0) + (r.igstPercent || 0) || 0)
+                });
+            }
+
+            for (const item of purchasedItems) {
+                if (!item.name) continue;
+                
+                // Find existing product in local state (case-insensitive, trimmed)
+                const existingProd = products.find(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+                const dateSupply = r.dateSupply || new Date().toISOString().split('T')[0];
+
+                if (existingProd) {
+                    // Update existing product stock quantity, purchasePrice and supplier
+                    const newStock = (existingProd.stock || 0) + item.qty;
+                    await updateProduct(existingProd.id, {
+                        stock: newStock,
+                        purchasePrice: item.rate,
+                        lastRestocked: dateSupply,
+                        supplier: r.supplier || existingProd.supplier
+                    });
+
+                    // Record Stock Movement
+                    await recordStockMovement({
+                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: existingProd.id,
+                        productName: existingProd.name,
+                        type: 'In',
+                        quantity: item.qty,
+                        date: dateSupply,
+                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        purpose: 'Restock'
+                    });
+                } else {
+                    // Create new Product and add to database
+                    const newProdId = `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                    const newProd: Product = {
+                        id: newProdId,
+                        name: item.name.toUpperCase(),
+                        category: 'Equipment', // Default core category
+                        sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                        stock: item.qty,
+                        unit: item.unit,
+                        purchasePrice: item.rate,
+                        sellingPrice: item.rate, // Default sellingPrice to cost
+                        minLevel: 5,
+                        location: 'Warehouse',
+                        supplier: r.supplier || '',
+                        lastRestocked: dateSupply,
+                        taxRate: item.gstPercent,
+                        hsn: ''
+                    };
+                    await addProduct(newProd);
+
+                    // Record Stock Movement
+                    await recordStockMovement({
+                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: newProdId,
+                        productName: newProd.name,
+                        type: 'In',
+                        quantity: item.qty,
+                        date: dateSupply,
+                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        purpose: 'Restock'
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Failed to automatically synchronize purchase entry with inventory:", err);
+        }
+
         // Event-driven accounting: auto-post Purchase voucher
         try {
             const total = r.total || 0;
