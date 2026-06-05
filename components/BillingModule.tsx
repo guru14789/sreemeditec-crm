@@ -62,7 +62,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [] } = useData();
 
     const handleDelete = async (id: string, num: string) => {
         if (!confirm(`Are you sure you want to PERMANENTLY delete document ${num}? This action cannot be undone.`)) return;
@@ -116,6 +116,18 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
     }, [viewState, editingId, invoices, financialYear, invoice.invoiceNumber]);
 
     useEffect(() => {
+        if (viewState === 'builder' && !editingId && !invoice.selectedBank && bankDetailsList && bankDetailsList.length > 0) {
+            const defaultBank = bankDetailsList.find(b => b.isDefault);
+            if (defaultBank) {
+                setInvoice(prev => ({
+                    ...prev,
+                    selectedBank: defaultBank
+                }));
+            }
+        }
+    }, [viewState, editingId, bankDetailsList, invoice.selectedBank]);
+
+    useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);
         window.addEventListener('click', handleGlobalClick);
         return () => window.removeEventListener('click', handleGlobalClick);
@@ -151,7 +163,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         addLog('Billing', 'Downloaded PDF', `Exported document ${data.invoiceNumber || 'New'} as PDF`);
         try {
             const isQuotation = data.documentType === 'Quotation';
-            const blob = await PDFService.generateInvoicePDF(data, isQuotation);
+            const blob = await PDFService.generateInvoicePDF(data, isQuotation, data.selectedBank);
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -513,7 +525,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                             <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar bg-white">
                                 <section className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber || ''} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
                                         <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none font-bold" value={invoice.date || ''} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
                                         <FormRow label="Buyer Order #">
@@ -557,6 +569,21 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <option value="">Default (Sree Meditec)</option>
                                                 {companyProfiles.map(profile => (
                                                     <option key={profile.id} value={profile.id}>{profile.companyName}</option>
+                                                ))}
+                                            </select>
+                                        </FormRow>
+                                        <FormRow label="Select Bank">
+                                            <select 
+                                                className="w-full h-[46px] bg-white border border-medical-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                                value={invoice.selectedBank?.id || ''}
+                                                onChange={e => {
+                                                    const selected = bankDetailsList.find(b => b.id === e.target.value);
+                                                    setInvoice({ ...invoice, selectedBank: selected });
+                                                }}
+                                            >
+                                                <option value="">Default Bank</option>
+                                                {bankDetailsList.map(bank => (
+                                                    <option key={bank.id} value={bank.id}>{bank.bankName} ({bank.accountNo})</option>
                                                 ))}
                                             </select>
                                         </FormRow>
@@ -946,9 +973,9 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <div className="space-y-1 border-l border-black pl-4">
                                                     <p className="font-bold">Company's Bank Details</p>
                                                     <div className="grid grid-cols-[80px_1fr] text-[8px]">
-                                                        <span>Bank Name</span><span className="font-bold">: KVB Bank</span>
-                                                        <span>A/c No.</span><span className="font-bold">: 1617135000000754</span>
-                                                        <span>Branch & IFS Code</span><span className="font-bold">: Selaiyur & KVBL0001617</span>
+                                                        <span>Bank Name</span><span className="font-bold">: {invoice.selectedBank?.bankName || (invoice.documentType === 'Quotation' ? 'ICICI Bank' : 'KVB Bank')}</span>
+                                                        <span>A/c No.</span><span className="font-bold">: {invoice.selectedBank?.accountNo || (invoice.documentType === 'Quotation' ? '603705016939' : '1617135000000754')}</span>
+                                                        <span>Branch & IFS Code</span><span className="font-bold">: {invoice.selectedBank ? (invoice.selectedBank.branchIfsc || `${invoice.selectedBank.accountType || ''}`) : (invoice.documentType === 'Quotation' ? 'Selaiyur & ICIC0006037' : 'Selaiyur & KVBL0001617')}</span>
                                                     </div>
                                                 </div>
                                             </div>

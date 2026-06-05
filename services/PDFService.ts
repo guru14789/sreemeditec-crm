@@ -251,10 +251,10 @@ export const PDFService = {
         doc.text('Company\'s Bank Details', midX + 2, bottomY + 5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
-        const displayBank = bankDetails || BANK_DETAILS.icici;
+        const displayBank = bankDetails || data.selectedBank || (isQuotation ? BANK_DETAILS.icici : BANK_DETAILS.kvb);
         doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${displayBank.bankName}`, midX + 30, bottomY + 10);
         doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${displayBank.accountNo}`, midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank.branchIfsc || (displayBank as any).branch + ' & ' + (displayBank as any).ifsc}`, midX + 30, bottomY + 18);
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank.branchIfsc || ((displayBank as any).branch && (displayBank as any).ifsc ? (displayBank as any).branch + ' & ' + (displayBank as any).ifsc : '')}`, midX + 30, bottomY + 18);
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
@@ -363,11 +363,12 @@ export const PDFService = {
         doc.setFont('helvetica', 'bold');
         doc.text('Terms and condition:', 15, finalY);
         doc.setFont('helvetica', 'normal');
+        const displayBank = data.selectedBank || bankDetails || BANK_DETAILS.icici;
         const termsList = [
             ['Validity', `: The above price is valid up to 30 days from the date of submission of the Quotation.`],
             ['Taxes', `: GST is applicable to the price mentioned as per item-wise rates.`],
             ['Payment', `: ${data.paymentTerms}`],
-            ['Banking details', `: Bank name: ${bankDetails?.bankName || 'ICICI Bank'}, Branch & IFS Code: ${bankDetails?.branchIfsc || 'Selaiyur & ICIC0006037'},\n  A/C No: ${bankDetails?.accountNo || '603705016939'}, A/C name: Sreemeditec, A/C type: CA`],
+            ['Banking details', `: Bank name: ${displayBank.bankName}, Branch & IFS Code: ${displayBank.branchIfsc || ((displayBank as any).branch && (displayBank as any).ifsc ? (displayBank as any).branch + ' & ' + (displayBank as any).ifsc : 'Selaiyur & ICIC0006037')},\n  A/C No: ${displayBank.accountNo}, A/C name: Sreemeditec, A/C type: CA`],
             ['Delivery', `: ${data.deliveryTerms}`],
             ['Warranty', `: ${data.warrantyTerms}`]
         ];
