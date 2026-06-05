@@ -200,27 +200,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                 await addInvoice(finalData);
             }
 
-            if (status === 'Finalized') {
-                for (const item of finalData.items) {
-                    const product = products.find(p => p.name === item.description);
-                    if (product) {
-                        const newStock = Math.max(0, product.stock - item.quantity);
-                        await updateProduct(product.id, { stock: newStock });
-                        
-                        await recordStockMovement({
-                            id: `MOV-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                            productId: product.id,
-                            productName: product.name,
-                            type: 'Out',
-                            quantity: item.quantity,
-                            date: finalData.date,
-                            reference: finalData.invoiceNumber,
-                            purpose: 'Sale'
-                        });
-                    }
-                }
-            }
-
             setViewState('history');
             setEditingId(null);
             addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
