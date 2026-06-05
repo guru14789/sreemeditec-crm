@@ -31,7 +31,7 @@ const InlineInput: React.FC<{
 };
 
 export const InventoryModule: React.FC = () => {
-    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog, searchRecords } = useData();
+    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog, searchRecords, vendors } = useData();
     const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -754,7 +754,7 @@ export const InventoryModule: React.FC = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
-                                <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
+                                <input type="text" list="vendor-list" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
                             </div>
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Features</label>
@@ -823,7 +823,7 @@ export const InventoryModule: React.FC = () => {
                                     <span>₹{((newProduct.sellingPrice || 0) * (1 + (newProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
-                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
+                            <input type="text" list="vendor-list" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Features</label>
                                 <textarea className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none min-h-[80px]" placeholder="Describe features..." value={newProduct.description || ''} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} />
@@ -965,6 +965,13 @@ export const InventoryModule: React.FC = () => {
                     </div>
                 </div>
             )}
+            <datalist id="vendor-list">
+                {vendors.map(v => (
+                    <option key={v.id} value={v.name}>
+                        {v.gstin ? `GST: ${v.gstin}` : ''}
+                    </option>
+                ))}
+            </datalist>
         </div>
     );
 };

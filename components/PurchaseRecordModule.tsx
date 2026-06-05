@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem } from '../types';
-import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit } from 'lucide-react';
+import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
 import { useData } from './DataContext';
 
 const formatIndianNumber = (num: number) => {
@@ -34,7 +34,9 @@ export const PurchaseRecordModule: React.FC = () => {
         totalIgst: 0,
         total: 0,
         isRoundOff: true,
-        roundOff: 0
+        roundOff: 0,
+        paidAmount: 0,
+        status: 'Pending'
     };
 
     const INITIAL_ITEM_STATE: Partial<PurchaseItem> & { taxType?: 'Local' | 'Interstate' } = {
@@ -328,6 +330,10 @@ export const PurchaseRecordModule: React.FC = () => {
         // Re-calculate totals based on items to save
         const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
         
+        const paidAmount = Number(finalTotals.paidAmount) || 0;
+        const balance = (finalTotals.total || 0) - paidAmount;
+        const status = balance <= 0 ? 'Completed' : 'Pending';
+
         const record: PurchaseRecord = {
             id,
             dateSupply: finalTotals.dateSupply || '',
@@ -344,7 +350,9 @@ export const PurchaseRecordModule: React.FC = () => {
             total: Number(finalTotals.total) || 0,
             isRoundOff: finalTotals.isRoundOff,
             roundOff: finalTotals.roundOff,
-            createdBy: currentUser?.name
+            createdBy: currentUser?.name,
+            paidAmount,
+            status
         };
 
         if (editingId) {
@@ -407,8 +415,23 @@ export const PurchaseRecordModule: React.FC = () => {
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{purchaseRecords.length} Total Records</p>
                     </div>
                 </div>
-                <div className="flex flex-1 max-w-xl gap-2 w-full">
-                    <div className="relative flex-1">
+
+                <div className="bg-rose-50 border border-rose-200 rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 animate-in fade-in slide-in-from-right-4 shadow-sm">
+                    <div className="p-2 bg-rose-500 text-white rounded-xl shadow-md shadow-rose-500/20">
+                        <Wallet size={16} />
+                    </div>
+                    <div>
+                        <p className="text-[8px] font-black text-rose-600 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
+                        <p className="text-lg font-black text-rose-900 leading-none tabular-nums">
+                            ₹{purchaseRecords
+                                .reduce((sum, r) => sum + ((r.total || 0) - (r.paidAmount || 0)), 0)
+                                .toLocaleString()}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-1 max-w-xl gap-2 w-full md:justify-end">
+                    <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
@@ -436,49 +459,99 @@ export const PurchaseRecordModule: React.FC = () => {
                                 <th className="px-4 py-3">Date / Invoice</th>
                                 <th className="px-4 py-3">Supplier</th>
                                 <th className="px-4 py-3 text-right">Grand Total</th>
+                                <th className="px-4 py-3 text-center">Paid Amt</th>
+                                <th className="px-4 py-3 text-right">Balance</th>
+                                <th className="px-4 py-3 text-center">Status</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredRecords.map(record => (
-                                <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
-                                    <td className="px-4 py-3">
-                                        <div className="font-bold text-slate-700 leading-tight">{record.dateSupply}</div>
-                                        <div className="text-[9px] font-medium text-slate-400 mt-0.5">#{record.invoiceNo}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
-                                        <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
-                                    </td>
+                            {filteredRecords.map(record => {
+                                const total = record.total || 0;
+                                const paidAmt = record.paidAmount || 0;
+                                const balance = total - paidAmt;
+                                const displayStatus = balance <= 0 ? 'Completed' : 'Pending';
 
-
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(record.total)}</div>
-                                    </td>
-                                    <td className="px-3 py-1.5 text-right">
-                                        <div className="flex justify-end gap-1.5">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
-                                                className="p-1 text-slate-300 hover:text-medical-600 hover:bg-medical-50 rounded transition-all"
-                                                title="Edit Entry"
-                                            >
-                                                <Edit size={12} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
-                                                className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
-                                                title="Delete Entry"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
-                                            <div className="p-1 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={14} /></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                return (
+                                    <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
+                                        <td className="px-4 py-3">
+                                            <div className="font-bold text-slate-700 leading-tight">{record.dateSupply}</div>
+                                            <div className="text-[9px] font-medium text-slate-400 mt-0.5">#{record.invoiceNo}</div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
+                                            <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(total)}</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-center gap-1.5">
+                                                <input 
+                                                    type="number"
+                                                    key={`${record.id}-${paidAmt}`}
+                                                    defaultValue={paidAmt}
+                                                    onBlur={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        const newBalance = total - val;
+                                                        const expectedStatus = newBalance <= 0 ? 'Completed' : 'Pending';
+                                                        
+                                                        if (val !== paidAmt) {
+                                                            updatePurchaseRecord(record.id, { paidAmount: val, status: expectedStatus });
+                                                            addNotification('Updated', `Paid amount for purchase #${record.invoiceNo} set to ₹${val}`, 'success');
+                                                        }
+                                                    }}
+                                                    className="w-20 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-right outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                                />
+                                                <button 
+                                                    onClick={() => {
+                                                        if (paidAmt !== total) {
+                                                            updatePurchaseRecord(record.id, { paidAmount: total, status: 'Completed' });
+                                                            addNotification('Updated', `Paid amount for purchase #${record.invoiceNo} set to full amount ₹${total}`, 'success');
+                                                        }
+                                                    }}
+                                                    title="Copy Grand Total"
+                                                    className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+                                                >
+                                                    <CheckCheck size={12} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-black text-rose-600">
+                                            ₹{formatIndianNumber(balance)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                            }`}>
+                                                {displayStatus}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-1.5 text-right">
+                                            <div className="flex justify-end gap-1.5">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
+                                                    className="p-1 text-slate-300 hover:text-medical-600 hover:bg-medical-50 rounded transition-all"
+                                                    title="Edit Entry"
+                                                >
+                                                    <Edit size={12} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
+                                                    className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
+                                                    title="Delete Entry"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                                <div className="p-1 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={14} /></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {filteredRecords.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="py-20 text-center">
+                                    <td colSpan={7} className="py-20 text-center">
                                         <div className="flex flex-col items-center opacity-20">
                                             <ShoppingCart size={48} className="mb-4" />
                                             <p className="font-black uppercase tracking-[0.2em] text-slate-400">No Purchase Entries Found</p>
@@ -509,7 +582,7 @@ export const PurchaseRecordModule: React.FC = () => {
                         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
                             <section className="space-y-2">
                                 <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-0.5">1. Transaction Identity</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                                         <FormRow label="Supplier Name *">
                                             <input type="text" list="vendor-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH SUPPLIER" value={newRecord.supplier || ''} onChange={e => handleInputChange('supplier', e.target.value)} />
                                         </FormRow>
@@ -521,6 +594,19 @@ export const PurchaseRecordModule: React.FC = () => {
                                         </FormRow>
                                         <FormRow label="Received Date">
                                             <input type="date" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none" value={newRecord.materialReceivedDate || ''} onChange={e => handleInputChange('materialReceivedDate', e.target.value)} />
+                                        </FormRow>
+                                        <FormRow label="Paid Amount (₹)">
+                                            <div className="flex gap-1">
+                                                <input type="number" className="flex-1 h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black text-emerald-600 outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all text-center" placeholder="0.00" value={newRecord.paidAmount || ''} onChange={e => handleInputChange('paidAmount', Number(e.target.value))} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleInputChange('paidAmount', Number(newRecord.total || 0))}
+                                                    title="Copy Grand Total"
+                                                    className="px-2 h-[36px] bg-slate-50 border border-slate-300 hover:bg-emerald-50 hover:text-emerald-600 text-slate-400 rounded-lg flex items-center justify-center transition-all shrink-0"
+                                                >
+                                                    <CheckCheck size={14} />
+                                                </button>
+                                            </div>
                                         </FormRow>
                                     </div>
                                 </section>

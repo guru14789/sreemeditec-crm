@@ -712,5 +712,7 @@ export interface PurchaseRecord {
   roundOff?: number;
   createdBy?: string;
   items?: PurchaseItem[];
+  paidAmount?: number;
+  status?: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
 }
 
