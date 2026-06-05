@@ -870,6 +870,96 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     };
+
+    const syncInventoryFromInvoice = async (newInv: Invoice, oldInv: Invoice | null) => {
+        try {
+            interface InvoiceItemDetails {
+                name: string;
+                qty: number;
+            }
+
+            const getItems = (inv: Invoice): InvoiceItemDetails[] => {
+                if (inv.documentType !== 'Invoice' || inv.status === 'Cancelled' || inv.status === 'Draft') {
+                    return [];
+                }
+                const list: InvoiceItemDetails[] = [];
+                if (inv.items && inv.items.length > 0) {
+                    inv.items.forEach(item => {
+                        list.push({
+                            name: item.description || '',
+                            qty: Number(item.quantity) || 0
+                        });
+                    });
+                }
+                return list;
+            };
+
+            let currentProducts = [...products];
+            const dateSupply = newInv.date || new Date().toISOString().split('T')[0];
+
+            // 1. Reverse the old invoice items (add back to stock)
+            if (oldInv) {
+                const oldItems = getItems(oldInv);
+                for (const item of oldItems) {
+                    if (!item.name) continue;
+                    const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+                    if (existingProdIndex !== -1) {
+                        const existingProd = currentProducts[existingProdIndex];
+                        const newStock = (existingProd.stock || 0) + item.qty;
+                        const updatedProduct = { ...existingProd, stock: newStock };
+                        currentProducts[existingProdIndex] = updatedProduct;
+
+                        await updateDoc(doc(db, "products", existingProd.id), sanitizeData({ stock: newStock }));
+                        await addLog('Inventory', 'Invoice Reversal', `Added back ${item.qty} units of ${existingProd.name} due to invoice change/reversal`);
+                        
+                        await recordStockMovement({
+                            id: `MVT-INV-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: existingProd.id,
+                            productName: existingProd.name,
+                            type: 'In',
+                            quantity: item.qty,
+                            date: dateSupply,
+                            reference: `Rev: Invoice #${oldInv.invoiceNumber || oldInv.id}`,
+                            purpose: 'Restock'
+                        });
+                    }
+                }
+            }
+
+            // 2. Apply the new invoice items (subtract from stock)
+            const newItems = getItems(newInv);
+            for (const item of newItems) {
+                if (!item.name) continue;
+                const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+
+                if (existingProdIndex !== -1) {
+                    const existingProd = currentProducts[existingProdIndex];
+                    const newStock = Math.max(0, (existingProd.stock || 0) - item.qty);
+                    const updatedProduct = { ...existingProd, stock: newStock };
+                    currentProducts[existingProdIndex] = updatedProduct;
+
+                    await updateDoc(doc(db, "products", existingProd.id), sanitizeData({ stock: newStock }));
+                    await addLog('Inventory', 'Invoice Deduction', `Subtracted ${item.qty} units of ${existingProd.name} due to invoice sale`);
+
+                    await recordStockMovement({
+                        id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: existingProd.id,
+                        productName: existingProd.name,
+                        type: 'Out',
+                        quantity: item.qty,
+                        date: dateSupply,
+                        reference: `Invoice #${newInv.invoiceNumber || newInv.id}`,
+                        purpose: 'Sale'
+                    });
+                }
+            }
+
+            setProducts(currentProducts.sort((a, b) => a.name.localeCompare(b.name)));
+        } catch (err) {
+            console.error("Failed to sync inventory from invoice:", err);
+        }
+    };
+
     const updateInvoice = async (id: string, u: Partial<Invoice>, reason?: string) => {
         const existing = invoices.find(i => i.id === id);
         if (!existing) return;
@@ -879,6 +969,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         await updateDoc(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
         await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
+
+        // Sync with Inventory (reversing old and applying updated record)
+        const updatedRecord = { ...existing, ...u } as Invoice;
+        await syncInventoryFromInvoice(updatedRecord, existing || null);
 
         // Update Summary if status changed to approved or amount changed
         if (existing && existing.documentType !== 'Quotation') {
@@ -1844,6 +1938,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
         await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
         
+        // Sync with Inventory (subtract stock)
+        await syncInventoryFromInvoice(i, null);
+
         // Aggregation trigger
         if (i.status !== 'Draft' && i.status !== 'Cancelled' && i.documentType !== 'Quotation') {
             const type = i.documentType === 'SupplierPO' ? 'expense' : 'revenue';
@@ -1894,6 +1991,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await addLog('Billing', 'Removed Invoice/Quotation', existing.invoiceNumber || id);
             await deleteDoc(doc(db, "invoices", id));
             
+            // Reverse invoice stock deduction in inventory
+            await syncInventoryFromInvoice({ id } as Invoice, existing);
+
             // If it was a revenue/expense impacting document, we might need to adjust summaries
             // However, quotations (documentType === 'Quotation') usually don't impact revenue summaries in this system
             // based on the logic in addInvoice (line 1144). 
