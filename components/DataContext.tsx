@@ -1158,7 +1158,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const recordStockMovement = async (m: StockMovement) => { await setDoc(doc(db, "stockMovements", m.id), sanitizeData(m)); await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); };
+    const recordStockMovement = async (m: StockMovement) => { 
+        const docData = { ...m, timestamp: new Date().toISOString() };
+        await setDoc(doc(db, "stockMovements", m.id), sanitizeData(docData)); 
+        await addLog('Inventory', 'Stock Movement', `${m.type} ${m.quantity} ${m.productName} for ${m.purpose}`); 
+    };
 
     const updateVendorProcurementVolume = async (vendorName: string) => {
         const vendor = vendors.find(v => v.name.toUpperCase() === vendorName.toUpperCase());
@@ -1185,15 +1189,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const addPurchaseRecord = async (r: PurchaseRecord) => {
-        await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
-        const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
-        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
-        if (r.supplier) {
-            await updateVendorProcurementVolume(r.supplier);
-        }
-
-        // Automatically sync with Inventory stock
+    const syncInventoryFromPurchase = async (newRecord: PurchaseRecord, oldRecord: PurchaseRecord | null) => {
         try {
             interface PurchaseItemDetails {
                 name: string;
@@ -1203,45 +1199,88 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 gstPercent: number;
             }
 
-            const purchasedItems: PurchaseItemDetails[] = [];
-            if (r.items && r.items.length > 0) {
-                r.items.forEach(item => {
-                    purchasedItems.push({
-                        name: item.equipmentName || '',
-                        qty: Number(item.qty) || 0,
-                        rate: Number(item.rate) || 0,
-                        unit: item.unit || 'nos',
-                        gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+            const getItems = (r: PurchaseRecord): PurchaseItemDetails[] => {
+                const list: PurchaseItemDetails[] = [];
+                if (r.items && r.items.length > 0) {
+                    r.items.forEach(item => {
+                        list.push({
+                            name: item.equipmentName || '',
+                            qty: Number(item.qty) || 0,
+                            rate: Number(item.rate) || 0,
+                            unit: item.unit || 'nos',
+                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                        });
                     });
-                });
-            } else if (r.equipmentName) {
-                purchasedItems.push({
-                    name: r.equipmentName,
-                    qty: Number(r.qty) || 0,
-                    rate: Number(r.rate) || 0,
-                    unit: r.unit || 'nos',
-                    gstPercent: Number(r.gstPercent || (r.cgstPercent || 0) + (r.sgstPercent || 0) + (r.igstPercent || 0) || 0)
-                });
+                } else if (r.equipmentName) {
+                    list.push({
+                        name: r.equipmentName,
+                        qty: Number(r.qty) || 0,
+                        rate: Number(r.rate) || 0,
+                        unit: r.unit || 'nos',
+                        gstPercent: Number(r.gstPercent || (r.cgstPercent || 0) + (r.sgstPercent || 0) + (r.igstPercent || 0) || 0)
+                    });
+                }
+                return list;
+            };
+
+            let currentProducts = [...products];
+            const dateSupply = newRecord.dateSupply || new Date().toISOString().split('T')[0];
+
+            // 1. Reverse the old record if it exists
+            if (oldRecord) {
+                const oldItems = getItems(oldRecord);
+                for (const item of oldItems) {
+                    if (!item.name) continue;
+                    const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+                    if (existingProdIndex !== -1) {
+                        const existingProd = currentProducts[existingProdIndex];
+                        const newStock = Math.max(0, (existingProd.stock || 0) - item.qty);
+                        const updatedProduct = { ...existingProd, stock: newStock };
+                        currentProducts[existingProdIndex] = updatedProduct;
+
+                        await updateDoc(doc(db, "products", existingProd.id), sanitizeData({ stock: newStock }));
+                        await addLog('Inventory', 'Purchase Reversal', `Reversed ${item.qty} units of ${existingProd.name}`);
+                        
+                        await recordStockMovement({
+                            id: `MVT-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: existingProd.id,
+                            productName: existingProd.name,
+                            type: 'Out',
+                            quantity: item.qty,
+                            date: dateSupply,
+                            reference: `Rev: Purchase #${oldRecord.invoiceNo || oldRecord.id}`,
+                            purpose: 'Restock'
+                        });
+                    }
+                }
             }
 
-            for (const item of purchasedItems) {
+            // 2. Apply the new record if it is not blank (deletion sends empty newRecord.id)
+            const newItems = getItems(newRecord);
+            for (const item of newItems) {
                 if (!item.name) continue;
-                
-                // Find existing product in local state (case-insensitive, trimmed)
-                const existingProd = products.find(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
-                const dateSupply = r.dateSupply || new Date().toISOString().split('T')[0];
+                const existingProdIndex = currentProducts.findIndex(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
 
-                if (existingProd) {
-                    // Update existing product stock quantity, purchasePrice and supplier
+                if (existingProdIndex !== -1) {
+                    const existingProd = currentProducts[existingProdIndex];
                     const newStock = (existingProd.stock || 0) + item.qty;
-                    await updateProduct(existingProd.id, {
+                    const updatedProduct = {
+                        ...existingProd,
                         stock: newStock,
                         purchasePrice: item.rate,
                         lastRestocked: dateSupply,
-                        supplier: r.supplier || existingProd.supplier
-                    });
+                        supplier: newRecord.supplier || existingProd.supplier
+                    };
+                    currentProducts[existingProdIndex] = updatedProduct;
 
-                    // Record Stock Movement
+                    await updateDoc(doc(db, "products", existingProd.id), sanitizeData({
+                        stock: newStock,
+                        purchasePrice: item.rate,
+                        lastRestocked: dateSupply,
+                        supplier: newRecord.supplier || existingProd.supplier
+                    }));
+                    await addLog('Inventory', 'Updated Product', `Item: ${existingProd.name}`, existingProd, updatedProduct);
+
                     await recordStockMovement({
                         id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
                         productId: existingProd.id,
@@ -1249,31 +1288,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         type: 'In',
                         quantity: item.qty,
                         date: dateSupply,
-                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        reference: `Purchase #${newRecord.invoiceNo || newRecord.id}`,
                         purpose: 'Restock'
                     });
                 } else {
-                    // Create new Product and add to database
                     const newProdId = `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
                     const newProd: Product = {
                         id: newProdId,
                         name: item.name.toUpperCase(),
-                        category: 'Equipment', // Default core category
+                        category: 'Equipment',
                         sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
                         stock: item.qty,
                         unit: item.unit,
                         purchasePrice: item.rate,
-                        sellingPrice: item.rate, // Default sellingPrice to cost
+                        sellingPrice: item.rate,
                         minLevel: 5,
                         location: 'Warehouse',
-                        supplier: r.supplier || '',
+                        supplier: newRecord.supplier || '',
                         lastRestocked: dateSupply,
                         taxRate: item.gstPercent,
                         hsn: ''
                     };
-                    await addProduct(newProd);
+                    currentProducts.push(newProd);
 
-                    // Record Stock Movement
+                    await setDoc(doc(db, "products", newProdId), sanitizeData(newProd));
+                    await addLog('Inventory', 'Added Product', `Item: ${newProd.name}`);
+
                     await recordStockMovement({
                         id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
                         productId: newProdId,
@@ -1281,14 +1321,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         type: 'In',
                         quantity: item.qty,
                         date: dateSupply,
-                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        reference: `Purchase #${newRecord.invoiceNo || newRecord.id}`,
                         purpose: 'Restock'
                     });
                 }
             }
+
+            setProducts(currentProducts.sort((a, b) => a.name.localeCompare(b.name)));
         } catch (err) {
-            console.error("Failed to automatically synchronize purchase entry with inventory:", err);
+            console.error("Failed to sync inventory from purchase entry:", err);
         }
+    };
+
+    const addPurchaseRecord = async (r: PurchaseRecord) => {
+        await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
+        const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
+        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
+        if (r.supplier) {
+            await updateVendorProcurementVolume(r.supplier);
+        }
+
+        // Sync with Inventory
+        await syncInventoryFromPurchase(r, null);
 
         // Event-driven accounting: auto-post Purchase voucher
         try {
@@ -1331,6 +1385,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await updateDoc(doc(db, "purchaseRecords", id), sanitizeData(updates));
         await addLog('Inventory', 'Updated Purchase Entry', `ID: ${id}`, existing, { ...existing, ...updates });
 
+        // Sync with Inventory (reversing old and applying updated record)
+        const updatedRecord = { ...existing, ...updates } as PurchaseRecord;
+        await syncInventoryFromPurchase(updatedRecord, existing || null);
+
         if (oldSupplier) {
             await updateVendorProcurementVolume(oldSupplier);
         }
@@ -1352,6 +1410,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         await deleteDoc(doc(db, "purchaseRecords", id));
         await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
+
+        // Reverse the deleted purchase entry in the Inventory
+        if (existing) {
+            await syncInventoryFromPurchase({ id } as PurchaseRecord, existing);
+        }
 
         if (supplier) {
             await updateVendorProcurementVolume(supplier);
