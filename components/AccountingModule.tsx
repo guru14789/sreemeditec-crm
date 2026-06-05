@@ -1843,7 +1843,7 @@ const VoucherDetailModal: React.FC<{
  };
 
 const BankReconciliationTerminal: React.FC = () => {
-  const { ledgers, vouchers, bankStatements, updateVoucher, uploadBankStatement, autoMatchBankEntries, addNotification } = useData();
+  const { ledgers, vouchers, bankStatements, updateVoucher, uploadBankStatement, autoMatchBankEntries, addNotification, bankDetailsList } = useData();
   const [selectedBank, setSelectedBank] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -1960,7 +1960,11 @@ const BankReconciliationTerminal: React.FC = () => {
             <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2"><Building2 size={16} className="text-indigo-500"/> Select Account</h3>
             <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
               <option value="">Select Cash/Bank Account...</option>
-              {bankLedgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {bankLedgers.map(l => {
+                const configBank = bankDetailsList.find(b => b.bankName.toUpperCase() === l.name.toUpperCase());
+                const label = configBank ? `${l.name} (${configBank.accountNo})` : l.name;
+                return <option key={l.id} value={l.id}>{label}</option>;
+              })}
             </select>
           </div>
 

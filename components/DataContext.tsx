@@ -533,6 +533,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => { unsubPoints(); unsubWinners(); };
     }, [firebaseUser?.uid, currentUser?.id]);
 
+    useEffect(() => {
+        if (bankDetailsList.length === 0 || ledgers.length === 0) return;
+
+        const ensureBankLedgers = async () => {
+            for (const bank of bankDetailsList) {
+                const hasLedger = ledgers.some(l => 
+                    l.name.toUpperCase() === bank.bankName.toUpperCase() && 
+                    (l.groupId === 'GRP-BANK' || l.groupId === 'GRP-CASH')
+                );
+                
+                if (!hasLedger) {
+                    const id = `LED-BANK-${bank.id}`;
+                    const ledgerData: Ledger = {
+                        id,
+                        name: bank.bankName,
+                        groupId: 'GRP-BANK',
+                        openingBalance: 0,
+                        currentBalance: 0,
+                        description: `Auto-created ledger for CONFIG Bank: ${bank.bankName} (A/C: ${bank.accountNo})`
+                    };
+                    try {
+                        await setDoc(doc(db, "ledgers", id), sanitizeData(ledgerData));
+                        await addLog('System', 'Accounting Ledger Created', ledgerData.name);
+                    } catch (err) {
+                        console.error("Failed to auto-create bank ledger:", err);
+                    }
+                }
+            }
+        };
+
+        ensureBankLedgers();
+    }, [bankDetailsList, ledgers]);
+
     const userStats = useMemo(() => {
         if (!currentUser) return { points: 0, tasksCompleted: 0, attendanceStreak: 0, salesRevenue: 0 };
 
