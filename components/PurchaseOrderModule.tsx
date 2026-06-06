@@ -18,8 +18,14 @@ const calculateDetailedTotals = (order: Partial<Invoice>) => {
     }, 0);
     const totalWithGst = subTotal + taxTotal;
     const discount = order.discount || 0;
-    const grandTotal = totalWithGst - discount;
-    return { subTotal, taxTotal, totalWithGst, discount, grandTotal };
+    const grandTotalRaw = totalWithGst - discount;
+    let roundOff = 0;
+    let grandTotal = grandTotalRaw;
+    if (order.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    return { subTotal, taxTotal, totalWithGst, discount, grandTotal, roundOff, grandTotalRaw };
 };
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -66,7 +72,8 @@ export const PurchaseOrderModule: React.FC = () => {
         advanceDate: new Date().toISOString().split('T')[0],
         deliveryTime: 'Immediate',
         specialNote: '',
-        documentType: 'PO'
+        documentType: 'PO',
+        isRoundOff: false
     });
 
     useEffect(() => {
@@ -250,6 +257,12 @@ export const PurchaseOrderModule: React.FC = () => {
                             <td colSpan={6} className="border-r border-black p-2 text-right uppercase text-[9px] tracking-widest">Discount / Adjustments</td>
                             <td className="p-2 text-right text-rose-600">₹{(data.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </tr>
+                        {data.isRoundOff && totals.roundOff !== 0 && (
+                            <tr>
+                                <td colSpan={6} className="border-r border-black p-2 text-right uppercase text-[9px] tracking-widest">Round Off</td>
+                                <td className="p-2 text-right text-slate-600">₹{totals.roundOff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         <tr className="bg-slate-900 text-white text-base">
                             <td colSpan={6} className="border-r border-white/20 p-3 text-right uppercase tracking-[0.2em] text-[10px]">Net Order Value</td>
                             <td className="p-3 text-right font-black">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -310,7 +323,7 @@ export const PurchaseOrderModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate', isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
             </div>
 
             {viewState === 'history' ? (
@@ -459,7 +472,7 @@ export const PurchaseOrderModule: React.FC = () => {
                                             </h3>
                                         </div>
                                         <div className="space-y-3 pb-4">
-                                            {(order.items?.length ?? 0) > 0 ? order.items.map((item, idx) => (
+                                            {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
                                                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
                                                         <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="absolute -top-2 -right-2 bg-white text-rose-400 hover:text-rose-600 p-2 rounded-full shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"><Trash2 size={14}/></button>
@@ -537,12 +550,20 @@ export const PurchaseOrderModule: React.FC = () => {
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.deliveryTime || ''} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. 2 weeks" />
                                             </FormRow>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <FormRow label="Statutory Discount (₹)">
                                                 <input type="number" className="w-full h-[42px] bg-white border border-rose-200 rounded-xl px-4 py-2 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} />
                                             </FormRow>
                                             <FormRow label="Sreemeditec Representative">
                                                 <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={order.createdBy || currentUser?.name || ''} readOnly />
+                                            </FormRow>
+                                            <FormRow label="Round Off">
+                                                <div className="flex items-center gap-3 bg-white border border-slate-300 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer group h-[42px]" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                    <div className={`w-8 h-4 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
+                                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-700 transition-colors">Enabled</span>
+                                                </div>
                                             </FormRow>
                                         </div>
                                     </section>
@@ -562,7 +583,14 @@ export const PurchaseOrderModule: React.FC = () => {
                                     <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1">
                                         <div className="flex flex-col">
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
-                                            <span className="text-2xl font-black text-medical-600 tracking-tight">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
+                                                ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                {order.isRoundOff && totals.roundOff !== 0 && (
+                                                    <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
+                                                    </span>
+                                                )}
+                                            </span>
                                         </div>
                                         <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
                                     </div>

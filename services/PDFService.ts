@@ -48,8 +48,14 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     // Taxable value = subtotal before GST, after discount
     const taxableValue = subtotal - discount;
 
-    const grandTotal = subtotal + itemGstTotal + freight + freightGst - discount;
-    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue };
+    const grandTotalRaw = subtotal + itemGstTotal + freight + freightGst - discount;
+    let roundOff = 0;
+    let grandTotal = grandTotalRaw;
+    if (data.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue, roundOff, grandTotalRaw };
 };
 
 
@@ -157,6 +163,12 @@ export const PDFService = {
             ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.cgst) || 0).toFixed(2)],
             ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.sgst) || 0).toFixed(2)]
         );
+
+        if (data.isRoundOff && docTotals.roundOff !== 0) {
+            itemsBody.push(
+                ['', { content: 'Round Off', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.roundOff) || 0).toFixed(2)]
+            );
+        }
 
         autoTable(doc, {
             startY: startY + totalHeaderH,
@@ -397,12 +409,18 @@ export const PDFService = {
         
         const calculatePOTotals = (order: Partial<Invoice>) => {
             const items = order.items || [];
-            const subTotal = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
-            const taxTotal = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice * (p.taxRate / 100)), 0);
+            const subTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
+            const taxTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice) * (Number(p.taxRate) / 100)), 0);
             const totalWithGst = subTotal + taxTotal;
             const discount = order.discount || 0;
-            const grandTotal = totalWithGst - discount;
-            return { subTotal, taxTotal, totalWithGst, discount, grandTotal };
+            const grandTotalRaw = totalWithGst - discount;
+            let roundOff = 0;
+            let grandTotal = grandTotalRaw;
+            if (order.isRoundOff) {
+                grandTotal = Math.round(grandTotalRaw);
+                roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+            }
+            return { subTotal, taxTotal, totalWithGst, discount, grandTotal, roundOff, grandTotalRaw };
         };
 
         const totals = calculatePOTotals(data);
@@ -493,17 +511,26 @@ export const PDFService = {
             columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 2: { halign: 'center', cellWidth: 10 }, 3: { halign: 'right', cellWidth: 20 }, 4: { halign: 'right', cellWidth: 25 }, 5: { halign: 'center', cellWidth: 12 }, 6: { halign: 'right', cellWidth: 25 }, 7: { halign: 'right', cellWidth: 30 } }
         });
 
+        const totalRows: any[] = [
+            [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } as any }],
+            [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' } as any }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+        ];
+        if (data.isRoundOff && totals.roundOff !== 0) {
+            totalRows.push(
+                [{ content: 'Round Off', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+            );
+        }
+        totalRows.push(
+            [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } as any }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } as any }]
+        );
+
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
-            body: [
-                [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' } }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } }],
-                [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
-            ],
+            body: totalRows,
             columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
         });
 
