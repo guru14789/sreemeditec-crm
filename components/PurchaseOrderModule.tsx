@@ -550,20 +550,12 @@ export const PurchaseOrderModule: React.FC = () => {
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.deliveryTime || ''} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. 2 weeks" />
                                             </FormRow>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <FormRow label="Statutory Discount (₹)">
                                                 <input type="number" className="w-full h-[42px] bg-white border border-rose-200 rounded-xl px-4 py-2 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} />
                                             </FormRow>
                                             <FormRow label="Sreemeditec Representative">
                                                 <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={order.createdBy || currentUser?.name || ''} readOnly />
-                                            </FormRow>
-                                            <FormRow label="Round Off">
-                                                <div className="flex items-center gap-3 bg-white border border-slate-300 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all cursor-pointer group h-[42px]" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
-                                                    <div className={`w-8 h-4 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
-                                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                    </div>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-700 transition-colors">Enabled</span>
-                                                </div>
                                             </FormRow>
                                         </div>
                                     </section>
@@ -580,17 +572,25 @@ export const PurchaseOrderModule: React.FC = () => {
                                 </div>
 
                                 <div className="sticky bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
-                                    <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
-                                            <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
-                                                ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                {order.isRoundOff && totals.roundOff !== 0 && (
-                                                    <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                        ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
-                                                    </span>
-                                                )}
-                                            </span>
+                                    <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1 gap-4">
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
+                                                <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
+                                                    ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    {order.isRoundOff && totals.roundOff !== 0 && (
+                                                        <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                            ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
+                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
+                                            </div>
                                         </div>
                                         <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
                                     </div>
