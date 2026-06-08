@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, 
-    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical
+    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -12,15 +12,17 @@ const DEFAULT_DELIVERY_ADDRESS = 'Sreemeditec,\nNew No: 18, Old No: 2, Bajanai K
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
     const items = order.items || [];
-    const subTotal = items.reduce((sum, p) => sum + (p.quantity * (p.unitPrice || 0)), 0);
+    const subTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice || 0)), 0);
     const taxTotal = items.reduce((sum, p) => {
-        const itemAmount = p.quantity * (p.unitPrice || 0);
-        return sum + (itemAmount * ((p.taxRate || 0) / 100));
+        const itemAmount = Number(p.quantity) * Number(p.unitPrice || 0);
+        return sum + (itemAmount * (Number(p.taxRate || 0) / 100));
     }, 0);
+    const freight = Number(order.freightAmount) || 0;
+    const freightGst = freight * ((Number(order.freightTaxRate) || 0) / 100);
     const totalWithGst = subTotal + taxTotal;
-    const discount = order.discount || 0;
-    const grandTotal = totalWithGst - discount;
-    return { subTotal, taxTotal, totalWithGst, discount, grandTotal };
+    const discount = Number(order.discount) || 0;
+    const grandTotal = totalWithGst + freight + freightGst - discount;
+    return { subTotal, taxTotal, totalWithGst, discount, freight, freightGst, grandTotal };
 };
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -53,6 +55,8 @@ export const SupplierPOModule: React.FC = () => {
         cpoDate: new Date().toISOString().split('T')[0],
         items: [],
         discount: 0,
+        freightAmount: 0,
+        freightTaxRate: 18,
         status: 'Pending',
         customerName: '',
         customerHospital: '',
@@ -297,6 +301,12 @@ export const SupplierPOModule: React.FC = () => {
                             <td colSpan={7} className="border-r border-black p-1 text-right">Total</td>
                             <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString()}</td>
                         </tr>
+                        {totals.freight > 0 && (
+                            <tr className="border-t border-black font-bold">
+                                <td colSpan={7} className="border-r border-black p-1 text-right">Freight</td>
+                                <td className="p-1 text-right">{(totals.freight + totals.freightGst).toLocaleString()}</td>
+                            </tr>
+                        )}
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Discount/Adjustment</td>
                             <td className="p-1 text-right">{(data.discount || 0).toLocaleString()}</td>
@@ -319,7 +329,7 @@ export const SupplierPOModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.' }); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Procurement</button>
+                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.', freightAmount: 0, freightTaxRate: 18 }); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Procurement</button>
             </div>
 
             {viewState === 'history' ? (
@@ -457,7 +467,7 @@ export const SupplierPOModule: React.FC = () => {
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">3. Order Manifest</h3>
                                         </div>
                                         <div className="space-y-3 pb-24">
-                                            {(order.items?.length ?? 0) > 0 ? order.items.map((item, idx) => (
+                                            {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
                                                     <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                                         <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">
@@ -564,7 +574,7 @@ export const SupplierPOModule: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <button 
-                                                            onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))}
+                                                            onClick={() => setOrder(prev => ({ ...prev, items: (prev.items || []).filter(it => it.id !== item.id) }))}
                                                             className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all self-end sm:self-center opacity-0 group-hover:opacity-100"
                                                         >
                                                             <Trash2 size={16} />
@@ -586,8 +596,26 @@ export const SupplierPOModule: React.FC = () => {
                                     </div>
                                 </section>
 
+                                    <section className="space-y-4">
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
+                                            <Percent size={14} className="text-medical-500" />
+                                            4. Charges & Discounts
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <FormRow label="Discount (₹)">
+                                                <input type="number" className="w-full h-[42px] bg-white border border-rose-200 rounded-xl px-4 py-2 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} placeholder="0.00" />
+                                            </FormRow>
+                                            <FormRow label="Freight (₹)">
+                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightAmount || ''} onChange={e => setOrder({...order, freightAmount: Number(e.target.value)})} placeholder="0.00" />
+                                            </FormRow>
+                                            <FormRow label="Freight GST %">
+                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightTaxRate || ''} onChange={e => setOrder({...order, freightTaxRate: Number(e.target.value)})} placeholder="18" />
+                                            </FormRow>
+                                        </div>
+                                    </section>
+
                                     <section className="space-y-4 pb-20">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">4. Terms & Instructions</h3>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">5. Terms & Instructions</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="Delivery Time">
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.deliveryTime || 'Immediate'} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="Immediate / 1 Week" />

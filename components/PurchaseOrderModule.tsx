@@ -11,21 +11,23 @@ import { AutoSuggest } from './AutoSuggest';
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
     const items = order.items || [];
-    const subTotal = items.reduce((sum, p) => sum + (p.quantity * (p.unitPrice || 0)), 0);
+    const subTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice || 0)), 0);
     const taxTotal = items.reduce((sum, p) => {
-        const itemAmount = p.quantity * (p.unitPrice || 0);
-        return sum + (itemAmount * ((p.taxRate || 0) / 100));
+        const itemAmount = Number(p.quantity) * Number(p.unitPrice || 0);
+        return sum + (itemAmount * (Number(p.taxRate || 0) / 100));
     }, 0);
+    const freight = Number(order.freightAmount) || 0;
+    const freightGst = freight * ((Number(order.freightTaxRate) || 0) / 100);
     const totalWithGst = subTotal + taxTotal;
-    const discount = order.discount || 0;
-    const grandTotalRaw = totalWithGst - discount;
+    const discount = Number(order.discount) || 0;
+    const grandTotalRaw = totalWithGst + freight + freightGst - discount;
     let roundOff = 0;
     let grandTotal = grandTotalRaw;
     if (order.isRoundOff) {
         grandTotal = Math.round(grandTotalRaw);
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
-    return { subTotal, taxTotal, totalWithGst, discount, grandTotal, roundOff, grandTotalRaw };
+    return { subTotal, taxTotal, totalWithGst, discount, freight, freightGst, grandTotal, roundOff, grandTotalRaw };
 };
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -58,6 +60,8 @@ export const PurchaseOrderModule: React.FC = () => {
         cpoDate: new Date().toISOString().split('T')[0],
         items: [],
         discount: 0,
+        freightAmount: 0,
+        freightTaxRate: 18,
         status: 'Pending',
         customerName: '',
         customerHospital: '',
@@ -253,6 +257,12 @@ export const PurchaseOrderModule: React.FC = () => {
                             <td colSpan={6} className="border-r border-black p-2 text-right uppercase text-[9px] tracking-widest">Aggregate Value (Inc. Tax)</td>
                             <td className="p-2 text-right text-sm">₹{totals.totalWithGst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                         </tr>
+                        {totals.freight > 0 && (
+                            <tr>
+                                <td colSpan={6} className="border-r border-black p-2 text-right uppercase text-[9px] tracking-widest">Freight</td>
+                                <td className="p-2 text-right text-teal-600">₹{(totals.freight + totals.freightGst).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         <tr>
                             <td colSpan={6} className="border-r border-black p-2 text-right uppercase text-[9px] tracking-widest">Discount / Adjustments</td>
                             <td className="p-2 text-right text-rose-600">₹{(data.discount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -323,7 +333,7 @@ export const PurchaseOrderModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate', isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate', isRoundOff: false, freightAmount: 0, freightTaxRate: 18 }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
             </div>
 
             {viewState === 'history' ? (
@@ -550,9 +560,15 @@ export const PurchaseOrderModule: React.FC = () => {
                                                 <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.deliveryTime || ''} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. 2 weeks" />
                                             </FormRow>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="Statutory Discount (₹)">
                                                 <input type="number" className="w-full h-[42px] bg-white border border-rose-200 rounded-xl px-4 py-2 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} />
+                                            </FormRow>
+                                            <FormRow label="Freight (₹)">
+                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightAmount || ''} onChange={e => setOrder({...order, freightAmount: Number(e.target.value)})} placeholder="0.00" />
+                                            </FormRow>
+                                            <FormRow label="Freight GST %">
+                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightTaxRate || ''} onChange={e => setOrder({...order, freightTaxRate: Number(e.target.value)})} placeholder="18" />
                                             </FormRow>
                                             <FormRow label="Sreemeditec Representative">
                                                 <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={order.createdBy || currentUser?.name || ''} readOnly />

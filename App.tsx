@@ -343,17 +343,25 @@ export const App: React.FC = () => {
     return <Login />;
   }
 
-  const userRole = (() => {
-    if (isSuperAdmin) return 'Admin';
-    const role = currentUser.permissions?.[activeTab];
-    if (role) return role;
-    return currentUser.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
-  })();
+  // ─── RBAC: System-level role (immutable, always based on account role) ───────
+  // NEVER derived from per-tab permissions — prevents privilege escalation
+  const isSystemAdmin = isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN';
+
+  // userRole: governs Dashboard routing, check-in gates, and system-level guards
+  const userRole: 'Admin' | 'Employee' = isSystemAdmin ? 'Admin' : 'Employee';
+
+  // tabRole: governs per-module feature access (e.g., Expense admin sees ALL employees' records)
+  // A SYSTEM_STAFF employee can be elevated to Admin within a specific tab via the Access Grid
+  const tabRole: 'Admin' | 'Employee' = isSystemAdmin
+    ? 'Admin'
+    : ((currentUser.permissions?.[activeTab] as 'Admin' | 'Employee') ?? 'Employee');
 
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
     if (isSuperAdmin) return true;
+    // SYSTEM_ADMIN always has full sidebar access
+    if (currentUser.role === 'SYSTEM_ADMIN') return true;
     if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
     return !!(currentUser.permissions?.[tab]);
   };
@@ -454,7 +462,7 @@ export const App: React.FC = () => {
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
       case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} />;
-      case TabView.TASKS: return <TaskModule userRole={userRole} />;
+      case TabView.TASKS: return <TaskModule userRole={tabRole} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
@@ -463,14 +471,14 @@ export const App: React.FC = () => {
       case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.LOGS: return <LogsModule />;
-      case TabView.EXPENSES: return <ExpenseModule userRole={userRole} currentUser={currentUserName} />;
+      case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
       case TabView.CATALOG: return <CatalogModule />;
       case TabView.PAYROLL: return <PayrollModule />;
       case TabView.ARCHIVE: return <ArchiveModule />;
-      case TabView.ACCOUNTING: return <AccountingModule userRole={userRole} />;
-      case TabView.COMPLIANCE: return <ComplianceModule userRole={userRole} />;
+      case TabView.ACCOUNTING: return <AccountingModule userRole={tabRole} />;
+      case TabView.COMPLIANCE: return <ComplianceModule userRole={tabRole} />;
       case TabView.CONFIG: return (
         <div className="h-full flex flex-col p-4 md:p-8 bg-slate-50/30 dark:bg-slate-900/30 overflow-hidden">
             {/* Tab Navigation */}

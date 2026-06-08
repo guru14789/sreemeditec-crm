@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Invoice, ServiceReport, DeliveryChallan, InvoiceItem, ChallanItem, BankDetails } from '../types';
+import { Invoice, ServiceReport, DeliveryChallan, ChallanItem, BankDetails } from '../types';
 import { COMPANY_DETAILS, BANK_DETAILS, PDF_STYLES } from './PDFConstants';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -349,26 +349,37 @@ export const PDFService = {
         });
 
         let finalY = (doc as any).lastAutoTable.finalY;
-        if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
+        let summaryRows = [
+            { label: 'Gross Total:', value: `Rs.${totals.subtotal.toFixed(2)}` },
+            { label: 'Freight:', value: `Rs.${(totals.freight + totals.freightGst).toFixed(2)}` },
+            { label: 'Discount:', value: `(-) Rs.${totals.discount.toFixed(2)}` },
+            { label: 'Total GST:', value: `Rs.${totals.itemGstTotal.toFixed(2)}` }
+        ];
+
+        if (data.isRoundOff && totals.roundOff !== 0) {
+            summaryRows.push({
+                label: 'Round Off:',
+                value: `${totals.roundOff > 0 ? '(+) ' : '(-) '}Rs.${Math.abs(totals.roundOff).toFixed(2)}`
+            });
+        }
+
+        const requiredHeight = 10 + (summaryRows.length * 6) + 12; // safety margin
+        if (finalY + requiredHeight > pageHeight - margin) { doc.addPage(); finalY = 20; }
         const summaryX = pageWidth - 80;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text('Gross Total:', summaryX, finalY + 8);
-        doc.text(`Rs.${totals.subtotal.toFixed(2)}`, pageWidth - 15, finalY + 8, { align: 'right' });
-        
-        doc.text('Freight:', summaryX, finalY + 14);
-        doc.text(`Rs.${(totals.freight + totals.freightGst).toFixed(2)}`, pageWidth - 15, finalY + 14, { align: 'right' });
-        
-        doc.text('Discount:', summaryX, finalY + 20);
-        doc.text(`(-) Rs.${totals.discount.toFixed(2)}`, pageWidth - 15, finalY + 20, { align: 'right' });
-        
-        doc.text('Total GST:', summaryX, finalY + 26);
-        doc.text(`Rs.${totals.itemGstTotal.toFixed(2)}`, pageWidth - 15, finalY + 26, { align: 'right' });
-        
+
+        let currentSumY = finalY + 8;
+        summaryRows.forEach(row => {
+            doc.text(row.label, summaryX, currentSumY);
+            doc.text(row.value, pageWidth - 15, currentSumY, { align: 'right' });
+            currentSumY += 6;
+        });
+
         doc.setFontSize(11);
-        doc.text('Grand Total:', summaryX, finalY + 34);
-        doc.text(`Rs.${totals.grandTotal.toFixed(2)}`, pageWidth - 15, finalY + 34, { align: 'right' });
-        finalY += 40;
+        doc.text('Grand Total:', summaryX, currentSumY + 2);
+        doc.text(`Rs.${totals.grandTotal.toFixed(2)}`, pageWidth - 15, currentSumY + 2, { align: 'right' });
+        finalY = currentSumY + 10;
 
         if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
         doc.setFontSize(12);
@@ -411,16 +422,18 @@ export const PDFService = {
             const items = order.items || [];
             const subTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
             const taxTotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice) * (Number(p.taxRate) / 100)), 0);
+            const freight = Number(order.freightAmount) || 0;
+            const freightGst = freight * ((Number(order.freightTaxRate) || 0) / 100);
             const totalWithGst = subTotal + taxTotal;
-            const discount = order.discount || 0;
-            const grandTotalRaw = totalWithGst - discount;
+            const discount = Number(order.discount) || 0;
+            const grandTotalRaw = totalWithGst + freight + freightGst - discount;
             let roundOff = 0;
             let grandTotal = grandTotalRaw;
             if (order.isRoundOff) {
                 grandTotal = Math.round(grandTotalRaw);
                 roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
             }
-            return { subTotal, taxTotal, totalWithGst, discount, grandTotal, roundOff, grandTotalRaw };
+            return { subTotal, taxTotal, totalWithGst, discount, freight, freightGst, grandTotal, roundOff, grandTotalRaw };
         };
 
         const totals = calculatePOTotals(data);
@@ -512,9 +525,16 @@ export const PDFService = {
         });
 
         const totalRows: any[] = [
-            [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } as any }],
-            [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' } as any }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+            [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } as any }]
         ];
+        if (totals.freight > 0) {
+            totalRows.push(
+                [{ content: 'Freight', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.freight + totals.freightGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+            );
+        }
+        totalRows.push(
+            [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' } as any }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+        );
         if (data.isRoundOff && totals.roundOff !== 0) {
             totalRows.push(
                 [{ content: 'Round Off', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]

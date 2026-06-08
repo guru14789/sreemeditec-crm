@@ -242,6 +242,26 @@ export const HRModule: React.FC = () => {
                         ))}
                     </div>
                 ) : (
+                    <React.Fragment>
+                    {/* Access Grid Legend */}
+                    <div className="flex flex-wrap items-center gap-3 p-4 mb-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded bg-medical-600"></div>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Employee — Can access this module (standard view)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded bg-indigo-600"></div>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Admin — Elevated module access (e.g. see all records)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded bg-white border border-slate-300"></div>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">None — Module locked</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+                            <ShieldAlert size={12} className="text-amber-500" />
+                            <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Admin access here ≠ System Admin. Change Enterprise Role for full admin.</span>
+                        </div>
+                    </div>
                     <div className="bg-white rounded-[2rem] border border-slate-300 overflow-hidden shadow-sm mb-6">
                         <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
@@ -303,6 +323,7 @@ export const HRModule: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+                    </React.Fragment>
                 )}
             </div>
 

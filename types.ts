@@ -233,6 +233,35 @@ export interface BankStatementEntry {
   matchedVoucherId?: string;
 }
 
+export interface AutoVoucherDraft {
+  statementEntryId: string;
+  date: string;
+  description: string;
+  amount: number;
+  txType: 'Debit' | 'Credit';
+  voucherType: VoucherType;
+  drLedgerId: string;
+  drLedgerName: string;
+  crLedgerId: string;
+  crLedgerName: string;
+  narration: string;
+  skip: boolean;
+  ruleLabel: string;
+}
+
+export interface BankRule {
+  id: string;
+  pattern: string;
+  txType: 'Debit' | 'Credit' | 'Both';
+  voucherType: VoucherType;
+  drLedgerId: string;
+  drLedgerName: string;
+  crLedgerId: string;
+  crLedgerName: string;
+  ruleLabel: string;
+}
+
+
 export interface StockTransfer {
   id: string;
   date: string;

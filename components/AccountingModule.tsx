@@ -49,7 +49,7 @@ import {
 } from 'lucide-react';
 
 import { useData } from './DataContext';
-import { VoucherType, Ledger, AccountingVoucher, LedgerEntry, AccountGroup, BillSettlement, CostCentre, FixedAsset, BankStatementEntry } from '../types';
+import { VoucherType, Ledger, AccountingVoucher, LedgerEntry, AccountGroup, BillSettlement, CostCentre, FixedAsset, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
 import { AuditTrailViewer } from './AuditTrailViewer';
 import { TallyService } from '../services/TallyService';
 import { AutoSuggest } from './AutoSuggest';
@@ -71,6 +71,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     vouchers = [], 
     accountGroups = [], 
     invoices = [],
+    purchaseRecords = [],
     addLedger,
     updateLedger,
     removeLedger,
@@ -207,33 +208,12 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     const debtorIds = ledgers.filter(l => l.groupId === 'GRP-DEBTORS').map(l => l.id);
     const creditorIds = ledgers.filter(l => l.groupId === 'GRP-CREDITORS').map(l => l.id);
 
-    let totalCashBank = cashBankIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-    let totalDebtors = debtorIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-    let totalCreditors = creditorIds.reduce((sum, id) => sum + Math.abs(ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-
-    // Also compute directly from voucher entries for real-time accuracy
-    // (catches entries posted but not yet reflected in ledger balances)
-    const voucherBalances: Record<string, number> = {};
-    vouchers.forEach(v => {
-      (v.entries || []).forEach(e => {
-        voucherBalances[e.ledgerId] = (voucherBalances[e.ledgerId] || 0) + (e.debit || 0) - (e.credit || 0);
-      });
-    });
-
-    // Merge: use voucher-computed balance if it differs from ledger balance
-    const getEffectiveBalance = (ledgerId: string) => {
-      const ledger = ledgers.find(l => l.id === ledgerId);
-      const ledgerBal = ledger?.currentBalance || 0;
-      const voucherBal = voucherBalances[ledgerId] || 0;
-      return voucherBal !== 0 ? voucherBal : ledgerBal;
-    };
-
-    totalCashBank = cashBankIds.reduce((sum, id) => sum + getEffectiveBalance(id), 0);
-    totalDebtors = debtorIds.reduce((sum, id) => sum + getEffectiveBalance(id), 0);
-    totalCreditors = creditorIds.reduce((sum, id) => sum + Math.abs(getEffectiveBalance(id)), 0);
+    const totalCashBank = cashBankIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
+    const totalDebtors = debtorIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
+    const totalCreditors = creditorIds.reduce((sum, id) => sum + Math.abs(ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
 
     return { totalCashBank, totalDebtors, totalCreditors };
-  }, [ledgers, vouchers]);
+  }, [ledgers]);
 
   const handleAddVoucherEntry = () => {
     setNewVoucher(prev => ({
@@ -505,7 +485,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              <p className="text-lg font-black text-slate-800 tracking-tight">₹{stat.value.toLocaleString('en-IN')}</p>
+              <p className="text-lg font-black text-slate-800 tracking-tight">{stat.value < 0 ? '-' : ''}₹{Math.abs(stat.value).toLocaleString('en-IN')}</p>
             </div>
           </div>
         ))}
@@ -687,54 +667,112 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
             </table>
           )}
 
-          {activeTab === 'reports' && (
-            <div className="p-4 sm:p-8 space-y-6 animate-in fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
-                            <PieChart size={16} className="text-indigo-500" />
-                            Profit & Loss Statement
-                        </h3>
-                        <div className="space-y-4">
-                            {accountGroups.filter(g => g.type === 'Revenue' || g.type === 'Expense').map(group => {
-                                const groupLedgers = ledgers.filter(l => l.groupId === group.id);
-                                const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-                                return (
-                                    <div key={group.id} className="flex justify-between items-center text-[11px]">
-                                        <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
-                                        <span className={`font-black ${balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>₹{Math.abs(balance).toLocaleString('en-IN')}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-                        <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
-                            <Briefcase size={16} className="text-emerald-500" />
-                            Balance Sheet Overview
-                        </h3>
-                        <div className="space-y-4">
-                            {accountGroups.filter(g => g.type === 'Asset' || g.type === 'Liability').map(group => {
-                                const groupLedgers = ledgers.filter(l => l.groupId === group.id);
-                                const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-                                return (
-                                    <div key={group.id} className="flex justify-between items-center text-[11px]">
-                                        <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
-                                        <span className="font-black text-slate-800">₹{Math.abs(balance).toLocaleString('en-IN')}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </div>
-          )}
+          {activeTab === 'reports' && (() => {
+            const totalRevenue = ledgers.filter(l => {
+              const g = accountGroups.find(ag => ag.id === l.groupId);
+              return g && g.type === 'Revenue';
+            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+
+            const totalExpense = ledgers.filter(l => {
+              const g = accountGroups.find(ag => ag.id === l.groupId);
+              return g && g.type === 'Expense';
+            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+
+            const netProfit = (-totalRevenue) - totalExpense;
+
+            const totalAssets = ledgers.filter(l => {
+              const g = accountGroups.find(ag => ag.id === l.groupId);
+              return g && g.type === 'Asset';
+            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+
+            const totalLiabilities = ledgers.filter(l => {
+              const g = accountGroups.find(ag => ag.id === l.groupId);
+              return g && g.type === 'Liability';
+            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+
+            const totalLiabilitiesAndEquity = (-totalLiabilities) + netProfit;
+
+            return (
+              <div className="p-4 sm:p-8 space-y-6 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <div>
+                              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
+                                  <PieChart size={16} className="text-indigo-500" />
+                                  Profit & Loss Statement
+                              </h3>
+                              <div className="space-y-4">
+                                  {accountGroups.filter(g => g.type === 'Revenue' || g.type === 'Expense').map(group => {
+                                      const groupLedgers = ledgers.filter(l => l.groupId === group.id);
+                                      const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+                                      const color = group.type === 'Revenue' 
+                                        ? (balance <= 0 ? 'text-emerald-600' : 'text-rose-600') 
+                                        : (balance >= 0 ? 'text-rose-600' : 'text-emerald-600');
+                                      return (
+                                          <div key={group.id} className="flex justify-between items-center text-[11px]">
+                                              <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
+                                              <span className={`font-black ${color}`}>₹{Math.abs(balance).toLocaleString('en-IN')}</span>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                          <div className="flex justify-between items-center text-[12px] font-black border-t-2 border-slate-200 pt-4 mt-6">
+                              <span className="uppercase tracking-widest text-slate-800">Net Profit / (Loss)</span>
+                              <span className={netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                  {netProfit < 0 ? '-' : ''}₹{Math.abs(netProfit).toLocaleString('en-IN')}
+                              </span>
+                          </div>
+                      </div>
+                      <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <div>
+                              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
+                                  <Briefcase size={16} className="text-emerald-500" />
+                                  Balance Sheet Overview
+                              </h3>
+                              <div className="space-y-4">
+                                  {accountGroups.filter(g => g.type === 'Asset' || g.type === 'Liability').map(group => {
+                                      const groupLedgers = ledgers.filter(l => l.groupId === group.id);
+                                      const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
+                                      return (
+                                          <div key={group.id} className="flex justify-between items-center text-[11px]">
+                                              <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
+                                              <span className="font-black text-slate-800">₹{Math.abs(balance).toLocaleString('en-IN')}</span>
+                                          </div>
+                                      );
+                                  })}
+                                  <div className="flex justify-between items-center text-[11px] border-t border-dashed border-slate-300 pt-2">
+                                      <span className="font-bold text-slate-400 uppercase tracking-tight">Retained Earnings (Profit)</span>
+                                      <span className="font-black text-slate-800">₹{Math.abs(netProfit).toLocaleString('en-IN')}</span>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="space-y-3 mt-6 border-t-2 border-slate-200 pt-4">
+                              <div className="flex justify-between items-center text-[11px] font-bold">
+                                  <span className="uppercase tracking-widest text-slate-600">Total Assets</span>
+                                  <span className="font-black text-slate-800">₹{totalAssets.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-[11px] font-bold">
+                                  <span className="uppercase tracking-widest text-slate-600">Total Liabilities & Equity</span>
+                                  <span className="font-black text-slate-800">₹{totalLiabilitiesAndEquity.toLocaleString('en-IN')}</span>
+                              </div>
+                              {Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.1 && (
+                                  <div className="p-2 bg-emerald-50 border border-emerald-200 text-[9px] font-black text-emerald-600 rounded-lg text-center uppercase tracking-widest">
+                                      Balanced Balance Sheet
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+            );
+          })()}
 
           {activeTab === 'trial-balance' && <TrialBalanceView ledgers={ledgers} accountGroups={accountGroups} />}
           {activeTab === 'reconciliation' && <BankReconciliationTerminal />}
           {activeTab === 'daybook' && <DayBookView vouchers={vouchers} date={daybookDate} onVoucherSelect={setSelectedVoucher} />}
           {activeTab === 'aging' && <AgingView invoices={invoices} />}
-          {activeTab === 'gst' && <GSTView invoices={invoices} />}
+          {activeTab === 'gst' && <GSTView invoices={invoices} purchaseRecords={purchaseRecords} />}
           {activeTab === 'costcentres' && <CostCentreManager />}
           {activeTab === 'fixedassets' && <FixedAssetRegister />}
           {activeTab === 'tds' && <TDSRegisterView />}
@@ -1842,19 +1880,228 @@ const VoucherDetailModal: React.FC<{
    );
  };
 
+// ─── Rule Engine ────────────────────────────────────────────────────────────
+type RuleResult = { 
+  voucherType: VoucherType; 
+  drLedgerId: string; 
+  drLedgerName: string; 
+  crLedgerId: string; 
+  crLedgerName: string; 
+  ruleLabel: string; 
+};
+
+function classifyBankEntry(
+  description: string, 
+  txType: 'Debit' | 'Credit', 
+  bankLedgerId: string, 
+  bankLedgerName: string, 
+  ledgers: Ledger[], 
+  bankRules?: BankRule[]
+): RuleResult {
+  const d = description.toUpperCase();
+  const find = (id: string, fallbackName: string) => {
+    const l = ledgers.find(lg => lg.id === id);
+    return l ? { id: l.id, name: l.name } : { id: `LDG-SUSPENSE`, name: fallbackName };
+  };
+
+  // Helper: build result for a Payment (bank → expense/creditor)
+  const payment = (expId: string, expName: string, label: string): RuleResult => {
+    const exp = find(expId, expName);
+    return { voucherType: 'Payment', drLedgerId: exp.id, drLedgerName: exp.name, crLedgerId: bankLedgerId, crLedgerName: bankLedgerName, ruleLabel: label };
+  };
+  // Helper: build result for a Receipt (bank ← income/debtor)
+  const receipt = (incId: string, incName: string, label: string): RuleResult => {
+    const inc = find(incId, incName);
+    return { voucherType: 'Receipt', drLedgerId: bankLedgerId, drLedgerName: bankLedgerName, crLedgerId: inc.id, crLedgerName: inc.name, ruleLabel: label };
+  };
+  // Helper: Contra
+  const contra = (drId: string, drName: string, crId: string, crName: string, label: string): RuleResult => {
+    const dr = find(drId, drName); const cr = find(crId, crName);
+    return { voucherType: 'Contra', drLedgerId: dr.id, drLedgerName: dr.name, crLedgerId: cr.id, crLedgerName: cr.name, ruleLabel: label };
+  };
+  // Helper: Journal
+  const journal = (drId: string, drName: string, crId: string, crName: string, label: string): RuleResult => {
+    const dr = find(drId, drName); const cr = find(crId, crName);
+    return { voucherType: 'Journal', drLedgerId: dr.id, drLedgerName: dr.name, crLedgerId: cr.id, crLedgerName: cr.name, ruleLabel: label };
+  };
+
+  // ── 1. Dynamic Custom Rules ──
+  for (const rule of bankRules || []) {
+    const patternUpper = rule.pattern.toUpperCase();
+    const typeMatches = rule.txType === 'Both' || rule.txType === txType;
+    if (typeMatches && d.includes(patternUpper)) {
+      const dr = find(rule.drLedgerId, rule.drLedgerName);
+      const cr = find(rule.crLedgerId, rule.crLedgerName);
+      return {
+        voucherType: rule.voucherType,
+        drLedgerId: dr.id,
+        drLedgerName: dr.name,
+        crLedgerId: cr.id,
+        crLedgerName: cr.name,
+        ruleLabel: rule.ruleLabel
+      };
+    }
+  }
+
+  // ── 2. Static Fallback Debit rules ──
+  if (txType === 'Debit') {
+    if (/SALARY|PAYROLL|SAL\/|WAGES/.test(d))        return payment('LDG-SALARY-EXP',      'Salary Expense',       'Salary/Payroll');
+    if (/\bRENT\b/.test(d))                           return payment('LDG-RENT-EXP',         'Rent Expense',         'Rent Payment');
+    if (/GST|IGST|CGST|SGST/.test(d))                return payment('LDG-GST-PAYABLE',      'GST Payable',          'GST Payment');
+    if (/\bTDS\b|TAX DEDUCTED/.test(d))              return payment('LDG-TDS-PAYABLE',       'TDS Payable',          'TDS Payment');
+    if (/ELECTRICITY|ELEC|POWER BILL/.test(d))        return payment('LDG-ELEC-EXP',         'Electricity Expense',  'Electricity Bill');
+    if (/TELEPHONE|MOBILE|BROADBAND|INTERNET/.test(d))return payment('LDG-PHONE-EXP',        'Telephone Expense',    'Telephone/Internet');
+    if (/PETROL|FUEL|DIESEL/.test(d))                 return payment('LDG-TRAVEL-EXP',       'Travelling Expense',   'Fuel/Petrol');
+    if (/INSURANCE|INSUR/.test(d))                    return payment('LDG-INSURANCE-EXP',    'Insurance Expense',    'Insurance Premium');
+    if (/PRINTING|STATIONERY/.test(d))                return payment('LDG-PRINT-EXP',        'Printing & Stationery','Stationery');
+    if (/ADVERTISEMENT|MARKETING/.test(d))            return payment('LDG-ADV-EXP',          'Advertisement Expense','Advertisement');
+    if (/REPAIR|MAINTENANCE|AMC/.test(d))             return payment('LDG-REPAIR-EXP',       'Repairs & Maintenance','Repair/AMC');
+    if (/AUDIT|PROFESSION|CA FEES|CONSULT/.test(d))   return payment('LDG-PROF-EXP',         'Professional Fees',    'Professional Fees');
+    if (/EMI|LOAN REPAY|LOAN EMI|LOAN/.test(d))       return payment('LDG-LOAN-PAYABLE',     'Loan Account',         'Loan Repayment');
+    if (/ATM|CASH WDL|CASH WITHDRAWAL|CASH DISP/.test(d)) return contra(find('LDG-CASH','Cash Account').id, find('LDG-CASH','Cash Account').name, bankLedgerId, bankLedgerName, 'ATM/Cash Withdrawal');
+    
+    // Vendor fallback (Debit from bank -> Sundry Creditors / vendor payment)
+    const sp = find('LDG-SUNDRY-CREDITORS', 'Sundry Creditors');
+    return { voucherType: 'Payment', drLedgerId: sp.id, drLedgerName: sp.name, crLedgerId: bankLedgerId, crLedgerName: bankLedgerName, ruleLabel: 'Vendor Fallback (Payment)' };
+  } 
+  
+  // ── 3. Static Fallback Credit rules ──
+  else {
+    if (/INTEREST|INT CREDIT|INT\.COLL/.test(d))      return journal(bankLedgerId, bankLedgerName, find('LDG-INT-INC', 'Interest Income').id, find('LDG-INT-INC', 'Interest Income').name, 'Interest Income Received');
+    if (/COMMISSION|COMM/.test(d))                     return receipt('LDG-COMM-INC',       'Commission Income',    'Commission Earned');
+    if (/DIVIDEND/.test(d))                           return receipt('LDG-DIV-INC',        'Dividend Income',      'Dividend Earned');
+    if (/REFUND|REBATE/.test(d))                       return receipt('LDG-MISC-INC',       'Miscellaneous Income', 'Refund Received');
+    if (/CASH DEP|CASH DEPOSIT|CDM/.test(d))          return contra(bankLedgerId, bankLedgerName, find('LDG-CASH','Cash Account').id, find('LDG-CASH','Cash Account').name, 'Cash Deposit');
+
+    // Customer fallback (Credit to bank -> Sundry Debtors / client payment)
+    const sb = find('LDG-SUNDRY-DEBTORS', 'Sundry Debtors');
+    return { voucherType: 'Receipt', drLedgerId: bankLedgerId, drLedgerName: bankLedgerName, crLedgerId: sb.id, crLedgerName: sb.name, ruleLabel: 'Client Fallback (Receipt)' };
+  }
+}
+
+// ── Normalize Date Format ──
+const normalizePDFDate = (rawDate: string): string => {
+  if (!rawDate) return new Date().toISOString().split('T')[0];
+  const clean = rawDate.replace(/[\/\s.-]/g, '-');
+  const dmy = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (dmy) {
+    let day = dmy[1].padStart(2, '0');
+    let month = dmy[2].padStart(2, '0');
+    let year = dmy[3];
+    if (year.length === 2) year = '20' + year;
+    return `${year}-${month}-${day}`;
+  }
+  const ymd = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (ymd) {
+    let year = ymd[1];
+    let month = ymd[2].padStart(2, '0');
+    let day = ymd[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const dmyStr = clean.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+  if (dmyStr) {
+    let day = dmyStr[1].padStart(2, '0');
+    const months: Record<string, string> = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    let month = months[dmyStr[2].toLowerCase()] || '01';
+    let year = dmyStr[3];
+    if (year.length === 2) year = '20' + year;
+    return `${year}-${month}-${day}`;
+  }
+  return rawDate;
+};
+
+// ── Generic Regex PDF Parser Fallback ──
+const parsePDFText = (fullText: string): { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] => {
+  const rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
+  const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+  const dateRx = /\b(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4})\b/i;
+  const amtRx = /([\d,]+\.\d{2})/g;
+
+  for (const line of lines) {
+    const dateMatch = line.match(dateRx);
+    if (!dateMatch) continue;
+
+    const rawDate = dateMatch[0];
+    let date = normalizePDFDate(rawDate);
+
+    const afterDate = line.slice(line.indexOf(rawDate) + rawDate.length).replace(/Page Total|Opening Bal|Closing Bal|Withdrawls|Deposits|Legends Used|End Of Statement/i, '').trim();
+    const amounts = [...afterDate.matchAll(amtRx)].map(m => parseFloat(m[1].replace(/,/g, '')));
+    if (amounts.length === 0) continue;
+
+    const descMatch = afterDate.match(/^([^\d]{3,}?)\s+[\d,]/);
+    const description = descMatch ? descMatch[1].trim() : afterDate.split(/[\d,]/)[0].trim() || 'Transaction';
+
+    let amount: number;
+    let txType: 'Debit' | 'Credit';
+
+    if (/\bDr\b/i.test(afterDate)) {
+      amount = amounts[0]; txType = 'Debit';
+    } else if (/\bCr\b/i.test(afterDate)) {
+      amount = amounts[0]; txType = 'Credit';
+    } else if (amounts.length >= 2) {
+      if (amounts.length >= 3) {
+        if (amounts[0] > 0 && amounts[1] === 0) { amount = amounts[0]; txType = 'Debit'; }
+        else if (amounts[1] > 0 && amounts[0] === 0) { amount = amounts[1]; txType = 'Credit'; }
+        else { amount = amounts[0]; txType = 'Debit'; }
+      } else {
+        amount = amounts[0]; txType = 'Credit';
+      }
+    } else {
+      amount = amounts[0]; txType = 'Credit';
+    }
+
+    if (amount > 0 && description.length > 1) {
+      rows.push({ date, description, amount, txType });
+    }
+  }
+  return rows;
+};
+
+// ─── Reconciliation Terminal Component ───
 const BankReconciliationTerminal: React.FC = () => {
-  const { ledgers, vouchers, bankStatements, updateVoucher, uploadBankStatement, autoMatchBankEntries, addNotification, bankDetailsList } = useData();
+  const { 
+    ledgers, 
+    vouchers, 
+    bankStatements, 
+    updateVoucher, 
+    uploadBankStatement, 
+    autoMatchBankEntries, 
+    postAutoVouchers, 
+    addNotification, 
+    bankDetailsList,
+    bankRules,
+    addBankRule,
+    updateBankRule,
+    removeBankRule
+  } = useData();
+
   const [selectedBank, setSelectedBank] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<'idle' | 'preview' | 'posting' | 'done'>('idle');
   const [isImporting, setIsImporting] = useState(false);
   const [isAutoMatching, setIsAutoMatching] = useState(false);
-  
+  const [drafts, setDrafts] = useState<AutoVoucherDraft[]>([]);
+  const [postResult, setPostResult] = useState<{ posted: number; skipped: number } | null>(null);
+
+  // --- Dynamic Rules Modal State ---
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
+  const [rulePattern, setRulePattern] = useState('');
+  const [ruleTxType, setRuleTxType] = useState<'Debit' | 'Credit' | 'Both'>('Both');
+  const [ruleVoucherType, setRuleVoucherType] = useState<VoucherType>('Payment');
+  const [ruleDrLedger, setRuleDrLedger] = useState('');
+  const [ruleCrLedger, setRuleCrLedger] = useState('');
+  const [ruleLabel, setRuleLabel] = useState('');
+
   const bankLedgers = ledgers.filter(l => l.groupId === 'GRP-CASH' || l.groupId === 'GRP-BANK');
 
   const currentStatements = useMemo(() => {
     return bankStatements.filter(s => (s as any).ledgerId === selectedBank);
   }, [bankStatements, selectedBank]);
-  
+
   const bookBalance = useMemo(() => {
     const l = ledgers.find(lg => lg.id === selectedBank);
     return l ? (l.currentBalance || 0) : 0;
@@ -1876,69 +2123,314 @@ const BankReconciliationTerminal: React.FC = () => {
     addNotification('Reconciled', `Voucher matched with bank on ${recoDate}`, 'success');
   };
 
-  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processRows = async (rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[]) => {
+    const bankLedger = ledgers.find(l => l.id === selectedBank);
+    const bankLedgerName = bankLedger?.name || 'Bank Account';
+    const parsed: AutoVoucherDraft[] = [];
+    rows.forEach((row, i) => {
+      const { date, description, amount, txType } = row;
+      if (amount === 0) return;
+      const stmtId = `BANK-STMT-${Date.now()}-${i}`;
+      const rule = classifyBankEntry(description, txType, selectedBank, bankLedgerName, ledgers, bankRules);
+      parsed.push({
+        statementEntryId: stmtId,
+        date,
+        description,
+        amount,
+        txType,
+        voucherType: rule.voucherType,
+        drLedgerId: rule.drLedgerId,
+        drLedgerName: rule.drLedgerName,
+        crLedgerId: rule.crLedgerId,
+        crLedgerName: rule.crLedgerName,
+        narration: `${rule.ruleLabel} — ${description}`,
+        skip: false,
+        ruleLabel: rule.ruleLabel
+      });
+    });
+    if (parsed.length === 0) return false;
+    const rawEntries: BankStatementEntry[] = parsed.map(p => ({
+      id: p.statementEntryId,
+      date: p.date,
+      description: p.description,
+      amount: p.amount,
+      type: p.txType,
+      isMatched: false
+    }));
+    await uploadBankStatement(selectedBank, rawEntries);
+    setDrafts(parsed);
+    setStep('preview');
+    return true;
+  };
+
+  const parseCSVText = (text: string): { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] => {
+    const lines = text.split('\n').filter(l => l.trim());
+    const delimiter = text.includes('\t') ? '\t' : ',';
+    const startIdx = lines[0].toLowerCase().includes('date') ? 1 : 0;
+    const rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
+    for (let i = startIdx; i < lines.length; i++) {
+      const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+      if (cols.length < 3) continue;
+      const date = cols[0];
+      const description = cols[1] || '';
+      const amount1 = parseFloat(cols[2]?.replace(/[^0-9.-]/g, '')) || 0;
+      const amount2 = parseFloat(cols[3]?.replace(/[^0-9.-]/g, '')) || 0;
+      let amount = amount1;
+      let txType: 'Debit' | 'Credit' = 'Credit';
+      if (cols.length >= 4 && amount1 > 0 && amount2 > 0) {
+        amount = amount1; txType = 'Debit';
+      } else if (amount < 0) {
+        amount = Math.abs(amount1); txType = 'Debit';
+      }
+      if (amount === 0) continue;
+      rows.push({ date, description, amount, txType });
+    }
+    return rows;
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedBank) return;
     setIsImporting(true);
-
     try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(l => l.trim());
-      const entries: BankStatementEntry[] = [];
-      
-      // Auto-detect delimiter (CSV or tab-separated)
-      const delimiter = text.includes('\t') ? '\t' : ',';
-      // Skip header row
-      const startIdx = lines[0].toLowerCase().includes('date') ? 1 : 0;
-      
-      for (let i = startIdx; i < lines.length; i++) {
-        const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-        if (cols.length < 3) continue;
+      const isPDF = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+      let rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
 
-        // Expected: Date, Description/Narration, Amount (or Debit, Credit separately)
-        const date = cols[0];
-        const description = cols[1] || '';
-        const amount1 = parseFloat(cols[2]?.replace(/[^0-9.-]/g, '')) || 0;
-        const amount2 = parseFloat(cols[3]?.replace(/[^0-9.-]/g, '')) || 0;
+      if (isPDF) {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
 
-        let amount = amount1;
-        let type: 'Debit' | 'Credit' = amount >= 0 ? 'Credit' : 'Debit';
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        let allCoordinatesParsed: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
+        let hasSnoMarkers = false;
 
-        // If we have separate debit/credit columns
-        if (cols.length >= 4 && amount1 > 0 && amount2 > 0) {
-          amount = amount1 > 0 ? amount1 : amount2;
-          type = amount1 > 0 ? 'Debit' : 'Credit';
-          amount = amount1 || amount2;
-        } else if (amount < 0) {
-          amount = Math.abs(amount);
-          type = 'Debit';
+        // Scan for coordinate-based SNo markers
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const items = textContent.items as any[];
+
+          const snoMarkers: { sno: number; y: number; index: number }[] = [];
+          items.forEach((item, index) => {
+            const x = item.transform[4];
+            const y = item.transform[5];
+            const text = item.str.trim();
+            if (x >= 85 && x <= 95 && /^\d+$/.test(text)) {
+              snoMarkers.push({ sno: parseInt(text, 10), y, index });
+            }
+          });
+
+          if (snoMarkers.length > 0) {
+            hasSnoMarkers = true;
+            snoMarkers.sort((a, b) => b.y - a.y);
+
+            for (let i = 0; i < snoMarkers.length; i++) {
+              const currentMarker = snoMarkers[i];
+              const nextMarker = snoMarkers[i + 1];
+
+              const minY = nextMarker ? nextMarker.y : Math.max(115, currentMarker.y - 50);
+              const maxY = currentMarker.y + 3;
+
+              const rowItems = items.filter(item => {
+                const y = item.transform[5];
+                return y > minY && y <= maxY;
+              });
+
+              let valueDateParts: string[] = [];
+              let postDateParts: string[] = [];
+              let descParts: string[] = [];
+              let withdrawalParts: string[] = [];
+              let depositParts: string[] = [];
+
+              rowItems.sort((a, b) => {
+                const yDiff = b.transform[5] - a.transform[5];
+                if (Math.abs(yDiff) > 2) return yDiff;
+                return a.transform[4] - b.transform[4];
+              });
+
+              rowItems.forEach(item => {
+                const x = item.transform[4];
+                const text = item.str.trim();
+                if (!text) return;
+
+                if (/(Page Total|Opening Bal|Closing Bal|Withdrawls|Deposits|Legends Used|End Of Statement)/i.test(text)) {
+                  return;
+                }
+
+                if (x >= 130 && x < 165) {
+                  valueDateParts.push(text);
+                } else if (x >= 165 && x < 210) {
+                  postDateParts.push(text);
+                } else if (x >= 300 && x < 390) {
+                  descParts.push(text);
+                } else if (x >= 390 && x < 425) {
+                  withdrawalParts.push(text);
+                } else if (x >= 425 && x < 465) {
+                  depositParts.push(text);
+                }
+              });
+
+              const rawValueDate = valueDateParts.join('').replace(/\s+/g, '');
+              const rawPostDate = postDateParts.join('').replace(/\s+/g, '');
+              const valueDate = normalizePDFDate(rawValueDate);
+              const postDate = normalizePDFDate(rawPostDate);
+              const description = descParts.join(' ').replace(/\s+/g, ' ').trim();
+              
+              const withdrawalStr = withdrawalParts.join('').replace(/\s+/g, '').replace(/,/g, '');
+              const depositStr = depositParts.join('').replace(/\s+/g, '').replace(/,/g, '');
+
+              let amount = 0;
+              let txType: 'Debit' | 'Credit' = 'Debit';
+
+              if (withdrawalStr && !isNaN(parseFloat(withdrawalStr)) && parseFloat(withdrawalStr) > 0) {
+                amount = parseFloat(withdrawalStr);
+                txType = 'Debit';
+              } else if (depositStr && !isNaN(parseFloat(depositStr)) && parseFloat(depositStr) > 0) {
+                amount = parseFloat(depositStr);
+                txType = 'Credit';
+              }
+
+              if (amount > 0 && description) {
+                allCoordinatesParsed.push({
+                  date: valueDate || postDate,
+                  description,
+                  amount,
+                  txType
+                });
+              }
+            }
+          }
         }
 
-        entries.push({
-          id: `BANK-STMT-${Date.now()}-${i}`,
-          date,
-          description,
-          amount,
-          type,
-          isMatched: false
-        });
+        if (hasSnoMarkers && allCoordinatesParsed.length > 0) {
+          rows = allCoordinatesParsed;
+        } else {
+          // Fallback to text line parser
+          let fullText = '';
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageLines: string[] = [];
+            let lastY: number | null = null;
+            let currentLine = '';
+            for (const item of textContent.items as any[]) {
+              const y = Math.round(item.transform[5]);
+              if (lastY !== null && Math.abs(y - lastY) > 3) {
+                pageLines.push(currentLine.trim());
+                currentLine = '';
+              }
+              currentLine += ' ' + item.str;
+              lastY = y;
+            }
+            if (currentLine.trim()) pageLines.push(currentLine.trim());
+            fullText += pageLines.join('\n') + '\n';
+          }
+          rows = parsePDFText(fullText);
+        }
+      } else {
+        const text = await file.text();
+        rows = parseCSVText(text);
       }
 
-      if (entries.length === 0) {
-        addNotification('Import Failed', 'No valid entries found in the CSV. Check format: Date, Description, Amount.', 'alert');
+      if (rows.length === 0) {
+        addNotification(
+          'Import Failed',
+          isPDF
+            ? 'No transactions detected in PDF. Ensure it is a text-based bank statement.'
+            : 'No valid entries found. Check format: Date, Description, Amount.',
+          'alert'
+        );
         setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
-      await uploadBankStatement(selectedBank, entries);
-      addNotification('Imported', `${entries.length} bank statement entries imported.`, 'success');
+      const ok = await processRows(rows);
+      if (!ok) {
+        addNotification('Import Failed', 'Entries found but could not be classified. Try a CSV export instead.', 'alert');
+      }
     } catch (err: any) {
-      addNotification('Import Error', err.message || 'Failed to parse CSV.', 'alert');
+      addNotification('Import Error', err.message || 'Failed to parse file.', 'alert');
     }
-    
     setIsImporting(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const handlePostAll = async () => {
+    setStep('posting');
+    const toPost = drafts.filter(d => !d.skip);
+
+    // Auto-save dynamic rules for drafts where saveRule is enabled
+    for (const draft of toPost) {
+      if ((draft as any).saveRule) {
+        const words = draft.description.split('/');
+        const rawPattern = (words[0] || '').trim();
+        const pattern = rawPattern.split(/\s+/).slice(0, 3).join(' '); // Take up to first 3 words
+        
+        if (pattern && !bankRules.some(r => r.pattern.toUpperCase() === pattern.toUpperCase())) {
+          await addBankRule({
+            id: `RULE-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            pattern,
+            txType: draft.txType,
+            voucherType: draft.voucherType,
+            drLedgerId: draft.drLedgerId,
+            drLedgerName: draft.drLedgerName,
+            crLedgerId: draft.crLedgerId,
+            crLedgerName: draft.crLedgerName,
+            ruleLabel: `${draft.txType === 'Credit' ? 'Receipt' : 'Payment'} for ${pattern}`
+          });
+        }
+      }
+    }
+
+    const skipped = drafts.filter(d => d.skip).length;
+    const posted = await postAutoVouchers(selectedBank, toPost);
+    setPostResult({ posted, skipped });
+    setStep('done');
+    addNotification('Vouchers Posted', `${posted} vouchers created from bank statement.`, 'success');
+  };
+
+  const updateDraft = (idx: number, patch: Partial<AutoVoucherDraft & { saveRule: boolean }>) => {
+    setDrafts(prev => prev.map((d, i) => i === idx ? { ...d, ...patch } : d));
+  };
+
+  const handleSaveRule = async () => {
+    if (!rulePattern || !ruleLabel || !ruleDrLedger || !ruleCrLedger) {
+      addNotification('Validation Error', 'Please fill in all fields to create a rule.', 'alert');
+      return;
+    }
+
+    const drL = ledgers.find(l => l.id === ruleDrLedger);
+    const crL = ledgers.find(l => l.id === ruleCrLedger);
+
+    await addBankRule({
+      id: `RULE-${Date.now()}`,
+      pattern: rulePattern,
+      txType: ruleTxType,
+      voucherType: ruleVoucherType,
+      drLedgerId: ruleDrLedger,
+      drLedgerName: drL?.name || ruleDrLedger,
+      crLedgerId: ruleCrLedger,
+      crLedgerName: crL?.name || ruleCrLedger,
+      ruleLabel
+    });
+
+    addNotification('Rule Saved', `Reconciliation rule "${ruleLabel}" has been added.`, 'success');
+    
+    setRulePattern('');
+    setRuleLabel('');
+    setRuleDrLedger('');
+    setRuleCrLedger('');
+    setShowAddRuleModal(false);
+  };
+
+  const matchedStatements = useMemo(() => currentStatements.filter(s => s.isMatched), [currentStatements]);
+  const unmatchedStatements = useMemo(() => currentStatements.filter(s => !s.isMatched), [currentStatements]);
 
   const handleAutoMatch = async () => {
     if (!selectedBank) return;
@@ -1948,157 +2440,503 @@ const BankReconciliationTerminal: React.FC = () => {
     setIsAutoMatching(false);
   };
 
-  const matchedStatements = useMemo(() => currentStatements.filter(s => s.isMatched), [currentStatements]);
-  const unmatchedStatements = useMemo(() => currentStatements.filter(s => !s.isMatched), [currentStatements]);
-
   return (
     <div className="p-4 sm:p-8 space-y-6 animate-in fade-in">
-      <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt" className="hidden" onChange={handleCSVImport} />
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="w-full lg:w-80 space-y-4">
-          <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
-            <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2"><Building2 size={16} className="text-indigo-500"/> Select Account</h3>
-            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
-              <option value="">Select Cash/Bank Account...</option>
-              {bankLedgers.map(l => {
-                const configBank = bankDetailsList.find(b => b.bankName.toUpperCase() === l.name.toUpperCase());
-                const label = configBank ? `${l.name} (${configBank.accountNo})` : l.name;
-                return <option key={l.id} value={l.id}>{label}</option>;
-              })}
-            </select>
+      <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt,.pdf" className="hidden" onChange={handleFileImport} />
+
+      {step === 'idle' && (
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="w-full lg:w-80 space-y-4">
+            <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
+              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest flex items-center justify-between">
+                <span className="flex items-center gap-2"><Building2 size={16} className="text-indigo-500"/> Select Account</span>
+                <button 
+                  onClick={() => setShowRulesModal(true)} 
+                  className="px-2 py-1 bg-white hover:bg-slate-100 text-indigo-600 rounded-lg border border-slate-200 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 transition-all"
+                >
+                  <Settings size={10} /> Rules
+                </button>
+              </h3>
+              <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
+                <option value="">Select Cash/Bank Account...</option>
+                {bankLedgers.map(l => {
+                  const configBank = bankDetailsList.find(b => b.bankName.toUpperCase() === l.name.toUpperCase());
+                  const label = configBank ? `${l.name} (${configBank.accountNo})` : l.name;
+                  return <option key={l.id} value={l.id}>{label}</option>;
+                })}
+              </select>
+            </div>
+
+            {selectedBank && (
+              <>
+                <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6 animate-in slide-in-from-left-4">
+                  <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><Activity size={16}/> Reco Summary</h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Book Balance</span><span className="text-slate-800">₹{bookBalance.toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Statement Entries</span><span className="text-slate-800">{currentStatements.length}</span></div>
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Auto-Matched</span><span className="text-emerald-600">{matchedStatements.length}</span></div>
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Pending Match</span><span className="text-amber-600">{unmatchedStatements.length}</span></div>
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Uncleared (+)</span><span className="text-emerald-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.debit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
+                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Unpresented (-)</span><span className="text-rose-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.credit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
+                    <div className="pt-4 border-t border-slate-100 flex justify-between items-end"><span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Expected Bank</span><span className="text-lg font-black text-indigo-600">₹{(bookBalance + unreconciledVouchers.reduce((sum, v) => { const e = v.entries.find(ent => ent.ledgerId === selectedBank)!; return sum + ((e.debit || 0) - (e.credit || 0)); }, 0)).toLocaleString('en-IN')}</span></div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button onClick={handleAutoMatch} disabled={isAutoMatching} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50">
+                    <RotateCcw size={14} className={isAutoMatching ? 'animate-spin' : ''} /> {isAutoMatching ? 'Matching...' : 'Auto-Match Entries'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
-          {selectedBank && (
-            <>
-              <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6 animate-in slide-in-from-left-4">
-                <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><Activity size={16}/> Reco Summary</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Book Balance</span><span className="text-slate-800">₹{bookBalance.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Statement Entries</span><span className="text-slate-800">{currentStatements.length}</span></div>
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Auto-Matched</span><span className="text-emerald-600">{matchedStatements.length}</span></div>
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Pending Match</span><span className="text-amber-600">{unmatchedStatements.length}</span></div>
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Uncleared (+)</span><span className="text-emerald-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.debit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Unpresented (-)</span><span className="text-rose-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.credit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
-                  <div className="pt-4 border-t border-slate-100 flex justify-between items-end"><span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Expected Bank</span><span className="text-lg font-black text-indigo-600">₹{(bookBalance + unreconciledVouchers.reduce((sum, v) => { const e = v.entries.find(ent => ent.ledgerId === selectedBank)!; return sum + ((e.debit || 0) - (e.credit || 0)); }, 0)).toLocaleString('en-IN')}</span></div>
-                </div>
+          <div className="flex-1 min-w-0 space-y-6">
+            {!selectedBank ? (
+              <div className="h-[400px] bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center text-center p-12 opacity-50">
+                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-slate-200 mb-6 shadow-sm"><CheckCircle2 size={40} /></div>
+                 <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Reconciliation Terminal</h4>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] max-w-[240px] mt-2 leading-relaxed">Select a financial ledger to synchronize book entries with bank statements.</p>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <button onClick={handleAutoMatch} disabled={isAutoMatching} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50">
-                  <RotateCcw size={14} className={isAutoMatching ? 'animate-spin' : ''} /> {isAutoMatching ? 'Matching...' : 'Auto-Match Entries'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0 space-y-6">
-          {!selectedBank ? (
-            <div className="h-[400px] bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center text-center p-12 opacity-50">
-               <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-slate-200 mb-6 shadow-sm"><CheckCircle2 size={40} /></div>
-               <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Reconciliation Terminal</h4>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] max-w-[240px] mt-2 leading-relaxed">Select a financial ledger to synchronize book entries with bank statements.</p>
-            </div>
-          ) : (
-            <>
-              {/* Statement Entries */}
-              {currentStatements.length > 0 && (
-                <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-                  <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
-                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Bank Statement ({currentStatements.length})</h4>
-                    <span className="text-[9px] font-black text-slate-400">{matchedStatements.length} matched | {unmatchedStatements.length} open</span>
+            ) : (
+              <>
+                {/* Statement Entries */}
+                {currentStatements.length > 0 && (
+                  <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
+                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Bank Statement ({currentStatements.length})</h4>
+                      <span className="text-[9px] font-black text-slate-400">{matchedStatements.length} matched | {unmatchedStatements.length} open</span>
+                    </div>
+                    <div className="overflow-auto max-h-[300px] custom-scrollbar">
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
+                          <tr><th className="px-6 py-3">Date</th><th className="px-6 py-3">Description</th><th className="px-6 py-3 text-right">Amount</th><th className="px-6 py-3 text-center">Status</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {currentStatements.sort((a, b) => b.date.localeCompare(a.date)).map(s => (
+                            <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isMatched ? 'opacity-60' : ''}`}>
+                              <td className="px-6 py-3 font-bold text-slate-400">{s.date}</td>
+                              <td className="px-6 py-3 font-bold text-slate-600 truncate max-w-[200px]">{s.description}</td>
+                              <td className={`px-6 py-3 text-right font-black ${s.type === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>₹{s.amount.toLocaleString('en-IN')}</td>
+                              <td className="px-6 py-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${s.isMatched ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{s.isMatched ? 'Matched' : 'Open'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <div className="overflow-auto max-h-[300px] custom-scrollbar">
+                )}
+
+                {/* Pending Book Entries */}
+                <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden flex flex-col animate-in fade-in">
+                  <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/30">
+                      <div className="text-center sm:text-left">
+                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Pending Book Entries</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Verification sequence required</p>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <div className="hidden sm:block relative group">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest cursor-help border-b border-dotted border-slate-300">File Formats</span>
+                          <div className="absolute bottom-full right-0 mb-2 w-64 bg-slate-900 text-white text-[8px] font-bold p-3 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 leading-relaxed">
+                            Expected CSV columns: <span className="text-emerald-300">Date, Description, Amount</span><br/>
+                            Or PDF: <span className="text-emerald-300">Standard text-based statement format</span><br/>
+                            Matches transaction narratives dynamically.
+                          </div>
+                        </div>
+                        <button onClick={handleAutoMatch} disabled={isAutoMatching} className="px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
+                          <RotateCcw size={14} /> Auto-Match
+                        </button>
+                        <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="px-4 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95">
+                          <UploadCloud size={16} /> {isImporting ? 'Importing...' : 'Import CSV/PDF'}
+                        </button>
+                      </div>
+                  </div>
+                  
+                  <div className="overflow-auto max-h-[400px] custom-scrollbar">
                     <table className="w-full text-left text-[11px]">
                       <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                        <tr><th className="px-6 py-3">Date</th><th className="px-6 py-3">Description</th><th className="px-6 py-3 text-right">Amount</th><th className="px-6 py-3 text-center">Status</th></tr>
+                        <tr><th className="px-8 py-5">Date</th><th className="px-8 py-5">Particulars</th><th className="px-8 py-5 text-right">Debit (₹)</th><th className="px-8 py-5 text-right">Credit (₹)</th><th className="px-8 py-5 text-center">Action</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {currentStatements.sort((a, b) => b.date.localeCompare(a.date)).map(s => (
-                          <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isMatched ? 'opacity-60' : ''}`}>
-                            <td className="px-6 py-3 font-bold text-slate-400">{s.date}</td>
-                            <td className="px-6 py-3 font-bold text-slate-600 truncate max-w-[200px]">{s.description}</td>
-                            <td className={`px-6 py-3 text-right font-black ${s.type === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>₹{s.amount.toLocaleString('en-IN')}</td>
-                            <td className="px-6 py-3 text-center">
-                              <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${s.isMatched ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{s.isMatched ? 'Matched' : 'Open'}</span>
-                            </td>
-                          </tr>
-                        ))}
+                        {unreconciledVouchers.length === 0 ? (
+                          <tr><td colSpan={5} className="py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">Registry is Synchronized</td></tr>
+                        ) : unreconciledVouchers.map(v => {
+                          const entry = v.entries.find(e => e.ledgerId === selectedBank)!;
+                          const opposite = v.entries.find(e => e.ledgerId !== selectedBank);
+                          return (
+                            <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-8 py-6 font-bold text-slate-400">{v.date}</td>
+                              <td className="px-8 py-6"><p className="font-black text-slate-800 uppercase">{opposite?.ledgerName || 'Multi-ledger Offset'}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight truncate max-w-[200px]">"{v.narration}"</p></td>
+                              <td className="px-8 py-6 text-right font-black text-emerald-600 text-sm">{(entry.debit || 0) > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '---'}</td>
+                              <td className="px-8 py-6 text-right font-black text-rose-600 text-sm">{(entry.credit || 0) > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '---'}</td>
+                              <td className="px-8 py-6 text-center"><button onClick={() => handleMatch(v.id)} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Match Entry</button></td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
-              )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
-              {/* Pending Book Entries */}
-              <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden flex flex-col animate-in fade-in">
-                <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/30">
-                    <div className="text-center sm:text-left">
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Pending Book Entries</h4>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Verification sequence required</p>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <div className="hidden sm:block relative group">
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest cursor-help border-b border-dotted border-slate-300">CSV Format</span>
-                        <div className="absolute bottom-full right-0 mb-2 w-64 bg-slate-900 text-white text-[8px] font-bold p-3 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 leading-relaxed">
-                          Expected columns: <span className="text-emerald-300">Date, Description, Amount</span><br/>
-                          Or: <span className="text-emerald-300">Date, Description, Debit, Credit</span><br/>
-                          Auto-detects comma or tab delimiter.<br/>
-                          First row with "date" is treated as header.
+      {step === 'preview' && (
+        <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden animate-in fade-in">
+          <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
+            <div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">Auto-Voucher Drafts Review</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Review ledger assignments and customize rules dynamically before posting</p>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => { setStep('idle'); setDrafts([]); }} 
+                className="px-6 py-3 bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+              >
+                Cancel Review
+              </button>
+              <button 
+                onClick={handlePostAll} 
+                className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all hover:bg-emerald-700"
+              >
+                Post Vouchers
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
+                <tr>
+                  <th className="px-6 py-4">Transaction Details</th>
+                  <th className="px-6 py-4 text-right">Value (₹)</th>
+                  <th className="px-6 py-4">Voucher Type</th>
+                  <th className="px-6 py-4">Debit Ledger</th>
+                  <th className="px-6 py-4">Credit Ledger</th>
+                  <th className="px-6 py-4">Narration</th>
+                  <th className="px-6 py-4 text-center">Automation</th>
+                  <th className="px-6 py-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {drafts.map((draft, idx) => (
+                  <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${draft.skip ? 'opacity-40 bg-slate-50' : ''}`}>
+                    <td className="px-6 py-4 max-w-[200px]">
+                      <span className="text-[9px] font-bold text-slate-400 block mb-1">{draft.date}</span>
+                      <span className="font-bold text-slate-800 block truncate" title={draft.description}>{draft.description}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className={`font-black text-xs ${draft.txType === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {draft.txType === 'Credit' ? '+' : '-'} ₹{draft.amount.toLocaleString('en-IN')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={draft.voucherType} 
+                        onChange={(e) => updateDraft(idx, { voucherType: e.target.value as VoucherType })}
+                        className="p-2 border rounded-xl text-xs bg-white uppercase font-black tracking-tight outline-none focus:ring-4 focus:ring-indigo-500/5"
+                        disabled={draft.skip}
+                      >
+                        <option value="Payment">Payment</option>
+                        <option value="Receipt">Receipt</option>
+                        <option value="Contra">Contra</option>
+                        <option value="Journal">Journal</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={draft.drLedgerId} 
+                        onChange={(e) => {
+                          const l = ledgers.find(lg => lg.id === e.target.value);
+                          updateDraft(idx, { drLedgerId: e.target.value, drLedgerName: l?.name || e.target.value });
+                        }}
+                        className="p-2 border rounded-xl text-xs bg-white uppercase font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 max-w-[150px] truncate"
+                        disabled={draft.skip}
+                      >
+                        {ledgers.map(l => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={draft.crLedgerId} 
+                        onChange={(e) => {
+                          const l = ledgers.find(lg => lg.id === e.target.value);
+                          updateDraft(idx, { crLedgerId: e.target.value, crLedgerName: l?.name || e.target.value });
+                        }}
+                        className="p-2 border rounded-xl text-xs bg-white uppercase font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 max-w-[150px] truncate"
+                        disabled={draft.skip}
+                      >
+                        {ledgers.map(l => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      <input 
+                        type="text" 
+                        value={draft.narration} 
+                        onChange={(e) => updateDraft(idx, { narration: e.target.value })}
+                        className="p-2 border rounded-xl text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 w-44 font-medium"
+                        placeholder="Narration Text"
+                        disabled={draft.skip}
+                      />
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                        <input 
+                          type="checkbox" 
+                          checked={!!(draft as any).saveRule} 
+                          onChange={(e) => updateDraft(idx, { saveRule: e.target.checked })} 
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                          disabled={draft.skip}
+                        />
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">Save Rule</span>
+                      </label>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button 
+                        onClick={() => updateDraft(idx, { skip: !draft.skip })}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight active:scale-95 border transition-all ${
+                          draft.skip 
+                            ? 'bg-rose-50 text-rose-600 border-rose-200' 
+                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
+                        }`}
+                      >
+                        {draft.skip ? 'Skipped' : 'Skip'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {step === 'posting' && (
+        <div className="h-[400px] bg-white rounded-[2.5rem] border border-slate-300 shadow-xl flex flex-col items-center justify-center text-center p-12 animate-in fade-in">
+           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+           <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Posting Vouchers to Ledger</h4>
+           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Writing transaction records dynamically. Please wait...</p>
+        </div>
+      )}
+
+      {step === 'done' && postResult && (
+        <div className="h-[400px] bg-white rounded-[2.5rem] border border-slate-300 shadow-xl flex flex-col items-center justify-center text-center p-12 animate-in fade-in">
+           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2rem] flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/10"><CheckCircle2 size={40} /></div>
+           <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Import & Classification Complete</h4>
+           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{postResult.posted} Vouchers posted successfully · {postResult.skipped} Entries skipped</p>
+           <button onClick={() => { setStep('idle'); setDrafts([]); setPostResult(null); }} className="mt-8 px-6 py-3.5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-xl transition-all">Return to Terminal</button>
+        </div>
+      )}
+
+      {/* --- Automation Rules Manager Modal --- */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden max-h-[85vh]">
+            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Settings className="text-indigo-500" size={20} /> Automation Rules Manager</h3>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Automatic classification keyword patterns for descriptions</p>
+              </div>
+              <button onClick={() => setShowRulesModal(false)} className="w-10 h-10 bg-white hover:bg-slate-100 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 active:scale-95 transition-all"><X size={18} /></button>
+            </div>
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bankRules.length} Rules Defined</span>
+                <button 
+                  onClick={() => setShowAddRuleModal(true)} 
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <Plus size={14} /> Add Rule
+                </button>
+              </div>
+
+              {bankRules.length === 0 ? (
+                <div className="py-16 text-center text-slate-300 font-black uppercase tracking-[0.2em] text-[9px] border-2 border-dashed border-slate-100 rounded-2xl">
+                  No automated rules configured. Create one to classify imports.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 border rounded-2xl overflow-hidden bg-slate-50/50">
+                  {bankRules.map(rule => (
+                    <div key={rule.id} className="p-4 flex justify-between items-center hover:bg-white transition-colors bg-white/40">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-800 uppercase">{rule.ruleLabel}</span>
+                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-md">Keyword: "{rule.pattern}"</span>
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-md">Type: {rule.txType}</span>
+                        </div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1 flex items-center gap-2">
+                          <span>Vch: <strong className="text-slate-600">{rule.voucherType}</strong></span>
+                          <span>·</span>
+                          <span>Dr: <strong className="text-slate-600">{rule.drLedgerName}</strong></span>
+                          <span>·</span>
+                          <span>Cr: <strong className="text-slate-600">{rule.crLedgerName}</strong></span>
                         </div>
                       </div>
-                      <button onClick={handleAutoMatch} disabled={isAutoMatching} className="px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
-                        <RotateCcw size={14} /> Auto-Match
-                      </button>
-                      <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="px-4 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95">
-                        <UploadCloud size={16} /> {isImporting ? 'Importing...' : 'Import CSV'}
+                      <button 
+                        onClick={() => removeBankRule(rule.id)} 
+                        className="w-8 h-8 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors border border-slate-100 active:scale-95"
+                        title="Delete Rule"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
+                  ))}
                 </div>
-                
-                <div className="overflow-auto max-h-[400px] custom-scrollbar">
-                  <table className="w-full text-left text-[11px]">
-                    <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                      <tr><th className="px-8 py-5">Date</th><th className="px-8 py-5">Particulars</th><th className="px-8 py-5 text-right">Debit (₹)</th><th className="px-8 py-5 text-right">Credit (₹)</th><th className="px-8 py-5 text-center">Action</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {unreconciledVouchers.length === 0 ? (
-                        <tr><td colSpan={5} className="py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">Registry is Synchronized</td></tr>
-                      ) : unreconciledVouchers.map(v => {
-                        const entry = v.entries.find(e => e.ledgerId === selectedBank)!;
-                        const opposite = v.entries.find(e => e.ledgerId !== selectedBank);
-                        return (
-                          <tr key={v.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-8 py-6 font-bold text-slate-400">{v.date}</td>
-                            <td className="px-8 py-6"><p className="font-black text-slate-800 uppercase">{opposite?.ledgerName || 'Multi-ledger Offset'}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight truncate max-w-[200px]">"{v.narration}"</p></td>
-                            <td className="px-8 py-6 text-right font-black text-emerald-600 text-sm">{(entry.debit || 0) > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '---'}</td>
-                            <td className="px-8 py-6 text-right font-black text-rose-600 text-sm">{(entry.credit || 0) > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '---'}</td>
-                            <td className="px-8 py-6 text-center"><button onClick={() => handleMatch(v.id)} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Match Entry</button></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+            <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button onClick={() => setShowRulesModal(false)} className="px-6 py-3.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">Close Rules Manager</button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* --- Add Automation Rule Modal --- */}
+      {showAddRuleModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+            <div className="p-8 border-b border-slate-100 bg-indigo-50/30 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Plus size={18} className="text-indigo-600"/> Add Automation Rule</h3>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Specify pattern matching parameters</p>
+              </div>
+              <button onClick={() => setShowAddRuleModal(false)} className="w-10 h-10 bg-white hover:bg-slate-100 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 active:scale-95 transition-all"><X size={18} /></button>
+            </div>
+            <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <FormRow label="Rule Label / Description">
+                <input 
+                  type="text" 
+                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
+                  placeholder="e.g. Salary Payment, Monthly Rent"
+                  value={ruleLabel}
+                  onChange={(e) => setRuleLabel(e.target.value)}
+                />
+              </FormRow>
+
+              <FormRow label="Pattern (Keyword to Match Description)">
+                <input 
+                  type="text" 
+                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
+                  placeholder="e.g. SALARY, RENT, ZOMATO"
+                  value={rulePattern}
+                  onChange={(e) => setRulePattern(e.target.value)}
+                />
+              </FormRow>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormRow label="Statement Side">
+                  <select 
+                    value={ruleTxType} 
+                    onChange={(e) => setRuleTxType(e.target.value as any)}
+                    className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
+                  >
+                    <option value="Both">Debit & Credit</option>
+                    <option value="Debit">Debit Only (Spend)</option>
+                    <option value="Credit">Credit Only (Income)</option>
+                  </select>
+                </FormRow>
+
+                <FormRow label="Voucher Type">
+                  <select 
+                    value={ruleVoucherType} 
+                    onChange={(e) => setRuleVoucherType(e.target.value as VoucherType)}
+                    className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
+                  >
+                    <option value="Payment">Payment</option>
+                    <option value="Receipt">Receipt</option>
+                    <option value="Contra">Contra</option>
+                    <option value="Journal">Journal</option>
+                  </select>
+                </FormRow>
+              </div>
+
+              <FormRow label="Debit Account">
+                <select 
+                  value={ruleDrLedger} 
+                  onChange={(e) => setRuleDrLedger(e.target.value)}
+                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
+                >
+                  <option value="">Select Ledger...</option>
+                  {ledgers.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </FormRow>
+
+              <FormRow label="Credit Account">
+                <select 
+                  value={ruleCrLedger} 
+                  onChange={(e) => setRuleCrLedger(e.target.value)}
+                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
+                >
+                  <option value="">Select Ledger...</option>
+                  {ledgers.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </FormRow>
+            </div>
+            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
+              <button onClick={() => setShowAddRuleModal(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Abort</button>
+              <button onClick={handleSaveRule} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95">Save Rule</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
+
 const TrialBalanceView: React.FC<{ ledgers: Ledger[], accountGroups: AccountGroup[] }> = ({ ledgers, accountGroups }) => {
   const categories = ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'];
-  const totals = useMemo(() => {
-    return ledgers.reduce((acc, l) => {
+  
+  const processedLedgers = useMemo(() => {
+    const hasNegativeBalances = ledgers.some(l => (l.currentBalance || 0) < 0);
+    return ledgers.map(l => {
       const bal = l.currentBalance || 0;
-      if (bal >= 0) acc.debit += bal;
-      else acc.credit += Math.abs(bal);
+      const g = accountGroups.find(g => g.id === l.groupId);
+      const type = g ? g.type : 'Asset';
+      const isCreditNormal = ['Liability', 'Equity', 'Revenue'].includes(type);
+      
+      let debit = 0;
+      let credit = 0;
+      
+      if (hasNegativeBalances) {
+        if (bal >= 0) {
+          debit = bal;
+        } else {
+          credit = Math.abs(bal);
+        }
+      } else {
+        if (isCreditNormal) {
+          credit = bal;
+        } else {
+          debit = bal;
+        }
+      }
+      return {
+        ...l,
+        debit,
+        credit
+      };
+    });
+  }, [ledgers, accountGroups]);
+
+  const totals = useMemo(() => {
+    return processedLedgers.reduce((acc, l) => {
+      acc.debit += l.debit;
+      acc.credit += l.credit;
       return acc;
     }, { debit: 0, credit: 0 });
-  }, [ledgers]);
+  }, [processedLedgers]);
 
   return (
     <div className="p-4 sm:p-8 space-y-8 animate-in fade-in pb-20">
@@ -2128,15 +2966,15 @@ const TrialBalanceView: React.FC<{ ledgers: Ledger[], accountGroups: AccountGrou
                 <tbody className="divide-y divide-slate-100">
                     {categories.map(cat => {
                         const groupsInCat = accountGroups.filter(g => g.type === cat);
-                        const ledgersInCat = ledgers.filter(l => groupsInCat.some(g => g.id === l.groupId));
-                        const catDebit = ledgersInCat.reduce((sum, l) => sum + ((l.currentBalance || 0) >= 0 ? (l.currentBalance || 0) : 0), 0);
-                        const catCredit = ledgersInCat.reduce((sum, l) => sum + ((l.currentBalance || 0) < 0 ? Math.abs(l.currentBalance || 0) : 0), 0);
+                        const ledgersInCat = processedLedgers.filter(l => groupsInCat.some(g => g.id === l.groupId));
+                        const catDebit = ledgersInCat.reduce((sum, l) => sum + l.debit, 0);
+                        const catCredit = ledgersInCat.reduce((sum, l) => sum + l.credit, 0);
                         if (ledgersInCat.length === 0) return null;
                         return (
                             <React.Fragment key={cat}>
                                 <tr className="bg-slate-50/80"><td className="px-8 py-4 font-black text-slate-800 uppercase tracking-widest text-[10px]">{cat} Ledger Accounts</td><td className="px-8 py-4 text-right font-black text-slate-800">{catDebit > 0 ? `₹${catDebit.toLocaleString('en-IN')}` : '---'}</td><td className="px-8 py-4 text-right font-black text-slate-800">{catCredit > 0 ? `₹${catCredit.toLocaleString('en-IN')}` : '---'}</td></tr>
                                 {ledgersInCat.map(l => (
-                                    <tr key={l.id} className="hover:bg-slate-50 transition-colors"><td className="px-12 py-3 text-slate-500 font-bold uppercase tracking-tight">{l.name}</td><td className="px-8 py-3 text-right font-black text-emerald-600">{(l.currentBalance || 0) >= 0 ? `₹${(l.currentBalance || 0).toLocaleString('en-IN')}` : '---'}</td><td className="px-8 py-3 text-right font-black text-rose-600">{(l.currentBalance || 0) < 0 ? `₹${Math.abs(l.currentBalance || 0).toLocaleString('en-IN')}` : '---'}</td></tr>
+                                    <tr key={l.id} className="hover:bg-slate-50 transition-colors"><td className="px-12 py-3 text-slate-500 font-bold uppercase tracking-tight">{l.name}</td><td className="px-8 py-3 text-right font-black text-emerald-600">{l.debit > 0 ? `₹${l.debit.toLocaleString('en-IN')}` : '---'}</td><td className="px-8 py-3 text-right font-black text-rose-600">{l.credit > 0 ? `₹${l.credit.toLocaleString('en-IN')}` : '---'}</td></tr>
                                 ))}
                             </React.Fragment>
                         );
@@ -2331,37 +3169,69 @@ const AgingView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
   );
 };
 
-const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
+const getTaxRates = (taxRate: number, customerGstin: string, sellerGstin: string) => {
+  const custState = (customerGstin || '').trim().slice(0, 2);
+  const sellState = (sellerGstin || '33APGPS4675G2ZL').trim().slice(0, 2);
+  const isIntraState = !custState || custState === sellState;
+  
+  if (isIntraState) {
+    return {
+      cgstRate: taxRate / 2,
+      sgstRate: taxRate / 2,
+      igstRate: 0
+    };
+  } else {
+    return {
+      cgstRate: 0,
+      sgstRate: 0,
+      igstRate: taxRate
+    };
+  }
+};
+
+const GSTView: React.FC<{ invoices: any[], purchaseRecords: any[] }> = ({ invoices, purchaseRecords }) => {
   const [gstTab, setGstTab] = useState<'gstr1' | 'gstr3b' | 'hsn'>('gstr1');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
   const gstInvoices = useMemo(() => {
     return invoices.filter(i =>
+      i.date.startsWith(selectedMonth) &&
       i.status !== 'Draft' &&
       i.status !== 'Cancelled' &&
       i.documentType !== 'Quotation' &&
       (i.documentType === 'Invoice' || !i.documentType) &&
       i.items && i.items.length > 0
     );
-  }, [invoices]);
+  }, [invoices, selectedMonth]);
 
   const gstSummary = useMemo(() => {
     let totalTaxable = 0, totalCGST = 0, totalSGST = 0, totalIGST = 0;
-    const hsnMap: Record<string, { taxable: number; cgst: number; sgst: number; igst: number; qty: number }> = {};
+    const hsnMap: Record<string, { taxable: number; cgst: number; sgst: number; igst: number; qty: number; desc: string }> = {};
 
     gstInvoices.forEach(inv => {
+      const customerGstin = inv.customerGstin || '';
+      const sellerGstin = inv.sellerProfile?.gstin || '33APGPS4675G2ZL';
+
       (inv.items || []).forEach((item: any) => {
-        const taxable = item.amount || 0;
+        const taxable = item.amount || (item.unitPrice * item.quantity) || 0;
+        const taxRate = item.taxRate !== undefined ? item.taxRate : 18;
+        const rates = getTaxRates(taxRate, customerGstin, sellerGstin);
+
+        const cgst = (taxable * rates.cgstRate) / 100;
+        const sgst = (taxable * rates.sgstRate) / 100;
+        const igst = (taxable * rates.igstRate) / 100;
+
         totalTaxable += taxable;
-        totalCGST += item.cgstRate ? (taxable * item.cgstRate / 100) : 0;
-        totalSGST += item.sgstRate ? (taxable * item.sgstRate / 100) : 0;
-        totalIGST += item.igstRate ? (taxable * item.igstRate / 100) : 0;
+        totalCGST += cgst;
+        totalSGST += sgst;
+        totalIGST += igst;
 
         const hsn = item.hsn || 'GENERAL';
-        if (!hsnMap[hsn]) hsnMap[hsn] = { taxable: 0, cgst: 0, sgst: 0, igst: 0, qty: 0 };
+        if (!hsnMap[hsn]) hsnMap[hsn] = { taxable: 0, cgst: 0, sgst: 0, igst: 0, qty: 0, desc: item.equipmentName || 'Goods/Services' };
         hsnMap[hsn].taxable += taxable;
-        hsnMap[hsn].cgst += item.cgstRate ? (taxable * item.cgstRate / 100) : 0;
-        hsnMap[hsn].sgst += item.sgstRate ? (taxable * item.sgstRate / 100) : 0;
-        hsnMap[hsn].igst += item.igstRate ? (taxable * item.igstRate / 100) : 0;
+        hsnMap[hsn].cgst += cgst;
+        hsnMap[hsn].sgst += sgst;
+        hsnMap[hsn].igst += igst;
         hsnMap[hsn].qty += item.quantity || 0;
       });
     });
@@ -2371,36 +3241,238 @@ const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
 
   const gstr3bData = useMemo(() => {
     const outward = gstInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
+    
+    // ITC from purchase records
+    let itcTaxable = 0;
+    let itcCGST = 0;
+    let itcSGST = 0;
+    let itcIGST = 0;
+
+    purchaseRecords.filter(p => 
+      p.dateSupply.startsWith(selectedMonth) &&
+      p.status !== 'Draft' &&
+      p.status !== 'Cancelled'
+    ).forEach(p => {
+      if (p.items && p.items.length > 0) {
+        p.items.forEach((it: any) => {
+          const taxable = (it.rate * it.qty) || 0;
+          itcTaxable += taxable;
+          const cgstRate = it.cgstPercent !== undefined ? it.cgstPercent : (it.gstPercent ? it.gstPercent / 2 : 9);
+          const sgstRate = it.sgstPercent !== undefined ? it.sgstPercent : (it.gstPercent ? it.gstPercent / 2 : 9);
+          const igstRate = it.igstPercent !== undefined ? it.igstPercent : (it.totalIgst ? (it.totalIgst * 100 / taxable) : 0);
+
+          itcCGST += (taxable * cgstRate) / 100;
+          itcSGST += (taxable * sgstRate) / 100;
+          itcIGST += (taxable * igstRate) / 100;
+        });
+      } else {
+        const taxable = p.total - (p.totalGst || p.totalIgst || 0) - (p.packingCharges || 0) - (p.forwardingCharges || 0) - (p.freightCharges || 0);
+        itcTaxable += Math.max(0, taxable);
+        if (p.totalIgst > 0) {
+          itcIGST += p.totalIgst;
+        } else {
+          itcCGST += (p.totalGst || 0) / 2;
+          itcSGST += (p.totalGst || 0) / 2;
+        }
+      }
+    });
+
     return {
       outwardTaxable: gstSummary.totalTaxable,
       outwardTotal: outward,
       totalCGST: gstSummary.totalCGST,
       totalSGST: gstSummary.totalSGST,
       totalIGST: gstSummary.totalIGST,
-      totalTax: gstSummary.totalCGST + gstSummary.totalSGST + gstSummary.totalIGST
+      totalTax: gstSummary.totalCGST + gstSummary.totalSGST + gstSummary.totalIGST,
+      itcTaxable,
+      itcCGST,
+      itcSGST,
+      itcIGST,
+      itcTax: itcCGST + itcSGST + itcIGST
     };
-  }, [gstInvoices, gstSummary]);
+  }, [gstInvoices, gstSummary, purchaseRecords, selectedMonth]);
+
+  const handleExportGSTR1 = () => {
+    const headers = ["GSTIN", "Receiver Name", "Invoice No", "Date", "Value", "Taxable Value", "CGST", "SGST", "IGST", "Total Tax"];
+    const rows = gstInvoices.map(i => {
+      const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
+      let invTaxable = 0, invCGST = 0, invSGST = 0, invIGST = 0;
+      (i.items || []).forEach((it: any) => {
+        const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
+        const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
+        const rates = getTaxRates(taxRate, i.customerGstin || '', sellerGstin);
+        invTaxable += taxable;
+        invCGST += (taxable * rates.cgstRate) / 100;
+        invSGST += (taxable * rates.sgstRate) / 100;
+        invIGST += (taxable * rates.igstRate) / 100;
+      });
+
+      return [
+        i.customerGstin || "Unregistered",
+        `"${i.customerName.replace(/"/g, '""')}"`,
+        i.invoiceNumber,
+        i.date,
+        i.grandTotal,
+        invTaxable,
+        invCGST,
+        invSGST,
+        invIGST,
+        invCGST + invSGST + invIGST
+      ];
+    });
+
+    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `GSTR1_${selectedMonth}.csv`;
+    link.click();
+  };
+
+  const handleExportGSTR1JSON = () => {
+    const b2bInvoices = gstInvoices.filter(i => i.customerGstin);
+    const b2csInvoices = gstInvoices.filter(i => !i.customerGstin);
+
+    const json = {
+      gstin: "33APGPS4675G2ZL",
+      fp: selectedMonth.replace('-', ''),
+      version: "V1.0",
+      b2b: b2bInvoices.map(i => {
+        const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
+        const itms = (i.items || []).map((it: any, idx: number) => {
+          const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
+          const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
+          const rates = getTaxRates(taxRate, i.customerGstin || '', sellerGstin);
+          
+          return {
+            num: idx + 1,
+            itm_det: {
+              ty: "G",
+              hsn_sc: it.hsn || "0000",
+              txval: taxable,
+              rt: taxRate,
+              iamt: rates.igstRate > 0 ? (taxable * rates.igstRate / 100) : 0,
+              camt: rates.cgstRate > 0 ? (taxable * rates.cgstRate / 100) : 0,
+              samt: rates.sgstRate > 0 ? (taxable * rates.sgstRate / 100) : 0
+            }
+          };
+        });
+
+        return {
+          ctin: i.customerGstin,
+          inv: [{
+            inum: i.invoiceNumber,
+            idt: i.date,
+            val: i.grandTotal,
+            pos: (i.customerGstin || '').trim().slice(0, 2) || "33",
+            rchrg: "N",
+            inv_typ: "R",
+            itms
+          }]
+        };
+      }),
+      b2cs: b2csInvoices.map(i => {
+        const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
+        const invTaxable = (i.items || []).reduce((s: number, it: any) => s + (it.amount || (it.unitPrice * it.quantity) || 0), 0);
+        const invTax = (i.items || []).reduce((s: number, it: any) => s + (it.amount || (it.unitPrice * it.quantity) || 0) * (it.taxRate !== undefined ? it.taxRate : 18) / 100, 0);
+        const firstItemRate = i.items?.[0]?.taxRate || 18;
+        const rates = getTaxRates(firstItemRate, '', sellerGstin);
+
+        return {
+          sply_ty: rates.igstRate > 0 ? "INTER" : "INTRA",
+          pos: "33",
+          typ: "OE",
+          txval: invTaxable,
+          rt: firstItemRate,
+          iamt: rates.igstRate > 0 ? invTax : 0,
+          camt: rates.cgstRate > 0 ? invTax / 2 : 0,
+          samt: rates.sgstRate > 0 ? invTax / 2 : 0
+        };
+      })
+    };
+
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `GSTR1_${selectedMonth}.json`;
+    link.click();
+  };
+
+  const handleExportHSN = () => {
+    const headers = ["HSN/SAC", "Description", "Quantity", "Taxable Value", "CGST", "SGST", "IGST", "Total Tax"];
+    const rows = Object.entries(gstSummary.hsnMap).map(([hsn, data]) => [
+      hsn,
+      `"${data.desc.replace(/"/g, '""')}"`,
+      data.qty,
+      data.taxable,
+      data.cgst,
+      data.sgst,
+      data.igst,
+      data.cgst + data.sgst + data.igst
+    ]);
+
+    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `HSN_Summary_${selectedMonth}.csv`;
+    link.click();
+  };
 
   return (
     <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-        <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><Percent size={20} /></div>
-        <div>
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">GST Reports</h3>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{gstInvoices.length} taxable invoices</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 border-b border-slate-100 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><Percent size={20} /></div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">GST Reports</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{gstInvoices.length} taxable invoices for {selectedMonth}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 bg-slate-100 p-2 rounded-2xl w-full sm:w-auto">
+          <Calendar size={16} className="text-slate-400 ml-2" />
+          <input 
+            type="month" 
+            className="bg-transparent border-none text-xs font-black uppercase outline-none text-slate-700 w-full sm:w-auto"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          />
         </div>
       </div>
 
-      <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shadow-sm">
-        {[
-          { id: 'gstr1', label: 'GSTR-1 Summary' },
-          { id: 'gstr3b', label: 'GSTR-3B Summary' },
-          { id: 'hsn', label: 'HSN Grouping' }
-        ].map(t => (
-          <button key={t.id} onClick={() => setGstTab(t.id as any)}
-            className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${gstTab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-          >{t.label}</button>
-        ))}
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shadow-sm">
+          {[
+            { id: 'gstr1', label: 'GSTR-1 Summary' },
+            { id: 'gstr3b', label: 'GSTR-3B Summary' },
+            { id: 'hsn', label: 'HSN Grouping' }
+          ].map(t => (
+            <button key={t.id} onClick={() => setGstTab(t.id as any)}
+              className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${gstTab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+            >{t.label}</button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          {gstTab === 'gstr1' && (
+            <>
+              <button onClick={handleExportGSTR1} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold">
+                <Download size={12} /> CSV
+              </button>
+              <button onClick={handleExportGSTR1JSON} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-emerald-700 transition-all">
+                <Download size={12} /> JSON
+              </button>
+            </>
+          )}
+          {gstTab === 'hsn' && (
+            <button onClick={handleExportHSN} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold">
+              <Download size={12} /> Export CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {gstTab === 'gstr1' && (
@@ -2410,16 +3482,35 @@ const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
           </div>
           <table className="w-full text-left text-[11px]">
             <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-              <tr><th className="px-6 py-4">Invoice #</th><th className="px-6 py-4">Customer</th><th className="px-6 py-4">Date</th><th className="px-6 py-4 text-right">Taxable</th><th className="px-6 py-4 text-right">CGST</th><th className="px-6 py-4 text-right">SGST</th><th className="px-6 py-4 text-right">IGST</th><th className="px-6 py-4 text-right">Total</th></tr>
+              <tr>
+                <th className="px-6 py-4">Invoice #</th>
+                <th className="px-6 py-4">Customer</th>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4 text-right">Taxable</th>
+                <th className="px-6 py-4 text-right">CGST</th>
+                <th className="px-6 py-4 text-right">SGST</th>
+                <th className="px-6 py-4 text-right">IGST</th>
+                <th className="px-6 py-4 text-right">Total</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {gstInvoices.length === 0 ? (
                 <tr><td colSpan={8} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No GST invoices found</td></tr>
               ) : gstInvoices.map(inv => {
-                const invCGST = (inv.items || []).reduce((s: number, it: any) => s + (it.amount || 0) * (it.cgstRate || 0) / 100, 0);
-                const invSGST = (inv.items || []).reduce((s: number, it: any) => s + (it.amount || 0) * (it.sgstRate || 0) / 100, 0);
-                const invIGST = (inv.items || []).reduce((s: number, it: any) => s + (it.amount || 0) * (it.igstRate || 0) / 100, 0);
-                const invTaxable = (inv.items || []).reduce((s: number, it: any) => s + (it.amount || 0), 0);
+                const customerGstin = inv.customerGstin || '';
+                const sellerGstin = inv.sellerProfile?.gstin || '33APGPS4675G2ZL';
+                let invTaxable = 0, invCGST = 0, invSGST = 0, invIGST = 0;
+                
+                (inv.items || []).forEach((it: any) => {
+                  const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
+                  const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
+                  const rates = getTaxRates(taxRate, customerGstin, sellerGstin);
+                  invTaxable += taxable;
+                  invCGST += (taxable * rates.cgstRate) / 100;
+                  invSGST += (taxable * rates.sgstRate) / 100;
+                  invIGST += (taxable * rates.igstRate) / 100;
+                });
+                
                 return (
                   <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-black text-medical-600">{inv.invoiceNumber}</td>
@@ -2456,37 +3547,71 @@ const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
             </div>
             <div className="p-8 space-y-6">
               <div className="space-y-4">
-                {[
-                  { label: 'Outward Taxable Supplies', value: gstr3bData.outwardTaxable },
-                  { label: 'Total Outward Value (incl. Tax)', value: gstr3bData.outwardTotal },
-                ].map(d => (
-                  <div key={d.label} className="flex justify-between items-center border-b border-slate-100 pb-3">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{d.label}</span>
-                    <span className="text-sm font-black text-slate-800">₹{d.value.toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Outward Taxable Supplies</span>
+                  <span className="text-sm font-black text-slate-800">₹{gstr3bData.outwardTaxable.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Outward Value (incl. Tax)</span>
+                  <span className="text-sm font-black text-slate-800">₹{gstr3bData.outwardTotal.toLocaleString('en-IN')}</span>
+                </div>
               </div>
-              <div className="pt-4 border-t-2 border-slate-200">
-                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Tax Liability</h5>
+              <div className="pt-4 border-t border-slate-200">
+                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Output Liability Breakdown</h5>
                 <div className="space-y-3">
-                  {[
-                    { label: 'CGST Liability', value: gstr3bData.totalCGST, color: 'text-emerald-600' },
-                    { label: 'SGST Liability', value: gstr3bData.totalSGST, color: 'text-emerald-600' },
-                    { label: 'IGST Liability', value: gstr3bData.totalIGST, color: 'text-indigo-600' },
-                  ].map(d => (
-                    <div key={d.label} className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{d.label}</span>
-                      <span className={`text-sm font-black ${d.color}`}>₹{d.value.toLocaleString('en-IN')}</span>
-                    </div>
-                  ))}
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CGST Liability</span>
+                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.totalCGST.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">SGST Liability</span>
+                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.totalSGST.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">IGST Liability</span>
+                    <span className="text-sm font-black text-indigo-600">₹{gstr3bData.totalIGST.toLocaleString('en-IN')}</span>
+                  </div>
                   <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Total Tax</span>
+                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Total Output Tax</span>
                     <span className="text-lg font-black text-slate-900">₹{gstr3bData.totalTax.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
+
+              <div className="pt-4 border-t border-slate-200">
+                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Input Tax Credit (ITC)</h5>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (CGST)</span>
+                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.itcCGST.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (SGST)</span>
+                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.itcSGST.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (IGST)</span>
+                    <span className="text-sm font-black text-indigo-600">₹{gstr3bData.itcIGST.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Total ITC</span>
+                    <span className="text-lg font-black text-emerald-600">₹{gstr3bData.itcTax.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t-2 border-indigo-600">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Net Payable / (Refund)</span>
+                  <span className={`text-xl font-black ${gstr3bData.totalTax >= gstr3bData.itcTax ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    ₹{Math.abs(gstr3bData.totalTax - gstr3bData.itcTax).toLocaleString('en-IN')}
+                    <span className="text-[10px] ml-1">{gstr3bData.totalTax >= gstr3bData.itcTax ? 'Payable' : 'Carry Forward'}</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
+
           <div className="bg-slate-50 rounded-[2.5rem] border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
             <BarChart3 size={48} className="text-slate-300 mb-4" />
             <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Tax Composition</h4>
@@ -2522,14 +3647,24 @@ const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
           </div>
           <table className="w-full text-left text-[11px]">
             <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-              <tr><th className="px-6 py-4">HSN / SAC</th><th className="px-6 py-4 text-right">Qty</th><th className="px-6 py-4 text-right">Taxable Value</th><th className="px-6 py-4 text-right">CGST</th><th className="px-6 py-4 text-right">SGST</th><th className="px-6 py-4 text-right">IGST</th><th className="px-6 py-4 text-right">Total Tax</th></tr>
+              <tr>
+                <th className="px-6 py-4">HSN / SAC</th>
+                <th className="px-6 py-4">Description</th>
+                <th className="px-6 py-4 text-right">Qty</th>
+                <th className="px-6 py-4 text-right">Taxable Value</th>
+                <th className="px-6 py-4 text-right">CGST</th>
+                <th className="px-6 py-4 text-right">SGST</th>
+                <th className="px-6 py-4 text-right">IGST</th>
+                <th className="px-6 py-4 text-right">Total Tax</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {Object.entries(gstSummary.hsnMap).length === 0 ? (
-                <tr><td colSpan={7} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No HSN data</td></tr>
+                <tr><td colSpan={8} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No HSN data</td></tr>
               ) : Object.entries(gstSummary.hsnMap).map(([hsn, data]: [string, any]) => (
                 <tr key={hsn} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-black text-slate-800 uppercase">{hsn}</td>
+                  <td className="px-6 py-4 font-bold text-slate-400 uppercase">{data.desc}</td>
                   <td className="px-6 py-4 text-right font-bold text-slate-500">{data.qty}</td>
                   <td className="px-6 py-4 text-right font-black text-slate-600">₹{data.taxable.toLocaleString('en-IN')}</td>
                   <td className="px-6 py-4 text-right font-black text-emerald-600">₹{data.cgst.toLocaleString('en-IN')}</td>
@@ -2541,7 +3676,7 @@ const GSTView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
             </tbody>
             <tfoot className="bg-slate-900 text-white">
               <tr>
-                <td className="px-6 py-5 font-black uppercase tracking-widest text-[10px]">Total</td>
+                <td colSpan={2} className="px-6 py-5 font-black uppercase tracking-widest text-[10px]">Total</td>
                 <td className="px-6 py-5 text-right font-black">{Object.values(gstSummary.hsnMap).reduce((s: number, d: any) => s + d.qty, 0)}</td>
                 <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalTaxable.toLocaleString('en-IN')}</td>
                 <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalCGST.toLocaleString('en-IN')}</td>

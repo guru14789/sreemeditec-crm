@@ -4,7 +4,7 @@ import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, Building2
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -52,7 +52,8 @@ const INITIAL_QUOTE_STATE: Partial<Invoice> = {
     warrantyTerms: 'Standard 1 year warranty.',
     bankAndBranch: 'ICICI Bank, Branch: Selaiyur',
     accountNo: '603705016939',
-    sellerProfile: undefined
+    sellerProfile: undefined,
+    isRoundOff: false
 };
 
 const getQuoteNumberParts = (ref: string) => {
@@ -86,15 +87,21 @@ const getQuoteNumberParts = (ref: string) => {
 
 const calculateDetailedTotals = (quote: Partial<Invoice>) => {
     const items = quote.items || [];
-    const subtotal = items.reduce((sum, p) => sum + (p.quantity * p.unitPrice), 0);
-    const itemGstTotal = items.reduce((sum, p) => sum + ((p.quantity * p.unitPrice) * (p.taxRate / 100)), 0);
+    const subtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
+    const itemGstTotal = items.reduce((sum, p) => sum + ((Number(p.quantity) * Number(p.unitPrice)) * (Number(p.taxRate) / 100)), 0);
     
-    const freight = quote.freightAmount || 0;
-    const freightGst = freight * ((quote.freightTaxRate || 0) / 100);
-    const discount = quote.discount || 0;
+    const freight = Number(quote.freightAmount) || 0;
+    const freightGst = freight * ((Number(quote.freightTaxRate) || 0) / 100);
+    const discount = Number(quote.discount) || 0;
 
-    const grandTotal = subtotal + itemGstTotal + freight + freightGst - discount;
-    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal };
+    const grandTotalRaw = subtotal + itemGstTotal + freight + freightGst - discount;
+    let roundOff = 0;
+    let grandTotal = grandTotalRaw;
+    if (quote.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, roundOff, grandTotalRaw };
 };
 
 export const QuotationModule: React.FC = () => {
@@ -111,7 +118,6 @@ export const QuotationModule: React.FC = () => {
     const [seal, setSeal] = useState<string | null>(null);
     const [repName, setRepName] = useState('S. Suresh Kumar.');
     const [repPhone, setRepPhone] = useState('9884818398');
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
     const [quote, setQuote] = useState<Partial<Invoice>>(INITIAL_QUOTE_STATE);
 
@@ -537,10 +543,10 @@ export const QuotationModule: React.FC = () => {
                                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle size={14}/> Product Details</h3>
                                     </div>
                                     <div className="space-y-3">
-                                        {(quote.items?.length ?? 0) > 0 ? quote.items.map((item, idx) => (
+                                        {(quote.items || []).length > 0 ? (quote.items || []).map((item, idx) => (
                                             <div key={item.id} className="group space-y-3">
                                                 <div className="p-4 sm:p-5 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] relative hover:bg-white hover:border-medical-200 transition-all">
-                                                    <button onClick={() => setQuote({...quote, items: quote.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
+                                                    <button onClick={() => setQuote({...quote, items: (quote.items || []).filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                                                         <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Product Name</label><input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value.toUpperCase())} /></div>
                                                         <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase" value={item.model || ''} onChange={e => updateItem(item.id, 'model', e.target.value.toUpperCase())} /></div>
@@ -571,8 +577,35 @@ export const QuotationModule: React.FC = () => {
                                 </section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" /></div></div></section>
                                 <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Payment Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.paymentTerms} onChange={e => setQuote({...quote, paymentTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Delivery Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.deliveryTerms} onChange={e => setQuote({...quote, deliveryTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warranty Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.warrantyTerms} onChange={e => setQuote({...quote, warrantyTerms: e.target.value})} /></div></div></section>
-                                <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Seller Profile</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.sellerProfile?.id || ''} onChange={e => { const selected = companyProfiles.find(p => p.id === e.target.value); setQuote(prev => ({ ...prev, sellerProfile: selected })); }}><option value="">Default (Sree Meditec)</option>{companyProfiles.map(profile => (<option key={profile.id} value={profile.id}>{profile.companyName}</option>))}</select></div></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Select Bank</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.selectedBank?.id || ''} onChange={e => { const selected = bankDetailsList.find(b => b.id === e.target.value); setQuote(prev => ({ ...prev, selectedBank: selected })); }}><option value="">Default Bank</option>{bankDetailsList.map(bank => (<option key={bank.id} value={bank.id}>{bank.bankName} ({bank.accountNo})</option>))}</select></div></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
-                                <div className="flex flex-col sm:flex-row gap-3 pt-10 sticky bottom-0 bg-white pb-4 border-t border-slate-50 z-30"><button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">Discard</button><button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button><button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">Finalize & PDF</button></div>
+                                <section className="space-y-6 pb-24"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Seller Profile</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.sellerProfile?.id || ''} onChange={e => { const selected = companyProfiles.find(p => p.id === e.target.value); setQuote(prev => ({ ...prev, sellerProfile: selected })); }}><option value="">Default (Sree Meditec)</option>{companyProfiles.map(profile => (<option key={profile.id} value={profile.id}>{profile.companyName}</option>))}</select></div></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Select Bank</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.selectedBank?.id || ''} onChange={e => { const selected = bankDetailsList.find(b => b.id === e.target.value); setQuote(prev => ({ ...prev, selectedBank: selected })); }}><option value="">Default Bank</option>{bankDetailsList.map(bank => (<option key={bank.id} value={bank.id}>{bank.bankName} ({bank.accountNo})</option>))}</select></div></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
+                                <div className="sticky bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-30 shrink-0">
+                                    <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1 gap-4">
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
+                                                <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
+                                                    ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    {quote.isRoundOff && totals.roundOff !== 0 && (
+                                                        <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                            ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setQuote(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${quote.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
+                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${quote.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
+                                    </div>
+                                    <div className="flex-1 flex gap-3 order-1 sm:order-2">
+                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
+                                        <button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="flex-1 px-8 py-3.5 bg-medical-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">Finalize & PDF</button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         {builderTab === 'preview' && (
@@ -641,6 +674,12 @@ export const QuotationModule: React.FC = () => {
                                             <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-medical-600"><span>Freight:</span><span>Rs.{(totals.freight + totals.freightGst).toFixed(2)}</span></div>
                                             <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-teal-600"><span>Total GST:</span><span>Rs.{totals.itemGstTotal.toFixed(2)}</span></div>
                                             <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-rose-500"><span>Discount:</span><span>(-) Rs.{(quote.discount || 0).toFixed(2)}</span></div>
+                                            {quote.isRoundOff && totals.roundOff !== 0 && (
+                                                <div className="w-[200px] flex justify-between border-b border-slate-300 py-1 text-slate-600">
+                                                    <span>Round Off:</span>
+                                                    <span>{totals.roundOff > 0 ? '(+) ' : '(-) '}Rs.{Math.abs(totals.roundOff).toFixed(2)}</span>
+                                                </div>
+                                            )}
                                             <div className="w-[250px] flex justify-between pt-3 text-lg border-t-2 border-black"><span>Grand Total:</span><span>Rs.{totals.grandTotal.toFixed(2)}</span></div>
                                         </div>
                                         <div className="text-sm space-y-2 mb-10">

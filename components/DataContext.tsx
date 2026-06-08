@@ -23,7 +23,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -86,6 +86,10 @@ export interface DataContextType {
     addBankDetails: (details: BankDetails) => Promise<void>;
     updateBankDetails: (id: string, details: Partial<BankDetails>) => Promise<void>;
     removeBankDetails: (id: string) => Promise<void>;
+    bankRules: BankRule[];
+    addBankRule: (rule: BankRule) => Promise<void>;
+    updateBankRule: (id: string, rule: Partial<BankRule>) => Promise<void>;
+    removeBankRule: (id: string) => Promise<void>;
     companyProfiles: CompanyProfile[];
     addCompanyProfile: (profile: CompanyProfile) => Promise<void>;
     updateCompanyProfile: (id: string, profile: Partial<CompanyProfile>) => Promise<void>;
@@ -183,6 +187,7 @@ export interface DataContextType {
     // Bank Statement Methods
     uploadBankStatement: (ledgerId: string, entries: BankStatementEntry[]) => Promise<void>;
     autoMatchBankEntries: (ledgerId: string) => Promise<number>;
+    postAutoVouchers: (ledgerId: string, approved: AutoVoucherDraft[]) => Promise<number>;
 
     checkAndPerformMonthReset: () => Promise<void>;
     
@@ -291,6 +296,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([]);
     const [depreciationSchedule, setDepreciationSchedule] = useState<DepreciationScheduleEntry[]>([]);
     const [bankStatements, setBankStatements] = useState<BankStatementEntry[]>([]);
+    const [bankRules, setBankRules] = useState<BankRule[]>([]);
     const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
 
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
@@ -488,6 +494,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (data.bankDetails) {
                     const banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
                     setBankDetailsList(banks);
+                }
+                if (data.bankRules) {
+                    setBankRules(data.bankRules);
                 }
                 if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
             }
@@ -886,7 +895,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             { id: 'LDG-CGST-OUT', name: 'Output CGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
             { id: 'LDG-SGST-OUT', name: 'Output SGST', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
             { id: 'LED-TDS-PAYABLE', name: 'TDS Payable', groupId: 'GRP-DUTIES', openingBalance: 0, currentBalance: 0 },
-            { id: 'LED-DEPRECIATION', name: 'Depreciation Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 }
+            { id: 'LED-DEPRECIATION', name: 'Depreciation Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-SERVICE-REV', name: 'Service Revenue', groupId: 'GRP-INCOME', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-SPARES-REV', name: 'Spares Revenue', groupId: 'GRP-INCOME', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-TRAVEL-EXP', name: 'Travelling Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-FOOD-EXP', name: 'Food Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-OFFICE-EXP', name: 'Office Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 }
         ];
 
         // Also seed fixed asset / depreciation groups if missing
@@ -1150,12 +1164,46 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t)); await addLog('System', 'New Ticket', t.issue); };
     const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
 
+    const autoPostExpenseVoucher = async (e: ExpenseRecord) => {
+        try {
+            let expenseLedgerId = 'LDG-OFFICE-EXP';
+            let expenseLedgerName = 'Office Expense';
+            
+            if (e.category === 'Travel') {
+                expenseLedgerId = 'LDG-TRAVEL-EXP';
+                expenseLedgerName = 'Travelling Expense';
+            } else if (e.category === 'Food') {
+                expenseLedgerId = 'LDG-FOOD-EXP';
+                expenseLedgerName = 'Food Expense';
+            }
+            
+            const bankLdg = ledgers.find(l => l.id === 'LDG-BANK') || ledgers.find(l => l.id === 'LDG-CASH');
+            
+            await postToLedger({
+                date: e.date,
+                type: 'Payment',
+                entries: [
+                    { id: `${e.id}-DR`, ledgerId: expenseLedgerId, ledgerName: expenseLedgerName, debit: e.amount, credit: 0 },
+                    { id: `${e.id}-CR`, ledgerId: bankLdg?.id || 'LDG-BANK', ledgerName: bankLdg?.name || 'Bank Account', debit: 0, credit: e.amount }
+                ],
+                totalAmount: e.amount,
+                narration: `Auto: Approved Expense — ${e.category} for ${e.employeeName} — ${e.description}`,
+                referenceId: e.id,
+                referenceNumber: e.id.slice(-6)
+            });
+            await addLog('Accounting', 'Auto Expense Entry', `Expense ${e.id} approved → Payment voucher posted`);
+        } catch (err) {
+            console.warn('Auto-accounting failed for expense:', err);
+        }
+    };
+
     const addExpense = async (e: ExpenseRecord) => { 
         await setDoc(doc(db, "expenses", e.id), sanitizeData(e)); 
         await addLog('Billing', 'New Expense', `₹${e.amount}`); 
         
         if (e.status === 'Approved') {
             await updateMonthlySummary(e.date, e.amount, 'expense');
+            await autoPostExpenseVoucher(e);
         }
     };
     const updateExpense = async (id: string, updates: Partial<ExpenseRecord>, reason?: string) => {
@@ -1174,10 +1222,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             if (!wasApproved && isNowApproved) {
                 await updateMonthlySummary(existing.date, updates.amount || existing.amount, 'expense');
+                await autoPostExpenseVoucher({ ...existing, ...updates, status: 'Approved' });
             } else if (wasApproved && isNowApproved && updates.amount !== undefined && updates.amount !== existing.amount) {
                 await updateMonthlySummary(existing.date, updates.amount - existing.amount, 'expense');
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Expense ${existing.id} details updated`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for expense voucher:', err);
+                    }
+                }
+                await autoPostExpenseVoucher({ ...existing, ...updates, status: 'Approved' });
             } else if (wasApproved && !isNowApproved) {
                 await updateMonthlySummary(existing.date, -existing.amount, 'expense');
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Expense ${existing.id} status changed from Approved`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for expense voucher:', err);
+                    }
+                }
             }
         }
     };
@@ -1189,8 +1255,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (existing) {
             if (existing.status !== 'Approved' && status === 'Approved') {
                 await updateMonthlySummary(existing.date, existing.amount, 'expense');
+                await autoPostExpenseVoucher({ ...existing, status });
             } else if (existing.status === 'Approved' && status !== 'Approved') {
                 await updateMonthlySummary(existing.date, -existing.amount, 'expense');
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Expense ${existing.id} status changed from Approved`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for expense voucher:', err);
+                    }
+                }
             }
         }
     };
@@ -1233,13 +1308,117 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const removeInstallationReport = async (id: string) => { await deleteDoc(doc(db, "installationReports", id)); await addLog('System', 'Removed Installation Report', id); };
 
-    const addServiceReport = async (r: ServiceReport) => { await setDoc(doc(db, "serviceReports", r.id), sanitizeData(r)); await addLog('System', 'Created Service Report', r.reportNumber); };
+    const autoPostServiceReportVouchers = async (r: ServiceReport) => {
+        try {
+            const visit = r.visitCharges || 0;
+            const spares = r.sparesCharges || 0;
+            const total = visit + spares;
+            if (total <= 0) return;
+
+            const debtorId = await ensurePartyLedger(r.customerName, 'GRP-DEBTORS');
+            
+            const entries = [];
+            entries.push({ id: `${r.id}-DR`, ledgerId: debtorId, ledgerName: r.customerName, debit: total, credit: 0 });
+            
+            if (visit > 0) {
+                const serviceRevLdg = ledgers.find(l => l.id === 'LDG-SERVICE-REV');
+                entries.push({ id: `${r.id}-CR-VISIT`, ledgerId: serviceRevLdg?.id || 'LDG-SERVICE-REV', ledgerName: 'Service Revenue', debit: 0, credit: visit });
+            }
+            if (spares > 0) {
+                const sparesRevLdg = ledgers.find(l => l.id === 'LDG-SPARES-REV');
+                entries.push({ id: `${r.id}-CR-SPARES`, ledgerId: sparesRevLdg?.id || 'LDG-SPARES-REV', ledgerName: 'Spares Revenue', debit: 0, credit: spares });
+            }
+
+            await postToLedger({
+                date: r.date || new Date().toISOString().split('T')[0],
+                type: 'Sales',
+                entries,
+                totalAmount: total,
+                narration: `Auto: Service Report completed for ${r.customerName} — visit charges: ₹${visit}, spares charges: ₹${spares}`,
+                referenceId: r.id,
+                referenceNumber: r.reportNumber
+            });
+            await addLog('Accounting', 'Auto Service Report Sales Entry', `Service report ${r.reportNumber} completed → Sales voucher posted`);
+
+            const received = r.amountReceived || 0;
+            if (received > 0) {
+                const bankLdg = ledgers.find(l => l.id === 'LDG-BANK') || ledgers.find(l => l.id === 'LDG-CASH');
+                await postToLedger({
+                    date: r.date || new Date().toISOString().split('T')[0],
+                    type: 'Receipt',
+                    entries: [
+                        { id: `${r.id}-RCV-DR`, ledgerId: bankLdg?.id || 'LDG-BANK', ledgerName: bankLdg?.name || 'Bank Account', debit: received, credit: 0 },
+                        { id: `${r.id}-RCV-CR`, ledgerId: debtorId, ledgerName: r.customerName, debit: 0, credit: received }
+                    ],
+                    totalAmount: received,
+                    narration: `Auto: Payment received for Service Report ${r.reportNumber} — ${r.customerName}`,
+                    referenceId: r.id,
+                    referenceNumber: r.reportNumber
+                });
+                await addLog('Accounting', 'Auto Service Report Receipt Entry', `Service report ${r.reportNumber} payment → Receipt voucher posted`);
+            }
+        } catch (err) {
+            console.warn('Auto-accounting failed for service report:', err);
+        }
+    };
+
+    const addServiceReport = async (r: ServiceReport) => { 
+        await setDoc(doc(db, "serviceReports", r.id), sanitizeData(r)); 
+        await addLog('System', 'Created Service Report', r.reportNumber); 
+        
+        if (r.status === 'Completed') {
+            await autoPostServiceReportVouchers(r);
+        }
+    };
     const updateServiceReport = async (id: string, u: Partial<ServiceReport>) => {
         const existing = serviceReports.find(r => r.id === id);
         await updateDoc(doc(db, "serviceReports", id), sanitizeData(u));
         await addLog('System', 'Updated Service Report', existing?.reportNumber || id, existing, { ...existing, ...u });
+
+        if (existing) {
+            const wasCompleted = existing.status === 'Completed';
+            const isNowCompleted = (u.status || existing.status) === 'Completed';
+            
+            if (!wasCompleted && isNowCompleted) {
+                await autoPostServiceReportVouchers({ ...existing, ...u, status: 'Completed' });
+            } else if (wasCompleted && isNowCompleted && (u.visitCharges !== undefined || u.sparesCharges !== undefined || u.amountReceived !== undefined)) {
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Service Report details updated`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for service report voucher:', err);
+                    }
+                }
+                await autoPostServiceReportVouchers({ ...existing, ...u, status: 'Completed' });
+            } else if (wasCompleted && !isNowCompleted) {
+                const existingVouchers = vouchers.filter(v => v.referenceId === existing.id && !v.voucherNumber?.startsWith('REV-'));
+                for (const vch of existingVouchers) {
+                    try {
+                        await reverseVoucher(vch.id, `Auto-reversed: Service Report marked back to Draft`);
+                    } catch (err) {
+                        console.warn('Auto-reversal failed for service report voucher:', err);
+                    }
+                }
+            }
+        }
     };
-    const removeServiceReport = async (id: string) => { await deleteDoc(doc(db, "serviceReports", id)); await addLog('System', 'Removed Service Report', id); };
+    const removeServiceReport = async (id: string) => { 
+        const existing = serviceReports.find(r => r.id === id);
+        await deleteDoc(doc(db, "serviceReports", id)); 
+        await addLog('System', 'Removed Service Report', id); 
+        
+        if (existing && existing.status === 'Completed') {
+            const existingVouchers = vouchers.filter(v => v.referenceId === id && !v.voucherNumber?.startsWith('REV-'));
+            for (const vch of existingVouchers) {
+                try {
+                    await reverseVoucher(vch.id, `Auto-reversed: Service Report removed`);
+                } catch (err) {
+                    console.warn('Auto-reversal failed for service report voucher:', err);
+                }
+            }
+        }
+    };
 
     const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), sanitizeData(h)); await addLog('System', 'Added Holiday', h.name); };
     const removeHoliday = async (id: string) => { await deleteDoc(doc(db, "holidays", id)); await addLog('System', 'Removed Holiday', id); };
@@ -1950,6 +2129,80 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return matchedCount;
     };
 
+    // Post auto-classified voucher drafts approved by the user
+    const postAutoVouchers = async (ledgerId: string, approved: AutoVoucherDraft[]): Promise<number> => {
+        let posted = 0;
+        const today = new Date().toISOString().split('T')[0];
+        for (const draft of approved) {
+            if (draft.skip) continue;
+            const id = `VCH-AUTO-${Date.now()}-${posted}`;
+            const dateObj = new Date(draft.date);
+            const month = dateObj.getMonth();
+            const year = dateObj.getFullYear();
+            const fyStart = month >= 3 ? year : year - 1;
+            const fyCode = `${String(fyStart).slice(2)}${String(fyStart + 1).slice(2)}`;
+            const prefixMap: Record<string, string> = {
+                Journal: 'JV', Contra: 'CON', Payment: 'PV', Receipt: 'RV',
+                'Debit Note': 'DN', 'Credit Note': 'CN', Sales: 'INV', Purchase: 'PUR'
+            };
+            const prefix = prefixMap[draft.voucherType] || 'JV';
+            let voucherNumber = `${prefix}/${fyCode}/${id.slice(-6)}`;
+            try {
+                const counterKey = `${draft.voucherType}_${fyCode}`;
+                const counterRef = doc(db, 'settings', 'voucherCounters');
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(counterRef);
+                    const counters = snap.exists() ? snap.data() : {};
+                    const next = (counters[counterKey] || 0) + 1;
+                    tx.set(counterRef, { ...counters, [counterKey]: next }, { merge: true });
+                    voucherNumber = `${prefix}/${fyCode}/${String(next).padStart(4, '0')}`;
+                });
+            } catch { /* fallback number already set */ }
+
+            const voucher: AccountingVoucher = {
+                id,
+                voucherNumber,
+                date: draft.date,
+                type: draft.voucherType,
+                entries: [
+                    {
+                        id: `${id}-DR`,
+                        ledgerId: draft.drLedgerId,
+                        ledgerName: draft.drLedgerName,
+                        debit: draft.amount,
+                        credit: 0,
+                        narration: draft.narration,
+                        autoGenerated: true
+                    },
+                    {
+                        id: `${id}-CR`,
+                        ledgerId: draft.crLedgerId,
+                        ledgerName: draft.crLedgerName,
+                        debit: 0,
+                        credit: draft.amount,
+                        narration: draft.narration,
+                        autoGenerated: true
+                    }
+                ],
+                narration: draft.narration,
+                totalAmount: draft.amount,
+                settlements: [],
+                createdBy: currentUser?.name || 'System'
+            };
+            await addVoucher(voucher);
+            // Mark the bank statement entry as matched
+            try {
+                await updateDoc(doc(db, 'bankStatements', draft.statementEntryId), {
+                    isMatched: true,
+                    matchedVoucherId: id
+                } as any);
+            } catch { /* entry may not exist yet */ }
+            posted++;
+        }
+        await addLog('Accounting', 'Auto-Post Bank Statement', `${posted} vouchers posted from bank statement for ledger ${ledgerId} on ${today}`);
+        return posted;
+    };
+
     const addVendor = async (v: Vendor) => { 
         setVendors(prev => [...prev, v].sort((a, b) => a.name.localeCompare(b.name)));
         await setDoc(doc(db, "vendors", v.id), sanitizeData(v)); 
@@ -2121,6 +2374,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Removed Bank Details', id);
     };
 
+    const addBankRule = async (rule: BankRule) => {
+        const updated = [...bankRules, rule];
+        setBankRules(updated);
+        await setDoc(doc(db, "settings", "system"), { bankRules: updated }, { merge: true });
+        await addLog('System', 'Added Bank Rule', rule.ruleLabel);
+    };
+
+    const updateBankRule = async (id: string, p: Partial<BankRule>) => {
+        const updated = bankRules.map(b => b.id === id ? { ...b, ...p } : b);
+        setBankRules(updated);
+        await setDoc(doc(db, "settings", "system"), { bankRules: updated }, { merge: true });
+        await addLog('System', 'Updated Bank Rule', id);
+    };
+
+    const removeBankRule = async (id: string) => {
+        const updated = bankRules.filter(b => b.id !== id);
+        setBankRules(updated);
+        await setDoc(doc(db, "settings", "system"), { bankRules: updated }, { merge: true });
+        await addLog('System', 'Removed Bank Rule', id);
+    };
+
     const addCompanyProfile = async (profile: CompanyProfile) => {
         const updated = [...companyProfiles, profile];
         setCompanyProfiles(updated);
@@ -2162,6 +2436,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
             searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails,
+            bankRules, addBankRule, updateBankRule, removeBankRule,
             companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile,
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
             ledgers, accountGroups, vouchers, stockTransfers, expenseStats,
@@ -2169,7 +2444,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addLedger, updateLedger, removeLedger, addAccountGroup, removeAccountGroup, updateAccountGroup, addVoucher, updateVoucher, reverseVoucher, postToLedger, addStockTransfer,
             addCostCentre, updateCostCentre, removeCostCentre,
             addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry,
-            uploadBankStatement, autoMatchBankEntries,
+            uploadBankStatement, autoMatchBankEntries, postAutoVouchers,
             isSystemAdmin
         }}>
             {children}
