@@ -409,6 +409,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [firebaseUser, employees, isAuthenticating]);
 
+    // ─── REAL-TIME PERMISSION SYNC ────────────────────────────────────────────────
+    // Employees who log in via password use anonymous Firebase auth.
+    // The auth-resolution effect above skips them (isAnonymous guard).
+    // This effect watches the `employees` onSnapshot directly and instantly
+    // updates currentUser permissions so admin changes reflect with zero delay.
+    useEffect(() => {
+        if (!currentUser || !employees.length) return;
+        // Super-admin is hardcoded — never look them up in the registry
+        if (currentUser.id === 'EMP-OWNER') return;
+
+        const updated = employees.find(e => e.id === currentUser.id);
+        if (!updated) return;
+
+        const permChanged = JSON.stringify(updated.permissions) !== JSON.stringify(currentUser.permissions);
+        const roleChanged = updated.role !== currentUser.role;
+        const accessRevoked = !updated.isLoginEnabled && currentUser.isLoginEnabled;
+
+        if (permChanged || roleChanged || accessRevoked) {
+            setCurrentUser({ ...updated });
+            if (accessRevoked) {
+                // Force logout if admin disabled the account
+                addLog('Auth', 'Access Revoked', `${updated.name} forcibly signed out by Admin.`);
+                signOut(auth);
+            }
+        }
+    }, [employees]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Note: intentionally only depends on `employees` to avoid circular updates.
+    // currentUser is read from the latest ref value, not as a dependency.
+
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
         
