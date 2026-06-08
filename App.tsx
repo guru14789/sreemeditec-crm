@@ -351,10 +351,14 @@ export const App: React.FC = () => {
   const userRole: 'Admin' | 'Employee' = isSystemAdmin ? 'Admin' : 'Employee';
 
   // tabRole: governs per-module feature access (e.g., Expense admin sees ALL employees' records)
-  // A SYSTEM_STAFF employee can be elevated to Admin within a specific tab via the Access Grid
-  const tabRole: 'Admin' | 'Employee' = isSystemAdmin
-    ? 'Admin'
-    : ((currentUser.permissions?.[activeTab] as 'Admin' | 'Employee') ?? 'Employee');
+  // Explicit per-tab setting ALWAYS wins — even for SYSTEM_ADMIN users.
+  // System role is only the fallback when no explicit tab entry exists in the Access Grid.
+  const tabRole: 'Admin' | 'Employee' = (() => {
+    if (isSuperAdmin) return 'Admin'; // Super admin is always unrestricted
+    const explicit = currentUser.permissions?.[activeTab] as 'Admin' | 'Employee' | undefined;
+    if (explicit) return explicit; // Respect Access Grid setting (Admin OR Employee)
+    return isSystemAdmin ? 'Admin' : 'Employee'; // Fallback: system role default
+  })();
 
   const currentUserName = currentUser.name;
 
