@@ -16,8 +16,8 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
     </div>
 );
 
-export const CompanyModule: React.FC = () => {
-    const { companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile, addNotification, currentUser } = useData();
+export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ userRole = 'Employee' }) => {
+    const { companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile, addNotification } = useData();
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
     const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +25,7 @@ export const CompanyModule: React.FC = () => {
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    const userRole = currentUser?.role === 'SYSTEM_ADMIN' ? 'Admin' : 'Employee';
+    // userRole is passed from App.tsx (tabRole) — set by HR Access Grid
 
     const DEFAULT_PROFILE: Partial<CompanyProfile> = {
         companyName: '',

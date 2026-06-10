@@ -28,7 +28,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [completedLimit, setCompletedLimit] = useState(20);
 
-    const isAdmin = userRole === 'Admin' || authUser?.role === 'SYSTEM_ADMIN';
+    const isAdmin = userRole === 'Admin'; // Strictly enforced: governed by Access Grid tabRole only
 
 
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);

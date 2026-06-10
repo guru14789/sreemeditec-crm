@@ -8,11 +8,12 @@ import { FileText, ChevronRight, AlertCircle } from 'lucide-react';
 
 interface AttendanceModuleProps {
     tasks: Task[];
+    userRole?: 'Admin' | 'Employee'; // Controlled by HR Access Grid via tabRole
 }
 
 type WorkMode = 'Office' | 'Field' | 'Remote';
 
-export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => {
+export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userRole = 'Employee' }) => {
     const { 
         addPoints, currentUser: me, attendanceRecords, updateAttendance, removeAttendance, 
         employees, addNotification, holidays, addHoliday, removeHoliday, addLog,
@@ -28,7 +29,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks }) => 
 
     const [workMode, setWorkMode] = useState<WorkMode>('Office');
     const [filterStatus, setFilterStatus] = useState<string>('All');
-    const isAdmin = me?.role === 'SYSTEM_ADMIN';
+    const isAdmin = userRole === 'Admin'; // Strictly enforced: governed by Access Grid tabRole only
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [newHolidayName, setNewHolidayName] = useState('');
     const [newHolidayDate, setNewHolidayDate] = useState('');

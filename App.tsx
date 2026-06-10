@@ -456,7 +456,7 @@ export const App: React.FC = () => {
 
     switch (activeTab) {
       case TabView.DASHBOARD:
-        return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+        return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
       case TabView.LEADS: return <LeadsModule />;
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
@@ -465,7 +465,7 @@ export const App: React.FC = () => {
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} userRole={tabRole} />;
       case TabView.TASKS: return <TaskModule userRole={tabRole} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
@@ -601,13 +601,13 @@ export const App: React.FC = () => {
                     </div>
                 ) : (
                     <div className="h-full">
-                        <CompanyModule />
+                        <CompanyModule userRole={tabRole} />
                     </div>
                 )}
             </div>
         </div>
       );
-      default: return userRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+      default: return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
   };
 
