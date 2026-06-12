@@ -277,24 +277,31 @@ export const PerformanceModule: React.FC = () => {
                           <History size={14} className="text-slate-400" /> Performance Log
                       </h3>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
                       {pointHistory.length > 0 ? (
-                          pointHistory.map((item) => (
-                              <div key={item.id} className="p-3 rounded-2xl border border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all">
-                                  <div className="flex gap-2.5">
-                                      <div className={`mt-1.5 w-1 h-4 rounded-full shrink-0 ${item.points > 0 ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-rose-500'}`}></div>
-                                      <div className="flex-1 min-w-0">
-                                          <p className="text-[9px] font-black text-slate-700 dark:text-slate-200 leading-tight uppercase tracking-tight line-clamp-2">{item.description}</p>
-                                          <div className="flex justify-between items-center mt-2">
-                                              <span className="text-[8px] font-bold text-slate-400 uppercase">{item.date}</span>
-                                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${item.points > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`}>
-                                                  {item.points > 0 ? '+' : ''}{item.points}
-                                              </span>
+                          pointHistory.map((item) => {
+                              const emp = employees.find(e => e.id === item.userId);
+                              const empName = emp ? emp.name.split(' ')[0] : 'Unknown';
+                              return (
+                                  <div key={item.id} className="p-3 bg-slate-50/30 dark:bg-slate-800/20 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-all">
+                                      <div className="flex gap-2.5">
+                                          <div className={`mt-1 w-1 h-8 rounded-full shrink-0 ${item.points > 0 ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.4)]'}`}></div>
+                                          <div className="flex-1 min-w-0">
+                                              <div className="flex items-center justify-between mb-1.5">
+                                                  <span className="text-[8px] font-black uppercase bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-md tracking-wider border border-indigo-100/50">
+                                                      {empName} · {item.category}
+                                                  </span>
+                                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg ${item.points > 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' : 'text-rose-500 bg-rose-50 dark:bg-rose-950/20'}`}>
+                                                      {item.points > 0 ? '+' : ''}{item.points} Pts
+                                                  </span>
+                                              </div>
+                                              <p className="text-[9.5px] font-bold text-slate-700 dark:text-slate-200 leading-normal lowercase tracking-tight line-clamp-3 first-letter:uppercase">{item.description}</p>
+                                              <p className="text-[7.5px] font-bold text-slate-400 uppercase mt-2">{item.date}</p>
                                           </div>
                                       </div>
                                   </div>
-                              </div>
-                          ))
+                              );
+                          })
                       ) : (
                           <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-30">
                               <History size={32} className="mb-2 text-slate-200" />
