@@ -286,6 +286,7 @@ export const ServiceOrderModule: React.FC = () => {
                             </tr>
                         ))}
                     </tbody>
+                    <tfoot>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Sub-Total (Before Discount)</td>
                             <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
