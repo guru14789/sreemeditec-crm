@@ -88,7 +88,38 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
             );
         }
 
-        return filtered;
+        // Sort tasks:
+        // for employee: overdue first, today task second
+        // for admin: overdue first, today task second, future task
+        const localToday = new Date().toLocaleDateString('en-CA');
+        return [...filtered].sort((a, b) => {
+            const dateA = a.dueDate || '';
+            const dateB = b.dueDate || '';
+
+            // Group definitions:
+            // 0 = Overdue (date < today)
+            // 1 = Today (date === today)
+            // 2 = Future (date > today)
+            const getGroup = (d: string) => {
+                if (!d) return 2; // Default to future/low priority if no date
+                if (d < localToday) return 0;
+                if (d === localToday) return 1;
+                return 2;
+            };
+
+            const groupA = getGroup(dateA);
+            const groupB = getGroup(dateB);
+
+            if (groupA !== groupB) {
+                return groupA - groupB;
+            }
+
+            // Within the same group, sort by date ascending (or title if same date)
+            if (dateA !== dateB) {
+                return dateA.localeCompare(dateB);
+            }
+            return (a.title || '').localeCompare(b.title || '');
+        });
     }, [tasks, isAdmin, authUser, searchQuery]);
 
     const handleLoadMore = async () => {
