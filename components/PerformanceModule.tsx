@@ -321,12 +321,16 @@ export const PerformanceModule: React.FC = () => {
                             <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-black uppercase tracking-wider text-slate-800">Tasks Matrix</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[9px] font-bold text-slate-500">Completion</span>
+                                    <span className="text-[9px] font-bold text-slate-500">Base Rate</span>
                                     <span className="text-[10px] font-black text-emerald-600">+10</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <span className="text-[9px] font-bold text-slate-500">High Priority</span>
                                     <span className="text-[10px] font-black text-amber-600">+10</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 opacity-60">
+                                    <span className="text-[9px] font-bold text-slate-500">Overdue Penalty</span>
+                                    <span className="text-[10px] font-black text-rose-500">-5</span>
                                 </div>
                             </div>
                         </div>
@@ -338,24 +342,14 @@ export const PerformanceModule: React.FC = () => {
                             <div className="flex-1 min-w-0">
                                 <p className="text-[11px] font-black uppercase tracking-wider text-slate-800">Attendance</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[9px] font-bold text-slate-500">Punctuality</span>
+                                    <span className="text-[9px] font-bold text-slate-500">Early Check-in</span>
                                     <span className="text-[10px] font-black text-emerald-600">+10</span>
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[9px] font-bold text-slate-500">Daily Goal</span>
+                                    <span className="text-[9px] font-bold text-slate-500">Daily Shift</span>
                                     <span className="text-[10px] font-black text-indigo-600">+50</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-100">
-                             <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                       <Award size={14} className="text-amber-500" />
-                                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Streak Bonus</span>
-                                  </div>
-                                  <span className="text-[10px] font-black text-amber-600">+100 Pts</span>
-                             </div>
                         </div>
                    </div>
               </div>
@@ -403,12 +397,8 @@ export const PerformanceModule: React.FC = () => {
                                    <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">+10 Points</span>
                                </div>
                                <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Full Shift (8H+)</span>
+                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Daily Shift Completed</span>
                                    <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">+50 Points</span>
-                               </div>
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Perfect 7D Streak</span>
-                                   <span className="text-[11px] font-black text-amber-500">+100 Points</span>
                                </div>
                            </div>
                        </div>
