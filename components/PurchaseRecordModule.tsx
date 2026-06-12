@@ -5,8 +5,7 @@ import { useData } from './DataContext';
 
 const formatIndianNumber = (num: number) => {
     return (num || 0).toLocaleString('en-IN', {
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2
+        maximumFractionDigits: 2
     });
 };
 

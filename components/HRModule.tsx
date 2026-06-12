@@ -49,6 +49,7 @@ export const HRModule: React.FC = () => {
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+    const [isUpdatingPermission, setIsUpdatingPermission] = useState<string | null>(null);
 
     const [employeeFormData, setEmployeeFormData] = useState<Partial<Employee>>({
         role: 'SYSTEM_STAFF',
@@ -162,7 +163,7 @@ export const HRModule: React.FC = () => {
         }
     };
 
-    const togglePermission = (empId: string, tab: TabView) => {
+    const togglePermission = async (empId: string, tab: TabView) => {
         const emp = employees.find(e => e.id === empId);
         if (!emp) return;
         
@@ -183,7 +184,15 @@ export const HRModule: React.FC = () => {
             delete currentPerms[tab];
         }
         
-        updateEmployee(empId, { permissions: currentPerms });
+        try {
+            setIsUpdatingPermission(`${empId}-${tab}`);
+            await updateEmployee(empId, { permissions: currentPerms });
+            addNotification('Permission Updated', `Registry updated for ${emp.name}`, 'success');
+        } catch (err: any) {
+            alert(`Error updating permission: ${err.message}`);
+        } finally {
+            setIsUpdatingPermission(null);
+        }
     };
 
     const filteredEmployees = employees.filter(emp =>
@@ -294,15 +303,27 @@ export const HRModule: React.FC = () => {
                                                         );
                                                     }
 
+                                                    if (isAdmin) {
+                                                        return (
+                                                            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 w-fit">
+                                                                <ShieldCheck size={16} />
+                                                                <span className="text-[10px] font-black uppercase tracking-[0.15em]">System Admin Override: Unrestricted</span>
+                                                            </div>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <div className="flex flex-wrap gap-2">
                                                             {MODULE_OPTIONS.map(mod => {
                                                                 const role = (emp.permissions || {})[mod.value];
+                                                                const isPending = isUpdatingPermission === `${emp.id}-${mod.value}`;
                                                                 return (
                                                                     <button
                                                                         key={mod.value}
+                                                                        disabled={isUpdatingPermission !== null}
                                                                         onClick={() => togglePermission(emp.id, mod.value as TabView)}
                                                                         className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                                                                            isPending ? 'opacity-50 animate-pulse bg-slate-100 border-slate-300 text-slate-400' :
                                                                             role === 'Admin' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 
                                                                             role === 'Employee' ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 
                                                                             'bg-white text-slate-400 border-slate-300 hover:border-medical-300 hover:text-medical-600'
@@ -383,6 +404,19 @@ export const HRModule: React.FC = () => {
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
                                     <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
                                 </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200 rounded-2xl">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Hide From Leaderboard</p>
+                                    <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Excludes member rank and points from visual board</p>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    checked={employeeFormData.hideFromLeaderboard || false}
+                                    onChange={(e) => setEmployeeFormData({ ...employeeFormData, hideFromLeaderboard: e.target.checked })}
+                                />
                             </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 bg-slate-50/50 rounded-b-[2.5rem]">

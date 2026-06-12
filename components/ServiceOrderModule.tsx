@@ -17,8 +17,14 @@ const calculateDetailedTotals = (order: Partial<Invoice>) => {
     }, 0);
     const totalWithGst = subTotal + taxTotal;
     const discount = order.discount || 0;
-    const grandTotal = totalWithGst - discount;
-    return { subTotal, taxTotal, totalWithGst, discount, grandTotal };
+    const grandTotalRaw = totalWithGst - discount;
+    let roundOff = 0;
+    let grandTotal = grandTotalRaw;
+    if (order.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    return { subTotal, taxTotal, totalWithGst, discount, grandTotal, roundOff, grandTotalRaw };
 };
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -165,7 +171,7 @@ export const ServiceOrderModule: React.FC = () => {
     const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!order.customerHospital || !order.equipmentName) {
             addNotification('Missing Info', 'Customer and Equipment details are mandatory.', 'alert');
-            return;
+            return null;
         }
 
         const totals = calculateDetailedTotals(order);
@@ -180,12 +186,19 @@ export const ServiceOrderModule: React.FC = () => {
             createdBy: currentUser?.name || 'System'
         };
 
-        if (editingId) updateInvoice(editingId, finalData);
-        else addInvoice(finalData);
+        try {
+            if (editingId) await updateInvoice(editingId, finalData);
+            else await addInvoice(finalData);
 
-        setViewState('history');
-        setEditingId(null);
-        addNotification('Order Archived', `Service Order ${finalData.invoiceNumber} recorded.`, 'success');
+            setViewState('history');
+            setEditingId(null);
+            addNotification('Order Archived', `Service Order ${finalData.invoiceNumber} recorded.`, 'success');
+            return finalData;
+        } catch (error) {
+            console.error('Failed to save service order:', error);
+            addNotification('Error', 'Failed to save the service order to the registry.', 'error');
+            return null;
+        }
     };
 
     const totals = useMemo(() => calculateDetailedTotals(order), [order]);
@@ -273,18 +286,23 @@ export const ServiceOrderModule: React.FC = () => {
                             </tr>
                         ))}
                     </tbody>
-                    <tfoot>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Sub-Total (Before Discount)</td>
-                            <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString()}</td>
+                            <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
                         </tr>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right text-rose-600">Adjustments / Discount</td>
-                            <td className="p-1 text-right text-rose-600">{(data.discount || 0).toLocaleString()}</td>
+                            <td className="p-1 text-right text-rose-600">{(data.discount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
                         </tr>
+                        {data.isRoundOff && totals.roundOff !== 0 && (
+                            <tr className="border-t border-black font-bold">
+                                <td colSpan={7} className="border-r border-black p-1 text-right">Round Off</td>
+                                <td className="p-1 text-right">{totals.roundOff > 0 ? '+' : ''}{totals.roundOff}</td>
+                            </tr>
+                        )}
                         <tr className="border-t border-black font-black bg-slate-50 text-xs">
                             <td colSpan={7} className="border-r border-black p-1.5 text-right uppercase tracking-widest">Grand Total (Net Amount)</td>
-                            <td className="p-1.5 text-right font-black">Rs. {(totals.grandTotal || 0).toLocaleString()}</td>
+                            <td className="p-1.5 text-right font-black">Rs. {(totals.grandTotal || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -514,12 +532,30 @@ export const ServiceOrderModule: React.FC = () => {
 
                                 <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-lg z-20 shrink-0">
                                     <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1">
-                                        <div className="flex flex-col"><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Job Value</span><span className="text-xl font-black text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Abort</button>
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Job Value</span>
+                                                {order.isRoundOff && totals.roundOff !== 0 && (
+                                                    <span className={`text-[10px] font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="text-xl font-black text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
+                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
+                                            </div>
+                                            <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Abort</button>
+                                        </div>
                                     </div>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
                                         <button onClick={() => handleSave('Draft')} className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95">Save Draft</button>
-                                        <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="flex-1 px-6 py-3 bg-medical-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Download size={18} /> Finalize & PDF</button>
+                                        <button onClick={async () => { const finalized = await handleSave('Finalized'); if (finalized) handleDownloadPDF(finalized); }} className="flex-1 px-6 py-3 bg-medical-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Download size={18} /> Finalize & PDF</button>
                                     </div>
                                 </div>
                             </div>

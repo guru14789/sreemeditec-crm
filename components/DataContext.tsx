@@ -399,6 +399,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (resolvedUser) {
+            // Write/update their UID mapping
+            setDoc(doc(db, "uid_maps", firebaseUser.uid), {
+                employeeId: resolvedUser.id,
+                role: resolvedUser.role,
+                email: email || '',
+                updatedAt: new Date().toISOString()
+            }).catch(e => console.warn("Failed to write to uid_maps on Google login:", e));
+
             setCurrentUser(resolvedUser);
             if (!loginLoggedRef.current) {
                 addLog('Auth', 'System Login', `User ${resolvedUser.name} initiated secure session.`);
@@ -698,6 +706,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     isLoginEnabled: true,
                     permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
                 };
+                if (auth.currentUser) {
+                    await setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
+                        employeeId: 'EMP-OWNER',
+                        role: 'SYSTEM_ADMIN',
+                        email: lowerEmail,
+                        updatedAt: new Date().toISOString()
+                    });
+                }
                 setCurrentUser(adminUser);
                 setIsAuthenticating(false);
                 return true;
@@ -712,7 +728,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (!match.isLoginEnabled) {
                     setAuthError("Account Locked: Registry access revoked by Admin.");
                 } else if (match.password === password) {
-                    setCurrentUser({ ...match, id: snap.docs[0].id });
+                    const empId = snap.docs[0].id;
+                    if (auth.currentUser) {
+                        await setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
+                            employeeId: empId,
+                            role: match.role,
+                            email: lowerEmail,
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                    setCurrentUser({ ...match, id: empId });
                     setIsAuthenticating(false);
                     return true;
                 } else {
@@ -1316,6 +1341,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const addEmployee = async (e: Employee) => { await setDoc(doc(db, "employees", e.id), sanitizeData(e)); await addLog('System', 'New Employee', e.name); };
     const updateEmployee = async (id: string, u: Partial<Employee>) => {
         const existing = employees.find(e => e.id === id);
+        
+        // Backend Validation & Authorization Check
+        const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
+        if (!isSystemAdmin && currentUser?.id !== id) {
+            throw new Error("Access Denied: Only SYSTEM_ADMIN can update other employee records.");
+        }
+        if (!isSystemAdmin && currentUser?.id === id) {
+            if (u.role !== undefined && u.role !== existing?.role) {
+                throw new Error("Access Denied: Cannot modify your own role.");
+            }
+            if (u.permissions !== undefined) {
+                throw new Error("Access Denied: Cannot modify your own permissions.");
+            }
+        }
+
+        // Detailed Permission Audit Logging
+        if (u.permissions && existing) {
+            const oldPerms = existing.permissions || {};
+            const newPerms = u.permissions;
+            const changes: string[] = [];
+            
+            Object.keys(newPerms).forEach(key => {
+                if (newPerms[key] !== oldPerms[key]) {
+                    changes.push(`${key}: ${oldPerms[key] || 'None'} -> ${newPerms[key]}`);
+                }
+            });
+            Object.keys(oldPerms).forEach(key => {
+                if (newPerms[key] === undefined) {
+                    changes.push(`${key}: ${oldPerms[key]} -> None`);
+                }
+            });
+
+            if (changes.length > 0) {
+                const operatorName = currentUser?.name || 'System';
+                await addLog('System', 'Permission Changes', `${existing.name} permissions updated by ${operatorName}: ${changes.join(', ')}`, oldPerms, newPerms);
+            }
+        }
+
         await updateDoc(doc(db, "employees", id), sanitizeData(u));
         await addLog('System', 'Updated Employee', existing?.name || id, existing, { ...existing, ...u });
     };
@@ -2372,6 +2435,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const updatePrizePool = async (a: number) => {
+        const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
+        if (!isSystemAdmin) {
+            throw new Error("Access Denied: Only SYSTEM_ADMIN can update the prize pool.");
+        }
         setPrizePool(a);
         await setDoc(doc(db, "settings", "system"), { prizePool: a }, { merge: true });
         await addLog('System', 'Updated Prize Pool', `New: ${a}`);

@@ -351,13 +351,13 @@ export const App: React.FC = () => {
   const userRole: 'Admin' | 'Employee' = isSystemAdmin ? 'Admin' : 'Employee';
 
   // tabRole: governs per-module feature access (e.g., Expense admin sees ALL employees' records)
-  // Explicit per-tab setting ALWAYS wins — even for SYSTEM_ADMIN users.
-  // System role is only the fallback when no explicit tab entry exists in the Access Grid.
+  // SYSTEM_ADMIN and Super Admin are always unrestricted Admins.
+  // Explicit per-tab setting governs access for SYSTEM_STAFF.
   const tabRole: 'Admin' | 'Employee' = (() => {
-    if (isSuperAdmin) return 'Admin'; // Super admin is always unrestricted
+    if (isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN') return 'Admin'; // Admins are always unrestricted
     const explicit = currentUser.permissions?.[activeTab] as 'Admin' | 'Employee' | undefined;
     if (explicit) return explicit; // Respect Access Grid setting (Admin OR Employee)
-    return isSystemAdmin ? 'Admin' : 'Employee'; // Fallback: system role default
+    return 'Employee'; // Fallback for staff
   })();
 
   const currentUserName = currentUser.name;
@@ -873,7 +873,7 @@ export const App: React.FC = () => {
                         ) : (
                           <div className="flex items-baseline gap-1">
                             <span className="text-xs font-black tracking-tight leading-none">₹{formatIndianNumber(prizePool)}</span>
-                            {(currentUser?.department === 'Administration' || currentUser?.role === 'SYSTEM_ADMIN') && (
+                            {isSystemAdmin && (
                               <button onClick={() => { setTempPrize(prizePool.toString()); setIsEditingPrize(true); }} className="p-0.5 hover:bg-white/20 rounded ml-1 transition-colors"><Edit2 size={10} /></button>
                             )}
                           </div>

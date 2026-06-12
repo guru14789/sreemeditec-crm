@@ -7,9 +7,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Access Control: Authenticated users can read/write; UI handles role-based visibility
+    function isSystemAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'sreekumar.career@gmail.com' ||
+        (exists(/databases/$(database)/documents/uid_maps/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/uid_maps/$(request.auth.uid)).data.role == 'SYSTEM_ADMIN')
+      );
+    }
+
+    // Default catch-all for authenticated users
     match /{collectionName}/{docId} {
       allow read, create, update, delete: if isAuthenticated();
+    }
+
+    // Registry access rules
+    match /employees/{employeeId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSystemAdmin();
+    }
+
+    // UID to role map access rules
+    match /uid_maps/{uid} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == uid || isSystemAdmin());
+      allow delete: if isSystemAdmin();
     }
 
     // Specific validation for tasks (allow admins/authenticated users to delete)

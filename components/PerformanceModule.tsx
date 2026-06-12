@@ -16,6 +16,7 @@ export const PerformanceModule: React.FC = () => {
   
   const [showRules, setShowRules] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const isAdmin = activeUser?.role === 'SYSTEM_ADMIN' || activeUser?.email === 'sreekumar.career@gmail.com';
 
   // FIX: Dynamic Leaderboard Generation
   // Calculates real-time rankings by summing point history for the CURRENT month only.
@@ -38,43 +39,61 @@ export const PerformanceModule: React.FC = () => {
           }
       }
 
-      const list = employees.map(emp => {
-          const empPoints = pointHistory
-              .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
-              .reduce((sum, p) => sum + p.points, 0);
-          
-          const empTasks = pointHistory.filter(p => 
-              p.userId === emp.id && 
-              p.category === 'Task' && 
-              p.date?.startsWith(currentMonthId)
-          ).length;
-          
-          const empAttendanceCount = attendanceRecords.filter(r => 
-              r.userId === emp.id && 
-              r.date.startsWith(currentMonthId) && 
-              (r.status === 'Completed' || r.status === 'CheckedIn' || r.status === 'Paused')
-          ).length;
+      const list = employees
+          .filter(emp => {
+              if (isAdmin) return true;
+              return !emp.hideFromLeaderboard;
+          })
+          .map(emp => {
+              const empPoints = pointHistory
+                  .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
+                  .reduce((sum, p) => sum + p.points, 0);
+              
+              const empTasks = pointHistory.filter(p => 
+                  p.userId === emp.id && 
+                  p.category === 'Task' && 
+                  p.date?.startsWith(currentMonthId)
+              ).length;
+              
+              const empAttendanceCount = attendanceRecords.filter(r => 
+                  r.userId === emp.id && 
+                  r.date.startsWith(currentMonthId) && 
+                  (r.status === 'Completed' || r.status === 'CheckedIn' || r.status === 'Paused')
+              ).length;
 
-          const attendancePercentage = workingDaysSoFar > 0 
-              ? Math.min(100, Math.round((empAttendanceCount / workingDaysSoFar) * 100)) 
-              : 0;
-          
-          return {
-              id: emp.id,
-              name: emp.name,
-              points: empPoints,
-              tasks: empTasks,
-              attendance: `${attendancePercentage}%`,
-              badge: empPoints > 1000 ? 'gold' : 'none',
-              rank: 0
-          };
-      });
+              const attendancePercentage = workingDaysSoFar > 0 
+                  ? Math.min(100, Math.round((empAttendanceCount / workingDaysSoFar) * 100)) 
+                  : 0;
+              
+              return {
+                  id: emp.id,
+                  name: emp.name,
+                  points: empPoints,
+                  tasks: empTasks,
+                  attendance: `${attendancePercentage}%`,
+                  badge: empPoints > 1000 ? 'gold' : 'none',
+                  isHidden: !!emp.hideFromLeaderboard,
+                  rank: 0
+              };
+          });
 
-      const sorted = [...list].sort((a, b) => b.points - a.points);
-      return sorted.map((user, index) => ({ ...user, rank: index + 1 }));
-  }, [employees, pointHistory, tasks]);
+      // Split visible and hidden
+      const visibleList = list.filter(u => !u.isHidden);
+      const hiddenList = list.filter(u => u.isHidden);
 
-  const top3 = dynamicLeaderboard.slice(0, 3);
+      // Sort visible ones to assign their ranks
+      const sortedVisible = [...visibleList].sort((a, b) => b.points - a.points);
+      const rankedVisible = sortedVisible.map((user, index) => ({ ...user, rank: index + 1 }));
+
+      // Hidden ones are not ranked (rank remains 0)
+      const rankedHidden = hiddenList.map(user => ({ ...user, rank: 0 }));
+
+      // Merge and sort everything by points descending for display
+      const combined = [...rankedVisible, ...rankedHidden].sort((a, b) => b.points - a.points);
+      return combined;
+  }, [employees, pointHistory, tasks, activeUser]);
+
+  const top3 = dynamicLeaderboard.filter(u => !u.isHidden).slice(0, 3);
 
   const getRankStyle = (rank: number) => {
     switch(rank) {
@@ -103,7 +122,7 @@ export const PerformanceModule: React.FC = () => {
                       <button onClick={() => setShowRules(true)} className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-sm">
                           <Info size={12} /> Rules
                       </button>
-                      {activeUser?.role === 'SYSTEM_ADMIN' && (
+                      {isAdmin && (
                           <div className="flex gap-2">
                               <button 
                                 onClick={() => {
@@ -173,20 +192,22 @@ export const PerformanceModule: React.FC = () => {
                               return (
                                   <div key={user.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 shadow-sm'}`}>
                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                                          user.isHidden ? 'bg-slate-50 text-slate-400' :
                                           user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
                                           user.rank === 2 ? 'bg-slate-100 text-slate-600' :
                                           user.rank === 3 ? 'bg-orange-100 text-orange-700' :
                                           'bg-slate-50 text-slate-400'
                                       }`}>
-                                          {user.rank}
+                                          {user.isHidden ? '—' : user.rank}
                                       </div>
                                       <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0 uppercase">
                                           {user.name.charAt(0)}
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-1.5">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
                                               <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">{user.name}</p>
                                               {isCurrentUser && <span className="text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">You</span>}
+                                              {user.isHidden && <span className="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">Hidden</span>}
                                           </div>
                                           <div className="flex items-center gap-2 mt-0.5">
                                               <span className="text-[9px] font-bold text-slate-400 uppercase">{user.tasks} Tasks</span>
@@ -224,30 +245,34 @@ export const PerformanceModule: React.FC = () => {
                                   <tr key={user.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors ${isCurrentUser ? 'bg-indigo-50/10 dark:bg-indigo-900/5' : ''} cursor-default`}>
                                       <td className="px-5 py-3 text-center">
                                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm mx-auto border ${
+                                              user.isHidden ? 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700' :
                                               user.rank === 1 ? 'bg-amber-500 text-white border-white shadow-lg shadow-amber-500/10' : 
                                               user.rank === 2 ? 'bg-slate-300 text-white border-white shadow-lg shadow-slate-300/10' :
                                               user.rank === 3 ? 'bg-orange-400 text-white border-white shadow-lg shadow-orange-400/10' :
                                               'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
                                           }`}>
-                                              {user.rank}
+                                              {user.isHidden ? '—' : user.rank}
                                           </div>
                                       </td>
                                       <td className="px-5 py-3">
                                           <div className="flex items-center gap-3">
                                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-inner uppercase ${
-                                                  user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                                  !user.isHidden && user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                                               }`}>
                                                   {user.name.charAt(0)}
                                               </div>
                                               <div>
                                                   <div className="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 text-[12px] leading-none">
                                                       {user.name}
-                                                      {user.rank === 1 && <span className="text-amber-500"><Crown size={12} fill="currentColor"/></span>}
+                                                      {!user.isHidden && user.rank === 1 && <span className="text-amber-500"><Crown size={12} fill="currentColor"/></span>}
                                                       {isCurrentUser && <span className="text-[8px] font-black bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase tracking-tighter">You</span>}
+                                                      {user.isHidden && <span className="text-[8px] font-black bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">Hidden</span>}
                                                   </div>
-                                                  <div className={`mt-1 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border inline-flex items-center gap-1.5 ${rankStyle.bg}`}>
-                                                      {rankStyle.icon} {rankStyle.label}
-                                                  </div>
+                                                  {!user.isHidden && (
+                                                      <div className={`mt-1 px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border inline-flex items-center gap-1.5 ${rankStyle.bg}`}>
+                                                          {rankStyle.icon} {rankStyle.label}
+                                                      </div>
+                                                  )}
                                               </div>
                                           </div>
                                       </td>
@@ -296,7 +321,25 @@ export const PerformanceModule: React.FC = () => {
                                                   </span>
                                               </div>
                                               <p className="text-[9.5px] font-bold text-slate-700 dark:text-slate-200 leading-normal lowercase tracking-tight line-clamp-3 first-letter:uppercase">{item.description}</p>
-                                              <p className="text-[7.5px] font-bold text-slate-400 uppercase mt-2">{item.date}</p>
+                                              <p className="text-[7.5px] font-bold text-slate-400 uppercase mt-2">
+                                                  {(() => {
+                                                      if (!item.date) return '—';
+                                                      // Parse any ISO or standard date formats
+                                                      const d = new Date(item.date);
+                                                      if (!isNaN(d.getTime())) {
+                                                          return d.toLocaleString('en-US', {
+                                                              day: '2-digit',
+                                                              month: 'short',
+                                                              year: 'numeric',
+                                                              hour: '2-digit',
+                                                              minute: '2-digit',
+                                                              second: '2-digit',
+                                                              hour12: true
+                                                          });
+                                                      }
+                                                      return item.date;
+                                                  })()}
+                                              </p>
                                           </div>
                                       </div>
                                   </div>

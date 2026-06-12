@@ -25,6 +25,40 @@ export const CatalogModule: React.FC = () => {
         return price + (price * (taxRate / 100));
     };
 
+    const parseLegacyDescription = (desc: string): { key: string; value: string }[] => {
+        if (!desc) return [];
+        const lines = desc.split('\n');
+        const result: { key: string; value: string }[] = [];
+        let hasKeyValuePairs = false;
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const colonIdx = trimmed.indexOf(':');
+            if (colonIdx > 0 && colonIdx < trimmed.length - 1) {
+                const k = trimmed.substring(0, colonIdx).trim();
+                const v = trimmed.substring(colonIdx + 1).trim();
+                if (k && v) {
+                    result.push({ key: k, value: v });
+                    hasKeyValuePairs = true;
+                }
+            }
+        }
+        if (!hasKeyValuePairs) {
+            result.push({ key: 'Overview', value: desc.trim() });
+        }
+        return result;
+    };
+
+    const getProductSpecs = (product: Product): { key: string; value: string }[] => {
+        if (product.specs && Object.keys(product.specs).length > 0) {
+            return Object.entries(product.specs).map(([key, value]) => ({ key, value }));
+        }
+        if (product.description) {
+            return parseLegacyDescription(product.description);
+        }
+        return [];
+    };
+
     return (
         <div className="h-full flex flex-col gap-6 overflow-hidden">
             {/* Header Section */}
@@ -88,8 +122,15 @@ export const CatalogModule: React.FC = () => {
                                     <div>
                                         <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">{product.name}</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{product.model || 'Standard Model'}</p>
-                                        {product.description && (
-                                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2 leading-relaxed line-clamp-3">{product.description}</p>
+                                        {getProductSpecs(product).length > 0 && (
+                                            <div className="mt-3 space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                                                {getProductSpecs(product).slice(0, 3).map((spec, idx) => (
+                                                    <div key={idx} className="flex justify-between text-[10px] leading-tight">
+                                                        <span className="font-bold text-slate-400 uppercase tracking-wider truncate max-w-[45%]">{spec.key}</span>
+                                                        <span className="font-extrabold text-slate-600 dark:text-slate-300 truncate max-w-[50%]">{spec.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -147,8 +188,15 @@ export const CatalogModule: React.FC = () => {
                                             <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
                                             <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest truncate">{product.sku}</span>
                                         </div>
-                                        {product.description && (
-                                            <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-2 leading-relaxed line-clamp-2">{product.description}</p>
+                                        {getProductSpecs(product).length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                                {getProductSpecs(product).slice(0, 3).map((spec, idx) => (
+                                                    <div key={idx} className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-[9px] font-black border border-slate-100 dark:border-slate-850 flex gap-1.5 items-center max-w-[200px] truncate">
+                                                        <span className="text-slate-405 dark:text-slate-500 uppercase tracking-widest">{spec.key}:</span>
+                                                        <span className="text-slate-600 dark:text-slate-300 truncate">{spec.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -307,11 +355,32 @@ export const CatalogModule: React.FC = () => {
                             {/* Description & Technical Specs */}
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800/80 space-y-3">
                                 <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                                    <Info size={12} /> Description & Technical Specifications
+                                    <Info size={12} /> Technical Specifications & Info
                                 </h3>
-                                <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                                    {selectedProduct.description || 'No detailed technical specifications or description available for this catalog item.'}
-                                </p>
+                                {getProductSpecs(selectedProduct).length > 0 ? (
+                                    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                                    <th className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Specification</th>
+                                                    <th className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Detail</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                                                {getProductSpecs(selectedProduct).map((spec, idx) => (
+                                                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
+                                                        <td className="p-3 text-xs font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap">{spec.key}</td>
+                                                        <td className="p-3 text-xs font-black text-slate-800 dark:text-slate-200">{spec.value}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs font-medium text-slate-600 dark:text-slate-305 leading-relaxed">
+                                        No detailed technical specifications or description available for this catalog item.
+                                    </p>
+                                )}
                             </div>
                         </div>
 

@@ -15,10 +15,7 @@ import { useData } from './DataContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatIndianNumber = (num: number) => {
-  if (num >= 10000000) return (num / 10000000).toFixed(2).replace(/\.00$/, '') + ' Cr';
-  if (num >= 100000) return (num / 100000).toFixed(2).replace(/\.00$/, '') + ' L';
-  if (num >= 1000) return (num / 1000).toFixed(2).replace(/\.00$/, '') + 'K';
-  return num.toLocaleString('en-IN');
+  return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 };
 
 const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -37,7 +34,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products } = useData();
+  const { invoices, expenses, leads, products, purchaseRecords } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -50,6 +47,188 @@ export const ReportsModule: React.FC = () => {
   const [productSearch, setProductSearch] = useState('');
   const [productSort, setProductSort] = useState<'revenue' | 'units' | 'invoices'>('revenue');
 
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
+
+  const getCardClasses = (sectionId: string, defaultSpan: string) => {
+    const isExpanded = expandedSection === sectionId;
+    const hasExpanded = expandedSection !== null;
+
+    if (isExpanded) {
+      return `col-span-full md:col-span-6 bg-white p-5 rounded-2xl border-2 border-medical-500 shadow-lg ring-4 ring-medical-500/5 flex flex-col min-h-[420px] transition-all duration-300 transform scale-[1.005] cursor-pointer`;
+    }
+    if (hasExpanded) {
+      return `col-span-full md:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[180px] overflow-hidden opacity-50 hover:opacity-95 transition-all duration-300 cursor-pointer`;
+    }
+    return `col-span-full ${defaultSpan} bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md`;
+  };
+
+  const filterByDateRange = (dateStr: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const now = new Date();
+    
+    if (dateRange === 'Today') {
+      return d.toDateString() === now.toDateString();
+    }
+    if (dateRange === 'This Week') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0,0,0,0);
+      return d >= startOfWeek;
+    }
+    if (dateRange === 'This Month') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === 'This Quarter') {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const itemQuarter = Math.floor(d.getMonth() / 3);
+      return currentQuarter === itemQuarter && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === 'This Year') {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  const analyticsData = useMemo(() => {
+    // 1. Top Customers (based on invoiced amounts)
+    const customerMap: Record<string, number> = {};
+    let totalSales = 0;
+    invoices.forEach((inv) => {
+      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation') return;
+      if (!filterByDateRange(inv.date)) return;
+      const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
+      const amt = inv.grandTotal || 0;
+      customerMap[name] = (customerMap[name] || 0) + amt;
+      totalSales += amt;
+    });
+
+    const topCustomers = Object.entries(customerMap)
+      .map(([name, total]) => ({
+        name,
+        total,
+        percentage: totalSales > 0 ? (total / totalSales) * 100 : 0
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // 2. Expenses Breakdown
+    const expenseMap: Record<string, number> = {};
+    expenses.forEach((exp) => {
+      if (exp.status !== 'Approved') return;
+      if (!filterByDateRange(exp.date)) return;
+      const cat = exp.category || 'Other';
+      expenseMap[cat] = (expenseMap[cat] || 0) + (exp.amount || 0);
+    });
+
+    // Add purchase records and Supplier POs as "Procurement" expense
+    let procurementTotal = 0;
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!filterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      procurementTotal += rec.total || 0;
+    });
+    invoices.forEach((inv) => {
+      if ((inv as any).documentType !== 'SupplierPO' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!filterByDateRange(inv.date)) return;
+      procurementTotal += inv.grandTotal || 0;
+    });
+    if (procurementTotal > 0) {
+      expenseMap['Procurement'] = (expenseMap['Procurement'] || 0) + procurementTotal;
+    }
+
+    const expenseCategories = Object.entries(expenseMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // 3. Supplier Volume
+    const supplierMap: Record<string, { total: number; transactions: number; osAmount: number }> = {};
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!filterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      const name = rec.supplier || 'Unknown Supplier';
+      if (!supplierMap[name]) {
+        supplierMap[name] = { total: 0, transactions: 0, osAmount: 0 };
+      }
+      supplierMap[name].total += rec.total || 0;
+      supplierMap[name].transactions += 1;
+    });
+    // Also include SupplierPOs
+    invoices.forEach((inv) => {
+      if ((inv as any).documentType !== 'SupplierPO' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!filterByDateRange(inv.date)) return;
+      const name = (inv as any).vendorName || 'Unknown Supplier';
+      if (!supplierMap[name]) {
+        supplierMap[name] = { total: 0, transactions: 0, osAmount: 0 };
+      }
+      supplierMap[name].total += inv.grandTotal || 0;
+      supplierMap[name].transactions += 1;
+      const os = inv.grandTotal - (inv.paidAmount || 0);
+      if (os > 0) {
+        supplierMap[name].osAmount += os;
+      }
+    });
+
+    const topSuppliers = Object.entries(supplierMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // 4. Product Line Analysis
+    const productMap: Record<string, { qty: number; total: number }> = {};
+    invoices.forEach((inv) => {
+      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation') return;
+      if (!filterByDateRange(inv.date)) return;
+      (inv.items || []).forEach((item: any) => {
+        const name = item.description || 'Unknown Product';
+        if (!productMap[name]) {
+          productMap[name] = { qty: 0, total: 0 };
+        }
+        productMap[name].qty += item.quantity || 0;
+        productMap[name].total += item.amount || 0;
+      });
+    });
+
+    const topProducts = Object.entries(productMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // 5. Receivables Aging
+    const outstandingInvoices = invoices.filter(inv => 
+      (inv.documentType === 'Invoice' || (inv.invoiceNumber || '').startsWith('SM/')) &&
+      inv.status !== 'Cancelled' && inv.status !== 'Draft' &&
+      (inv.grandTotal - (inv.paidAmount || 0)) > 1
+    );
+
+    const agingBuckets = [
+      { name: 'Current (< 30d)', min: 0, max: 30, value: 0, count: 0 },
+      { name: '31 - 60 Days', min: 31, max: 60, value: 0, count: 0 },
+      { name: '61 - 90 Days', min: 61, max: 90, value: 0, count: 0 },
+      { name: '90+ Days', min: 91, max: Infinity, value: 0, count: 0 }
+    ];
+
+    outstandingInvoices.forEach(inv => {
+      const date = new Date(inv.date);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const balance = inv.grandTotal - (inv.paidAmount || 0);
+
+      const bucket = agingBuckets.find(b => days >= b.min && days <= b.max) || agingBuckets[3];
+      bucket.value += balance;
+      bucket.count += 1;
+    });
+
+    return {
+      topCustomers,
+      expenseCategories,
+      topSuppliers,
+      topProducts,
+      agingBuckets,
+      totalSales
+    };
+  }, [invoices, expenses, purchaseRecords, dateRange]);
+
   useEffect(() => {
     const q = query(collection(db, 'summaries'), orderBy('month', 'desc'), limit(60));
     const unsub = onSnapshot(q, (snap) => setSummaries(snap.docs.map((d) => d.data())));
@@ -60,10 +239,11 @@ export const ReportsModule: React.FC = () => {
   const PERFORMANCE_DATA = useMemo(() => {
     const monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = now.getFullYear();
+    const currentMonthStr = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     if (viewMode === 'month') {
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
       const dailyData = Array.from({ length: daysInMonth }, (_, i) => ({
         label: `${i + 1}`, revenue: 0, expenses: 0, profit: 0,
         raw: `${currentMonthStr}-${String(i + 1).padStart(2, '0')}`,
@@ -71,33 +251,78 @@ export const ReportsModule: React.FC = () => {
       invoices.forEach((inv) => {
         if (inv.status === 'Draft' || !inv.date.startsWith(currentMonthStr)) return;
         const day = parseInt(inv.date.split('-')[2]);
-        if (day && dailyData[day - 1]) dailyData[day - 1].revenue += inv.grandTotal || 0;
+        if (day && dailyData[day - 1]) {
+          if ((inv as any).documentType === 'SupplierPO') dailyData[day - 1].expenses += inv.grandTotal || 0;
+          else if ((inv as any).documentType !== 'Quotation') dailyData[day - 1].revenue += inv.grandTotal || 0;
+        }
       });
       expenses.forEach((exp) => {
         if (exp.status !== 'Approved' || !exp.date.startsWith(currentMonthStr)) return;
         const day = parseInt(exp.date.split('-')[2]);
         if (day && dailyData[day - 1]) dailyData[day - 1].expenses += exp.amount || 0;
       });
+      (purchaseRecords || []).forEach((rec: any) => {
+        const dStr = rec.dateSupply || rec.materialReceivedDate || '';
+        if (!dStr.startsWith(currentMonthStr)) return;
+        const day = parseInt(dStr.split('-')[2]);
+        if (day && dailyData[day - 1]) dailyData[day - 1].expenses += rec.total || 0;
+      });
       return dailyData.map((d) => ({ ...d, profit: d.revenue - d.expenses }));
     }
 
     if (viewMode === 'year') {
-      return summaries.slice(0, 12).map((s) => {
-        const [, month] = s.month.split('-');
-        return { label: monthsShort[parseInt(month) - 1], revenue: s.revenue || 0, expenses: s.expense || 0, profit: (s.revenue || 0) - (s.expense || 0), raw: s.month };
-      }).sort((a, b) => a.raw.localeCompare(b.raw));
+      const monthlyData = Array.from({ length: 12 }, (_, i) => ({
+        label: monthsShort[i], revenue: 0, expenses: 0, profit: 0,
+        raw: `${currentYear}-${String(i + 1).padStart(2, '0')}`,
+      }));
+      invoices.forEach((inv) => {
+        if (inv.status === 'Draft' || !inv.date.startsWith(`${currentYear}-`)) return;
+        const month = parseInt(inv.date.split('-')[1]);
+        if (month && monthlyData[month - 1]) {
+          if ((inv as any).documentType === 'SupplierPO') monthlyData[month - 1].expenses += inv.grandTotal || 0;
+          else if ((inv as any).documentType !== 'Quotation') monthlyData[month - 1].revenue += inv.grandTotal || 0;
+        }
+      });
+      expenses.forEach((exp) => {
+        if (exp.status !== 'Approved' || !exp.date.startsWith(`${currentYear}-`)) return;
+        const month = parseInt(exp.date.split('-')[1]);
+        if (month && monthlyData[month - 1]) monthlyData[month - 1].expenses += exp.amount || 0;
+      });
+      (purchaseRecords || []).forEach((rec: any) => {
+        const dStr = rec.dateSupply || rec.materialReceivedDate || '';
+        if (!dStr.startsWith(`${currentYear}-`)) return;
+        const month = parseInt(dStr.split('-')[1]);
+        if (month && monthlyData[month - 1]) monthlyData[month - 1].expenses += rec.total || 0;
+      });
+      return monthlyData.map((d) => ({ ...d, profit: d.revenue - d.expenses }));
     }
 
+    // viewMode === 'overall'
     const yearMap: Record<string, any> = {};
-    summaries.forEach((s) => {
-      const year = s.month.split('-')[0];
+    const addYearData = (dateStr: string, rev: number, exp: number) => {
+      if (!dateStr) return;
+      const year = dateStr.split('-')[0];
+      if (!year || year.length !== 4) return;
       if (!yearMap[year]) yearMap[year] = { label: year, revenue: 0, expenses: 0, profit: 0, raw: year };
-      yearMap[year].revenue += s.revenue || 0;
-      yearMap[year].expenses += s.expense || 0;
-      yearMap[year].profit += (s.revenue || 0) - (s.expense || 0);
+      yearMap[year].revenue += rev;
+      yearMap[year].expenses += exp;
+    };
+    invoices.forEach((inv) => {
+      if (inv.status === 'Draft') return;
+      if ((inv as any).documentType === 'SupplierPO') addYearData(inv.date, 0, inv.grandTotal || 0);
+      else if ((inv as any).documentType !== 'Quotation') addYearData(inv.date, inv.grandTotal || 0, 0);
     });
-    return Object.values(yearMap).sort((a, b) => a.label.localeCompare(b.label));
-  }, [summaries, viewMode, invoices, expenses]);
+    expenses.forEach((exp) => {
+      if (exp.status === 'Approved') addYearData(exp.date, 0, exp.amount || 0);
+    });
+    (purchaseRecords || []).forEach((rec: any) => {
+      addYearData(rec.dateSupply || rec.materialReceivedDate, 0, rec.total || 0);
+    });
+    return Object.values(yearMap)
+      .map((d: any) => ({ ...d, profit: d.revenue - d.expenses }))
+      .sort((a: any, b: any) => a.raw.localeCompare(b.raw));
+      
+  }, [viewMode, invoices, expenses, purchaseRecords]);
 
   const CATEGORY_DATA = useMemo(() => {
     const catMap: Record<string, number> = {};
@@ -167,15 +392,20 @@ export const ReportsModule: React.FC = () => {
     return Object.entries(sourceMap).map(([source, stats]) => ({ source, ...stats }));
   }, [leads]);
 
-  const totalRevenue = invoices.reduce((sum, inv) => {
+  const filteredInvoices = invoices.filter(inv => filterByDateRange(inv.date));
+  const filteredExpenses = expenses.filter(exp => filterByDateRange(exp.date));
+  const filteredPurchaseRecords = (purchaseRecords || []).filter((rec: any) => filterByDateRange(rec.dateSupply || rec.materialReceivedDate));
+
+  const totalRevenue = filteredInvoices.reduce((sum, inv) => {
     if (inv.status === 'Draft' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'SupplierPO') return sum;
     return sum + (inv.grandTotal || 0);
   }, 0);
-  const totalPurchases = invoices.reduce((sum, inv) => {
+  const totalPurchases = filteredInvoices.reduce((sum, inv) => {
     if (inv.status !== 'Draft' && (inv as any).documentType === 'SupplierPO') return sum + (inv.grandTotal || 0);
     return sum;
   }, 0);
-  const totalExpenses = expenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0) + totalPurchases;
+  const totalPurchaseRecords = filteredPurchaseRecords.reduce((sum: number, rec: any) => sum + (rec.total || 0), 0);
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0) + totalPurchases + totalPurchaseRecords;
   const totalProfit = totalRevenue - totalExpenses;
   const growthRate = 24.5;
 
@@ -213,7 +443,7 @@ export const ReportsModule: React.FC = () => {
     const summaryRows = [
       ['SUMMARY', 'Total Sales', totalRevenue, '', ''],
       ['SUMMARY', 'Net Profit', totalProfit, '', ''],
-      ['SUMMARY', 'Total Loss (PO + Exp)', totalExpenses, '', ''],
+      ['SUMMARY', 'Total Expense (PO + Exp)', totalExpenses, '', ''],
       ['', '', '', '', ''],
       ['TOP PRODUCTS', 'Product Name', 'Units', 'Revenue', ''],
       ...TOP_PRODUCTS.map((p) => ['TOP PRODUCTS', `"${p.name.replace(/"/g, '""')}"`, p.totalQty, p.totalRevenue.toFixed(2), '']),
@@ -492,7 +722,23 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          {/* Tab Selection */}
+          <div className="flex bg-slate-100 p-0.5 rounded-lg shadow-inner mr-1">
+            <button
+              onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
+              className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md transition-all ${reportsTab === 'overview' ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
+              className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md transition-all ${reportsTab === 'analytics' ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Analytics
+            </button>
+          </div>
+
           <div className="relative hidden sm:block">
             <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
             <select
@@ -547,7 +793,7 @@ export const ReportsModule: React.FC = () => {
             <span className="flex items-center gap-1 text-[8px] font-black bg-rose-50 text-rose-700 px-1 py-0.5 rounded-md uppercase"><TrendingDown size={8} /> -2.4%</span>
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Loss</p>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expense</p>
             <h3 className="text-sm font-black text-slate-800 mt-0.5">₹{formatIndianNumber(totalExpenses)}</h3>
           </div>
         </div>
@@ -564,173 +810,479 @@ export const ReportsModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-4 lg:min-h-[500px]">
-        {/* Main Financial Chart */}
-        <div className="flex-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[350px] relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-medical-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 relative z-10">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-[10px] text-slate-800 tracking-tight uppercase">Financial Performance</h3>
-                <div className="px-1 py-0.5 bg-emerald-100 text-emerald-700 text-[6px] font-black uppercase tracking-widest rounded-full animate-pulse">Live</div>
-              </div>
-              <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Revenue vs Outflow</p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <div className="flex bg-slate-100 p-0.5 rounded-lg shadow-inner">
-                {(['month', 'year', 'overall'] as const).map((mode) => (
-                  <button key={mode} onClick={() => setViewMode(mode)} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${viewMode === mode ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{mode}</button>
-                ))}
-              </div>
-              <div className="flex bg-medical-50 p-0.5 rounded-lg">
-                <button onClick={() => setActiveChart('revenue')} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${activeChart === 'revenue' ? 'bg-medical-600 text-white shadow-md shadow-medical-200' : 'text-medical-400'}`}>Composed</button>
-                <button onClick={() => setActiveChart('profit')} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${activeChart === 'profit' ? 'bg-medical-600 text-white shadow-md shadow-medical-200' : 'text-medical-400'}`}>Profit</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full min-h-[220px] relative z-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={PERFORMANCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                <Tooltip
-                  cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
-                  itemStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                  labelStyle={{ fontSize: '9px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                  formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
-                />
-                <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '20px' }} />
-                {activeChart === 'revenue' ? (
-                  <>
-                    <Bar dataKey="revenue" name="Inflow" fill="url(#colorRev)" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
-                    <Bar dataKey="expenses" name="Outflow" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
-                    <Line type="monotone" dataKey="profit" name="Profit Delta" stroke="#6366f1" strokeWidth={3} dot={{ r: 3, strokeWidth: 2, stroke: '#fff', fill: '#6366f1' }} activeDot={{ r: 5, strokeWidth: 0 }} animationDuration={2000} />
-                  </>
-                ) : (
-                  <Area type="monotone" dataKey="profit" name="Net Earnings" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" animationDuration={2000} />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Side Column */}
-        <div className="w-full lg:w-[260px] flex flex-col gap-4 shrink-0">
-          {/* Category Pie */}
-          <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col h-[220px]">
-            <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest mb-2">Categories</h3>
-            <div className="flex-1 w-full min-h-0 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={CATEGORY_DATA} cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value">
-                    {CATEGORY_DATA.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
-                  </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '9px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4">
-                <div className="text-center">
-                  <span className="text-lg font-black text-slate-800">100%</span>
-                  <p className="text-[7px] text-slate-400 font-black uppercase">Split</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] mt-1 font-black uppercase tracking-tight">
-              {CATEGORY_DATA.map((entry, index) => (
-                <div key={index} className="flex items-center gap-1">
-                  <div className="w-1 h-1 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="text-slate-500">{entry.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Top Products (Clickable) */}
-          <button
-            onClick={() => setView('topProducts')}
-            className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-medical-300 hover:shadow-lg hover:shadow-medical-500/5 transition-all group active:scale-[0.99]"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest group-hover:text-medical-600 transition-colors">Top Products</h3>
-              <div className="flex items-center gap-1">
-                <span className="text-[7px] font-black text-medical-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">View All</span>
-                <ChevronRight size={12} className="text-slate-300 group-hover:text-medical-500 group-hover:translate-x-0.5 transition-all" />
-              </div>
-            </div>
-
-            <div className="space-y-2 overflow-y-hidden flex-1">
-              {TOP_PRODUCTS.map((product, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
-                  <div className="flex-1 pr-3">
-                    <h4 className="text-[9px] font-black text-slate-700 uppercase leading-tight group-hover:text-medical-600 transition-colors line-clamp-1">{product.name}</h4>
-                    <p className="text-[7px] text-slate-400 font-black uppercase mt-0.5">{product.totalQty} units</p>
+      {reportsTab === 'overview' ? (
+        <>
+          {/* Charts Section */}
+          <div className="flex flex-col lg:flex-row gap-4 mb-4 lg:min-h-[500px]">
+            {/* Main Financial Chart */}
+            <div className="flex-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[350px] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-medical-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 relative z-10">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-[10px] text-slate-800 tracking-tight uppercase">Financial Performance</h3>
+                    <div className="px-1 py-0.5 bg-emerald-100 text-emerald-700 text-[6px] font-black uppercase tracking-widest rounded-full animate-pulse">Live</div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-800">₹{formatIndianNumber(product.totalRevenue)}</p>
-                    <div className="w-8 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden ml-auto">
-                      <div className="h-full bg-medical-500 rounded-full" style={{ width: `${(product.totalRevenue / (TOP_PRODUCTS[0]?.totalRevenue || 1)) * 100}%` }} />
+                  <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Revenue vs Outflow</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <div className="flex bg-slate-100 p-0.5 rounded-lg shadow-inner">
+                    {(['month', 'year', 'overall'] as const).map((mode) => (
+                      <button key={mode} onClick={() => setViewMode(mode)} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${viewMode === mode ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{mode}</button>
+                    ))}
+                  </div>
+                  <div className="flex bg-medical-50 p-0.5 rounded-lg">
+                    <button onClick={() => setActiveChart('revenue')} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${activeChart === 'revenue' ? 'bg-medical-600 text-white shadow-md shadow-medical-200' : 'text-medical-400'}`}>Composed</button>
+                    <button onClick={() => setActiveChart('profit')} className={`px-2 py-1 text-[8px] font-black uppercase tracking-widest rounded-md transition-all ${activeChart === 'profit' ? 'bg-medical-600 text-white shadow-md shadow-medical-200' : 'text-medical-400'}`}>Profit</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 w-full min-h-[220px] relative z-10">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={PERFORMANCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                    <Tooltip
+                      cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
+                      itemStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      labelStyle={{ fontSize: '9px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                      formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
+                    />
+                    <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '20px' }} />
+                    {activeChart === 'revenue' ? (
+                      <>
+                        <Bar dataKey="revenue" name="Inflow" fill="url(#colorRev)" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
+                        <Bar dataKey="expenses" name="Outflow" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
+                        <Line type="monotone" dataKey="profit" name="Profit Delta" stroke="#6366f1" strokeWidth={3} dot={{ r: 3, strokeWidth: 2, stroke: '#fff', fill: '#6366f1' }} activeDot={{ r: 5, strokeWidth: 0 }} animationDuration={2000} />
+                      </>
+                    ) : (
+                      <Area type="monotone" dataKey="profit" name="Net Earnings" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" animationDuration={2000} />
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Side Column */}
+            <div className="w-full lg:w-[260px] flex flex-col gap-4 shrink-0">
+              {/* Category Pie */}
+              <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col h-[220px]">
+                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest mb-2">Categories</h3>
+                <div className="flex-1 w-full min-h-0 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={CATEGORY_DATA} cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value">
+                        {CATEGORY_DATA.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '9px' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4">
+                    <div className="text-center">
+                      <span className="text-lg font-black text-slate-800">100%</span>
+                      <p className="text-[7px] text-slate-400 font-black uppercase">Split</p>
                     </div>
                   </div>
                 </div>
-              ))}
-              {TOP_PRODUCTS.length === 0 && (
-                <div className="flex-1 flex items-center justify-center py-6">
-                  <p className="text-[8px] text-slate-300 font-black uppercase tracking-widest">No product data yet</p>
+                <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] mt-1 font-black uppercase tracking-tight">
+                  {CATEGORY_DATA.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-1">
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      <span className="text-slate-500">{entry.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Products (Clickable) */}
+              <button
+                onClick={() => setView('topProducts')}
+                className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-medical-300 hover:shadow-lg hover:shadow-medical-500/5 transition-all group active:scale-[0.99]"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest group-hover:text-medical-600 transition-colors">Top Products</h3>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7px] font-black text-medical-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">View All</span>
+                    <ChevronRight size={12} className="text-slate-300 group-hover:text-medical-500 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </div>
+
+                <div className="space-y-2 overflow-y-hidden flex-1">
+                  {TOP_PRODUCTS.map((product, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                      <div className="flex-1 pr-3">
+                        <h4 className="text-[9px] font-black text-slate-700 uppercase leading-tight group-hover:text-medical-600 transition-colors line-clamp-1">{product.name}</h4>
+                        <p className="text-[7px] text-slate-400 font-black uppercase mt-0.5">{product.totalQty} units</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-slate-800">₹{formatIndianNumber(product.totalRevenue)}</p>
+                        <div className="w-8 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden ml-auto">
+                          <div className="h-full bg-medical-500 rounded-full" style={{ width: `${(product.totalRevenue / (TOP_PRODUCTS[0]?.totalRevenue || 1)) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {TOP_PRODUCTS.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center py-6">
+                      <p className="text-[8px] text-slate-300 font-black uppercase tracking-widest">No product data yet</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[7px] text-slate-400 font-black uppercase tracking-widest">{ALL_PRODUCTS_DETAIL.length} total products</span>
+                  <span className="text-[7px] text-medical-500 font-black uppercase tracking-widest flex items-center gap-1">Click to expand <ChevronRight size={9} /></span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Lead Source & Conversion */}
+          <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex flex-col min-h-[280px] shrink-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
+              <div>
+                <h3 className="font-black text-[10px] text-slate-800 flex items-center gap-2 uppercase tracking-tight">
+                  <Users size={16} className="text-medical-600" /> Lead Source & Conversion
+                </h3>
+                <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Leads vs Converted Clients</p>
+              </div>
+            </div>
+            <div className="flex-1 w-full min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={LEAD_SOURCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="source" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} />
+                  <Tooltip
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
+                    itemStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    labelStyle={{ fontSize: '8px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                  />
+                  <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '15px' }} />
+                  <Bar dataKey="leads" name="Total Leads" fill="#94a3b8" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
+                  <Bar dataKey="converted" name="Converted Clients" fill="#10b981" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Detailed Analytics Tab with click-to-zoom sections */
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          
+          {/* 1. Top Clients */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'clients' ? null : 'clients')}
+            className={getCardClasses('clients', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Top Clients</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Share of Sales Revenue</p>
+                </div>
+                <Users size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'clients' ? (
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  {analyticsData.topCustomers.slice(0, 3).map((cust, idx) => (
+                    <div key={idx} className="flex flex-col gap-0.5">
+                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
+                        <span className="truncate max-w-[120px]">{cust.name}</span>
+                        <span>{formatCurrency(cust.total)}</span>
+                      </div>
+                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${cust.percentage}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {analyticsData.topCustomers.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No client data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="flex flex-col justify-between">
+                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                      {analyticsData.topCustomers.map((cust, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[150px]">{cust.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] font-black text-slate-800">{formatCurrency(cust.total)}</span>
+                            <span className="block text-[7px] font-bold text-emerald-600">{cust.percentage.toFixed(1)}% of total</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ left: -10, right: 10 }}>
+                        <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Bar dataKey="total" fill="#10b981" radius={[0, 4, 4, 0]} barSize={12} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-[7px] text-slate-400 font-black uppercase tracking-widest">{ALL_PRODUCTS_DETAIL.length} total products</span>
-              <span className="text-[7px] text-medical-500 font-black uppercase tracking-widest flex items-center gap-1">Click to expand <ChevronRight size={9} /></span>
-            </div>
-          </button>
-        </div>
-      </div>
+          {/* 2. Expense Breakdown */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'expenses' ? null : 'expenses')}
+            className={getCardClasses('expenses', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Expense Breakdown</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Outflow categories</p>
+                </div>
+                <DollarSign size={12} className="text-slate-400" />
+              </div>
 
-      {/* Lead Source & Conversion */}
-      <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex flex-col min-h-[280px] shrink-0">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
-          <div>
-            <h3 className="font-black text-[10px] text-slate-800 flex items-center gap-2 uppercase tracking-tight">
-              <Users size={16} className="text-medical-600" /> Lead Source & Conversion
-            </h3>
-            <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Leads vs Converted Clients</p>
-          </div>
+              {expandedSection !== 'expenses' ? (
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  {analyticsData.expenseCategories.slice(0, 3).map((exp, idx) => (
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                      <span>{exp.name}</span>
+                      <span className="text-rose-600">{formatCurrency(exp.value)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.expenseCategories.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No expense data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    {analyticsData.expenseCategories.map((exp, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-black text-slate-700 uppercase">{exp.name}</span>
+                        <span className="text-[10px] font-black text-rose-600">{formatCurrency(exp.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                    <ResponsiveContainer width="100%" height="90%">
+                      <PieChart>
+                        <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                          {analyticsData.expenseCategories.map((_, idx) => (
+                            <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
+                      {analyticsData.expenseCategories.map((entry, idx) => (
+                        <div key={idx} className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                          <span className="text-slate-500">{entry.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 3. Supplier Volume */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'suppliers' ? null : 'suppliers')}
+            className={getCardClasses('suppliers', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Supplier Volume</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Procurement Totals</p>
+                </div>
+                <ShoppingCart size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'suppliers' ? (
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  {analyticsData.topSuppliers.slice(0, 3).map((sup, idx) => (
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                      <span className="truncate max-w-[100px]">{sup.name}</span>
+                      <span className="text-violet-600">{formatCurrency(sup.total)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.topSuppliers.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No supplier data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    {analyticsData.topSuppliers.map((sup, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-700 uppercase block">{sup.name}</span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase">{sup.transactions} transactions</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-black text-slate-800 block">{formatCurrency(sup.total)}</span>
+                          {sup.osAmount > 0 && (
+                            <span className="text-[7px] font-black text-rose-500 uppercase">O/S: {formatCurrency(sup.osAmount)}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
+                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Bar dataKey="total" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={15} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 4. Product Line Analysis */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'products' ? null : 'products')}
+            className={getCardClasses('products', 'md:col-span-3 min-h-[250px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Product Line Analysis</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Units and revenue</p>
+                </div>
+                <Package size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'products' ? (
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  {analyticsData.topProducts.slice(0, 2).map((prod, idx) => (
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                      <span className="truncate max-w-[150px]">{prod.name}</span>
+                      <span>{formatCurrency(prod.total)} ({prod.qty} units)</span>
+                    </div>
+                  ))}
+                  {analyticsData.topProducts.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No product sales</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    {analyticsData.topProducts.map((prod, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-700 uppercase block truncate max-w-[200px]">{prod.name}</span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase">{prod.qty} units sold</span>
+                        </div>
+                        <span className="text-[10px] font-black text-slate-800">{formatCurrency(prod.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 7 }} />
+                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Bar dataKey="total" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={15} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 5. Receivables Aging */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'aging' ? null : 'aging')}
+            className={getCardClasses('aging', 'md:col-span-3 min-h-[250px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Receivables Aging (Sales Ledger)</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Outstanding Ledger Terms</p>
+                </div>
+                <Calendar size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'aging' ? (
+                <div className="grid grid-cols-4 gap-2 text-center my-auto">
+                  {analyticsData.agingBuckets.map((bucket, idx) => (
+                    <div key={idx} className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-1">{bucket.name.split(' ')[0]}</p>
+                      <span className="text-[9px] font-black text-slate-700">{formatCurrency(bucket.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    {analyticsData.agingBuckets.map((bucket, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-700 uppercase block">{bucket.name}</span>
+                          <span className="text-[7px] font-bold text-slate-400 uppercase">{bucket.count} outstanding invoices</span>
+                        </div>
+                        <span className="text-[10px] font-black text-rose-600">{formatCurrency(bucket.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                    <ResponsiveContainer width="100%" height="90%">
+                      <PieChart>
+                        <Pie data={analyticsData.agingBuckets} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                          {analyticsData.agingBuckets.map((_, idx) => (
+                            <Cell key={idx} fill={COLORS[(idx + 2) % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
+                      {analyticsData.agingBuckets.map((entry, idx) => (
+                        <div key={idx} className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[(idx + 2) % COLORS.length] }} />
+                          <span className="text-slate-500">{entry.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
         </div>
-        <div className="flex-1 w-full min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={LEAD_SOURCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="source" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} />
-              <Tooltip
-                cursor={{ fill: '#f8fafc' }}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
-                itemStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                labelStyle={{ fontSize: '8px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-              />
-              <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '15px' }} />
-              <Bar dataKey="leads" name="Total Leads" fill="#94a3b8" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
-              <Bar dataKey="converted" name="Converted Clients" fill="#10b981" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      )}
 
       <div className="h-4 shrink-0" />
     </div>

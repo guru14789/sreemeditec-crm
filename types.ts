@@ -48,6 +48,7 @@ export enum TabView {
 
 export enum LeadStatus {
   NEW = 'New',
+  ON_PROCESS = 'On process',
   WON = 'Won',
   LOST = 'Lost'
 }
@@ -109,6 +110,12 @@ export interface Vendor {
 }
 
 
+export interface ProductVendorInfo {
+  vendorId: string;
+  vendorName: string;
+  purchasePrice: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -124,7 +131,9 @@ export interface Product {
   taxRate?: number;
   model?: string;
   description?: string;
+  specs?: Record<string, string>;
   supplier?: string;
+  vendors?: ProductVendorInfo[];
   lastRestocked?: string;
   price?: number;
   isBatchTracked?: boolean;
@@ -428,6 +437,7 @@ export interface Employee {
   password?: string;
   isLoginEnabled: boolean;
   lastSeenWinnerMonth?: string; // Format: YYYY-MM
+  hideFromLeaderboard?: boolean;
 }
 
 export interface UserStats {

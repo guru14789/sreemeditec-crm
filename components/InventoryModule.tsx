@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Product } from '../types';
+import { Product, ProductVendorInfo } from '../types';
 import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -71,6 +71,103 @@ export const InventoryModule: React.FC = () => {
 
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+    const [newSpecs, setNewSpecs] = useState<{ key: string; value: string }[]>([]);
+    const [editSpecs, setEditSpecs] = useState<{ key: string; value: string }[]>([]);
+
+    const parseLegacyDescription = (desc: string): { key: string; value: string }[] => {
+        if (!desc) return [];
+        const lines = desc.split('\n');
+        const result: { key: string; value: string }[] = [];
+        let hasKeyValuePairs = false;
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const colonIdx = trimmed.indexOf(':');
+            if (colonIdx > 0 && colonIdx < trimmed.length - 1) {
+                const k = trimmed.substring(0, colonIdx).trim();
+                const v = trimmed.substring(colonIdx + 1).trim();
+                if (k && v) {
+                    result.push({ key: k, value: v });
+                    hasKeyValuePairs = true;
+                }
+            }
+        }
+        if (!hasKeyValuePairs) {
+            result.push({ key: 'Overview', value: desc.trim() });
+        }
+        return result;
+    };
+
+    const handleAddNewSpec = () => {
+        setNewSpecs([...newSpecs, { key: '', value: '' }]);
+    };
+    const handleNewSpecChange = (index: number, field: 'key' | 'value', val: string) => {
+        const updated = [...newSpecs];
+        updated[index] = { ...updated[index], [field]: val };
+        setNewSpecs(updated);
+    };
+    const handleRemoveNewSpec = (index: number) => {
+        setNewSpecs(newSpecs.filter((_, i) => i !== index));
+    };
+
+    const handleAddEditSpec = () => {
+        setEditSpecs([...editSpecs, { key: '', value: '' }]);
+    };
+    const handleEditSpecChange = (index: number, field: 'key' | 'value', val: string) => {
+        const updated = [...editSpecs];
+        updated[index] = { ...updated[index], [field]: val };
+        setEditSpecs(updated);
+    };
+    const handleRemoveEditSpec = (index: number) => {
+        setEditSpecs(editSpecs.filter((_, i) => i !== index));
+    };
+
+    const [newProductVendors, setNewProductVendors] = useState<ProductVendorInfo[]>([]);
+    const [editProductVendors, setEditProductVendors] = useState<ProductVendorInfo[]>([]);
+
+    const handleAddNewVendor = () => {
+        setNewProductVendors([...newProductVendors, { vendorId: '', vendorName: '', purchasePrice: 0 }]);
+    };
+    const handleNewVendorChange = (index: number, field: keyof ProductVendorInfo, val: any) => {
+        const updated = [...newProductVendors];
+        updated[index] = { ...updated[index], [field]: val };
+        if (field === 'vendorId') {
+            const found = vendors.find(v => v.id === val);
+            if (found) {
+                updated[index].vendorName = found.name;
+            }
+        }
+        setNewProductVendors(updated);
+    };
+    const handleRemoveNewVendor = (index: number) => {
+        setNewProductVendors(newProductVendors.filter((_, i) => i !== index));
+    };
+
+    const handleAddEditVendor = () => {
+        setEditProductVendors([...editProductVendors, { vendorId: '', vendorName: '', purchasePrice: 0 }]);
+    };
+    const handleEditVendorChange = (index: number, field: keyof ProductVendorInfo, val: any) => {
+        const updated = [...editProductVendors];
+        updated[index] = { ...updated[index], [field]: val };
+        if (field === 'vendorId') {
+            const found = vendors.find(v => v.id === val);
+            if (found) {
+                updated[index].vendorName = found.name;
+            }
+        }
+        setEditProductVendors(updated);
+    };
+    const handleRemoveEditVendor = (index: number) => {
+        setEditProductVendors(editProductVendors.filter((_, i) => i !== index));
+    };
+
+    useEffect(() => {
+        if (showAddProductModal) {
+            setNewSpecs([]);
+            setNewProductVendors([]);
+        }
+    }, [showAddProductModal]);
+
     // Send for Demo Modal State
     const [showDemoModal, setShowDemoModal] = useState(false);
     const [demoData, setDemoData] = useState({
@@ -138,11 +235,23 @@ export const InventoryModule: React.FC = () => {
     }, [showScanModal, scanStatus]);
 
     const handleSaveProduct = async () => {
-        if (!newProduct.name || !newProduct.sku || newProduct.purchasePrice === undefined || newProduct.sellingPrice === undefined) {
-            alert("Please fill Name, SKU, Purchase Price and Selling Price.");
+        if (!newProduct.name || !newProduct.sku || newProduct.sellingPrice === undefined) {
+            alert("Please fill Name, SKU and Selling Price.");
             return;
         }
         const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+        
+        const specsRecord: Record<string, string> = {};
+        newSpecs.forEach(item => {
+            if (item.key.trim()) {
+                specsRecord[item.key.trim()] = item.value;
+            }
+        });
+
+        const validVendors = newProductVendors.filter(v => v.vendorName.trim() !== '');
+        const primarySupplier = validVendors.length > 0 ? validVendors[0].vendorName : (newProduct.supplier || '');
+        const primaryPurchasePrice = validVendors.length > 0 ? Number(validVendors[0].purchasePrice || 0) : Number(newProduct.purchasePrice || 0);
+
         const productToAdd: Product = {
             id: `P-${Date.now()}-${shortId}`,
             name: newProduct.name!,
@@ -150,15 +259,17 @@ export const InventoryModule: React.FC = () => {
             sku: newProduct.sku!,
             stock: Number(newProduct.stock) || 0,
             unit: newProduct.unit || 'nos',
-            purchasePrice: Number(newProduct.purchasePrice) || 0,
+            purchasePrice: primaryPurchasePrice,
             sellingPrice: Number(newProduct.sellingPrice) || 0,
             minLevel: Number(newProduct.minLevel) || 5,
             location: newProduct.location || 'Unassigned',
             hsn: newProduct.hsn || '',
             taxRate: newProduct.taxRate || 18,
             model: newProduct.model || '',
-            description: newProduct.description || '',
-            supplier: newProduct.supplier || '',
+            description: newSpecs.map(s => `${s.key}: ${s.value}`).join('\n') || newProduct.description || '',
+            specs: specsRecord,
+            supplier: primarySupplier,
+            vendors: validVendors,
             lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
         };
         await addProduct(productToAdd);
@@ -180,10 +291,30 @@ export const InventoryModule: React.FC = () => {
         setShowAddProductModal(false);
         addNotification('Product Indexed', `"${productToAdd.name}" successfully added to registry.`, 'success');
         setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', purchasePrice: 0, sellingPrice: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
+        setNewSpecs([]);
+        setNewProductVendors([]);
     };
 
     const handleOpenEdit = (product: Product) => {
         setEditingProduct({ ...product });
+        const initialSpecs = Object.entries(product.specs || {}).map(([key, value]) => ({ key, value }));
+        if (initialSpecs.length === 0 && product.description) {
+            setEditSpecs(parseLegacyDescription(product.description));
+        } else {
+            setEditSpecs(initialSpecs);
+        }
+        if (product.vendors && product.vendors.length > 0) {
+            setEditProductVendors(product.vendors);
+        } else if (product.supplier) {
+            const vObj = vendors.find(v => v.name.toLowerCase() === product.supplier!.toLowerCase());
+            setEditProductVendors([{
+                vendorId: vObj ? vObj.id : `legacy-${product.supplier}`,
+                vendorName: product.supplier,
+                purchasePrice: product.purchasePrice || 0
+            }]);
+        } else {
+            setEditProductVendors([]);
+        }
         setShowEditProductModal(true);
     };
 
@@ -197,12 +328,27 @@ export const InventoryModule: React.FC = () => {
         const originalProduct = products.find(p => p.id === editingProduct.id);
         const stockDiff = (editingProduct.stock || 0) - (originalProduct?.stock || 0);
 
+        const specsRecord: Record<string, string> = {};
+        editSpecs.forEach(item => {
+            if (item.key.trim()) {
+                specsRecord[item.key.trim()] = item.value;
+            }
+        });
+
+        const validVendors = editProductVendors.filter(v => v.vendorName.trim() !== '');
+        const primarySupplier = validVendors.length > 0 ? validVendors[0].vendorName : (editingProduct.supplier || '');
+        const primaryPurchasePrice = validVendors.length > 0 ? Number(validVendors[0].purchasePrice || 0) : Number(editingProduct.purchasePrice || 0);
+
         await updateProduct(editingProduct.id, {
             ...editingProduct,
             stock: Number(editingProduct.stock || 0),
-            purchasePrice: Number(editingProduct.purchasePrice || 0),
+            purchasePrice: primaryPurchasePrice,
             sellingPrice: Number(editingProduct.sellingPrice || 0),
-            minLevel: Number(editingProduct.minLevel || 0)
+            minLevel: Number(editingProduct.minLevel || 0),
+            description: editSpecs.map(s => `${s.key}: ${s.value}`).join('\n') || editingProduct.description || '',
+            specs: specsRecord,
+            supplier: primarySupplier,
+            vendors: validVendors
         });
 
         if (stockDiff !== 0) {
@@ -528,13 +674,20 @@ export const InventoryModule: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 md:px-4 py-2 md:py-2.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'supplier' }); }}>
-                                                <div className="flex items-center gap-2 text-slate-600 font-bold truncate">
-                                                    <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0"><Building2 size={10} /></div>
-                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'supplier' ? (
-                                                        <InlineInput value={product.supplier || ''} onSave={(v) => handleQuickUpdate(product.id, 'supplier', v)} onCancel={() => setInlineEdit(null)} />
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5">
+                                                <div className="flex flex-col gap-1 max-w-[200px]">
+                                                    {product.vendors && product.vendors.length > 0 ? (
+                                                        product.vendors.map((pv, idx) => (
+                                                            <div key={idx} className="flex items-center gap-1 text-[11px] font-bold text-slate-600 truncate bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800/80">
+                                                                <Building2 size={8} className="text-slate-400 shrink-0" />
+                                                                <span className="truncate">{pv.vendorName}</span>
+                                                            </div>
+                                                        ))
                                                     ) : (
-                                                        <span className="truncate text-[12px] md:text-[13px]">{product.supplier || 'Not set'}</span>
+                                                        <div className="flex items-center gap-1 text-[12px] font-bold text-slate-400">
+                                                            <Building2 size={10} />
+                                                            <span>{product.supplier || 'Not set'}</span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -548,12 +701,18 @@ export const InventoryModule: React.FC = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-slate-400 italic editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'purchasePrice' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'purchasePrice' ? (
-                                                    <InlineInput type="number" value={product.purchasePrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'purchasePrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right italic" />
-                                                ) : (
-                                                    <span className="text-[12px] md:text-[13px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
-                                                )}
+                                            <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-slate-400 italic">
+                                                <div className="flex flex-col gap-1 items-end">
+                                                    {product.vendors && product.vendors.length > 0 ? (
+                                                        product.vendors.map((pv, idx) => (
+                                                            <div key={idx} className="text-[11px] font-black text-rose-600/80">
+                                                                ₹{pv.purchasePrice.toLocaleString('en-IN')}
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-[12px] md:text-[13px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-3 md:px-4 py-2 md:py-2.5 text-right font-black text-teal-700 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sellingPrice' }); }}>
                                                 {inlineEdit?.id === product.id && inlineEdit.field === 'sellingPrice' ? (
@@ -715,15 +874,9 @@ export const InventoryModule: React.FC = () => {
                                     <input type="text" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value.toLowerCase() })} placeholder="nos" />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Cost (₹)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-black outline-none text-rose-600" value={editingProduct.purchasePrice || 0} onChange={e => setEditingProduct({ ...editingProduct, purchasePrice: Number(e.target.value) })} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({ ...editingProduct, sellingPrice: Number(e.target.value) })} />
-                                </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
+                                <input type="number" className="w-full bg-white border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({ ...editingProduct, sellingPrice: Number(e.target.value) })} />
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
@@ -752,13 +905,104 @@ export const InventoryModule: React.FC = () => {
                                     <span>₹{((editingProduct.sellingPrice || 0) * (1 + (editingProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier / Manufacturer</label>
-                                <input type="text" list="vendor-list" className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" value={editingProduct.supplier || ''} onChange={e => setEditingProduct({ ...editingProduct, supplier: e.target.value })} />
+                            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vendors & Purchasing Rates</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddEditVendor} 
+                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                    >
+                                        <Plus size={12} /> Add Vendor entry
+                                    </button>
+                                </div>
+                                {editProductVendors.length > 0 ? (
+                                    <div className="space-y-2.5">
+                                        {editProductVendors.map((pv, index) => (
+                                            <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
+                                                <select 
+                                                    className="flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-black outline-none focus:border-medical-500"
+                                                    value={pv.vendorId}
+                                                    onChange={e => handleEditVendorChange(index, 'vendorId', e.target.value)}
+                                                >
+                                                    <option value="">-- Select Vendor --</option>
+                                                    {vendors.map(v => (
+                                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                                    ))}
+                                                    {pv.vendorId && !vendors.some(v => v.id === pv.vendorId) && (
+                                                        <option value={pv.vendorId}>{pv.vendorName}</option>
+                                                    )}
+                                                </select>
+                                                <div className="relative w-32 shrink-0">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                                                    <input 
+                                                        type="number" 
+                                                        placeholder="Price" 
+                                                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                        value={pv.purchasePrice || ''} 
+                                                        onChange={e => handleEditVendorChange(index, 'purchasePrice', Number(e.target.value))} 
+                                                    />
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveEditVendor(index)} 
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border border-dashed border-slate-300 rounded-2xl text-center text-xs text-slate-400">
+                                        No vendors associated yet. Click "Add Vendor entry".
+                                    </div>
+                                )}
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Features</label>
-                                <textarea className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none min-h-[80px]" placeholder="Describe features..." value={editingProduct.description || ''} onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Specifications & Info</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddEditSpec} 
+                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                    >
+                                        <Plus size={12} /> Add Spec Row
+                                    </button>
+                                </div>
+                                {editSpecs.length > 0 ? (
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 p-3 space-y-2.5">
+                                        {editSpecs.map((spec, index) => (
+                                            <div key={index} className="flex gap-2 items-center animate-in slide-in-from-top-1 duration-75">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Spec Name (e.g. Dimensions)" 
+                                                    className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                    value={spec.key} 
+                                                    onChange={e => handleEditSpecChange(index, 'key', e.target.value)} 
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Value (e.g. 10x20 cm)" 
+                                                    className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                    value={spec.value} 
+                                                    onChange={e => handleEditSpecChange(index, 'value', e.target.value)} 
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveEditSpec(index)} 
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border border-dashed border-slate-300 rounded-2xl text-center text-xs text-slate-400">
+                                        No specifications added yet. Click "Add Spec Row" to define technical details.
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
@@ -788,15 +1032,9 @@ export const InventoryModule: React.FC = () => {
                                     <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option><option>Furniture</option>
                                 </select>
                             </div>
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Purchase Cost (₹)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-[16px] font-black outline-none" placeholder="0.00" value={newProduct.purchasePrice || ''} onChange={e => setNewProduct({ ...newProduct, purchasePrice: Number(e.target.value) })} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selling Rate (₹)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-[16px] font-black outline-none" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({ ...newProduct, sellingPrice: Number(e.target.value) })} />
-                                </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selling Rate (₹) *</label>
+                                <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-[16px] font-black outline-none text-emerald-600" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({ ...newProduct, sellingPrice: Number(e.target.value) })} />
                             </div>
                             <div className="grid grid-cols-2 gap-5">
                                 <input type="number" className="w-full border border-slate-300 bg-white rounded-2xl px-5 py-3 text-[16px] font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
@@ -823,10 +1061,101 @@ export const InventoryModule: React.FC = () => {
                                     <span>₹{((newProduct.sellingPrice || 0) * (1 + (newProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
-                            <input type="text" list="vendor-list" className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none" placeholder="Default Supplier / Manufacturer" value={newProduct.supplier || ''} onChange={e => setNewProduct({ ...newProduct, supplier: e.target.value })} />
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Features</label>
-                                <textarea className="w-full border border-slate-300 bg-slate-50 rounded-2xl px-5 py-3 text-[16px] font-bold outline-none min-h-[80px]" placeholder="Describe features..." value={newProduct.description || ''} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} />
+                            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-850">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Vendors & Purchasing Rates</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddNewVendor} 
+                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                    >
+                                        <Plus size={12} /> Add Vendor entry
+                                    </button>
+                                </div>
+                                {newProductVendors.length > 0 ? (
+                                    <div className="space-y-2.5">
+                                        {newProductVendors.map((pv, index) => (
+                                            <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
+                                                <select 
+                                                    className="flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-black outline-none focus:border-medical-500"
+                                                    value={pv.vendorId}
+                                                    onChange={e => handleNewVendorChange(index, 'vendorId', e.target.value)}
+                                                >
+                                                    <option value="">-- Select Vendor --</option>
+                                                    {vendors.map(v => (
+                                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="relative w-32 shrink-0">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
+                                                    <input 
+                                                        type="number" 
+                                                        placeholder="Price" 
+                                                        className="w-full bg-white border border-slate-300 rounded-xl pl-6 pr-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                        value={pv.purchasePrice || ''} 
+                                                        onChange={e => handleNewVendorChange(index, 'purchasePrice', Number(e.target.value))} 
+                                                    />
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveNewVendor(index)} 
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border border-dashed border-slate-300 rounded-2xl text-center text-xs text-slate-400">
+                                        No vendors associated yet. Click "Add Vendor entry".
+                                    </div>
+                                )}
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Specifications & Info</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddNewSpec} 
+                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
+                                    >
+                                        <Plus size={12} /> Add Spec Row
+                                    </button>
+                                </div>
+                                {newSpecs.length > 0 ? (
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 p-3 space-y-2.5">
+                                        {newSpecs.map((spec, index) => (
+                                            <div key={index} className="flex gap-2 items-center animate-in slide-in-from-top-1 duration-75">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Spec Name (e.g. Dimensions)" 
+                                                    className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                    value={spec.key} 
+                                                    onChange={e => handleNewSpecChange(index, 'key', e.target.value)} 
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Value (e.g. 10x20 cm)" 
+                                                    className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
+                                                    value={spec.value} 
+                                                    onChange={e => handleNewSpecChange(index, 'value', e.target.value)} 
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveNewSpec(index)} 
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border border-dashed border-slate-300 rounded-2xl text-center text-xs text-slate-400">
+                                        No specifications added yet. Click "Add Spec Row" to define technical details.
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="p-8 border-t border-slate-300 flex gap-4 bg-slate-50/50">
