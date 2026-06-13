@@ -34,7 +34,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products, purchaseRecords } = useData();
+  const { invoices, expenses, leads, products, purchaseRecords, employees } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -96,7 +96,7 @@ export const ReportsModule: React.FC = () => {
     const customerMap: Record<string, number> = {};
     let totalSales = 0;
     invoices.forEach((inv) => {
-      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation') return;
+      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
       if (!filterByDateRange(inv.date)) return;
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
       const amt = inv.grandTotal || 0;
@@ -112,6 +112,31 @@ export const ReportsModule: React.FC = () => {
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
+
+    // 1b. Employee Sales Performance (based on closedBy)
+    const employeeSalesMap: Record<string, { total: number; invoices: number; name: string }> = {};
+    invoices.forEach((inv) => {
+      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!filterByDateRange(inv.date)) return;
+      if (inv.closedBy) {
+        const emp = (employees || []).find(e => e.id === inv.closedBy);
+        const name = emp ? emp.name : 'Unknown Employee';
+        const amt = inv.grandTotal || 0;
+        if (!employeeSalesMap[inv.closedBy]) employeeSalesMap[inv.closedBy] = { total: 0, invoices: 0, name };
+        employeeSalesMap[inv.closedBy].total += amt;
+        employeeSalesMap[inv.closedBy].invoices += 1;
+      }
+    });
+
+    const topEmployees = Object.entries(employeeSalesMap)
+      .map(([id, data]) => ({
+        id,
+        name: data.name,
+        total: data.total,
+        invoices: data.invoices,
+        percentage: totalSales > 0 ? (data.total / totalSales) * 100 : 0
+      }))
+      .sort((a, b) => b.total - a.total);
 
     // 2. Expenses Breakdown
     const expenseMap: Record<string, number> = {};
@@ -221,6 +246,7 @@ export const ReportsModule: React.FC = () => {
 
     return {
       topCustomers,
+      topEmployees,
       expenseCategories,
       topSuppliers,
       topProducts,
@@ -1039,8 +1065,72 @@ export const ReportsModule: React.FC = () => {
                       <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ left: -10, right: 10 }}>
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
                         <Bar dataKey="total" fill="#10b981" radius={[0, 4, 4, 0]} barSize={12} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 1b. Sales Leaderboard */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'employees' ? null : 'employees')}
+            className={getCardClasses('employees', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Employee Performance</p>
+                </div>
+                <Users size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'employees' ? (
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => (
+                    <div key={idx} className="flex flex-col gap-0.5">
+                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
+                        <span className="truncate max-w-[120px]">{emp.name}</span>
+                        <span>{formatCurrency(emp.total)}</span>
+                      </div>
+                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${emp.percentage}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {analyticsData.topEmployees.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No employee sales data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="flex flex-col justify-between">
+                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                      {analyticsData.topEmployees.map((emp, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[150px]">{emp.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
+                            <span className="block text-[7px] font-bold text-indigo-600">{emp.invoices} Closures</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart layout="vertical" data={analyticsData.topEmployees} margin={{ left: -10, right: 10 }}>
+                        <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
+                        <Bar dataKey="total" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={12} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1093,7 +1183,7 @@ export const ReportsModule: React.FC = () => {
                             <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
@@ -1159,7 +1249,7 @@ export const ReportsModule: React.FC = () => {
                       <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
                         <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
                         <Bar dataKey="total" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={15} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1213,7 +1303,7 @@ export const ReportsModule: React.FC = () => {
                       <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7 }} />
                         <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
                         <Bar dataKey="total" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={15} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1265,7 +1355,7 @@ export const ReportsModule: React.FC = () => {
                             <Cell key={idx} fill={COLORS[(idx + 2) % COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">

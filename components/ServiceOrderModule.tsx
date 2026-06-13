@@ -272,11 +272,11 @@ export const ServiceOrderModule: React.FC = () => {
                                     <td className="border-r border-black p-1 text-center">{idx + 1}</td>
                                     <td className="border-r border-black p-1 font-bold">{item.description}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity || ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString() : ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString() : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString('en-IN') : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString('en-IN') : ''}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity ? `${item.taxRate}%` : ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? tax.toLocaleString() : ''}</td>
-                                    <td className="p-1 text-right font-black">{item.quantity ? (amt + tax).toLocaleString() : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? tax.toLocaleString('en-IN') : ''}</td>
+                                    <td className="p-1 text-right font-black">{item.quantity ? (amt + tax).toLocaleString('en-IN') : ''}</td>
                                 </tr>
                             );
                         })}
@@ -365,7 +365,7 @@ export const ServiceOrderModule: React.FC = () => {
                                         <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerHospital}</td>
                                         <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{inv.equipmentName} ({inv.model})</td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
                                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
@@ -392,9 +392,8 @@ export const ServiceOrderModule: React.FC = () => {
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
                     <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Form</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Preview</button>
-                        <button onClick={() => setBuilderTab('spares')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'spares' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Spares</button>
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
@@ -578,7 +577,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     {filteredSpares.map(prod => (
                                         <div key={prod.id} className="p-5 rounded-[1.5rem] border bg-white border-slate-300 hover:border-medical-400 shadow-sm transition-all cursor-pointer flex flex-col justify-between group" onClick={() => handleAddItem(prod)}>
                                             <div className="flex-1"><div className="flex items-center gap-2 mb-2"><span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border bg-slate-100 text-slate-500 border-slate-300">{prod.category || 'N/A'}</span></div><h4 className="font-black text-slate-800 text-sm leading-tight group-hover:text-medical-700 transition-colors">{prod.name}</h4></div>
-                                            <div className="mt-4 flex items-center justify-between border-t border-slate-300 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Rate</p><p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString()}</p></div><div className="p-2 rounded-xl bg-white text-medical-600 border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all"><Plus size={20} /></div></div>
+                                            <div className="mt-4 flex items-center justify-between border-t border-slate-300 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Rate</p><p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p></div><div className="p-2 rounded-xl bg-white text-medical-600 border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all"><Plus size={20} /></div></div>
                                         </div>
                                     ))}
                                 </div>

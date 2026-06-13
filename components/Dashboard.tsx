@@ -78,9 +78,9 @@ export const Dashboard: React.FC = () => {
   ], [visibleTickets]);
 
   const formatCurrency = (val: number) => {
-    if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)}Cr`;
-    if (val >= 100000) return `₹${(val / 100000).toFixed(2)}L`;
-    if (val >= 1000) return `₹${(val / 1000).toFixed(2)}K`;
+    if (val >= 10000000) return `₹${(val / 10000000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}L`;
+    if (val >= 1000) return `₹${(val / 1000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}K`;
     return `₹${val.toFixed(0)}`;
   };
 

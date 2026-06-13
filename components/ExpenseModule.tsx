@@ -310,7 +310,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                                     {e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"><ImageIcon size={8}/> Proof Available</button>}
                                                 </div>
                                             </td>
-                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle"><div className="inline-block font-black text-[11px] md:text-[13px] text-slate-800 tracking-tighter min-w-[60px]">₹{e.amount.toLocaleString()}</div></td>
+                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle"><div className="inline-block font-black text-[11px] md:text-[13px] text-slate-800 tracking-tighter min-w-[60px]">₹{e.amount.toLocaleString('en-IN')}</div></td>
                                             <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle">
                                                 <div className="flex justify-center">
                                                     <span className={`w-20 inline-flex items-center justify-center text-[8px] font-black uppercase tracking-widest py-1 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span>
@@ -372,7 +372,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 <section className="p-4 md:p-6 bg-slate-900 rounded-2xl md:rounded-3xl text-white shadow-xl relative overflow-hidden group">
                                     <div className="absolute top-0 right-0 p-4 md:p-8 opacity-10 group-hover:scale-110 transition-transform"><DollarSign size={60} /></div>
                                     <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 md:mb-2">Claim Valuation</p>
-                                    <h4 className="text-2xl md:text-3xl font-black tracking-tighter text-emerald-400">₹{selectedExpense.amount.toLocaleString()}</h4>
+                                    <h4 className="text-2xl md:text-3xl font-black tracking-tighter text-emerald-400">₹{selectedExpense.amount.toLocaleString('en-IN')}</h4>
                                     <div className="mt-2 md:mt-4 flex items-center gap-2"><span className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase">Category:</span><span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-indigo-400">{selectedExpense.category}</span></div>
                                 </section>
 

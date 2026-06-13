@@ -412,7 +412,7 @@ export const App: React.FC = () => {
         { tab: TabView.HR, icon: ShieldCheck, label: 'Staff Management' },
         { tab: TabView.REPORTS, icon: ClipboardList, label: 'Reports Centre' },
         { tab: TabView.ARCHIVE, icon: FileText, label: 'Finance Archive' },
-        { tab: TabView.ACCOUNTING, icon: Wallet, label: 'Accounting Terminal' },
+        { tab: TabView.ACCOUNTING, icon: Wallet, label: 'Accounts (TallyPrime)' },
         { tab: TabView.COMPLIANCE, icon: ShieldCheck, label: 'Compliance Terminal' },
         { tab: TabView.CONFIG, icon: Settings, label: 'System Config' },
       ]
@@ -688,8 +688,8 @@ export const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30">
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 z-50 sticky top-0 shadow-sm transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] min-h-[4rem] md:min-h-[4.5rem]">
+      <main className={`flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30 ${activeTab === TabView.ACCOUNTING ? 'overflow-hidden' : ''}`}>
+        <header className={`bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 z-50 sticky top-0 shadow-sm transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] min-h-[4rem] md:min-h-[4.5rem] ${activeTab === TabView.ACCOUNTING ? 'hidden' : ''}`}>
           <div className="w-12 lg:hidden">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
           </div>
@@ -891,8 +891,8 @@ export const App: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50/40 dark:bg-slate-950">
-          <div className="flex-1 flex flex-col min-h-0 w-full p-2.5 lg:p-5 animate-in fade-in duration-500 overflow-hidden">{renderContent()}</div>
+        <div className={`flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50/40 dark:bg-slate-950 ${activeTab === TabView.ACCOUNTING ? '!p-0' : ''}`}>
+          <div className={`flex-1 flex flex-col min-h-0 w-full animate-in fade-in duration-500 overflow-hidden ${activeTab === TabView.ACCOUNTING ? '!p-0' : 'p-2.5 lg:p-5'}`}>{renderContent()}</div>
         </div>
       </main>
       <WinnerPopup />

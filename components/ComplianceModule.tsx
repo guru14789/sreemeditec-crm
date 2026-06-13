@@ -596,7 +596,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-2xl flex items-center gap-4">
                      <div className="text-right">
                         <p className="text-[8px] font-black text-amber-600 uppercase">Total TDS Liability</p>
-                        <p className="text-xl font-black text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString()}</p>
+                        <p className="text-xl font-black text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString('en-IN')}</p>
                      </div>
                   </div>
                 </div>
@@ -625,8 +625,8 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                           <td className="px-6 py-4 uppercase font-black text-amber-600">
                              {v.narration.match(/194[CIJ]/)?.[0] || '194C'}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-600">₹{((v.totalAmount * 100) / (v.narration.includes('10%') ? 10 : 1)).toLocaleString()}</td>
-                          <td className="px-6 py-4 text-right font-black text-rose-600">₹{v.totalAmount.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-right font-bold text-slate-600">₹{((v.totalAmount * 100) / (v.narration.includes('10%') ? 10 : 1)).toLocaleString('en-IN')}</td>
+                          <td className="px-6 py-4 text-right font-black text-rose-600">₹{v.totalAmount.toLocaleString('en-IN')}</td>
                         </tr>
                       ))}
                       {vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).length === 0 && (

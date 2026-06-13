@@ -424,7 +424,7 @@ export const PurchaseRecordModule: React.FC = () => {
                         <p className="text-lg font-black text-rose-900 leading-none tabular-nums">
                             ₹{purchaseRecords
                                 .reduce((sum, r) => sum + ((r.total || 0) - (r.paidAmount || 0)), 0)
-                                .toLocaleString()}
+                                .toLocaleString('en-IN')}
                         </p>
                     </div>
                 </div>

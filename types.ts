@@ -155,13 +155,29 @@ export interface AccountGroup {
 export interface Ledger {
   id: string;
   name: string;
+  alias?: string;
   groupId: string;
   openingBalance: number;
   currentBalance: number;
-  description?: string;
+  mailingName?: string;
+  address?: string;
   gstin?: string;
-  email?: string;
+  pan?: string;
+  contactPerson?: string;
   phone?: string;
+  mobile?: string;
+  email?: string;
+  creditLimit?: number;
+  creditDays?: number;
+  bankAccountNo?: string;
+  ifscCode?: string;
+  costCentreApplicable?: boolean;
+  taxRate?: number;
+  hsnSacCode?: string;
+  isActive?: boolean;
+  linkedEntityType?: 'CRM_CUSTOMER' | 'VENDOR' | 'EMPLOYEE' | 'BANK';
+  linkedEntityId?: string;
+  description?: string;
 }
 
 export interface LedgerEntry {
@@ -213,6 +229,8 @@ export interface BillSettlement {
   date: string;
 }
 
+export type VoucherStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'POSTED' | 'REJECTED';
+
 export interface AccountingVoucher {
   id: string;
   voucherNumber: string;
@@ -220,15 +238,76 @@ export interface AccountingVoucher {
   type: VoucherType;
   entries: LedgerEntry[];
   narration: string;
-  referenceId?: string; // ID of the Invoice, Expense, etc.
+  referenceId?: string;
   referenceNumber?: string;
   totalAmount: number;
   settlements?: BillSettlement[];
   createdBy: string;
+  createdOn?: string;
   editHistory?: AuditLogEntry[];
   bankReconciliationDate?: string;
   tdsRate?: number;
   tdsSection?: string;
+  costCentreId?: string;
+  chequeNo?: string;
+  chequeDate?: string;
+  chequeBank?: string;
+  status?: VoucherStatus;
+  rejectedReason?: string;
+  approvedBy?: string;
+  placeOfSupply?: string;
+  refVoucherType?: VoucherType;
+  gstDetails?: {
+    taxableValue: number;
+    cgst: number;
+    sgst: number;
+    igst: number;
+    totalGst: number;
+  };
+}
+
+export interface PeriodLock {
+  lockUpTo: string;
+  lockedBy: string;
+  lockedOn: string;
+  overrideRequires: 'DIRECTOR';
+}
+
+export interface GSTConfig {
+  gstin: string;
+  registrationDate: string;
+  registrationType: 'Regular' | 'Composition' | 'Unregistered';
+  filingFrequency: 'Monthly' | 'Quarterly';
+  eInvoiceApplicable: boolean;
+  eWayBillApplicable: boolean;
+}
+
+export interface HSNMaster {
+  code: string;
+  description: string;
+  gstRate: number;
+}
+
+export interface GSTR1Section {
+  section: string;
+  invoices: number;
+  taxableValue: number;
+  totalGst: number;
+  status: 'Ready' | 'Pending' | 'N/A';
+}
+
+export interface GoToItem {
+  id: string;
+  label: string;
+  type: 'screen' | 'ledger' | 'voucher' | 'report';
+  action: () => void;
+  shortcut?: string;
+}
+
+export interface CostCentreAllocation {
+  costCentreId: string;
+  costCentreName: string;
+  amount: number;
 }
 
 export interface BankStatementEntry {
@@ -343,6 +422,7 @@ export interface Invoice {
   roundOff?: number;
   documentType?: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   createdBy?: string;
+  closedBy?: string;
   smcpoNumber?: string;
   deliveryTime?: string;
   specialNote?: string;

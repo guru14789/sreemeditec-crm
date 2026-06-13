@@ -71,28 +71,28 @@ export const CollectionsDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 shrink-0">
                 <StatCard 
                     label="Total Outstanding" 
-                    value={`₹${totalOutstanding.toLocaleString()}`} 
+                    value={`₹${totalOutstanding.toLocaleString('en-IN')}`} 
                     subtext={`${outstandingInvoices.length} Pending Invoices`}
                     icon={Wallet}
                     color="emerald"
                 />
                 <StatCard 
                     label="0-30 Days" 
-                    value={`₹${agingSummary['0-30'].amount.toLocaleString()}`} 
+                    value={`₹${agingSummary['0-30'].amount.toLocaleString('en-IN')}`} 
                     subtext={`${agingSummary['0-30'].count} Invoices`}
                     icon={Activity}
                     color="blue"
                 />
                 <StatCard 
                     label="31-60 Days" 
-                    value={`₹${agingSummary['31-60'].amount.toLocaleString()}`} 
+                    value={`₹${agingSummary['31-60'].amount.toLocaleString('en-IN')}`} 
                     subtext={`${agingSummary['31-60'].count} Invoices`}
                     icon={Clock}
                     color="amber"
                 />
                 <StatCard 
                     label="60+ Days" 
-                    value={`₹${(agingSummary['61-90'].amount + agingSummary['90+'].amount).toLocaleString()}`} 
+                    value={`₹${(agingSummary['61-90'].amount + agingSummary['90+'].amount).toLocaleString('en-IN')}`} 
                     subtext={`${agingSummary['61-90'].count + agingSummary['90+'].count} Invoices`}
                     icon={AlertTriangle}
                     color="rose"
@@ -161,10 +161,10 @@ export const CollectionsDashboard: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-right">
-                                            <span className="text-xs font-black text-slate-400">₹{inv.grandTotal.toLocaleString()}</span>
+                                            <span className="text-xs font-black text-slate-400">₹{inv.grandTotal.toLocaleString('en-IN')}</span>
                                         </td>
                                         <td className="px-8 py-5 text-right">
-                                            <span className="text-xs font-black text-rose-600">₹{balance.toLocaleString()}</span>
+                                            <span className="text-xs font-black text-rose-600">₹{balance.toLocaleString('en-IN')}</span>
                                         </td>
                                         <td className="px-8 py-5 text-center">
                                             <div className="inline-flex flex-col items-center">

@@ -21,8 +21,14 @@ const calculateDetailedTotals = (order: Partial<Invoice>) => {
     const freightGst = freight * ((Number(order.freightTaxRate) || 0) / 100);
     const totalWithGst = subTotal + taxTotal;
     const discount = Number(order.discount) || 0;
-    const grandTotal = totalWithGst + freight + freightGst - discount;
-    return { subTotal, taxTotal, totalWithGst, discount, freight, freightGst, grandTotal };
+    const grandTotalRaw = totalWithGst + freight + freightGst - discount;
+    let grandTotal = grandTotalRaw;
+    let roundOff = 0;
+    if (order.isRoundOff) {
+        grandTotal = Math.round(grandTotalRaw);
+        roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
+    }
+    return { subTotal, taxTotal, totalWithGst, discount, freight, freightGst, grandTotal, roundOff };
 };
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
@@ -54,6 +60,7 @@ export const SupplierPOModule: React.FC = () => {
         cpoNumber: '',
         cpoDate: new Date().toISOString().split('T')[0],
         items: [],
+        isRoundOff: false,
         discount: 0,
         freightAmount: 0,
         freightTaxRate: 18,
@@ -214,6 +221,8 @@ export const SupplierPOModule: React.FC = () => {
             subtotal: totals.subTotal,
             taxTotal: totals.taxTotal,
             grandTotal: totals.grandTotal,
+            roundOff: totals.roundOff,
+            isRoundOff: order.isRoundOff,
             status: status === 'Draft' ? 'Draft' : 'Pending',
             documentType: 'SupplierPO',
             createdBy: currentUser?.name || 'System'
@@ -282,11 +291,11 @@ export const SupplierPOModule: React.FC = () => {
                                     <td className="border-r border-black p-1 text-center">{idx + 1}</td>
                                     <td className="border-r border-black p-1 font-bold">{item.description}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity || ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString() : ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString() : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString('en-IN') : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString('en-IN') : ''}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity ? `${item.taxRate}%` : ''}</td>
-                                    <td className="border-r border-black p-1 text-right">{item.quantity ? tax.toLocaleString() : ''}</td>
-                                    <td className="p-1 text-right font-bold">{item.quantity ? (amt + tax).toLocaleString() : ''}</td>
+                                    <td className="border-r border-black p-1 text-right">{item.quantity ? tax.toLocaleString('en-IN') : ''}</td>
+                                    <td className="p-1 text-right font-bold">{item.quantity ? (amt + tax).toLocaleString('en-IN') : ''}</td>
                                 </tr>
                             );
                         })}
@@ -299,21 +308,27 @@ export const SupplierPOModule: React.FC = () => {
                     <tfoot>
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Total</td>
-                            <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString()}</td>
+                            <td className="p-1 text-right font-black">{(totals.totalWithGst || 0).toLocaleString('en-IN')}</td>
                         </tr>
                         {totals.freight > 0 && (
                             <tr className="border-t border-black font-bold">
                                 <td colSpan={7} className="border-r border-black p-1 text-right">Freight</td>
-                                <td className="p-1 text-right">{(totals.freight + totals.freightGst).toLocaleString()}</td>
+                                <td className="p-1 text-right">{(totals.freight + totals.freightGst).toLocaleString('en-IN')}</td>
                             </tr>
                         )}
                         <tr className="border-t border-black font-bold">
                             <td colSpan={7} className="border-r border-black p-1 text-right">Discount/Adjustment</td>
-                            <td className="p-1 text-right">{(data.discount || 0).toLocaleString()}</td>
+                            <td className="p-1 text-right">{(data.discount || 0).toLocaleString('en-IN')}</td>
                         </tr>
+                        {data.isRoundOff && totals.roundOff !== 0 && (
+                            <tr className="border-t border-black font-bold">
+                                <td colSpan={7} className="border-r border-black p-1 text-right">Round Off</td>
+                                <td className="p-1 text-right">{totals.roundOff > 0 ? '(+) ' : '(-) '}{(Math.abs(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         <tr className="border-t border-black font-black bg-slate-50 text-sm">
                             <td colSpan={7} className="border-r border-black p-1.5 text-right uppercase">Grand Total</td>
-                            <td className="p-1.5 text-right font-black">Rs. {(totals.grandTotal || 0).toLocaleString()}</td>
+                            <td className="p-1.5 text-right font-black">Rs. {(totals.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -329,7 +344,7 @@ export const SupplierPOModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.', freightAmount: 0, freightTaxRate: 18 }); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Procurement</button>
+                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, isRoundOff: false, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.', freightAmount: 0, freightTaxRate: 18 }); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Procurement</button>
             </div>
 
             {viewState === 'history' ? (
@@ -362,7 +377,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
@@ -401,9 +416,8 @@ export const SupplierPOModule: React.FC = () => {
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
                     <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Form</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Preview</button>
-                        <button onClick={() => setBuilderTab('spares')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'spares' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Store</button>
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
@@ -560,7 +574,7 @@ export const SupplierPOModule: React.FC = () => {
                                                                 </div>
                                                                 <div className="flex flex-col items-center border-l border-slate-100 pl-1">
                                                                     <span className="text-[7px] font-black text-slate-400 uppercase">GST ₹</span>
-                                                                    <span className="text-[10px] font-black text-slate-600 px-1">{item.gstValue.toFixed(2)}</span>
+                                                                    <span className="text-[10px] font-black text-slate-600 px-1">{item.gstValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                                 </div>
                                                                 <div className="flex flex-col items-center border-l border-slate-100 pl-1">
                                                                     <span className="text-[7px] font-black text-slate-400 uppercase">Total%</span>
@@ -634,9 +648,17 @@ export const SupplierPOModule: React.FC = () => {
 
                                 <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
                                     <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Grand Total</span>
-                                            <span className="text-xl font-black text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Grand Total</span>
+                                                <span className="text-xl font-black text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="hidden sm:flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all cursor-pointer h-[36px]" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${order.isRoundOff ? 'bg-teal-600' : 'bg-slate-300'}`}>
+                                                    <div className={`absolute top-[2px] left-[2px] w-2.5 h-2.5 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Auto Round</span>
+                                            </div>
                                         </div>
                                         <button 
                                             onClick={() => { setViewState('history'); setEditingId(null); }}
@@ -712,7 +734,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 <div className="mt-4 flex items-center justify-between border-t border-slate-300 pt-4">
                                                     <div>
                                                         <p className="text-[8px] font-black text-slate-400 uppercase">Buy Rate</p>
-                                                        <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.purchasePrice || 0).toLocaleString()}</p>
+                                                        <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.purchasePrice || 0).toLocaleString('en-IN')}</p>
                                                     </div>
                                                     <div className={`p-2 rounded-xl border shadow-sm transition-all group-hover:scale-110 ${isVendorMatch ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-white text-medical-600 border-slate-300 group-hover:bg-medical-600 group-hover:text-white'}`}>
                                                         <Plus size={20} />

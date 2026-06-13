@@ -141,13 +141,13 @@ export const CatalogModule: React.FC = () => {
                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                                                 Net Price <Info size={10} />
                                             </p>
-                                            <p className="text-lg font-black text-slate-400 tracking-tighter line-through decoration-slate-300">₹{product.sellingPrice.toLocaleString()}</p>
+                                            <p className="text-lg font-black text-slate-400 tracking-tighter line-through decoration-slate-300">₹{product.sellingPrice.toLocaleString('en-IN')}</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center justify-end gap-1.5">
                                                 Inclusive Price <Tag size={12} />
                                             </p>
-                                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString()}</p>
+                                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString('en-IN')}</p>
                                         </div>
                                     </div>
 
@@ -205,7 +205,7 @@ export const CatalogModule: React.FC = () => {
                                     {/* Mobile Labels are shown via contents logic */}
                                     <div className="md:flex-1 md:text-center">
                                         <span className="md:hidden text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-1">Net Price</span>
-                                        <span className="text-xs md:text-sm font-bold text-slate-400">₹{product.sellingPrice.toLocaleString()}</span>
+                                        <span className="text-xs md:text-sm font-bold text-slate-400">₹{product.sellingPrice.toLocaleString('en-IN')}</span>
                                     </div>
                                     
                                     <div className="md:flex-1 md:text-center">
@@ -216,7 +216,7 @@ export const CatalogModule: React.FC = () => {
                                     <div className="md:flex-1 text-right">
                                         <span className="md:hidden text-[8px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Price (INC)</span>
                                         <div className="inline-flex flex-col items-end">
-                                            <span className="text-sm font-black text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString()}</span>
+                                            <span className="text-sm font-black text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString('en-IN')}</span>
                                             <span className="hidden md:block text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-0.5 whitespace-nowrap">Price with GST</span>
                                         </div>
                                     </div>

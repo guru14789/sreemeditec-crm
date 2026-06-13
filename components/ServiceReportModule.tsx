@@ -39,6 +39,8 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
     amountReceived?: number;
     memoNumber?: string;
     queriesRemarks?: string;
+    isRoundOff?: boolean;
+    roundOff?: number;
 }
 
 export const ServiceReportModule: React.FC = () => {
@@ -83,6 +85,7 @@ export const ServiceReportModule: React.FC = () => {
         sparesCharges: 0,
         amountReceived: 0,
         memoNumber: '',
+        isRoundOff: false,
         queriesRemarks: ''
     });
 
@@ -110,8 +113,14 @@ export const ServiceReportModule: React.FC = () => {
         const c = sparesSum || report.sparesCharges || 0;
         const d = a + b + c;
         const e = report.amountReceived || 0;
-        const netBalance = d - e;
-        return { sparesTotal: c, totalReceivable: d, netBalance };
+        let netBalanceRaw = d - e;
+        let netBalance = netBalanceRaw;
+        let roundOff = 0;
+        if (report.isRoundOff) {
+            netBalance = Math.round(netBalanceRaw);
+            roundOff = Number((netBalance - netBalanceRaw).toFixed(2));
+        }
+        return { sparesTotal: c, totalReceivable: d, netBalance, roundOff };
     }, [report]);
 
     const handleDownloadPDF = async (data: DetailedServiceReport) => {
@@ -180,8 +189,10 @@ export const ServiceReportModule: React.FC = () => {
             ...report as ServiceReport,
             id: editingId || `SR-${Date.now()}`,
             status: status === 'Draft' ? 'Draft' : 'Completed',
-            documentType: 'ServiceReport'
-        };
+            documentType: 'ServiceReport',
+            isRoundOff: report.isRoundOff,
+            roundOff: finTotals.roundOff
+        } as any;
 
         try {
             if (editingId) {
@@ -292,12 +303,15 @@ export const ServiceReportModule: React.FC = () => {
                 <div className="p-0 flex flex-col">
                     <table className="w-full text-[10px] border-collapse">
                         <tbody>
-                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Past balance (A):</td><td className="p-2 text-right font-black w-28">{(data.pastBalance || 0).toFixed(2)}</td></tr>
-                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Visit Charges (B):</td><td className="p-2 text-right font-black w-28">{(data.visitCharges || 0).toFixed(2)}</td></tr>
-                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Spares Charges (C):</td><td className="p-2 text-right font-black w-28">{fin.sparesTotal.toFixed(2)}</td></tr>
-                            <tr className="border-b border-black bg-slate-50"><td className="p-2 border-r border-black font-black uppercase">Total receivable (A+B+C):</td><td className="p-2 text-right font-black w-28 text-lg">{fin.totalReceivable.toFixed(2)}</td></tr>
-                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Amount received (D):</td><td className="p-2 text-right font-black w-28 text-medical-600">{(data.amountReceived || 0).toFixed(2)}</td></tr>
-                            <tr className="border-b border-black bg-slate-100"><td className="p-2 border-r border-black font-black uppercase">Balance (Total-D):</td><td className="p-2 text-right font-black w-28 text-rose-600">{fin.netBalance.toFixed(2)}</td></tr>
+                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Past balance (A):</td><td className="p-2 text-right font-black w-28">{(data.pastBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Visit Charges (B):</td><td className="p-2 text-right font-black w-28">{(data.visitCharges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Spares Charges (C):</td><td className="p-2 text-right font-black w-28">{fin.sparesTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            <tr className="border-b border-black bg-slate-50"><td className="p-2 border-r border-black font-black uppercase">Total receivable (A+B+C):</td><td className="p-2 text-right font-black w-28 text-lg">{fin.totalReceivable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Amount received (D):</td><td className="p-2 text-right font-black w-28 text-medical-600">{(data.amountReceived || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            {data.isRoundOff && fin.roundOff !== 0 && (
+                                <tr className="border-b border-black"><td className="p-2 border-r border-black font-bold">Round Off:</td><td className="p-2 text-right font-black w-28">{fin.roundOff > 0 ? '(+) ' : '(-) '}{(Math.abs(fin.roundOff)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
+                            )}
+                            <tr className="border-b border-black bg-slate-100"><td className="p-2 border-r border-black font-black uppercase">Balance (Total-D):</td><td className="p-2 text-right font-black w-28 text-rose-600">{fin.netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>
                             <tr><td className="p-2 border-r border-black italic">Memo No:</td><td className="p-2 text-right font-bold w-28">{data.memoNumber || '---'}</td></tr>
                         </tbody>
                     </table>
@@ -316,7 +330,7 @@ export const ServiceReportModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed', machineStatus: 'Warranty', pastBalance: 0, visitCharges: 0, sparesCharges: 0, amountReceived: 0, itemsUsed: [] }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Visit</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed', machineStatus: 'Warranty', pastBalance: 0, visitCharges: 0, sparesCharges: 0, amountReceived: 0, itemsUsed: [], isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Visit</button>
             </div>
 
             {viewState === 'history' ? (
@@ -606,9 +620,17 @@ export const ServiceReportModule: React.FC = () => {
 
                                 <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
                                     <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1">
-                                        <div className="flex flex-col">
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Receivable</span>
-                                            <span className="text-xl font-black text-medical-600 tracking-tight">₹{finTotals.netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Receivable</span>
+                                                <span className="text-xl font-black text-medical-600 tracking-tight">₹{finTotals.netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                            <div className="hidden sm:flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all cursor-pointer h-[36px]" onClick={() => setReport(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${report.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
+                                                    <div className={`absolute top-[2px] left-[2px] w-2.5 h-2.5 bg-white rounded-full transition-transform ${report.isRoundOff ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Auto Round</span>
+                                            </div>
                                         </div>
                                         <button 
                                             onClick={() => { setViewState('history'); setEditingId(null); }}
@@ -680,7 +702,7 @@ export const ServiceReportModule: React.FC = () => {
                                             <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-4">
                                                 <div>
                                                     <p className="text-[8px] font-black text-slate-400 uppercase">Selling Price</p>
-                                                    <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString()}</p>
+                                                    <p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p>
                                                 </div>
                                                 <div className="p-2 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm">
                                                     <Plus size={16} />

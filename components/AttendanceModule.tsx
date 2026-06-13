@@ -418,7 +418,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         doc.text(`Monthly Attendance Report: ${monthYear}`, 14, 20);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 26);
+        doc.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 14, 26);
         doc.text(`Organization: Sree Meditec Enterprise`, 14, 30);
 
         const currentYear = now.getFullYear();

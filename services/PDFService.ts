@@ -150,23 +150,23 @@ export const PDFService = {
                 { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' } as any }, 
                 it.hsn || '', 
                 `${tax}%`, 
-                `${(Number(qty) || 0).toFixed(2)} nos`, 
-                (Number(price) || 0).toFixed(2), 
+                `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, 
+                (Number(price) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
                 'nos', 
                 '', 
-                (Number(base) || 0).toFixed(2)
+                (Number(base) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             ];
         });
 
         itemsBody.push(
-            ['', { content: 'Freight', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', `${data.freightTaxRate || 0}%`, '', '', '', '', (Number(docTotals.freight) || 0).toFixed(2)],
-            ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.cgst) || 0).toFixed(2)],
-            ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.sgst) || 0).toFixed(2)]
+            ['', { content: 'Freight', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', `${data.freightTaxRate || 0}%`, '', '', '', '', (Number(docTotals.freight) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
+            ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
+            ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]
         );
 
         if (data.isRoundOff && docTotals.roundOff !== 0) {
             itemsBody.push(
-                ['', { content: 'Round Off', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.roundOff) || 0).toFixed(2)]
+                ['', { content: 'Round Off', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]
             );
         }
 
@@ -180,11 +180,11 @@ export const PDFService = {
                 { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' } as any }, 
                 '', 
                 '', 
-                { content: `${(Number(docTotals.totalQty) || 0).toFixed(2)} nos`, styles: { halign: 'center', fontStyle: 'bold' } as any }, 
+                { content: `${(Number(docTotals.totalQty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, styles: { halign: 'center', fontStyle: 'bold' } as any }, 
                 '', 
                 '', 
                 '', 
-                { content: `Rs. ${(Number(docTotals.grandTotal) || 0).toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } as any }
+                { content: `Rs. ${(Number(docTotals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', fontStyle: 'bold' } as any }
             ]],
             theme: 'grid',
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7, cellPadding: 1 },
@@ -214,8 +214,8 @@ export const PDFService = {
 
         if (!isQuotation) {
             const taxBreakdownBody = [
-                ['9402', (Number(docTotals.taxableValue) || 0).toFixed(2), '9%', (Number(docTotals.cgst) || 0).toFixed(2), '9%', (Number(docTotals.sgst) || 0).toFixed(2), (Number(docTotals.cgst + docTotals.sgst) || 0).toFixed(2)],
-                [{ content: 'Total', styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.taxableValue) || 0).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.cgst) || 0).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.sgst) || 0).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.cgst + docTotals.sgst) || 0).toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } as any }]
+                ['9402', (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
+                [{ content: 'Total', styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }]
             ];
 
             autoTable(doc, {
@@ -338,8 +338,8 @@ export const PDFService = {
                 const lineTotal = (Number(it.unitPrice) * Number(it.quantity)) + gstAmt;
                 return [
                     it.description, it.model || '-', it.features ? it.features : '-', `${it.quantity}\n${it.unit}`,
-                    `Rs.${Number(it.unitPrice).toFixed(2)}`, `${it.taxRate}%`, `Rs.${gstAmt.toFixed(2)}`,
-                    { content: `Rs.${lineTotal.toFixed(2)}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' } }
+                    `Rs.${Number(it.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${it.taxRate}%`, `Rs.${gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    { content: `Rs.${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' } }
                 ];
             }),
             theme: 'grid',
@@ -350,16 +350,16 @@ export const PDFService = {
 
         let finalY = (doc as any).lastAutoTable.finalY;
         let summaryRows = [
-            { label: 'Gross Total:', value: `Rs.${totals.subtotal.toFixed(2)}` },
-            { label: 'Freight:', value: `Rs.${(totals.freight + totals.freightGst).toFixed(2)}` },
-            { label: 'Discount:', value: `(-) Rs.${totals.discount.toFixed(2)}` },
-            { label: 'Total GST:', value: `Rs.${totals.itemGstTotal.toFixed(2)}` }
+            { label: 'Gross Total:', value: `Rs.${totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Freight:', value: `Rs.${(totals.freight + totals.freightGst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Discount:', value: `(-) Rs.${totals.discount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+            { label: 'Total GST:', value: `Rs.${totals.itemGstTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
         ];
 
         if (data.isRoundOff && totals.roundOff !== 0) {
             summaryRows.push({
                 label: 'Round Off:',
-                value: `${totals.roundOff > 0 ? '(+) ' : '(-) '}Rs.${Math.abs(totals.roundOff).toFixed(2)}`
+                value: `${totals.roundOff > 0 ? '(+) ' : '(-) '}Rs.${Math.abs(totals.roundOff).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             });
         }
 
@@ -378,7 +378,7 @@ export const PDFService = {
 
         doc.setFontSize(11);
         doc.text('Grand Total:', summaryX, currentSumY + 2);
-        doc.text(`Rs.${totals.grandTotal.toFixed(2)}`, pageWidth - 15, currentSumY + 2, { align: 'right' });
+        doc.text(`Rs.${totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pageWidth - 15, currentSumY + 2, { align: 'right' });
         finalY = currentSumY + 10;
 
         if (finalY + 45 > pageHeight - margin) { doc.addPage(); finalY = 20; }
@@ -689,7 +689,7 @@ export const PDFService = {
             theme: 'grid',
             styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
             body: [
-                [`Payment Terms: ${data.paymentMethod || ''} | Bank: ${data.paymentBank || data.bankAndBranch || ''}\nAdvance: ₹${(data.advanceAmount || 0).toLocaleString()} | Date: ${formatDateDDMMYYYY(data.paymentDate)}`, `Execution Schedule: ${data.deliveryTime || 'As per schedule'}\nWarranty: ${data.warrantyTerms || 'Standard'}`],
+                [`Payment Terms: ${data.paymentMethod || ''} | Bank: ${data.paymentBank || data.bankAndBranch || ''}\nAdvance: ₹${(data.advanceAmount || 0).toLocaleString('en-IN')} | Date: ${formatDateDDMMYYYY(data.paymentDate)}`, `Execution Schedule: ${data.deliveryTime || 'As per schedule'}\nWarranty: ${data.warrantyTerms || 'Standard'}`],
                 [{ content: `Special Instructions: ${data.specialNote || 'No additional instructions provided.'}`, colSpan: 2, styles: { fontStyle: 'italic' } }]
             ],
             columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
@@ -923,12 +923,12 @@ export const PDFService = {
                         theme: 'grid',
                         styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
                         body: [
-                            [{ content: 'Past balance (A):', styles: { fontStyle: 'bold' } }, { content: pastBal.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Visit Charges (B):', styles: { fontStyle: 'bold' } }, { content: visitChg.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Spares Charges (C):', styles: { fontStyle: 'bold' } }, { content: sparesSum.toFixed(2), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Total receivable (A+B+C):', styles: { fontStyle: 'bold', fillColor: slate50 as any } }, { content: totalRec.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10, fillColor: slate50 as any } }],
-                            [{ content: 'Amount received (D):', styles: { fontStyle: 'bold' } }, { content: recvd.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', textColor: medical600 as any } }],
-                            [{ content: 'Balance (Total-D):', styles: { fontStyle: 'bold', fillColor: slate100 as any } }, { content: balance.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', textColor: rose600 as any, fillColor: slate100 as any } }],
+                            [{ content: 'Past balance (A):', styles: { fontStyle: 'bold' } }, { content: pastBal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Visit Charges (B):', styles: { fontStyle: 'bold' } }, { content: visitChg.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Spares Charges (C):', styles: { fontStyle: 'bold' } }, { content: sparesSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
+                            [{ content: 'Total receivable (A+B+C):', styles: { fontStyle: 'bold', fillColor: slate50 as any } }, { content: totalRec.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10, fillColor: slate50 as any } }],
+                            [{ content: 'Amount received (D):', styles: { fontStyle: 'bold' } }, { content: recvd.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: medical600 as any } }],
+                            [{ content: 'Balance (Total-D):', styles: { fontStyle: 'bold', fillColor: slate100 as any } }, { content: balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: rose600 as any, fillColor: slate100 as any } }],
                             [{ content: 'Memo No:', styles: { fontStyle: 'italic' } }, { content: data.memoNumber || '---', styles: { halign: 'right', fontStyle: 'bold' } }]
                         ]
                     });

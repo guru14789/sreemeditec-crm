@@ -102,11 +102,11 @@ export const PayrollModule: React.FC = () => {
 
             // Earnings & Deductions Table
             const financeData = [
-                ['Basic Salary', basic.toLocaleString(), 'Provident Fund (PF)', pf.toLocaleString()],
-                ['House Rent Allowance (HRA)', hra.toLocaleString(), 'Professional Tax', pt.toLocaleString()],
-                ['Conveyance Allowance', conv.toLocaleString(), '', ''],
-                ['Special Allowance', other.toLocaleString(), '', ''],
-                [{ content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${grossSalary.toLocaleString()}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: 'Total Deductions', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${totalDeductions.toLocaleString()}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }]
+                ['Basic Salary', basic.toLocaleString('en-IN'), 'Provident Fund (PF)', pf.toLocaleString('en-IN')],
+                ['House Rent Allowance (HRA)', hra.toLocaleString('en-IN'), 'Professional Tax', pt.toLocaleString('en-IN')],
+                ['Conveyance Allowance', conv.toLocaleString('en-IN'), '', ''],
+                ['Special Allowance', other.toLocaleString('en-IN'), '', ''],
+                [{ content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${grossSalary.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: 'Total Deductions', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${totalDeductions.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }]
             ];
 
             autoTable(doc, {
@@ -129,7 +129,7 @@ export const PayrollModule: React.FC = () => {
             doc.setTextColor(16, 185, 129);
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text(`NET PAYABLE:  INR ${netPay.toLocaleString()}/-`, 105, finalY + 12, { align: 'center' });
+            doc.text(`NET PAYABLE:  INR ${netPay.toLocaleString('en-IN')}/-`, 105, finalY + 12, { align: 'center' });
 
             // Footer
             doc.setTextColor(148, 163, 184);

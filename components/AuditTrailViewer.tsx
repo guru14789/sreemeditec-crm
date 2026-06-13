@@ -43,7 +43,7 @@ export const AuditTrailViewer: React.FC<Props> = ({ history, title = "Audit Log 
                   <div>
                     <p className="text-[10px] font-black text-slate-800 dark:text-white uppercase leading-none mb-1">{entry.user}</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                      <Clock size={8} /> {new Date(entry.timestamp).toLocaleString()}
+                      <Clock size={8} /> {new Date(entry.timestamp).toLocaleString('en-IN')}
                     </p>
                   </div>
                 </div>

@@ -1,3693 +1,874 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { 
-  BookOpen, 
-  Plus, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Search, 
-  Filter, 
-  FileText, 
-  PieChart, 
-  Briefcase, 
-  IndianRupee,
-  Calendar,
-  AlertCircle,
-  CheckCircle2,
-  MoreVertical,
-  ChevronRight,
-  Download,
-  Printer,
-  RefreshCw,
-  X,
-  CreditCard,
-  DollarSign,
-  Building2,
-  List as ListIcon,
-  Save,
-  PenTool,
-  Trash2,
-  Shield,
-  Activity,
-  MessageSquare,
-  Edit3,
-  Check,
-  AlertTriangle,
-  FolderArchive,
-  Pencil,
-  Settings,
-  Receipt,
-  Percent,
-  TrendingUp,
-  BarChart3,
-  Upload,
-  Calculator,
-  UploadCloud,
-  RotateCcw,
-  HardDrive,
-  Target,
-  Lock
-} from 'lucide-react';
-
 import { useData } from './DataContext';
-import { VoucherType, Ledger, AccountingVoucher, LedgerEntry, AccountGroup, BillSettlement, CostCentre, FixedAsset, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
-import { AuditTrailViewer } from './AuditTrailViewer';
-import { TallyService } from '../services/TallyService';
-import { AutoSuggest } from './AutoSuggest';
-
-const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
-    <div className="flex flex-col gap-1.5 w-full">
-        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[14px]">{label}</label>
-        {children}
-    </div>
-);
-
-interface AccountingModuleProps {
-  userRole?: 'Admin' | 'Employee';
-}
-
-export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) => {
-  const { 
-    ledgers = [], 
-    vouchers = [], 
-    accountGroups = [], 
-    invoices = [],
-    purchaseRecords = [],
-    addLedger,
-    updateLedger,
-    removeLedger,
-    addAccountGroup,
-    removeAccountGroup,
-    updateAccountGroup,
-    reverseVoucher,
-    updateVoucher,
-    postToLedger, 
-    addNotification,
-    fetchMoreData
-  } = useData();
-  const [activeTab, setActiveTab] = useState<'ledgers' | 'vouchers' | 'daybook' | 'reports' | 'trial-balance' | 'reconciliation' | 'aging' | 'gst' | 'costcentres' | 'fixedassets' | 'tds'>('ledgers');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showAddVoucher, setShowAddVoucher] = useState(false);
-  const [selectedLedger, setSelectedLedger] = useState<Ledger | null>(null);
-  const [selectedVoucher, setSelectedVoucher] = useState<AccountingVoucher | null>(null);
-  const [viewVoucherTab, setViewVoucherTab] = useState<'details' | 'audit'>('details');
-
-  // --- LEDGER EDIT / DELETE STATE ---
-  const [editingLedger, setEditingLedger] = useState<Ledger | null>(null);
-  const [showEditLedger, setShowEditLedger] = useState(false);
-  const [showDeleteLedgerConfirm, setShowDeleteLedgerConfirm] = useState<Ledger | null>(null);
-
-  // --- GROUP MANAGEMENT STATE ---
-  const [showGroupManager, setShowGroupManager] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<AccountGroup | null>(null);
-  const [showEditGroup, setShowEditGroup] = useState(false);
-  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState<AccountGroup | null>(null);
-
-  // --- VOUCHER EDIT STATE ---
-  const [editingVoucher, setEditingVoucher] = useState<AccountingVoucher | null>(null);
-
-  // --- DAYBOOK STATE ---
-  const [daybookDate, setDaybookDate] = useState<string>(new Date().toISOString().split('T')[0]);
-
-  // --- BILL SETTLEMENT STATE ---
-  const [showSettlementModal, setShowSettlementModal] = useState(false);
-  const [currentSettlementIdx, setCurrentSettlementIdx] = useState<number | null>(null);
-  const [voucherSettlements, setVoucherSettlements] = useState<BillSettlement[]>([]);
-  const [entriesLocked, setEntriesLocked] = useState(false);
-  const [selectedRefInvoice, setSelectedRefInvoice] = useState<string>('');
-
-  // --- MANUAL VOUCHER STATE ---
-  const [newVoucher, setNewVoucher] = useState<Partial<AccountingVoucher>>({
-    type: 'Journal',
-    date: new Date().toISOString().split('T')[0],
-    entries: [
-      { id: '1', ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
-      { id: '2', ledgerId: '', ledgerName: '', debit: 0, credit: 0 }
-    ],
-    narration: '',
-    totalAmount: 0,
-    tdsRate: 0,
-    tdsSection: ''
-  });
-
-  // --- LEDGER / GROUP CREATION STATES ---
-  const [showAddLedger, setShowAddLedger] = useState(false);
-  const [showAddGroup, setShowAddGroup] = useState(false);
-  const [newLedger, setNewLedger] = useState<Partial<Ledger>>({
-    name: '',
-    groupId: '',
-    openingBalance: 0,
-    currentBalance: 0,
-    description: '',
-    gstin: '',
-    email: '',
-    phone: ''
-  });
-  const [newGroup, setNewGroup] = useState<Partial<AccountGroup>>({
-    name: '',
-    type: 'Asset',
-    parentGroupId: ''
-  });
-
-  const computedRunningBalances = useMemo(() => {
-    if (!selectedLedger) return [];
-    const entries = vouchers
-      .filter(v => (v.entries || []).some(e => e.ledgerId === selectedLedger.id))
-      .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-
-    let balance = selectedLedger.openingBalance || 0;
-    return entries.map(v => {
-      const entry = v.entries.find(e => e.ledgerId === selectedLedger.id)!;
-      balance += (entry.debit || 0) - (entry.credit || 0);
-      return {
-        voucher: v,
-        entry,
-        runningBalance: balance
-      };
-    });
-  }, [vouchers, selectedLedger]);
-
-  const handleCreateGroup = async () => {
-    if (!newGroup.name) {
-      addNotification('Validation Error', 'Group name is required.', 'alert');
-      return;
-    }
-    const id = `GRP-${Date.now()}`;
-    const group: AccountGroup = {
-      id,
-      name: newGroup.name.toUpperCase(),
-      type: newGroup.type || 'Asset',
-      parentGroupId: newGroup.parentGroupId || undefined
-    };
-    await addAccountGroup(group);
-    addNotification('Group Created', `"${group.name}" registered.`, 'success');
-    setShowAddGroup(false);
-    setNewGroup({
-      name: '',
-      type: 'Asset',
-      parentGroupId: ''
-    });
-  };
-
-  const filteredLedgers = useMemo(() => {
-    return ledgers.filter(l => 
-      l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [ledgers, searchQuery]);
-
-  const filteredVouchers = useMemo(() => {
-    return vouchers.filter(v => 
-      (v.voucherNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (v.narration || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [vouchers, searchQuery]);
-
-  const stats = useMemo(() => {
-    // From ledger balances (Firestore-synced)
-    const cashBankIds = ledgers.filter(l => l.groupId === 'GRP-CASH' || l.groupId === 'GRP-BANK').map(l => l.id);
-    const debtorIds = ledgers.filter(l => l.groupId === 'GRP-DEBTORS').map(l => l.id);
-    const creditorIds = ledgers.filter(l => l.groupId === 'GRP-CREDITORS').map(l => l.id);
-
-    const totalCashBank = cashBankIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-    const totalDebtors = debtorIds.reduce((sum, id) => sum + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-    const totalCreditors = creditorIds.reduce((sum, id) => sum + Math.abs(ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
-
-    return { totalCashBank, totalDebtors, totalCreditors };
-  }, [ledgers]);
-
-  const handleAddVoucherEntry = () => {
-    setNewVoucher(prev => ({
-      ...prev,
-      entries: [...(prev.entries || []), { id: Date.now().toString(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 }]
-    }));
-  };
-
-  const handleUpdateEntry = (id: string, updates: Partial<LedgerEntry>) => {
-    if (entriesLocked) return;
-    setNewVoucher(prev => ({
-      ...prev,
-      entries: prev.entries?.map(e => e.id === id ? { ...e, ...updates } : e)
-    }));
-  };
-
-  const generateAutoEntries = (type: VoucherType, totalAmount: number, customerName?: string): LedgerEntry[] => {
-    if (type === 'Sales') {
-      const salesLedger = ledgers.find(l => l.id === 'LDG-SALES');
-      const cgstLedger = ledgers.find(l => l.id === 'LDG-CGST-OUT');
-      const sgstLedger = ledgers.find(l => l.id === 'LDG-SGST-OUT');
-      return [
-        { id: `${Date.now()}-DEBTOR`, ledgerId: '', ledgerName: customerName || 'Sundry Debtor', debit: totalAmount, credit: 0, autoGenerated: true },
-        { id: `${Date.now()}-SALES`, ledgerId: salesLedger?.id || '', ledgerName: 'Sales Account', debit: 0, credit: Math.round(totalAmount * 0.82 * 100) / 100, autoGenerated: true },
-        { id: `${Date.now()}-CGST`, ledgerId: cgstLedger?.id || '', ledgerName: 'Output CGST', debit: 0, credit: Math.round(totalAmount * 0.09 * 100) / 100, autoGenerated: true },
-        { id: `${Date.now()}-SGST`, ledgerId: sgstLedger?.id || '', ledgerName: 'Output SGST', debit: 0, credit: Math.round(totalAmount * 0.09 * 100) / 100, autoGenerated: true },
-      ];
-    }
-    if (type === 'Purchase') {
-      return [
-        { id: `${Date.now()}-PUR`, ledgerId: '', ledgerName: 'Purchase Account', debit: totalAmount, credit: 0, autoGenerated: true },
-        { id: `${Date.now()}-CREDITOR`, ledgerId: '', ledgerName: customerName || 'Sundry Creditor', debit: 0, credit: totalAmount, autoGenerated: true },
-      ];
-    }
-    return [];
-  };
-
-  const resetVoucherForm = () => {
-    setEntriesLocked(false);
-    setSelectedRefInvoice('');
-    setVoucherSettlements([]);
-    setNewVoucher({
-      type: 'Journal',
-      date: new Date().toISOString().split('T')[0],
-      entries: [
-        { id: '1', ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
-        { id: '2', ledgerId: '', ledgerName: '', debit: 0, credit: 0 }
-      ],
-      narration: '',
-      totalAmount: 0,
-      tdsRate: 0,
-      tdsSection: ''
-    });
-  };
-
-  const handleSaveVoucher = async () => {
-    const totalDebit = newVoucher.entries?.reduce((sum, e) => sum + Number(e.debit || 0), 0) || 0;
-    const totalCredit = newVoucher.entries?.reduce((sum, e) => sum + Number(e.credit || 0), 0) || 0;
-
-    if (totalDebit !== totalCredit) {
-      addNotification('Unbalanced Voucher', 'Total Debit must equal Total Credit.', 'alert');
-      return;
-    }
-
-    if (totalDebit === 0) {
-      addNotification('Invalid Amount', 'Voucher amount cannot be zero.', 'alert');
-      return;
-    }
-
-    if (newVoucher.type === 'Contra') {
-      const invalidEntries = (newVoucher.entries || []).filter(e => {
-        const ledger = ledgers.find(l => l.id === e.ledgerId);
-        return !ledger || (ledger.groupId !== 'GRP-CASH' && ledger.groupId !== 'GRP-BANK');
-      });
-      if (invalidEntries.length > 0) {
-        addNotification('Contra Validation Failed', 'Contra entries must only use Cash or Bank ledgers.', 'alert');
-        return;
-      }
-    }
-
-    let entries = [...(newVoucher.entries || [])];
-    let narration = newVoucher.narration || '';
-
-    if (newVoucher.tdsSection && (newVoucher.tdsRate || 0) > 0) {
-      const baseAmount = entries[0]?.debit || entries[0]?.credit || 0;
-      const tdsAmount = Math.floor(baseAmount * (newVoucher.tdsRate || 0) / 100);
-      
-      if (tdsAmount > 0) {
-        entries.push({
-          id: `TDS-${Date.now()}`,
-          ledgerId: 'LED-TDS-PAYABLE',
-          ledgerName: `TDS Payable (${newVoucher.tdsSection})`,
-          debit: 0,
-          credit: tdsAmount
-        });
-        
-        const secondEntryIdx = entries.findIndex((e, idx) => idx > 0 && (e.credit > 0 || e.debit > 0));
-        if (secondEntryIdx !== -1) {
-          if (entries[secondEntryIdx].credit > 0) entries[secondEntryIdx].credit -= tdsAmount;
-          else if (entries[secondEntryIdx].debit > 0) entries[secondEntryIdx].debit -= tdsAmount;
-        }
-        
-        narration += ` | TDS @${newVoucher.tdsRate}% Sec ${newVoucher.tdsSection}`;
-      }
-    }
-
-    // Strip UI-only flags before saving
-    const cleanEntries = entries.map(({ autoGenerated, ...rest }) => rest);
-
-    if (editingVoucher) {
-      await reverseVoucher(editingVoucher.id, `Edited: ${narration || 'Corrected entries'}`);
-      await postToLedger({
-        ...newVoucher,
-        entries: cleanEntries,
-        narration: `[EDITED] ${narration}`,
-        totalAmount: totalDebit,
-        settlements: voucherSettlements
-      });
-      setEditingVoucher(null);
-      addNotification('Transaction Updated', 'Original reversed and corrected voucher posted.', 'success');
-    } else {
-      await postToLedger({
-        ...newVoucher,
-        entries: cleanEntries,
-        narration,
-        totalAmount: totalDebit,
-        settlements: voucherSettlements
-      });
-      addNotification('Transaction Posted', `Voucher recorded in audit trail.`, 'success');
-    }
-
-    setShowAddVoucher(false);
-    resetVoucherForm();
-  };
-
-  const getOutstandingBills = (ledgerId: string) => {
-    const ledger = ledgers.find(l => l.id === ledgerId);
-    if (!ledger) return [];
-    // Match by customer name, GSTIN, phone, or email (in order of reliability)
-    return invoices.filter(inv => 
-      (inv.customerName === ledger.name ||
-       (ledger.email && inv.email && inv.email.toLowerCase() === ledger.email.toLowerCase()) ||
-       (ledger.phone && inv.phone === ledger.phone) ||
-       (ledger.gstin && inv.customerGstin === ledger.gstin)) &&
-      (inv.balanceDue === undefined || inv.balanceDue > 0) &&
-      inv.status !== 'Draft' &&
-      inv.documentType === 'Invoice'
-    );
-  };
-
-  const handleCreateLedger = async () => {
-    if (!newLedger.name || !newLedger.groupId) {
-      addNotification('Validation Error', 'Name and Group are required.', 'alert');
-      return;
-    }
-    const id = `LED-${Date.now()}`;
-    const ledger: Ledger = {
-      id,
-      name: newLedger.name.toUpperCase(),
-      groupId: newLedger.groupId,
-      openingBalance: Number(newLedger.openingBalance || 0),
-      currentBalance: Number(newLedger.openingBalance || 0),
-      description: newLedger.description || '',
-      gstin: newLedger.gstin || '',
-      email: newLedger.email || '',
-      phone: newLedger.phone || ''
-    };
-    await addLedger(ledger);
-    addNotification('Ledger Created', `"${ledger.name}" registered.`, 'success');
-    setShowAddLedger(false);
-    setNewLedger({
-      name: '',
-      groupId: '',
-      openingBalance: 0,
-      currentBalance: 0,
-      description: '',
-      gstin: '',
-      email: '',
-      phone: ''
-    });
-  };
-
-  const handleEditLedger = async () => {
-    if (!editingLedger || !editingLedger.name || !editingLedger.groupId) {
-      addNotification('Validation Error', 'Name and Group are required.', 'alert');
-      return;
-    }
-    const updates: Partial<Ledger> = {
-      name: editingLedger.name.toUpperCase(),
-      groupId: editingLedger.groupId,
-      openingBalance: Number(editingLedger.openingBalance || 0),
-      currentBalance: Number(editingLedger.currentBalance || 0),
-      description: editingLedger.description || '',
-      gstin: editingLedger.gstin || '',
-      email: editingLedger.email || '',
-      phone: editingLedger.phone || ''
-    };
-    await updateLedger(editingLedger.id, updates);
-    addNotification('Ledger Updated', `"${editingLedger.name}" modified.`, 'success');
-    setShowEditLedger(false);
-    setEditingLedger(null);
-  };
-
-  const handleDeleteLedger = async () => {
-    if (!showDeleteLedgerConfirm) return;
-    try {
-      await removeLedger(showDeleteLedgerConfirm.id);
-      addNotification('Ledger Deleted', `"${showDeleteLedgerConfirm.name}" removed.`, 'success');
-    } catch (err: any) {
-      addNotification('Error', err.message || 'Cannot delete ledger with non-zero balance.', 'alert');
-    }
-    setShowDeleteLedgerConfirm(null);
-  };
-
-  const handleEditVoucher = (voucher: AccountingVoucher) => {
-    setEditingVoucher(voucher);
-    setNewVoucher({
-      type: voucher.type,
-      date: voucher.date,
-      entries: voucher.entries.map(e => ({ ...e })),
-      narration: voucher.narration,
-      totalAmount: voucher.totalAmount,
-      tdsRate: voucher.tdsRate || 0,
-      tdsSection: voucher.tdsSection || ''
-    });
-    setShowAddVoucher(true);
-  };
-
-  const handleEditGroup = async () => {
-    if (!editingGroup || !editingGroup.name) {
-      addNotification('Validation Error', 'Group name is required.', 'alert');
-      return;
-    }
-    await updateAccountGroup(editingGroup.id, {
-      name: editingGroup.name.toUpperCase(),
-      type: editingGroup.type || 'Asset',
-      parentGroupId: editingGroup.parentGroupId || undefined
-    });
-    addNotification('Group Updated', `"${editingGroup.name}" modified.`, 'success');
-    setShowEditGroup(false);
-    setEditingGroup(null);
-  };
-
-  const handleDeleteGroup = async () => {
-    if (!showDeleteGroupConfirm) return;
-    const linkedLedgers = ledgers.filter(l => l.groupId === showDeleteGroupConfirm.id);
-    if (linkedLedgers.length > 0) {
-      addNotification('Error', `Cannot delete group with ${linkedLedgers.length} linked ledger(s). Reassign ledgers first.`, 'alert');
-      setShowDeleteGroupConfirm(null);
-      return;
-    }
-    await removeAccountGroup(showDeleteGroupConfirm.id);
-    addNotification('Group Deleted', `"${showDeleteGroupConfirm.name}" removed.`, 'success');
-    setShowDeleteGroupConfirm(null);
-  };
-
-  return (
-    <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-      {/* High Density Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {[
-          { label: 'Liquidity (Cash/Bank)', value: stats.totalCashBank, icon: IndianRupee, color: 'text-medical-600', bg: 'bg-medical-50' },
-          { label: 'Market Receivables', value: stats.totalDebtors, icon: ArrowUpRight, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Market Payables', value: stats.totalCreditors, icon: ArrowDownLeft, color: 'text-rose-600', bg: 'bg-rose-50' }
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
-            <div className={`p-3 ${stat.bg} ${stat.color} rounded-xl`}>
-              <stat.icon size={20} />
-            </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              <p className="text-lg font-black text-slate-800 tracking-tight">{stat.value < 0 ? '-' : ''}₹{Math.abs(stat.value).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="w-full bg-white p-1 rounded-2xl border border-slate-300 shadow-sm overflow-x-auto no-scrollbar">
-          <div className="flex gap-1 min-w-max">
-            {[
-              { id: 'ledgers', label: 'Ledgers', icon: BookOpen },
-              { id: 'vouchers', label: 'Vouchers', icon: FileText },
-              { id: 'daybook', label: 'Day Book', icon: Calendar },
-              { id: 'reports', label: 'P&L / BS', icon: PieChart },
-              { id: 'trial-balance', label: 'Trial Bal', icon: Briefcase },
-              { id: 'reconciliation', label: 'Bank Reco', icon: CheckCircle2 },
-              { id: 'aging', label: 'Aging', icon: TrendingUp },
-              { id: 'gst', label: 'GST', icon: Percent },
-              { id: 'costcentres', label: 'Cost Ctr', icon: Target },
-              { id: 'fixedassets', label: 'Assets', icon: HardDrive },
-              { id: 'tds', label: 'TDS', icon: Shield }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 sm:px-5 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all shrink-0 whitespace-nowrap ${
-                  activeTab === tab.id 
-                    ? 'bg-medical-600 text-white shadow-md' 
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <tab.icon size={13} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-      </div>
-
-      <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm flex flex-col overflow-hidden animate-in fade-in">
-        <div className="p-4 border-b border-slate-200 bg-slate-50/30 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                placeholder="Search index..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-xl pl-11 pr-4 py-2.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
-              {activeTab === 'ledgers' && (
-                <>
-                  <button 
-                    onClick={() => setShowAddGroup(true)} 
-                    className="px-5 py-2.5 bg-white text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
-                  >
-                    + Group
-                  </button>
-                  <button 
-                    onClick={() => { setShowGroupManager(true); }} 
-                    className="px-5 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
-                  >
-                    <Settings size={14}/> Groups
-                  </button>
-                  <button 
-                    onClick={() => setShowAddLedger(true)} 
-                    className="px-5 py-2.5 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
-                  >
-                    + Ledger
-                  </button>
-                </>
-              )}
-              {activeTab === 'daybook' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Date:</span>
-                  <input 
-                    type="date" 
-                    className="h-[38px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-black outline-none" 
-                    value={daybookDate} 
-                    onChange={(e) => setDaybookDate(e.target.value)} 
-                  />
-                </div>
-              )}
-              <button 
-                onClick={() => setShowAddVoucher(true)}
-                className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95"
-              >
-                <Plus size={16} /> New Voucher
-              </button>
-            </div>
-        </div>
-
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          {activeTab === 'ledgers' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 sm:p-6">
-              {filteredLedgers.map(ledger => (
-                <div 
-                  key={ledger.id}
-                  onClick={() => setSelectedLedger(ledger)}
-                  className="bg-slate-50 hover:bg-white p-5 rounded-2xl border border-slate-200 hover:border-medical-400 hover:shadow-xl transition-all cursor-pointer group flex flex-col justify-between h-[140px] relative"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                        <div className="p-2 bg-white rounded-xl text-medical-600 shadow-sm group-hover:bg-medical-600 group-hover:text-white transition-all">
-                        <BookOpen size={16} />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-slate-200 rounded-lg text-slate-500">
-                          {ledger.groupId.replace('GRP-', '')}
-                          </span>
-                          <div className="relative">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setEditingLedger(ledger); setShowEditLedger(true); }} 
-                              className="p-1 text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all"
-                              title="Edit Ledger"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setShowDeleteLedgerConfirm(ledger); }} 
-                              className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                              title="Delete Ledger"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                    </div>
-                    <h4 className="font-black text-slate-800 text-xs uppercase mb-1 line-clamp-1">{ledger.name}</h4>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <p className="text-[9px] font-black text-slate-400 uppercase">Balance</p>
-                    <p className={`text-sm font-black tracking-tighter ${(ledger.currentBalance || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      ₹{Math.abs(ledger.currentBalance || 0).toLocaleString('en-IN')}
-                      <span className="text-[9px] ml-1">{(ledger.currentBalance || 0) >= 0 ? 'Dr' : 'Cr'}</span>
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'vouchers' && (
-            <table className="w-full text-left text-[11px]">
-               <thead className="bg-slate-50 sticky top-0 z-10 text-[8px] uppercase font-black tracking-widest text-slate-400 border-b">
-                 <tr>
-                   <th className="px-6 py-4">Voucher #</th>
-                   <th className="px-6 py-4">Date</th>
-                   <th className="px-6 py-4">Type</th>
-                   <th className="px-6 py-4">Narration</th>
-                   <th className="px-6 py-4 text-right">Amount</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-50">
-                 {filteredVouchers.map(v => (
-                   <tr key={v.id} onClick={() => { setSelectedVoucher(v); setViewVoucherTab('details'); }} className="hover:bg-slate-50 transition-colors cursor-pointer group">
-                     <td className="px-6 py-4 font-black text-medical-600">{v.voucherNumber}</td>
-                     <td className="px-6 py-4 font-bold text-slate-400">{v.date}</td>
-                     <td className="px-6 py-4">
-                       <span className="px-2 py-0.5 bg-slate-100 rounded-lg font-black text-[9px] uppercase tracking-widest">{v.type}</span>
-                     </td>
-                     <td className="px-6 py-4 font-bold text-slate-600 italic truncate max-w-[200px]">{v.narration}</td>
-                     <td className="px-6 py-4 text-right font-black text-slate-900 text-sm">₹{(v.totalAmount || 0).toLocaleString('en-IN')}</td>
-                   </tr>
-                 ))}
-               </tbody>
-               <tfoot>
-                 <tr>
-                    <td colSpan={5} className="p-6 border-t bg-slate-50/50 flex justify-center">
-                        <button 
-                            onClick={() => fetchMoreData('vouchers', 'date')}
-                            className="group flex items-center gap-2 px-8 py-3 bg-white text-slate-500 hover:text-medical-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border border-slate-200 transition-all hover:scale-105 active:scale-95"
-                        >
-                            <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" />
-                            Load Archive
-                        </button>
-                    </td>
-                 </tr>
-               </tfoot>
-            </table>
-          )}
-
-          {activeTab === 'reports' && (() => {
-            const totalRevenue = ledgers.filter(l => {
-              const g = accountGroups.find(ag => ag.id === l.groupId);
-              return g && g.type === 'Revenue';
-            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-
-            const totalExpense = ledgers.filter(l => {
-              const g = accountGroups.find(ag => ag.id === l.groupId);
-              return g && g.type === 'Expense';
-            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-
-            const netProfit = (-totalRevenue) - totalExpense;
-
-            const totalAssets = ledgers.filter(l => {
-              const g = accountGroups.find(ag => ag.id === l.groupId);
-              return g && g.type === 'Asset';
-            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-
-            const totalLiabilities = ledgers.filter(l => {
-              const g = accountGroups.find(ag => ag.id === l.groupId);
-              return g && g.type === 'Liability';
-            }).reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-
-            const totalLiabilitiesAndEquity = (-totalLiabilities) + netProfit;
-
-            return (
-              <div className="p-4 sm:p-8 space-y-6 animate-in fade-in">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
-                          <div>
-                              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
-                                  <PieChart size={16} className="text-indigo-500" />
-                                  Profit & Loss Statement
-                              </h3>
-                              <div className="space-y-4">
-                                  {accountGroups.filter(g => g.type === 'Revenue' || g.type === 'Expense').map(group => {
-                                      const groupLedgers = ledgers.filter(l => l.groupId === group.id);
-                                      const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-                                      const color = group.type === 'Revenue' 
-                                        ? (balance <= 0 ? 'text-emerald-600' : 'text-rose-600') 
-                                        : (balance >= 0 ? 'text-rose-600' : 'text-emerald-600');
-                                      return (
-                                          <div key={group.id} className="flex justify-between items-center text-[11px]">
-                                              <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
-                                              <span className={`font-black ${color}`}>₹{Math.abs(balance).toLocaleString('en-IN')}</span>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                          <div className="flex justify-between items-center text-[12px] font-black border-t-2 border-slate-200 pt-4 mt-6">
-                              <span className="uppercase tracking-widest text-slate-800">Net Profit / (Loss)</span>
-                              <span className={netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                                  {netProfit < 0 ? '-' : ''}₹{Math.abs(netProfit).toLocaleString('en-IN')}
-                              </span>
-                          </div>
-                      </div>
-                      <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col justify-between">
-                          <div>
-                              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2 border-b pb-2">
-                                  <Briefcase size={16} className="text-emerald-500" />
-                                  Balance Sheet Overview
-                              </h3>
-                              <div className="space-y-4">
-                                  {accountGroups.filter(g => g.type === 'Asset' || g.type === 'Liability').map(group => {
-                                      const groupLedgers = ledgers.filter(l => l.groupId === group.id);
-                                      const balance = groupLedgers.reduce((sum, l) => sum + (l.currentBalance || 0), 0);
-                                      return (
-                                          <div key={group.id} className="flex justify-between items-center text-[11px]">
-                                              <span className="font-bold text-slate-500 uppercase tracking-tight">{group.name}</span>
-                                              <span className="font-black text-slate-800">₹{Math.abs(balance).toLocaleString('en-IN')}</span>
-                                          </div>
-                                      );
-                                  })}
-                                  <div className="flex justify-between items-center text-[11px] border-t border-dashed border-slate-300 pt-2">
-                                      <span className="font-bold text-slate-400 uppercase tracking-tight">Retained Earnings (Profit)</span>
-                                      <span className="font-black text-slate-800">₹{Math.abs(netProfit).toLocaleString('en-IN')}</span>
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="space-y-3 mt-6 border-t-2 border-slate-200 pt-4">
-                              <div className="flex justify-between items-center text-[11px] font-bold">
-                                  <span className="uppercase tracking-widest text-slate-600">Total Assets</span>
-                                  <span className="font-black text-slate-800">₹{totalAssets.toLocaleString('en-IN')}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-[11px] font-bold">
-                                  <span className="uppercase tracking-widest text-slate-600">Total Liabilities & Equity</span>
-                                  <span className="font-black text-slate-800">₹{totalLiabilitiesAndEquity.toLocaleString('en-IN')}</span>
-                              </div>
-                              {Math.abs(totalAssets - totalLiabilitiesAndEquity) < 0.1 && (
-                                  <div className="p-2 bg-emerald-50 border border-emerald-200 text-[9px] font-black text-emerald-600 rounded-lg text-center uppercase tracking-widest">
-                                      Balanced Balance Sheet
-                                  </div>
-                              )}
-                          </div>
-                      </div>
-                  </div>
-              </div>
-            );
-          })()}
-
-          {activeTab === 'trial-balance' && <TrialBalanceView ledgers={ledgers} accountGroups={accountGroups} />}
-          {activeTab === 'reconciliation' && <BankReconciliationTerminal />}
-          {activeTab === 'daybook' && <DayBookView vouchers={vouchers} date={daybookDate} onVoucherSelect={setSelectedVoucher} />}
-          {activeTab === 'aging' && <AgingView invoices={invoices} />}
-          {activeTab === 'gst' && <GSTView invoices={invoices} purchaseRecords={purchaseRecords} />}
-          {activeTab === 'costcentres' && <CostCentreManager />}
-          {activeTab === 'fixedassets' && <FixedAssetRegister />}
-          {activeTab === 'tds' && <TDSRegisterView />}
-        </div>
-      </div>
-
-      {/* Manual Voucher Entry Modal */}
-      {showAddVoucher && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
-              <div>
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><PenTool size={20} className="text-medical-600"/> Voucher Terminal</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Manual adjustment | Fiscal Registry</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                <div className="flex gap-2">
-                    <button onClick={() => { const xml = TallyService.generateVoucherXML(vouchers); const blob = new Blob([xml], { type: 'text/xml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'Tally_Vouchers.xml'; link.click(); }} className="px-3 py-1.5 bg-white text-indigo-600 rounded-xl border border-indigo-100 text-[9px] font-black uppercase shadow-sm">Vouchers XML</button>
-                    <button onClick={() => { const xml = TallyService.generateLedgerXML(ledgers); const blob = new Blob([xml], { type: 'text/xml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'Tally_Masters.xml'; link.click(); }} className="px-3 py-1.5 bg-white text-emerald-600 rounded-xl border border-emerald-100 text-[9px] font-black uppercase shadow-sm">Masters XML</button>
-                </div>
-                <select className="flex-1 sm:flex-none h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none" value={newVoucher.type} onChange={(e) => {
-                  const newType = e.target.value as VoucherType;
-                  if (newType === 'Sales' || newType === 'Purchase') {
-                    setEntriesLocked(true);
-                    setNewVoucher(prev => ({
-                      ...prev,
-                      type: newType,
-                      entries: generateAutoEntries(newType, prev.totalAmount || 0)
-                    }));
-                  } else {
-                    setEntriesLocked(false);
-                    setSelectedRefInvoice('');
-                    setNewVoucher(prev => ({
-                      ...prev,
-                      type: newType,
-                      entries: [
-                        { id: '1', ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
-                        { id: '2', ledgerId: '', ledgerName: '', debit: 0, credit: 0 }
-                      ]
-                    }));
-                  }
-                }}>
-                  <option>Journal</option><option>Contra</option><option>Payment</option><option>Receipt</option><option>Sales</option><option>Purchase</option><option>Debit Note</option><option>Credit Note</option>
-                </select>
-                <input type="date" className="flex-1 sm:flex-none h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black outline-none" value={newVoucher.date} onChange={(e) => setNewVoucher({...newVoucher, date: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4 sm:p-8 space-y-8 custom-scrollbar">
-              <div className="space-y-4">
-                <div className="hidden sm:grid grid-cols-12 gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">
-                    <div className="col-span-6">Account Ledger</div>
-                    <div className="col-span-2 text-right">Debit (₹)</div>
-                    <div className="col-span-2 text-right">Credit (₹)</div>
-                    <div className="col-span-2"></div>
-                </div>
-                <div className="space-y-3">
-                    {newVoucher.entries?.map((entry, idx) => (
-                        <div key={entry.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 hover:border-medical-300 transition-all items-center">
-                          {entriesLocked ? (
-                            <>
-                              <div className="col-span-1 sm:col-span-6 flex items-center gap-2">
-                                <Lock size={12} className="text-slate-300 shrink-0" />
-                                <span className="text-xs font-bold text-slate-500 uppercase truncate">{entry.ledgerName || '—'}</span>
-                              </div>
-                              <div className="col-span-1 sm:col-span-2 text-right">
-                                <span className="text-sm font-black text-emerald-600">{entry.debit ? `₹${entry.debit.toLocaleString('en-IN')}` : '—'}</span>
-                              </div>
-                              <div className="col-span-1 sm:col-span-2 text-right">
-                                <span className="text-sm font-black text-rose-600">{entry.credit ? `₹${entry.credit.toLocaleString('en-IN')}` : '—'}</span>
-                              </div>
-                              <div className="col-span-1 sm:col-span-2" />
-                            </>
-                          ) : (
-                            <>
-                              <div className="col-span-1 sm:col-span-6">
-                                <AutoSuggest
-                                    value={entry.ledgerName || ''}
-                                    onChange={(val) => handleUpdateEntry(entry.id, { ledgerName: val })}
-                                    onSelect={(l) => handleUpdateEntry(entry.id, { ledgerId: l.id, ledgerName: l.name })}
-                                    suggestions={ledgers}
-                                    filterKey="name"
-                                    placeholder="Search ledger..."
-                                    className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none"
-                                />
-                              </div>
-                              <div className="col-span-1 sm:col-span-2">
-                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right font-black text-emerald-600 text-sm outline-none" placeholder="0.00" value={entry.debit || ''} onChange={(e) => handleUpdateEntry(entry.id, { debit: Number(e.target.value), credit: 0 })} />
-                              </div>
-                              <div className="col-span-1 sm:col-span-2 relative">
-                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right font-black text-rose-600 text-sm outline-none" placeholder="0.00" value={entry.credit || ''} onChange={(e) => handleUpdateEntry(entry.id, { credit: Number(e.target.value), debit: 0 })} />
-                                {(newVoucher.type === 'Receipt' || newVoucher.type === 'Payment' || newVoucher.type === 'Sales' || newVoucher.type === 'Purchase') && entry.ledgerId && (
-                                   <button onClick={() => { setCurrentSettlementIdx(idx); setShowSettlementModal(true); }} className="absolute -bottom-5 right-0 text-[8px] font-black uppercase text-medical-600 hover:underline">Adjust Bills</button>
-                                )}
-                              </div>
-                              <div className="col-span-1 sm:col-span-2 flex justify-end">
-                                <button onClick={() => setNewVoucher(prev => ({ ...prev, entries: prev.entries?.filter(e => e.id !== entry.id) }))} className="p-2 text-rose-300 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={16}/></button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                    ))}
-                </div>
-                {!entriesLocked && <button onClick={handleAddVoucherEntry} className="text-[10px] font-black uppercase tracking-widest text-medical-600 flex items-center gap-2 bg-medical-50 px-4 py-2 rounded-xl hover:bg-medical-100 transition-all border border-medical-100">+ Add Row</button>}
-              </div>
-
-              {entriesLocked && (
-                <div className="bg-blue-50 p-5 rounded-3xl border border-blue-100 space-y-3">
-                  <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2"><FileText size={14}/> Invoice Reference</h4>
-                  <select className="w-full h-[42px] bg-white border border-blue-200 rounded-xl px-4 py-2 text-xs font-bold outline-none" value={selectedRefInvoice} onChange={(e) => {
-                    const invId = e.target.value;
-                    setSelectedRefInvoice(invId);
-                    const inv = invoices.find(i => i.id === invId);
-                    if (inv) {
-                      const total = inv.grandTotal;
-                      const entries = generateAutoEntries(newVoucher.type as VoucherType, total, inv.customerName);
-                      setNewVoucher(prev => ({
-                        ...prev,
-                        entries,
-                        totalAmount: total,
-                        referenceId: inv.id,
-                        referenceNumber: inv.invoiceNumber,
-                        narration: `${prev.type} — ${inv.invoiceNumber} (${inv.customerName})`
-                      }));
-                    }
-                  }}>
-                    <option value="">— Select Invoice —</option>
-                    {invoices.filter(i => i.documentType === 'Invoice' && i.status !== 'Draft').map(inv => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.invoiceNumber} — {inv.customerName} (₹{inv.grandTotal.toLocaleString('en-IN')})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                <FormRow label="Transaction Narration">
-                  <textarea className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none h-[100px]" placeholder="Audit trail context..." value={newVoucher.narration || ''} onChange={(e) => setNewVoucher({...newVoucher, narration: e.target.value})} />
-                </FormRow>
-                {(newVoucher.type === 'Payment' || newVoucher.type === 'Receipt' || newVoucher.type === 'Sales' || newVoucher.type === 'Purchase') && (
-                  <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 space-y-4 shadow-sm">
-                    <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Statutory Deduction (TDS)</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormRow label="TDS Section">
-                          <select className="w-full h-[42px] bg-white border border-amber-200 rounded-xl px-4 py-2 text-[10px] font-black uppercase outline-none" value={newVoucher.tdsSection || ''} onChange={(e) => { const section = e.target.value; let rate = 0; if (section === '194C') rate = 1; if (section === '194J') rate = 10; if (section === '194I') rate = 10; setNewVoucher(prev => ({ ...prev, tdsSection: section, tdsRate: rate })); }}>
-                             <option value="">None</option><option value="194C">194C (Cont. - 1%)</option><option value="194J">194J (Prof. - 10%)</option><option value="194I">194I (Rent - 10%)</option>
-                          </select>
-                        </FormRow>
-                        <div className="flex flex-col justify-center">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">TDS Amount</p>
-                          <p className="text-lg font-black text-amber-600">₹{((newVoucher.entries?.[0]?.debit || newVoucher.entries?.[0]?.credit || 0) * (newVoucher.tdsRate || 0) / 100).toLocaleString('en-IN')}</p>
-                        </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-6 sm:p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex justify-between sm:justify-start gap-12 order-2 sm:order-1 px-4">
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debit</p><p className="text-xl font-black text-emerald-600">₹{newVoucher.entries?.reduce((sum, e) => sum + Number(e.debit || 0), 0).toLocaleString('en-IN')}</p></div>
-                    <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credit</p><p className="text-xl font-black text-rose-600">₹{newVoucher.entries?.reduce((sum, e) => sum + Number(e.credit || 0), 0).toLocaleString('en-IN')}</p></div>
-                </div>
-                <div className="flex-1 flex gap-3 order-1 sm:order-2">
-                    <button onClick={() => setShowAddVoucher(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm">Discard</button>
-                    <button onClick={handleSaveVoucher} className="flex-[2] bg-slate-800 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-slate-500/20 active:scale-95 flex items-center justify-center gap-2"><Save size={16}/> Post Transaction</button>
-                </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Ledger Detail Modal */}
-      {selectedLedger && (
-         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
-           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-             <div className="p-6 sm:p-10 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-50/50">
-               <div className="flex items-center gap-5">
-                 <div className="p-4 bg-medical-600 text-white rounded-[1.5rem] shadow-xl shadow-medical-500/20">
-                   <BookOpen size={28} />
-                 </div>
-                 <div>
-                   <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none">{selectedLedger.name}</h3>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2"><Building2 size={12}/> Account Index | {selectedLedger.id}</p>
-                 </div>
-               </div>
-               <div className="flex gap-2 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none p-3.5 bg-white text-slate-500 rounded-2xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-all"><Printer size={20} /></button>
-                  <button className="flex-1 sm:flex-none p-3.5 bg-white text-slate-500 rounded-2xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-all"><Download size={20} /></button>
-                  <button onClick={() => setSelectedLedger(null)} className="flex-1 sm:flex-none p-3.5 bg-white text-slate-500 rounded-2xl border border-slate-200 shadow-sm hover:bg-slate-50 transition-all"><X size={20} /></button>
-               </div>
-             </div>
-
-             <div className="flex-1 overflow-auto custom-scrollbar">
-               <table className="w-full text-left text-[11px]">
-                 <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                   <tr>
-                     <th className="px-8 py-5">Execution Date</th>
-                     <th className="px-8 py-5">Offset Account (Particulars)</th>
-                     <th className="px-8 py-5">Vch Type</th>
-                     <th className="px-8 py-5">Registry #</th>
-                     <th className="px-8 py-5 text-right">Debit (₹)</th>
-                     <th className="px-8 py-5 text-right">Credit (₹)</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-100">
-                   {vouchers
-                     .filter(v => (v.entries || []).some(e => e.ledgerId === selectedLedger.id))
-                     .map(v => {
-                       const entry = v.entries.find(e => e.ledgerId === selectedLedger.id)!;
-                       const oppositeEntries = v.entries.filter(e => e.ledgerId !== selectedLedger.id);
-                       return (
-                         <tr key={v.id} className="hover:bg-slate-50 transition-colors">
-                           <td className="px-8 py-6 font-bold text-slate-400">{v.date}</td>
-                           <td className="px-8 py-6">
-                             <div className="font-black text-slate-800 uppercase truncate max-w-[250px]">
-                               {oppositeEntries.map(e => e.ledgerName).join(', ') || 'Self Reference'}
-                             </div>
-                             <p className="text-[10px] text-slate-400 font-bold mt-1 italic leading-tight">"{v.narration}"</p>
-                           </td>
-                           <td className="px-8 py-6 uppercase font-black text-[9px]"><span className="px-2 py-0.5 bg-slate-100 rounded-lg">{v.type}</span></td>
-                           <td className="px-8 py-6 font-black text-medical-600">{v.voucherNumber}</td>
-                           <td className="px-8 py-6 text-right font-black text-emerald-600">{(entry.debit || 0) > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '---'}</td>
-                           <td className="px-8 py-6 text-right font-black text-rose-600">{(entry.credit || 0) > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '---'}</td>
-                         </tr>
-                       );
-                     })}
-                 </tbody>
-               </table>
-             </div>
-
-             <div className="p-6 sm:p-10 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex flex-col sm:flex-row justify-between items-center gap-8">
-               <div className="flex flex-wrap gap-8 sm:gap-12 justify-center sm:justify-start">
-                  <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Opening Balance</p><p className="font-black text-slate-800 uppercase tracking-tight">₹{(selectedLedger.openingBalance || 0).toLocaleString('en-IN')}</p></div>
-                  <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debit</p><p className="font-black text-emerald-600 uppercase tracking-tight">₹{vouchers.filter(v => (v.entries || []).some(e => e.ledgerId === selectedLedger.id)).reduce((sum, v) => sum + (v.entries.find(e => e.ledgerId === selectedLedger.id)!.debit || 0), 0).toLocaleString('en-IN')}</p></div>
-                  <div><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credit</p><p className="font-black text-rose-600 uppercase tracking-tight">₹{vouchers.filter(v => (v.entries || []).some(e => e.ledgerId === selectedLedger.id)).reduce((sum, v) => sum + (v.entries.find(e => e.ledgerId === selectedLedger.id)!.credit || 0), 0).toLocaleString('en-IN')}</p></div>
-               </div>
-               <div className="text-center sm:text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Closing Account Balance</p>
-                  <p className={`text-4xl font-black tracking-tighter ${(selectedLedger.currentBalance || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    ₹{Math.abs(selectedLedger.currentBalance || 0).toLocaleString('en-IN')}
-                    <span className="text-base ml-2">{(selectedLedger.currentBalance || 0) >= 0 ? 'Dr' : 'Cr'}</span>
-                  </p>
-               </div>
-             </div>
-           </div>
-         </div>
-       )}
-
-      {selectedVoucher && (
-        <VoucherDetailModal voucher={selectedVoucher} tab={viewVoucherTab} onTabChange={setViewVoucherTab} onClose={() => setSelectedVoucher(null)} onEdit={handleEditVoucher} />
-      )}
-
-      {/* Bill Settlement Modal */}
-      {showSettlementModal && currentSettlementIdx !== null && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><ListIcon size={20} className="text-indigo-600"/> Bill Settlement</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">Allocate to: <span className="text-indigo-600">{newVoucher.entries?.[currentSettlementIdx]?.ledgerName}</span></p>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-4 custom-scrollbar">
-              <div className="bg-indigo-600 p-6 rounded-3xl flex justify-between items-center shadow-xl shadow-indigo-200">
-                <span className="text-[10px] font-black text-indigo-100 uppercase tracking-widest">Unallocated Pool</span>
-                <span className="text-2xl font-black text-white">
-                  ₹{((newVoucher.entries?.[currentSettlementIdx]?.debit || newVoucher.entries?.[currentSettlementIdx]?.credit || 0) - voucherSettlements.reduce((sum, s) => sum + (s.amount || 0), 0)).toLocaleString('en-IN')}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {getOutstandingBills(newVoucher.entries?.[currentSettlementIdx]?.ledgerId || '').map(bill => {
-                    const existing = voucherSettlements.find(s => s.invoiceId === bill.id);
-                    return (
-                    <div key={bill.id} className="p-5 rounded-2xl border border-slate-200 hover:border-indigo-400 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 group hover:bg-white shadow-sm hover:shadow-md">
-                        <div>
-                        <p className="text-xs font-black text-slate-800 uppercase group-hover:text-indigo-600 transition-colors">{bill.invoiceNumber}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{bill.date} | Bal: <span className="text-indigo-500">₹{(bill.balanceDue || bill.grandTotal || 0).toLocaleString('en-IN')}</span></p>
-                        </div>
-                        <div className="relative w-full sm:w-32">
-                            <input 
-                                type="number" 
-                                placeholder="Adjust ₹" 
-                                className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/10" 
-                                value={existing?.amount || ''} 
-                                onChange={(e) => { 
-                                    const amt = Number(e.target.value); 
-                                    setVoucherSettlements(prev => { 
-                                        const other = prev.filter(s => s.invoiceId !== bill.id); 
-                                        return amt > 0 ? [...other, { invoiceId: bill.id, invoiceNumber: bill.invoiceNumber || '', amount: amt, date: newVoucher.date || '', voucherId: '' }] : other; 
-                                    }); 
-                                }} 
-                            />
-                        </div>
-                    </div>
-                    );
-                })}
-              </div>
-
-              {getOutstandingBills(newVoucher.entries?.[currentSettlementIdx]?.ledgerId || '').length === 0 && (
-                <div className="text-center py-12 opacity-20"><Search size={48} className="mx-auto mb-3"/><p className="text-[10px] font-black uppercase tracking-widest">No Outstanding Invoices</p></div>
-              )}
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => { setShowSettlementModal(false); setVoucherSettlements([]); }} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Clear</button>
-              <button onClick={() => setShowSettlementModal(false)} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95">Confirm Allocation</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Ledger Modal */}
-      {showAddLedger && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><BookOpen size={20} className="text-emerald-600"/> Create Ledger</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">Register a new audited general ledger account</p>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-4 custom-scrollbar max-h-[60vh]">
-              <FormRow label="Ledger Name *">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.name || ''} onChange={(e) => setNewLedger({...newLedger, name: e.target.value})} placeholder="e.g. DUST & CO LTD" />
-              </FormRow>
-              <FormRow label="Account Group *">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.groupId || ''} onChange={(e) => setNewLedger({...newLedger, groupId: e.target.value})}>
-                  <option value="">Select Group</option>
-                  {accountGroups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-                  ))}
-                </select>
-              </FormRow>
-              <FormRow label="Opening Balance (Dr is positive, Cr is negative)">
-                <input type="number" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.openingBalance || ''} onChange={(e) => setNewLedger({...newLedger, openingBalance: Number(e.target.value)})} placeholder="0.00" />
-              </FormRow>
-              <FormRow label="GSTIN / Tax Registry # (Optional)">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.gstin || ''} onChange={(e) => setNewLedger({...newLedger, gstin: e.target.value})} placeholder="e.g. 33AAAAA1111A1Z1" />
-              </FormRow>
-              <div className="grid grid-cols-2 gap-4">
-                <FormRow label="Email Address">
-                  <input type="email" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.email || ''} onChange={(e) => setNewLedger({...newLedger, email: e.target.value})} placeholder="office@vendor.com" />
-                </FormRow>
-                <FormRow label="Phone Number">
-                  <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.phone || ''} onChange={(e) => setNewLedger({...newLedger, phone: e.target.value})} placeholder="+91 9999999999" />
-                </FormRow>
-              </div>
-              <FormRow label="Description / Audit Notes">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-emerald-500/5" value={newLedger.description || ''} onChange={(e) => setNewLedger({...newLedger, description: e.target.value})} placeholder="Brief context..." />
-              </FormRow>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowAddLedger(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
-              <button onClick={handleCreateLedger} className="flex-[2] bg-emerald-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95">Save Ledger</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Ledger Modal */}
-      {showEditLedger && editingLedger && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Pencil size={20} className="text-indigo-600"/> Edit Ledger</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">{editingLedger.id}</p>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-4 custom-scrollbar max-h-[60vh]">
-              <FormRow label="Ledger Name *">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.name || ''} onChange={(e) => setEditingLedger({...editingLedger, name: e.target.value})} placeholder="e.g. DUST & CO LTD" />
-              </FormRow>
-              <FormRow label="Account Group *">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.groupId || ''} onChange={(e) => setEditingLedger({...editingLedger, groupId: e.target.value})}>
-                  <option value="">Select Group</option>
-                  {accountGroups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-                  ))}
-                </select>
-              </FormRow>
-              <FormRow label="Opening Balance (Dr + / Cr -)">
-                <input type="number" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.openingBalance || 0} onChange={(e) => setEditingLedger({...editingLedger, openingBalance: Number(e.target.value), currentBalance: Number(e.target.value) + ((editingLedger.currentBalance || 0) - (editingLedger.openingBalance || 0))})} />
-              </FormRow>
-              <div className="grid grid-cols-2 gap-4">
-                <FormRow label="Email">
-                  <input type="email" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.email || ''} onChange={(e) => setEditingLedger({...editingLedger, email: e.target.value})} />
-                </FormRow>
-                <FormRow label="Phone">
-                  <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.phone || ''} onChange={(e) => setEditingLedger({...editingLedger, phone: e.target.value})} />
-                </FormRow>
-              </div>
-              <FormRow label="GSTIN">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.gstin || ''} onChange={(e) => setEditingLedger({...editingLedger, gstin: e.target.value})} />
-              </FormRow>
-              <FormRow label="Description">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingLedger.description || ''} onChange={(e) => setEditingLedger({...editingLedger, description: e.target.value})} />
-              </FormRow>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => { setShowEditLedger(false); setEditingLedger(null); }} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
-              <button onClick={handleEditLedger} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2"><Save size={16}/> Update Ledger</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Ledger Confirm */}
-      {showDeleteLedgerConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-rose-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 text-rose-600"><AlertTriangle size={20}/> Delete Ledger</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">"{showDeleteLedgerConfirm.name}"</p>
-            </div>
-            <div className="p-8">
-              <p className="text-sm font-bold text-slate-600">Are you sure? This action cannot be undone. Ledgers with non-zero balance cannot be deleted.</p>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowDeleteLedgerConfirm(null)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Keep</button>
-              <button onClick={handleDeleteLedger} className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95">Delete Permanently</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Group Manager Modal */}
-      {showGroupManager && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><FolderArchive size={20} className="text-indigo-600"/> Group Management</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{accountGroups.length} groups registered</p>
-              </div>
-              <button onClick={() => setShowGroupManager(false)} className="p-3 bg-white text-slate-400 rounded-xl border border-slate-200 hover:text-slate-600"><X size={20} /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 custom-scrollbar max-h-[60vh]">
-              <table className="w-full text-left text-[11px]">
-                <thead className="text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-                  <tr><th className="px-4 py-4">Group Name</th><th className="px-4 py-4">Type</th><th className="px-4 py-4">Parent</th><th className="px-4 py-4">Ledgers</th><th className="px-4 py-4 text-right">Actions</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {accountGroups.map(g => {
-                    const parentName = g.parentGroupId ? accountGroups.find(ag => ag.id === g.parentGroupId)?.name || '-' : '-';
-                    const ledgerCount = ledgers.filter(l => l.groupId === g.id).length;
-                    return (
-                      <tr key={g.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-4 font-black text-slate-800 uppercase">{g.name}</td>
-                        <td className="px-4 py-4"><span className="px-2 py-0.5 bg-slate-100 rounded-lg font-black text-[9px] uppercase tracking-widest">{g.type}</span></td>
-                        <td className="px-4 py-4 font-bold text-slate-400">{parentName}</td>
-                        <td className="px-4 py-4 font-black text-slate-600">{ledgerCount}</td>
-                        <td className="px-4 py-4 text-right">
-                          <button onClick={() => { setEditingGroup({ ...g }); setShowEditGroup(true); }} className="p-1.5 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-all mr-1" title="Edit Group"><Pencil size={14} /></button>
-                          <button onClick={() => setShowDeleteGroupConfirm(g)} className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition-all" title="Delete Group"><Trash2 size={14} /></button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {accountGroups.length === 0 && (
-                <div className="py-20 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No groups defined.</div>
-              )}
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowAddGroup(true)} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2"><Plus size={16}/> Create New Group</button>
-              <button onClick={() => setShowGroupManager(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Group Modal */}
-      {showEditGroup && editingGroup && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><FolderArchive size={20} className="text-indigo-600"/> Edit Group</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">{editingGroup.id}</p>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-4 custom-scrollbar max-h-[60vh]">
-              <FormRow label="Group Name *">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingGroup.name || ''} onChange={(e) => setEditingGroup({...editingGroup, name: e.target.value})} placeholder="e.g. STRATEGIC VENDORS" />
-              </FormRow>
-              <FormRow label="Financial Classification *">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingGroup.type || 'Asset'} onChange={(e) => setEditingGroup({...editingGroup, type: e.target.value as any})}>
-                  <option value="Asset">Asset</option>
-                  <option value="Liability">Liability</option>
-                  <option value="Equity">Equity</option>
-                  <option value="Revenue">Revenue</option>
-                  <option value="Expense">Expense</option>
-                </select>
-              </FormRow>
-              <FormRow label="Parent Group (Optional)">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={editingGroup.parentGroupId || ''} onChange={(e) => setEditingGroup({...editingGroup, parentGroupId: e.target.value})}>
-                  <option value="">None (Top-Level)</option>
-                  {accountGroups.filter(g => g.id !== editingGroup.id).map(g => (
-                    <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-                  ))}
-                </select>
-              </FormRow>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => { setShowEditGroup(false); setEditingGroup(null); }} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
-              <button onClick={handleEditGroup} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2"><Save size={16}/> Update Group</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Group Confirm */}
-      {showDeleteGroupConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-rose-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 text-rose-600"><AlertTriangle size={20}/> Delete Group</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">"{showDeleteGroupConfirm.name}"</p>
-            </div>
-            <div className="p-8">
-              <p className="text-sm font-bold text-slate-600">Are you sure? Groups with linked ledgers cannot be deleted. Reassign ledgers first.</p>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowDeleteGroupConfirm(null)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Keep</button>
-              <button onClick={handleDeleteGroup} className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95">Delete Group</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Group Modal */}
-      {showAddGroup && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><FolderArchive size={20} className="text-indigo-600"/> Create Account Group</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">Define a new parent financial categorization</p>
-            </div>
-            <div className="flex-1 overflow-auto p-6 sm:p-8 space-y-4 custom-scrollbar max-h-[60vh]">
-              <FormRow label="Group Name *">
-                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={newGroup.name || ''} onChange={(e) => setNewGroup({...newGroup, name: e.target.value})} placeholder="e.g. STRATEGIC VENDORS" />
-              </FormRow>
-              <FormRow label="Financial Classification *">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={newGroup.type || ''} onChange={(e) => setNewGroup({...newGroup, type: e.target.value as any})}>
-                  <option value="Asset">Asset</option>
-                  <option value="Liability">Liability</option>
-                  <option value="Income">Income</option>
-                  <option value="Expense">Expense</option>
-                </select>
-              </FormRow>
-              <FormRow label="Parent Group (Optional)">
-                <select className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-indigo-500/5" value={newGroup.parentGroupId || ''} onChange={(e) => setNewGroup({...newGroup, parentGroupId: e.target.value})}>
-                  <option value="">None (Top-Level)</option>
-                  {accountGroups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-                  ))}
-                </select>
-              </FormRow>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowAddGroup(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
-              <button onClick={handleCreateGroup} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95">Save Group</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+import { VoucherType, Ledger, AccountingVoucher, LedgerEntry, AccountGroup, GSTR1Section, GoToItem } from '../types';
+
+type TallyScreen = 'gateway' | 'voucher_pay' | 'voucher_rec' | 'voucher_jnl' | 'voucher_sls' | 'voucher_pur' | 'contra' | 'daybook' | 'bs' | 'pl' | 'tb' | 'outstanding' | 'gst' | 'shortcuts';
+type VoucherMode = 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Sales' | 'Purchase' | 'Debit Note' | 'Credit Note';
+
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+const fmt = (n: number) => Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+const getFY = () => { const d = new Date(); const y = d.getFullYear(); return d.getMonth() >= 3 ? `${y}-${(y+1).toString().slice(2)}` : `${(y-1)}-${y.toString().slice(2)}`; };
+const today = () => new Date().toISOString().split('T')[0];
+const fmtDate = (d: string) => { if (!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}/${p[0].slice(2)}`; };
+
+const shortKeys: Record<VoucherMode, string> = {
+  Payment: 'F5', Receipt: 'F6', Contra: 'F4', Journal: 'F7',
+  Sales: 'F8', Purchase: 'F9', 'Debit Note': 'Ctrl+F9', 'Credit Note': 'Ctrl+F8',
 };
 
-// --- COST CENTRE MANAGER ---
-const CostCentreManager: React.FC = () => {
-  const { costCentres, addCostCentre, updateCostCentre, removeCostCentre, addNotification } = useData();
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<CostCentre | null>(null);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+interface VFState {
+  type: VoucherMode; date: string; accountName: string; accountId: string;
+  entries: LedgerEntry[]; narration: string; refNo: string; chequeNo: string; chequeDate: string;
+}
 
-  const handleSave = async () => {
-    if (!name.trim()) {
-      addNotification('Error', 'Cost Centre name is required.', 'alert');
-      return;
-    }
-    if (editing) {
-      await updateCostCentre(editing.id, { name: name.toUpperCase(), description });
-      addNotification('Updated', `Cost Centre "${name}" updated.`, 'success');
-    } else {
-      await addCostCentre({
-        id: `CC-${Date.now()}`,
-        name: name.toUpperCase(),
-        description
-      });
-      addNotification('Created', `Cost Centre "${name}" created.`, 'success');
-    }
-    setShowForm(false);
-    setEditing(null);
-    setName('');
-    setDescription('');
+interface AccountingModuleProps { userRole?: 'Admin' | 'Employee'; }
+
+export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) => {
+  const isAdmin = userRole === 'Admin';
+  const { ledgers = [], vouchers = [], accountGroups = [], invoices = [], purchaseRecords = [],
+    addLedger, updateLedger, removeLedger, addAccountGroup, removeAccountGroup, updateAccountGroup,
+    reverseVoucher, updateVoucher, postToLedger, addNotification, addCostCentre, updateCostCentre, removeCostCentre,
+    uploadBankStatement, autoMatchBankEntries, ensurePartyLedger, currentUser } = useData();
+
+  const [screen, setScreen] = useState<TallyScreen>('gateway');
+  const [showGoto, setShowGoto] = useState(false);
+  const [gotoQ, setGotoQ] = useState('');
+  const [statusMsg, setStatusMsg] = useState('Ready');
+  const gotoRef = useRef<HTMLInputElement>(null);
+  const [daybookDate, setDaybookDate] = useState(today());
+  const [selLedger, setSelLedger] = useState<Ledger | null>(null);
+  const [selVoucher, setSelVoucher] = useState<AccountingVoucher | null>(null);
+  const [searchQ, setSearchQ] = useState('');
+
+  // Voucher form
+  const vfInit: VFState = {
+    type: 'Payment', date: today(), accountName: '', accountId: '',
+    entries: [{ id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
+              { id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 }],
+    narration: '', refNo: '', chequeNo: '', chequeDate: '',
+  };
+  const [vf, setVf] = useState<VFState>({...vfInit});
+  const [showVf, setShowVf] = useState(false);
+  const [diff, setDiff] = useState(0);
+
+  const resetVf = (type: VoucherMode) => {
+    setVf({ ...vfInit, type, date: today() });
+    setShowVf(true);
+    setDiff(0);
+    setStatusMsg(`${type} Voucher`);
   };
 
-  const handleEdit = (cc: CostCentre) => {
-    setEditing(cc);
-    setName(cc.name);
-    setDescription(cc.description || '');
-    setShowForm(true);
+  const updateEntry = (id: string, u: Partial<LedgerEntry>) =>
+    setVf(p => ({ ...p, entries: p.entries.map(e => e.id === id ? { ...e, ...u } : e) }));
+  const addEntry = () => setVf(p => ({ ...p, entries: [...p.entries, { id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 }] }));
+  const delEntry = (id: string) => setVf(p => ({ ...p, entries: p.entries.filter(e => e.id !== id) }));
+  const td = useMemo(() => vf.entries.reduce((s, e) => s + Number(e.debit || 0), 0), [vf.entries]);
+  const tc = useMemo(() => vf.entries.reduce((s, e) => s + Number(e.credit || 0), 0), [vf.entries]);
+  useEffect(() => { setDiff(td - tc); }, [td, tc]);
+
+  const handleSaveVoucher = async () => {
+    if (td !== tc) { addNotification('Unbalanced', 'Debit must equal Credit.', 'alert'); return; }
+    if (td === 0) { addNotification('Invalid', 'Amount cannot be zero.', 'alert'); return; }
+    await postToLedger({
+      type: vf.type as unknown as VoucherType,
+      date: vf.date,
+      entries: vf.entries.map(({ autoGenerated, ...r }) => r),
+      narration: vf.narration,
+      totalAmount: td,
+      referenceNumber: vf.refNo || undefined,
+      chequeNo: vf.chequeNo || undefined,
+      chequeDate: vf.chequeDate || undefined,
+    });
+    addNotification('Voucher Posted', `${vf.type} saved.`, 'success');
+    setShowVf(false);
+    setScreen('gateway');
+    setStatusMsg('Gateway of Accounts');
   };
 
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><Target size={20} /></div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Cost Centre Management</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{costCentres.length} centres registered</p>
-          </div>
-        </div>
-        <button onClick={() => { setShowForm(true); setEditing(null); setName(''); setDescription(''); }} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95"><Plus size={16} /> New Centre</button>
+  // Computed
+  const groupMap = useMemo(() => new Map(accountGroups.map(g => [g.id, g])), [accountGroups]);
+  const ledgersByGid = useMemo(() => { const m = new Map<string, Ledger[]>(); ledgers.forEach(l => { const a = m.get(l.groupId) || []; a.push(l); m.set(l.groupId, a); }); return m; }, [ledgers]);
+
+  const stats = useMemo(() => {
+    const isBank = (g: AccountGroup | undefined) => g?.name === 'Cash-in-Hand' || g?.name === 'Bank Accounts' || g?.name === 'Bank Accounts' || g?.id === 'GRP-CASH' || g?.id === 'GRP-BANK';
+    const isDr = (g: AccountGroup | undefined) => g?.name === 'Sundry Debtors' || g?.id === 'GRP-DEBTORS';
+    const isCr = (g: AccountGroup | undefined) => g?.name === 'Sundry Creditors' || g?.id === 'GRP-CREDITORS';
+    const ids = (fn: (g: AccountGroup | undefined) => boolean) => ledgers.filter(l => fn(groupMap.get(l.groupId))).map(l => l.id);
+    const sum = (ids: string[]) => ids.reduce((s, id) => s + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
+    return { cashBank: sum(ids(isBank)), debtors: sum(ids(isDr)), creditors: sum(ids(isCr)) };
+  }, [ledgers, groupMap]);
+
+  // GoTo items
+  const goToItems: GoToItem[] = useMemo(() => [
+    { id: 'gt0', label: 'Gateway of Accounts', type: 'screen', action: () => setScreen('gateway'), shortcut: 'F1' },
+    { id: 'gt1', label: 'Payment Voucher', type: 'screen', action: () => resetVf('Payment'), shortcut: 'F5' },
+    { id: 'gt2', label: 'Receipt Voucher', type: 'screen', action: () => resetVf('Receipt'), shortcut: 'F6' },
+    { id: 'gt3', label: 'Journal', type: 'screen', action: () => resetVf('Journal'), shortcut: 'F7' },
+    { id: 'gt4', label: 'Sales Invoice', type: 'screen', action: () => resetVf('Sales'), shortcut: 'F8' },
+    { id: 'gt5', label: 'Purchase Invoice', type: 'screen', action: () => resetVf('Purchase'), shortcut: 'F9' },
+    { id: 'gt6', label: 'Day Book', type: 'screen', action: () => setScreen('daybook') },
+    { id: 'gt7', label: 'Balance Sheet', type: 'screen', action: () => setScreen('bs') },
+    { id: 'gt8', label: 'Profit & Loss', type: 'screen', action: () => setScreen('pl') },
+    { id: 'gt9', label: 'Trial Balance', type: 'screen', action: () => setScreen('tb') },
+    { id: 'gt10', label: 'Outstanding', type: 'screen', action: () => setScreen('outstanding') },
+    { id: 'gt11', label: 'GST Reports', type: 'screen', action: () => setScreen('gst') },
+    { id: 'gt12', label: 'Shortcut Keys', type: 'screen', action: () => setScreen('shortcuts') },
+    ...ledgers.slice(0, 15).map(l => ({ id: `gl-${l.id}`, label: `Ledger: ${l.name}`, type: 'ledger' as const, action: () => { setSelLedger(l); }, shortcut: '' })),
+  ], [ledgers]);
+
+  const filteredGoto = useMemo(() => {
+    const q = gotoQ.toLowerCase();
+    return goToItems.filter(i => !q || i.label.toLowerCase().includes(q) || i.type.includes(q) || (i.shortcut || '').toLowerCase().includes(q));
+  }, [gotoQ, goToItems]);
+
+  // Keyboard handler — all shortcuts must be working
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      // ─── GO TO OVERLAY ───
+      if (showGoto) {
+        if (e.key === 'Escape') { e.preventDefault(); setShowGoto(false); setGotoQ(''); return; }
+        if (e.key === 'Enter' && filteredGoto.length > 0) { e.preventDefault(); filteredGoto[0].action(); setShowGoto(false); setGotoQ(''); return; }
+        return;
+      }
+
+      // ─── GLOBAL SHORTCUTS (always available) ───
+      if (e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); setShowGoto(true); setTimeout(() => gotoRef.current?.focus(), 50); return; }
+      if (e.key === 'F1') { e.preventDefault(); setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); return; }
+      if (e.key === 'F3') { e.preventDefault(); addNotification('Company Info', 'Sreemeditec — current company.', 'info'); return; }
+      if (e.key === 'F11') { e.preventDefault(); addNotification('Features', 'F11 Features configuration — available in full version.', 'info'); return; }
+      if (e.key === 'F12') { e.preventDefault(); addNotification('Configure', 'F12 Configuration — available in full version.', 'info'); return; }
+
+      // ─── F2: CHANGE DATE ON ANY SCREEN ───
+      if (e.key === 'F2') {
+        e.preventDefault();
+        if (showVf) {
+          const d = prompt('Voucher date (YYYY-MM-DD):', vf.date);
+          if (d) setVf(p => ({...p, date: d}));
+        } else {
+          const d = prompt('Change date (YYYY-MM-DD):', daybookDate);
+          if (d) setDaybookDate(d);
+        }
+        return;
+      }
+
+      // ─── ALT+F1 / ALT+F2: Report view toggle / period ───
+      if (e.altKey && e.key === 'F1') { e.preventDefault(); addNotification('View', 'Detailed view toggled.', 'success'); return; }
+      if (e.altKey && e.key === 'F2') { e.preventDefault(); const d = prompt('Change period (YYYY-MM-DD):', daybookDate); if (d) setDaybookDate(d); return; }
+
+      // ─── VOUCHER SHORTCUTS (open voucher from any screen) ───
+      if (e.key === 'F4') { e.preventDefault(); resetVf('Contra'); return; }
+      if (e.key === 'F5') { e.preventDefault(); resetVf('Payment'); return; }
+      if (e.key === 'F6') { e.preventDefault(); resetVf('Receipt'); return; }
+      if (e.key === 'F7') { e.preventDefault(); resetVf('Journal'); return; }
+      if (e.key === 'F8' && !e.ctrlKey) { e.preventDefault(); resetVf('Sales'); return; }
+      if (e.key === 'F9' && !e.ctrlKey) { e.preventDefault(); resetVf('Purchase'); return; }
+      if (e.ctrlKey && e.key === 'F8') { e.preventDefault(); resetVf('Credit Note'); return; }
+      if (e.ctrlKey && e.key === 'F9') { e.preventDefault(); resetVf('Debit Note'); return; }
+
+      // ─── NAVIGATION ───
+      if (e.key === 'Escape') {
+        if (showVf) {
+          if (window.confirm('Quit without saving?')) { setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); }
+          return;
+        }
+        if (screen !== 'gateway') { e.preventDefault(); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); return; }
+      }
+
+      // ─── VOUCHER-FORM-SPECIFIC SHORTCUTS ───
+      if (showVf) {
+        // Tab / Enter navigation
+        if ((e.key === 'Enter' || e.key === 'Tab') && !e.ctrlKey && !e.altKey) {
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // prevent form submit or default enter
+                    const focusables = Array.from(document.querySelectorAll('input, select, textarea, button'));
+                    const index = focusables.indexOf(active);
+                    if (index > -1) {
+                        const next = focusables[index + (e.shiftKey ? -1 : 1)];
+                        if (next) (next as HTMLElement).focus();
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); handleSaveVoucher(); return; }
+        if (e.ctrlKey && (e.key === 'q' || e.key === 'Q')) { e.preventDefault(); if (window.confirm('Quit without saving?')) { setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); } return; }
+        if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSaveVoucher(); return; }
+        if (e.altKey && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); addNotification('Create Master', 'Alt+C: Create new ledger — available in inline mode.', 'info'); return; }
+        if (e.altKey && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); const entries = vf.entries; if (entries.length > 2) delEntry(entries[entries.length - 2]?.id || entries[0]?.id); return; }
+        if (e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); addEntry(); return; }
+        if (e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); addNotification('Print', 'Print functionality.', 'info'); return; }
+        if (e.altKey && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); addNotification('Export', 'Export functionality.', 'info'); return; }
+        return; // block other handlers when in voucher form
+      }
+
+      // ─── LIST NAVIGATION ───
+      if (e.ctrlKey && e.key === 'Home') { e.preventDefault(); window.scrollTo(0, 0); return; }
+      if (e.ctrlKey && e.key === 'End') { e.preventDefault(); window.scrollTo(0, document.body.scrollHeight); return; }
+
+      // ─── ALT+C / ALT+D / ALT+P / ALT+E outside voucher (list screens) ───
+      if (e.altKey && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); addNotification('Create', 'Alt+C: Create new master.', 'info'); return; }
+      if (e.altKey && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); addNotification('Delete', 'Alt+D: Delete selected.', 'warning'); return; }
+      if (e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); addNotification('Print', 'Alt+P: Print report.', 'info'); return; }
+      if (e.altKey && (e.key === 'e' || e.key === 'E')) { e.preventDefault(); addNotification('Export', 'Alt+E: Export data.', 'info'); return; }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [showGoto, showVf, screen, vf, filteredGoto]);
+
+  const switchScreen = (s: TallyScreen) => { setScreen(s); setShowVf(s.startsWith('voucher_')); };
+  const isActive = (s: TallyScreen) => screen === s || (showVf && s === `voucher_${vf.type.toLowerCase().replace(' ','')}` as TallyScreen);
+
+  // ========== RENDER HELPERS ==========
+  const scr = (s: TallyScreen) => screen === s || (showVf && s === `voucher_${vf.type.toLowerCase().replace(' ','')}` as TallyScreen);
+
+  const renderTopBar = () => (
+    <div className="tally-top-bar">
+      <div className="tally-top-bar-left">
+        SREEMEDITEC &nbsp;|&nbsp; <span style={{color:'#42A5F5'}}>Accounts with Inventory</span>
       </div>
+      <div className="tally-top-bar-right">
+        <span>FY: 1-Apr-2025 to 31-Mar-2026</span>
+        <span>Date: <span className="tally-highlight">{new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</span></span>
+        <span>User: <span>{currentUser?.name || 'Admin'}</span></span>
+      </div>
+    </div>
+  );
 
-      {showForm && (
-        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4 animate-in fade-in">
-          <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{editing ? 'Edit' : 'New'} Cost Centre</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" placeholder="Cost Centre Name *" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold uppercase outline-none" value={name} onChange={(e) => setName(e.target.value)} />
-            <input type="text" placeholder="Description (optional)" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold outline-none" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          <div className="flex gap-3">
-            <button onClick={handleSave} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 active:scale-95"><Save size={14} /> Save</button>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="px-6 py-2.5 bg-white border border-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
+  const renderFKeyBar = () => (
+    <div className="tally-fkey-bar">
+      <div className={`tally-fkey ${screen === 'gateway' ? 'active' : ''}`} onClick={() => { setScreen('gateway'); setShowVf(false); setStatusMsg('Gateway of Accounts'); }}>F1: Gateway</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Contra' ? 'active' : ''}`} onClick={() => resetVf('Contra')}>F4: Contra</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Payment' ? 'active' : ''}`} onClick={() => resetVf('Payment')}>F5: Payment</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Receipt' ? 'active' : ''}`} onClick={() => resetVf('Receipt')}>F6: Receipt</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Journal' ? 'active' : ''}`} onClick={() => resetVf('Journal')}>F7: Journal</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Sales' ? 'active' : ''}`} onClick={() => resetVf('Sales')}>F8: Sales</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Purchase' ? 'active' : ''}`} onClick={() => resetVf('Purchase')}>F9: Purchase</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Credit Note' ? 'active' : ''}`} onClick={() => resetVf('Credit Note')}>Ctrl+F8: Cr Note</div>
+      <div className={`tally-fkey ${showVf && vf.type === 'Debit Note' ? 'active' : ''}`} onClick={() => resetVf('Debit Note')}>Ctrl+F9: Dr Note</div>
+      <div className={`tally-fkey ${screen === 'daybook' ? 'active' : ''}`} onClick={() => setScreen('daybook')}>Day Book</div>
+      <div className={`tally-fkey ${['bs','pl','tb'].includes(screen) ? 'active' : ''}`} onClick={() => setScreen('bs')}>Reports</div>
+      <div className={`tally-fkey ${screen === 'shortcuts' ? 'active' : ''}`} onClick={() => setScreen('shortcuts')}>⌨ Keys</div>
+      <div className="tally-fkey" style={{marginLeft:'auto', background:'#0A3060', borderColor:'#2196F3', color:'#90CAF9'}} onClick={() => { setShowGoto(true); setTimeout(() => gotoRef.current?.focus(), 50); }}>Alt+G: Go To</div>
+    </div>
+  );
+
+  const renderLeftMenu = () => {
+    const items: { section: string, items: { label: string, id?: TallyScreen, shortcut?: string, action?: () => void }[] }[] = [
+      { section: 'TRANSACTIONS', items: [
+        { label: 'Gateway of Accounts', action: () => { setScreen('gateway'); setShowVf(false); setStatusMsg('Gateway of Accounts'); } },
+        { label: 'Payment Voucher', id: 'voucher_pay', shortcut: 'F5' },
+        { label: 'Receipt Voucher', id: 'voucher_rec', shortcut: 'F6' },
+        { label: 'Journal Entry', id: 'voucher_jnl', shortcut: 'F7' },
+        { label: 'Sales Invoice', id: 'voucher_sls', shortcut: 'F8' },
+        { label: 'Purchase Invoice', id: 'voucher_pur', shortcut: 'F9' },
+        { label: 'Contra', id: 'contra', shortcut: 'F4' },
+        { label: 'Credit Note', shortcut: 'Ctrl+F8' },
+        { label: 'Debit Note', shortcut: 'Ctrl+F9' },
+      ]},
+      { section: 'MASTERS', items: [
+        { label: 'Chart of Accounts' },
+        { label: 'Ledger List' },
+        { label: 'Cost Centres' },
+      ]},
+      { section: 'REPORTS', items: [
+        { label: 'Balance Sheet', id: 'bs' },
+        { label: 'Profit & Loss', id: 'pl' },
+        { label: 'Trial Balance', id: 'tb' },
+        { label: 'Day Book', id: 'daybook' },
+        { label: 'Outstanding', id: 'outstanding' },
+        { label: 'GST Reports', id: 'gst' },
+      ]},
+      { section: 'SHORTCUTS', items: [
+        { label: 'All Shortcut Keys', id: 'shortcuts' },
+      ]},
+    ];
+
+    return (
+      <div className="tally-left-menu">
+        {items.map((sec, i) => (
+          <React.Fragment key={i}>
+            <div className="tally-menu-section-title">{sec.section}</div>
+            {sec.items.map((item, j) => {
+              const mappedId = item.id || ('action_' + j);
+              const isCur = item.id ? (screen === item.id || (showVf && item.id?.startsWith('voucher_'))) : false;
+              return (
+                <div key={j} className={`tally-menu-item ${isCur ? 'active' : ''}`}
+                  onClick={() => {
+                    if (item.action) item.action();
+                    else if (item.id) {
+                      if (item.id.startsWith('voucher_')) {
+                        const t = ({voucher_pay:'Payment', voucher_rec:'Receipt', voucher_jnl:'Journal', voucher_sls:'Sales', voucher_pur:'Purchase', contra:'Contra'} as any)[item.id] as VoucherMode;
+                        if (t) resetVf(t);
+                      }
+                      setScreen(item.id);
+                      setStatusMsg(item.label);
+                    }
+                  }}>
+                  <span>{item.label}</span>
+                  {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
+  const getStatusHints = () => {
+    if (showVf) return 'Ctrl+A: Accept | Ctrl+Q: Quit | Alt+C: New Ledger | Alt+I: Add Line | Alt+D: Delete Line | Ctrl+Enter: Save';
+    if (screen === 'gateway') return 'F5-F9: Open Voucher | F1: Gateway | Alt+G: Go To | F2: Change Date | Ctrl+Home/End: Navigate';
+    if (screen === 'daybook') return 'F2: Change Date | Enter: Drill-down | F5-F9: New Voucher | Alt+F1: Detailed | Esc: Back';
+    if (['bs','pl','tb'].includes(screen)) return 'Enter: Drill-down | Alt+F1: Detailed View | Alt+F2: Change Period | Alt+P: Print | Esc: Back';
+    if (screen === 'shortcuts') return 'All keyboard shortcuts — press any key to test | Esc: Back to Gateway';
+    if (screen === 'outstanding') return 'F5: Payment | F6: Receipt | Enter: Party Ledger | Alt+E: Export | Esc: Back';
+    if (screen === 'gst') return 'Alt+P: Print | Alt+E: Export JSON | F5-F9: New Voucher | Esc: Back';
+    return 'F5-F9: Vouchers | Alt+G: Go To | F1: Gateway | F2: Date | Esc: Back';
+  };
+
+  const renderStatusBar = () => (
+    <div className="tally-status-bar">
+      <span className="hint"><b>{statusMsg}</b></span>
+      <span className="hint">{showVf ? `Debit: ₹${fmt(td)}  Credit: ₹${fmt(tc)}  ${diff !== 0 ? `Diff: ₹${fmt(diff)}` : '✓ Balanced'}` : `Ledgers: ${ledgers.length} | Vouchers: ${vouchers.length}`}</span>
+      <span className="hint">{getStatusHints()}</span>
+    </div>
+  );
+
+  const renderGoTo = () => (
+    <div className={`tally-goto-overlay ${showGoto ? 'show' : ''}`} onClick={() => { setShowGoto(false); setGotoQ(''); }}>
+      <div className="tally-goto-box" onClick={e => e.stopPropagation()}>
+        <div className="tally-goto-title">Go To (type to search)</div>
+        <input ref={gotoRef} className="tally-goto-input" placeholder="Search screens, ledgers, reports..." value={gotoQ} onChange={e => setGotoQ(e.target.value)} />
+        <div className="tally-goto-results">
+          {filteredGoto.map(item => (
+            <div key={item.id} className="tally-goto-result-item"
+              onClick={() => { item.action(); setShowGoto(false); setGotoQ(''); }}>
+              <span><span className="gtype">{item.type.toUpperCase()}</span> &nbsp; {item.label}</span>
+              {item.shortcut && <span className="shortcut">{item.shortcut}</span>}
+            </div>
+          ))}
+          {filteredGoto.length === 0 && <div style={{padding:10, textAlign:'center', color:'#3A6A90', fontSize:11}}>No matches</div>}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ========== GATEWAY ==========
+  const renderGateway = () => (
+    <>
+      <div className="tally-section-header">
+        GATEWAY OF ACCOUNTS — <span style={{color:'#64B5F6', fontWeight:'normal', fontSize:11}}>Select a module or use keyboard shortcuts</span>
+      </div>
+      <div className="tally-gateway">
+        <div className="tally-gw-box">
+          <div className="tally-gw-box-title">TRANSACTIONS</div>
+          <div className="tally-gw-item" onClick={() => resetVf('Payment')}><span>Accounting Vouchers</span><span className="sk">↵</span></div>
+          <div className="tally-gw-item"><span>Inventory Vouchers</span></div>
+          <div className="tally-gw-item"><span>Order Vouchers</span></div>
+          <div className="tally-gw-item"><span>Payroll Vouchers</span></div>
+          <div style={{marginTop:10}}></div>
+          {(['Payment','Receipt','Journal','Sales','Purchase'] as VoucherMode[]).map(v => (
+            <div key={v} className="tally-gw-item" style={{color:'#42A5F5'}} onClick={() => resetVf(v)}>
+              <span>→ {v}</span><span className="sk">{shortKeys[v]}</span>
+            </div>
+          ))}
+        </div>
+        <div className="tally-gw-box">
+          <div className="tally-gw-box-title">REPORTS</div>
+          {[{label:'Balance Sheet',id:'bs'},{label:'Profit & Loss A/c',id:'pl'},{label:'Trial Balance',id:'tb'},{label:'Receipts & Payments'},{label:'Cash/Fund Flow'},{label:'Day Book',id:'daybook'},{label:'Account Books'},{label:'Statement of Accounts',id:'outstanding'},{label:'GST Reports',id:'gst'},{label:'Exception Reports'}].map((r,i) => (
+            <div key={i} className="tally-gw-item" onClick={() => { if (r.id) setScreen(r.id as TallyScreen); setStatusMsg(r.label); }}><span>{r.label}</span></div>
+          ))}
+        </div>
+        <div className="tally-gw-box">
+          <div className="tally-gw-box-title">MASTERS</div>
+          <div className="tally-gw-item"><span>Chart of Accounts</span></div>
+          <div className="tally-gw-item"><span>Ledger Management</span></div>
+          <div className="tally-gw-item"><span>Stock Items</span></div>
+          <div className="tally-gw-item"><span>Cost Centres</span></div>
+          <div className="tally-gw-item"><span>Budgets</span></div>
+          <div style={{marginTop:12}}>
+            <div className="tally-info-box">
+              <div style={{color:'#5A8AB0', fontSize:10, letterSpacing:1, marginBottom:6}}>COMPANY INFO</div>
+              <div style={{color:'#A8CCE8', fontSize:11, marginBottom:3}}>Sreemeditec</div>
+              <div style={{color:'#4A90C4', fontSize:10}}>Books From: 1-Apr-2025</div>
+              <div style={{color:'#4A90C4', fontSize:10, marginTop:2}}>Current Date: {new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</div>
+              <div style={{marginTop:8, borderTop:'1px solid #1A3A5A', paddingTop:6}}>
+                <div style={{color:'#4A90C4', fontSize:10}}>F11: Features &nbsp;|&nbsp; F12: Configure</div>
+                <div style={{color:'#4A90C4', fontSize:10, marginTop:2, cursor:'pointer'}} onClick={() => { setShowGoto(true); setTimeout(() => gotoRef.current?.focus(), 50); }}>Alt+G: Go To (Global Search)</div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
+      <div className="tally-dashboard">
+        <div className="tally-dash-card">
+          <div className="tally-dash-card-title">Cash & Bank</div>
+          {(() => {
+            const bankCash = ledgers.filter(l => { const g = groupMap.get(l.groupId); return g && (g.name === 'Cash-in-Hand' || g.name === 'Bank Accounts' || g.id === 'GRP-CASH' || g.id === 'GRP-BANK'); });
+            return bankCash.slice(0,5).map(l => (
+              <div key={l.id} className="tally-dash-row"><span>{l.name}</span><span>₹{fmt(l.currentBalance)}</span></div>
+            ));
+          })()}
+          <div className="tally-dash-row" style={{borderTop:'1px solid #1A3A5A', marginTop:4, paddingTop:4}}>
+            <span style={{color:'#90CAF9'}}>TOTAL</span>
+            <span style={{color:'#00C853', fontWeight:'bold'}}>₹{fmt(stats.cashBank)}</span>
+          </div>
+        </div>
+        <div className="tally-dash-card">
+          <div className="tally-dash-card-title">Receivables / Payables</div>
+          <div className="tally-dash-row"><span>Total Receivable</span><span className="tally-green">₹{fmt(stats.debtors)}</span></div>
+          <div className="tally-dash-row"><span>Overdue (90+)</span><span className="tally-red">₹{fmt(0)}</span></div>
+          <div className="tally-dash-row" style={{borderTop:'1px solid #1A3A5A', marginTop:4, paddingTop:4}}><span>Total Payable</span><span className="tally-red">₹{fmt(stats.creditors)}</span></div>
+          <div className="tally-dash-row"><span>GST Due (GSTR-3B)</span><span className="tally-highlight">₹{fmt(0)}</span></div>
+        </div>
+      </div>
+    </>
+  );
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-        <table className="w-full text-left text-[11px]">
-          <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-            <tr><th className="px-6 py-4">Code</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Description</th><th className="px-6 py-4 text-right">Actions</th></tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {costCentres.length === 0 ? (
-              <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No cost centres defined</td></tr>
-            ) : costCentres.map(cc => (
-              <tr key={cc.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 font-mono text-medical-600 font-black text-[10px]">{cc.id}</td>
-                <td className="px-6 py-4 font-black text-slate-800 uppercase">{cc.name}</td>
-                <td className="px-6 py-4 font-bold text-slate-400">{cc.description || '---'}</td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleEdit(cc)} className="p-1.5 text-indigo-400 hover:bg-indigo-50 rounded-lg transition-all mr-1"><Pencil size={14} /></button>
-                  <button onClick={() => removeCostCentre(cc.id)} className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition-all"><Trash2 size={14} /></button>
-                </td>
+  // ========== VOUCHER ENTRY ==========
+  const renderVoucher = (type: VoucherMode) => {
+    const prefixes: Record<VoucherMode, string> = { Payment: 'PMT', Receipt: 'RCP', Contra: 'CON', Journal: 'JNL', Sales: 'SLS', Purchase: 'PUR', 'Debit Note': 'DN', 'Credit Note': 'CN' };
+    const autoNo = `${prefixes[type]}-2526-${String(vouchers.filter(v => v.type === type).length + 1).padStart(4,'0')}`;
+    const isDrSide = (type === 'Payment' || type === 'Purchase' || type === 'Debit Note');
+    const isCrSide = (type === 'Receipt' || type === 'Sales' || type === 'Credit Note');
+    const drLabel = isDrSide ? 'Dr' : 'Cr';
+    const crLabel = isCrSide ? 'Dr' : 'Cr';
+
+    return (
+      <>
+        <div className="tally-voucher-header">
+          <span className="tally-highlight">{type} Voucher</span>
+          <span>No: <span style={{color:'#42A5F5'}}>{autoNo}</span> &nbsp;|&nbsp; Ctrl+A: Post &nbsp;|&nbsp; F2: Date &nbsp;|&nbsp; Esc: Quit</span>
+        </div>
+        <div className="tally-voucher-body">
+          <div className="tally-voucher-field">
+            <span className="field-label">Date</span>
+            <span className="field-value">
+              <input className="field-input" style={{width:100}} type="date" value={vf.date} onChange={e => setVf(p => ({...p, date: e.target.value}))} />
+              <span className="tally-dim" style={{marginLeft:6}}>(F2 to change)</span>
+            </span>
+          </div>
+          <div className="tally-voucher-field">
+            <span className="field-label">Account ({drLabel === 'Dr' ? 'Cr' : 'Dr'})</span>
+            <span className="field-value">
+              <select className="field-input" style={{width:280}} value={vf.accountId} onChange={e => {
+                const l = ledgers.find(x => x.id === e.target.value);
+                setVf(p => ({...p, accountId: e.target.value, accountName: l?.name || ''}));
+              }}>
+                <option value="">-- Select Ledger --</option>
+                {ledgers.filter(l => l.isActive !== false).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </span>
+          </div>
+          <div className="tally-voucher-field">
+            <span className="field-label">Particulars ({drLabel})</span>
+          </div>
+          <table className="tally-vt">
+            <thead>
+              <tr><th style={{width:'45%'}}>Ledger Name</th><th style={{width:'120px'}}>Amount</th><th style={{width:'100px'}}>Cost Centre</th><th>Bill Ref.</th><th style={{width:30}}></th></tr>
+            </thead>
+            <tbody>
+              {vf.entries.map((e, idx) => (
+                <tr key={e.id} className={idx === vf.entries.length - 1 ? 'cursor-row' : ''}>
+                  <td>
+                    <select className="field-input" style={{width:'100%', background:'transparent', border:'none', borderBottom:'1px solid #2196F3'}} value={e.ledgerId} onChange={ev => updateEntry(e.id, { ledgerId: ev.target.value, ledgerName: ledgers.find(x => x.id === ev.target.value)?.name || '' })}>
+                      <option value="">-- Select --</option>
+                      {ledgers.filter(l => l.isActive !== false).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </td>
+                  <td><input className="field-input" style={{width:'100%', textAlign:'right', background:'transparent', border:'none'}} type="number" value={e.debit || e.credit || ''} onChange={ev => {
+                    const val = Number(ev.target.value) || 0;
+                    const isDebitEntry = (type === 'Payment' || type === 'Purchase' || type === 'Journal' || type === 'Debit Note');
+                    updateEntry(e.id, isDebitEntry ? { debit: val, credit: 0 } : { debit: 0, credit: val });
+                  }} /></td>
+                  <td><span style={{color:'#4A90C4', fontSize:10}}>—</span></td>
+                  <td><span style={{color:'#4A90C4', fontSize:10}}>—</span></td>
+                  <td><button className="tally-fkey" style={{fontSize:9, padding:'0 4px'}} onClick={() => delEntry(e.id)} disabled={vf.entries.length <= 2}>X</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="tally-voucher-total">
+            Total Amount: <span style={{color: td === tc ? '#00E676' : '#FF5252'}}>₹ {fmt(td)}</span>
+            {diff !== 0 && <span className="tally-red" style={{marginLeft:12}}>Diff: ₹{fmt(diff)}</span>}
+          </div>
+          <button className="tally-fkey" onClick={addEntry} style={{marginBottom:8}}>+ Add Entry (Alt+I)</button>
+          <div className="tally-voucher-field">
+            <span className="field-label">Narration</span>
+            <span className="field-value"><input className="field-input" style={{width:380}} value={vf.narration} onChange={e => setVf(p => ({...p, narration: e.target.value}))} placeholder="Enter description..." /></span>
+          </div>
+          {(type === 'Payment' || type === 'Receipt') && (
+            <div className="tally-voucher-field">
+              <span className="field-label">Cheque / DD No.</span>
+              <span className="field-value">
+                <input className="field-input" style={{width:150}} value={vf.chequeNo} onChange={e => setVf(p => ({...p, chequeNo: e.target.value}))} placeholder="Chq no." />
+                &nbsp; Date: <input className="field-input" style={{width:90}} type="date" value={vf.chequeDate} onChange={e => setVf(p => ({...p, chequeDate: e.target.value}))} />
+              </span>
+            </div>
+          )}
+          <div style={{marginTop:12, padding:8, background:'#060F18', border:'1px solid #1A3A5A', fontSize:11, color:'#4A90C4'}}>
+            <span className="tally-highlight">Ctrl+A</span>: Accept &nbsp;|&nbsp;
+            <span className="tally-highlight">Alt+C</span>: New Ledger &nbsp;|&nbsp;
+            <span className="tally-highlight">Alt+D</span>: Delete Line &nbsp;|&nbsp;
+            <span className="tally-highlight">Alt+I</span>: Insert Line &nbsp;|&nbsp;
+            <span className="tally-highlight">Esc</span>: Quit
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // ========== DAY BOOK ==========
+  const renderDayBook = () => {
+    const dayVouchers = vouchers.filter(v => v.date === daybookDate).sort((a,b) => a.voucherNumber.localeCompare(b.voucherNumber));
+    return (
+      <>
+        <div className="tally-section-header">DAY BOOK</div>
+        <div className="tally-db-filter">
+          <span>Period:</span>
+          <input type="date" value={daybookDate} onChange={e => setDaybookDate(e.target.value)} />
+          <span style={{marginLeft:'auto'}}>{dayVouchers.length} entries &nbsp;|&nbsp; Vouchers: {vouchers.length}</span>
+        </div>
+        <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+          <table className="tally-rpt" style={{width:'100%'}}>
+            <thead>
+              <tr><th style={{width:80}}>Date</th><th style={{width:130}}>Voucher No</th><th>Particulars</th><th style={{width:120, textAlign:'right'}}>Debit</th><th style={{width:120, textAlign:'right'}}>Credit</th></tr>
+            </thead>
+            <tbody>
+              {dayVouchers.length === 0 ? (
+                <tr><td colSpan={5} style={{textAlign:'center', padding:20, color:'#3A6A90', fontSize:12}}>No transactions. Press F2 to change date.</td></tr>
+              ) : dayVouchers.map(v => (
+                <tr key={v.id} onClick={() => setSelVoucher(v)} style={{cursor:'pointer'}}>
+                  <td style={{fontSize:11}}>{v.date}</td>
+                  <td style={{fontWeight:'bold'}}>{v.voucherNumber}</td>
+                  <td>
+                    {v.entries.slice(0,3).map((e, i) => (
+                      <div key={i} style={{padding:'1px 0', fontSize:11}}>
+                        {i === 0 ? (v.narration || e.ledgerName) : `  ${e.ledgerName}`}
+                      </div>
+                    ))}
+                    {v.entries.length > 3 && <div style={{color:'#3A6A90', fontSize:10}}>... {v.entries.length-3} more</div>}
+                  </td>
+                  <td className="amt">{v.entries.reduce((s,e) => s + e.debit, 0) > 0 ? `₹${fmt(v.entries.reduce((s,e) => s + e.debit, 0))}` : ''}</td>
+                  <td className="amt">{v.entries.reduce((s,e) => s + e.credit, 0) > 0 ? `₹${fmt(v.entries.reduce((s,e) => s + e.credit, 0))}` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="total-row">
+                <td colSpan={3} style={{padding:'6px 10px'}}>TOTALS</td>
+                <td style={{padding:'6px 10px', textAlign:'right'}}>₹{fmt(dayVouchers.reduce((s,v) => s + v.entries.reduce((se,e) => se + e.debit, 0), 0))}</td>
+                <td style={{padding:'6px 10px', textAlign:'right'}}>₹{fmt(dayVouchers.reduce((s,v) => s + v.entries.reduce((se,e) => se + e.credit, 0), 0))}</td>
               </tr>
+            </tfoot>
+          </table>
+          {selVoucher && (
+            <div style={{marginTop:12, background:'#091D30', border:'1px solid #1A3A5A', padding:12}}>
+              <div style={{color:'#90CAF9', fontSize:12, fontWeight:'bold', marginBottom:6}}>{selVoucher.type} — {selVoucher.voucherNumber}</div>
+              <table className="tally-rpt" style={{width:'100%'}}>
+                <thead><tr><th>Ledger</th><th style={{textAlign:'right'}}>Debit</th><th style={{textAlign:'right'}}>Credit</th></tr></thead>
+                <tbody>
+                  {selVoucher.entries.map((e,i) => (
+                    <tr key={i}><td>{e.ledgerName}</td><td className="cr">{e.debit > 0 ? `₹${fmt(e.debit)}` : '-'}</td><td className="dr">{e.credit > 0 ? `₹${fmt(e.credit)}` : '-'}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{marginTop:6, fontSize:11, color:'#5A8AB0'}}>Narration: {selVoucher.narration}</div>
+              {isAdmin && (<button className="tally-fkey" style={{marginTop:6, fontSize:10}} onClick={async () => { await reverseVoucher(selVoucher.id, 'Cancelled'); setSelVoucher(null); addNotification('Cancelled','Voucher reversed.','success'); }}>Cancel Voucher</button>)}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  // ========== BALANCE SHEET ==========
+  const renderBS = () => {
+    const isLiability = (g: AccountGroup | undefined) => g && (g.type === 'Liability' || g.type === 'Equity');
+    const isAsset = (g: AccountGroup | undefined) => g && g.type === 'Asset';
+    const getBal = (fn: (g: AccountGroup | undefined) => boolean) => {
+      const ids = ledgers.filter(l => fn(groupMap.get(l.groupId))).map(l => l.id);
+      return ids.reduce((s, id) => s + Math.abs((ledgers.find(l => l.id === id)?.currentBalance || 0)), 0);
+    };
+    const totalL = getBal(isLiability);
+    const totalA = getBal(isAsset);
+    return (
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{textAlign:'center', marginBottom:12}}>BALANCE SHEET — Sreemeditec</div>
+        <table className="tally-rpt" style={{maxWidth:640, margin:'0 auto'}}>
+          <thead><tr><th style={{width:'50%'}}>LIABILITIES</th><th style={{textAlign:'right'}}>Amount</th><th style={{width:'50%'}}>ASSETS</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+          <tbody>
+            {(() => {
+              const lbs = ledgers.filter(l => isLiability(groupMap.get(l.groupId)));
+              const as = ledgers.filter(l => isAsset(groupMap.get(l.groupId)));
+              const rows = Math.max(lbs.length, as.length, 1);
+              return Array.from({length: rows}, (_, i) => (
+                <tr key={i}>
+                  <td>{lbs[i]?.name || ''}</td>
+                  <td className="amt">{lbs[i] ? `₹${fmt(Math.abs(lbs[i].currentBalance))}` : ''}</td>
+                  <td>{as[i]?.name || ''}</td>
+                  <td className="amt">{as[i] ? `₹${fmt(Math.abs(as[i].currentBalance))}` : ''}</td>
+                </tr>
+              ));
+            })()}
+          </tbody>
+          <tfoot>
+            <tr className="total-row">
+              <td>TOTAL LIABILITIES</td>
+              <td style={{textAlign:'right', padding:'6px 10px'}}>₹{fmt(totalL)}</td>
+              <td>TOTAL ASSETS</td>
+              <td style={{textAlign:'right', padding:'6px 10px'}}>₹{fmt(totalA)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        {totalL > 0 && totalA > 0 && Math.abs(totalL - totalA) < 0.01 && (
+          <div style={{textAlign:'center', marginTop:12, fontSize:11, color:'#00C853'}}>✓ Balanced: ₹{fmt(totalL)}</div>
+        )}
+      </div>
+    );
+  };
+
+  // ========== P&L ==========
+  const renderPL = () => {
+    const isRevenue = (g: AccountGroup | undefined) => g?.type === 'Revenue';
+    const isExpense = (g: AccountGroup | undefined) => g?.type === 'Expense';
+    const getBal = (fn: (g: AccountGroup | undefined) => boolean) => {
+      const ids = ledgers.filter(l => fn(groupMap.get(l.groupId))).map(l => l.id);
+      return ids.reduce((s, id) => s + (ledgers.find(l => l.id === id)?.currentBalance || 0), 0);
+    };
+    const rev = getBal(isRevenue);
+    const exp = getBal(isExpense);
+    const net = rev - exp;
+    return (
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{textAlign:'center', marginBottom:12}}>PROFIT & LOSS STATEMENT</div>
+        <table className="tally-rpt" style={{maxWidth:500, margin:'0 auto'}}>
+          <thead><tr><th>Particulars</th><th style={{textAlign:'right'}}>Amount</th></tr></thead>
+          <tbody>
+            <tr className="group-row"><td>INCOME</td><td></td></tr>
+            {ledgers.filter(l => isRevenue(groupMap.get(l.groupId))).map(l => (
+              <tr key={l.id}><td style={{paddingLeft:20}}>{l.name}</td><td className="cr">₹{fmt(l.currentBalance)}</td></tr>
             ))}
+            <tr className="total-row"><td>TOTAL INCOME</td><td style={{textAlign:'right'}}>₹{fmt(rev)}</td></tr>
+            <tr className="group-row"><td>EXPENSES</td><td></td></tr>
+            {ledgers.filter(l => isExpense(groupMap.get(l.groupId))).map(l => (
+              <tr key={l.id}><td style={{paddingLeft:20}}>{l.name}</td><td className="dr">₹{fmt(l.currentBalance)}</td></tr>
+            ))}
+            <tr className="total-row"><td>TOTAL EXPENSES</td><td style={{textAlign:'right'}}>₹{fmt(exp)}</td></tr>
+          </tbody>
+          <tfoot>
+            <tr className="total-row">
+              <td style={{fontSize:13}}>NET {net >= 0 ? 'PROFIT' : 'LOSS'}</td>
+              <td className={net >= 0 ? 'cr' : 'dr'} style={{fontSize:13, fontWeight:'bold'}}>₹{fmt(Math.abs(net))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    );
+  };
+
+  // ========== TRIAL BALANCE ==========
+  const renderTB = () => {
+    const rows = ledgers.map(l => {
+      const g = groupMap.get(l.groupId);
+      const nd = g?.type === 'Asset' || g?.type === 'Expense' || g?.type === 'Equity';
+      const dr = (nd && l.currentBalance >= 0) || (!nd && l.currentBalance < 0) ? Math.abs(l.currentBalance) : 0;
+      const cr = (!nd && l.currentBalance >= 0) || (nd && l.currentBalance < 0) ? Math.abs(l.currentBalance) : 0;
+      return { name: l.name, group: g?.name || '', dr, cr };
+    });
+    const tdr = rows.reduce((s, r) => s + r.dr, 0);
+    const tcr = rows.reduce((s, r) => s + r.cr, 0);
+    const bal = Math.abs(tdr - tcr) < 0.01;
+    return (
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{textAlign:'center', marginBottom:12}}>TRIAL BALANCE</div>
+        {!bal && <div style={{textAlign:'center', marginBottom:8, fontSize:11, color:'#FF5252'}}>Difference: ₹{fmt(Math.abs(tdr - tcr))}</div>}
+        <table className="tally-rpt" style={{width:'100%'}}>
+          <thead><tr><th>Ledger</th><th>Group</th><th style={{textAlign:'right'}}>Debit</th><th style={{textAlign:'right'}}>Credit</th></tr></thead>
+          <tbody>
+            {rows.filter(r => r.dr > 0 || r.cr > 0).map((r, i) => (
+              <tr key={i}><td>{r.name}</td><td style={{color:'#4A90C4', fontSize:10}}>{r.group}</td><td className="cr">{r.dr > 0 ? `₹${fmt(r.dr)}` : '-'}</td><td className="dr">{r.cr > 0 ? `₹${fmt(r.cr)}` : '-'}</td></tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="total-row"><td colSpan={2}>TOTAL</td><td style={{textAlign:'right'}}>₹{fmt(tdr)}</td><td style={{textAlign:'right'}}>₹{fmt(tcr)}</td></tr>
+          </tfoot>
+        </table>
+        {bal && <div style={{textAlign:'center', marginTop:8, fontSize:11, color:'#00C853'}}>✓ Trial Balance is Balanced</div>}
+      </div>
+    );
+  };
+
+  // ========== OUTSTANDING ==========
+  const renderOutstanding = () => {
+    const debtorIds = ledgers.filter(l => { const g = groupMap.get(l.groupId); return g?.name === 'Sundry Debtors' || g?.id === 'GRP-DEBTORS'; });
+    const creditorIds = ledgers.filter(l => { const g = groupMap.get(l.groupId); return g?.name === 'Sundry Creditors' || g?.id === 'GRP-CREDITORS'; });
+    return (
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{marginBottom:12}}>OUTSTANDING RECEIVABLES</div>
+        <table className="tally-rpt" style={{width:'100%', marginBottom:20}}>
+          <thead><tr><th>Party</th><th style={{textAlign:'right'}}>Total Due</th><th style={{textAlign:'right'}}>0-30</th><th style={{textAlign:'right'}}>31-60</th><th style={{textAlign:'right'}}>61-90</th><th style={{textAlign:'right'}}>90+</th></tr></thead>
+          <tbody>
+            {debtorIds.map(l => (
+              <tr key={l.id}><td>{l.name}</td><td className="amt">₹{fmt(Math.abs(l.currentBalance))}</td><td className="amt">₹{fmt(Math.abs(l.currentBalance))}</td><td className="amt">-</td><td className="amt">-</td><td className="amt">-</td></tr>
+            ))}
+            {debtorIds.length === 0 && <tr><td colSpan={6} style={{textAlign:'center', padding:16, color:'#3A6A90'}}>No debtors</td></tr>}
+          </tbody>
+        </table>
+        <div className="tally-section-header" style={{marginBottom:12}}>OUTSTANDING PAYABLES</div>
+        <table className="tally-rpt" style={{width:'100%'}}>
+          <thead><tr><th>Party</th><th style={{textAlign:'right'}}>Total Due</th><th style={{textAlign:'right'}}>0-30</th><th style={{textAlign:'right'}}>31-60</th><th style={{textAlign:'right'}}>61-90</th><th style={{textAlign:'right'}}>90+</th></tr></thead>
+          <tbody>
+            {creditorIds.map(l => (
+              <tr key={l.id}><td>{l.name}</td><td className="amt">₹{fmt(Math.abs(l.currentBalance))}</td><td className="amt">₹{fmt(Math.abs(l.currentBalance))}</td><td className="amt">-</td><td className="amt">-</td><td className="amt">-</td></tr>
+            ))}
+            {creditorIds.length === 0 && <tr><td colSpan={6} style={{textAlign:'center', padding:16, color:'#3A6A90'}}>No creditors</td></tr>}
           </tbody>
         </table>
       </div>
-    </div>
-  );
-};
-
-// --- FIXED ASSET REGISTER ---
-const FixedAssetRegister: React.FC = () => {
-  const { fixedAssets, depreciationSchedule, ledgers, accountGroups, addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry, addLedger, addNotification } = useData();
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<FixedAsset | null>(null);
-  const [form, setForm] = useState<Partial<FixedAsset>>({});
-
-  const handleSave = async () => {
-    if (!form.name || !form.purchaseCost || !form.usefulLifeYears) {
-      addNotification('Error', 'Name, Cost, and Useful Life are required.', 'alert');
-      return;
-    }
-    if (editing) {
-      await updateFixedAsset(editing.id, form);
-      addNotification('Updated', `Asset "${form.name}" updated.`, 'success');
-    } else {
-      // Auto-create asset ledger
-      const assetLedgerId = `LED-FA-${Date.now()}`;
-      const assetGroup = accountGroups.find(g => g.id === 'GRP-FIXED-ASSETS');
-      if (assetGroup) {
-        await addLedger({
-          id: assetLedgerId,
-          name: form.name.toUpperCase(),
-          groupId: 'GRP-FIXED-ASSETS',
-          openingBalance: Number(form.purchaseCost),
-          currentBalance: Number(form.purchaseCost),
-          description: `Fixed Asset: ${form.name}`
-        });
-      }
-      const asset: FixedAsset = {
-        id: `FA-${Date.now()}`,
-        name: form.name.toUpperCase(),
-        ledgerId: assetLedgerId,
-        purchaseDate: form.purchaseDate || new Date().toISOString().split('T')[0],
-        purchaseCost: Number(form.purchaseCost),
-        usefulLifeYears: Number(form.usefulLifeYears),
-        salvageValue: Number(form.salvageValue || 0),
-        depreciationMethod: (form.depreciationMethod as 'SLM' | 'WDV') || 'SLM',
-        accumulatedDepreciation: 0,
-        netBookValue: Number(form.purchaseCost),
-        status: 'Active'
-      };
-      await addFixedAsset(asset);
-      addNotification('Created', `Asset "${asset.name}" registered with ledger.`, 'success');
-    }
-    setShowForm(false);
-    setEditing(null);
-    setForm({});
-  };
-
-  const handleComputeAll = async () => {
-    for (const asset of fixedAssets) {
-      if (asset.status === 'Active') {
-        await computeDepreciation(asset.id);
-      }
-    }
-    addNotification('Depreciation', 'Computed for all active assets.', 'success');
-  };
-
-  const handlePostDepreciation = async (asset: FixedAsset) => {
-    const pendingEntries = depreciationSchedule.filter(d => d.assetId === asset.id && !d.id.startsWith('POSTED'));
-    const latest = pendingEntries.sort((a, b) => b.date.localeCompare(a.date))[0];
-    if (latest) {
-      await postDepreciationEntry(asset.id, latest);
-      addNotification('Posted', `Depreciation ₹${latest.amount} posted for ${asset.name}.`, 'success');
-    }
-  };
-
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-amber-100 text-amber-600 rounded-xl"><HardDrive size={20} /></div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Fixed Asset Register</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{fixedAssets.length} assets | {fixedAssets.filter(a => a.status === 'Active').length} active</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleComputeAll} className="px-5 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95"><Calculator size={14} /> Compute Depr.</button>
-          <button onClick={() => { setShowForm(true); setEditing(null); setForm({}); }} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95"><Plus size={16} /> Register Asset</button>
-        </div>
-      </div>
-
-      {showForm && (
-        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4 animate-in fade-in">
-          <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{editing ? 'Edit' : 'Register'} Fixed Asset</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input type="text" placeholder="Asset Name *" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold uppercase outline-none" value={form.name || ''} onChange={(e) => setForm({...form, name: e.target.value})} />
-            <input type="number" placeholder="Purchase Cost *" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold outline-none" value={form.purchaseCost || ''} onChange={(e) => setForm({...form, purchaseCost: Number(e.target.value)})} />
-            <input type="number" placeholder="Useful Life (Years) *" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold outline-none" value={form.usefulLifeYears || ''} onChange={(e) => setForm({...form, usefulLifeYears: Number(e.target.value)})} />
-            <input type="number" placeholder="Salvage Value" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold outline-none" value={form.salvageValue || ''} onChange={(e) => setForm({...form, salvageValue: Number(e.target.value)})} />
-            <input type="date" className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold outline-none" value={form.purchaseDate || ''} onChange={(e) => setForm({...form, purchaseDate: e.target.value})} />
-            <select className="h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-xs font-bold uppercase outline-none" value={form.depreciationMethod || 'SLM'} onChange={(e) => setForm({...form, depreciationMethod: e.target.value as any})}>
-              <option value="SLM">Straight Line (SLM)</option>
-              <option value="WDV">Written Down Value (WDV)</option>
-            </select>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={handleSave} className="px-6 py-2.5 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95"><Save size={14} /> Save</button>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="px-6 py-2.5 bg-white border border-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {fixedAssets.map(asset => {
-          const assetDepSched = depreciationSchedule.filter(d => d.assetId === asset.id).sort((a, b) => a.date.localeCompare(b.date));
-          return (
-            <div key={asset.id} className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden hover:shadow-lg transition-all">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-start">
-                <div>
-                  <h4 className="font-black text-slate-800 uppercase text-xs">{asset.name}</h4>
-                  <p className="text-[9px] font-bold text-slate-400 mt-1">{asset.depreciationMethod} | {asset.usefulLifeYears}yrs life</p>
-                </div>
-                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${asset.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : asset.status === 'Fully Depreciated' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>{asset.status}</span>
-              </div>
-              <div className="p-6 space-y-3">
-                <div className="flex justify-between text-[10px]"><span className="font-black text-slate-400 uppercase">Cost</span><span className="font-black text-slate-800">₹{asset.purchaseCost.toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between text-[10px]"><span className="font-black text-slate-400 uppercase">Depreciated</span><span className="font-black text-amber-600">₹{Math.round(asset.accumulatedDepreciation).toLocaleString('en-IN')}</span></div>
-                <div className="flex justify-between text-[10px] pt-2 border-t border-slate-100"><span className="font-black text-slate-600 uppercase">Net Book Value</span><span className="font-black text-lg text-indigo-600">₹{Math.round(asset.netBookValue).toLocaleString('en-IN')}</span></div>
-              </div>
-              {assetDepSched.length > 0 && (
-                <div className="px-6 pb-4">
-                  <div className="bg-slate-50 rounded-xl p-3">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Last 3 Depreciation Entries</p>
-                    {assetDepSched.slice(-3).reverse().map(d => (
-                      <div key={d.id} className="flex justify-between text-[9px] py-1">
-                        <span className="font-bold text-slate-500">{d.date}</span>
-                        <span className="font-black text-amber-600">₹{d.amount.toLocaleString('en-IN')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
-                <button onClick={() => handlePostDepreciation(asset)} disabled={asset.status !== 'Active'} className="flex-1 py-2 bg-indigo-600 disabled:bg-slate-300 text-white rounded-xl text-[8px] font-black uppercase tracking-widest active:scale-95 transition-all"><Upload size={12} className="inline mr-1" /> Post Depr.</button>
-                <button onClick={() => { setEditing(asset); setForm(asset); setShowForm(true); }} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[8px] font-black text-slate-500 uppercase tracking-widest"><Pencil size={12} /></button>
-                <button onClick={() => removeFixedAsset(asset.id)} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-[8px] font-black text-rose-400 uppercase tracking-widest"><Trash2 size={12} /></button>
-              </div>
-            </div>
-          );
-        })}
-        {fixedAssets.length === 0 && (
-          <div className="col-span-full py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No fixed assets registered</div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- TDS REGISTER VIEW ---
-const TDSRegisterView: React.FC = () => {
-  const { vouchers, addNotification } = useData();
-
-  const tdsData = useMemo(() => {
-    const tdsVouchers = vouchers.filter(v => v.tdsSection && (v.tdsRate || 0) > 0);
-    const bySection: Record<string, { vouchers: AccountingVoucher[], totalBase: number, totalTDS: number }> = {};
-
-    tdsVouchers.forEach(v => {
-      const section = v.tdsSection || 'UNKNOWN';
-      if (!bySection[section]) bySection[section] = { vouchers: [], totalBase: 0, totalTDS: 0 };
-      bySection[section].vouchers.push(v);
-      const baseAmount = v.entries?.[0]?.debit || v.entries?.[0]?.credit || 0;
-      const tdsAmt = Math.floor(baseAmount * (v.tdsRate || 0) / 100);
-      bySection[section].totalBase += baseAmount;
-      bySection[section].totalTDS += tdsAmt;
-    });
-
-    return bySection;
-  }, [vouchers]);
-
-  const totalTDS = useMemo(() => Object.values(tdsData).reduce((s, d) => s + d.totalTDS, 0), [tdsData]);
-
-  const handleExport = () => {
-    let csv = 'Section,TDS Rate,Base Amount,TDS Amount,Voucher Count\n';
-    Object.entries(tdsData).forEach(([section, data]) => {
-      const rate = data.vouchers[0]?.tdsRate || 0;
-      csv += `${section},${rate}%,${data.totalBase},${data.totalTDS},${data.vouchers.length}\n`;
-    });
-    csv += `\nTotal TDS Payable,${totalTDS}\n`;
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `TDS_Register_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    addNotification('Exported', 'TDS Register CSV downloaded.', 'success');
-  };
-
-  const sectionDetails: Record<string, string> = {
-    '194C': 'Contract Payments',
-    '194J': 'Professional Fees',
-    '194I': 'Rent Payments',
-    '194A': 'Interest',
-    '194H': 'Commission',
-  };
-
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-rose-100 text-rose-600 rounded-xl"><Shield size={20} /></div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">TDS Payable Register</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{Object.keys(tdsData).length} sections | ₹{totalTDS.toLocaleString('en-IN')} total payable</p>
-          </div>
-        </div>
-        <button onClick={handleExport} className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95"><Download size={16} /> Export CSV</button>
-      </div>
-
-      {Object.keys(tdsData).length === 0 ? (
-        <div className="py-16 text-center">
-          <Shield size={48} className="mx-auto text-slate-200 mb-4" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No TDS transactions recorded</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(tdsData).map(([section, data]) => {
-            const rate = data.vouchers[0]?.tdsRate || 0;
-            return (
-              <div key={section} className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-                <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-rose-100 text-rose-600 rounded-xl"><Shield size={16} /></div>
-                    <div>
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Section {section}</h4>
-                      <p className="text-[9px] font-bold text-slate-400">{sectionDetails[section] || 'Other'} | Rate: {rate}%</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TDS Payable</p>
-                    <p className="text-xl font-black text-rose-600">₹{data.totalTDS.toLocaleString('en-IN')}</p>
-                  </div>
-                </div>
-                <table className="w-full text-left text-[11px]">
-                  <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-                    <tr><th className="px-6 py-4">Voucher #</th><th className="px-6 py-4">Date</th><th className="px-6 py-4">Narration</th><th className="px-6 py-4 text-right">Base Amount</th><th className="px-6 py-4 text-right">TDS @{rate}%</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {data.vouchers.map(v => {
-                      const baseAmount = v.entries?.[0]?.debit || v.entries?.[0]?.credit || 0;
-                      const tdsAmount = Math.floor(baseAmount * rate / 100);
-                      return (
-                        <tr key={v.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-black text-medical-600">{v.voucherNumber}</td>
-                          <td className="px-6 py-4 font-bold text-slate-400">{v.date}</td>
-                          <td className="px-6 py-4 font-bold text-slate-600 italic truncate max-w-[200px]">{v.narration}</td>
-                          <td className="px-6 py-4 text-right font-black text-slate-600">₹{baseAmount.toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-black text-rose-600">₹{tdsAmount.toLocaleString('en-IN')}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-rose-50">
-                    <tr>
-                      <td colSpan={3} className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-rose-600">Section {section} Total</td>
-                      <td className="px-6 py-4 text-right font-black text-slate-800">₹{data.totalBase.toLocaleString('en-IN')}</td>
-                      <td className="px-6 py-4 text-right font-black text-rose-600 text-sm">₹{data.totalTDS.toLocaleString('en-IN')}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            );
-          })}
-
-          <div className="bg-slate-900 text-white rounded-[2rem] p-8 flex justify-between items-center shadow-xl">
-            <div className="flex items-center gap-4">
-              <Shield size={28} className="text-amber-400" />
-              <div>
-                <h4 className="font-black uppercase tracking-widest text-sm">Consolidated TDS Payable</h4>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">Total across all sections</p>
-              </div>
-            </div>
-            <p className="text-3xl font-black">₹{totalTDS.toLocaleString('en-IN')}</p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const VoucherDetailModal: React.FC<{ 
-  voucher: AccountingVoucher, 
-  tab: 'details' | 'audit',
-  onTabChange: (t: 'details' | 'audit') => void,
-  onClose: () => void,
-  onEdit?: (v: AccountingVoucher) => void
-}> = ({ voucher, tab, onTabChange, onClose, onEdit }) => {
-  const { reverseVoucher, updateVoucher, addNotification } = useData();
-  const [isEditingNarration, setIsEditingNarration] = useState(false);
-  const [narrationText, setNarrationText] = useState(voucher.narration || '');
-  const [showCancelPrompt, setShowCancelPrompt] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-
-  const isCancelled = voucher.voucherNumber.startsWith('REV/') || (voucher.narration || '').startsWith('[CANCELLED]');
-
-  const handleSaveNarration = async () => {
-    try {
-      await updateVoucher(voucher.id, { narration: narrationText }, 'Modified transaction narration');
-      addNotification('Success', 'Narration updated successfully.', 'success');
-      setIsEditingNarration(false);
-    } catch (err: any) {
-      addNotification('Error', err.message || 'Failed to update narration.', 'alert');
-    }
-  };
-
-  const handleCancelVoucher = async () => {
-    if (!cancelReason.trim()) {
-      addNotification('Error', 'Please provide a cancellation reason.', 'alert');
-      return;
-    }
-    try {
-      await reverseVoucher(voucher.id, cancelReason);
-      addNotification('Voucher Cancelled', 'Reversal entry posted successfully.', 'success');
-      setShowCancelPrompt(false);
-      onClose();
-    } catch (err: any) {
-      addNotification('Error', err.message || 'Failed to cancel voucher.', 'alert');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-2 sm:p-4 animate-in fade-in">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-50/50">
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-slate-800 text-white rounded-2xl shadow-lg">
-              <FileText size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{voucher.voucherNumber}</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2"><Calendar size={12}/> {voucher.type} Registry | {voucher.date}</p>
-            </div>
-          </div>
-          
-          <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-full sm:w-auto">
-            <button onClick={() => onTabChange('details')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'details' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Summary</button>
-            <button onClick={() => onTabChange('audit')} className={`flex-1 sm:flex-none px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'audit' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Audit Trail</button>
-          </div>
-
-          <button onClick={onClose} className="hidden sm:block p-3 bg-white text-slate-400 rounded-xl border border-slate-200 hover:text-slate-600 transition-all shadow-sm"><X size={20} /></button>
-        </div>
-
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          {tab === 'details' ? (
-            <div className="p-6 sm:p-10 space-y-8">
-               <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-                <table className="w-full text-left text-[11px]">
-                    <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-                        <tr><th className="px-8 py-5">Account Particulars</th><th className="px-8 py-5 text-right w-32">Debit (₹)</th><th className="px-8 py-5 text-right w-32">Credit (₹)</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {voucher.entries.map(e => (
-                        <tr key={e.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-8 py-6"><p className="font-black text-slate-800 uppercase tracking-tight text-xs">{e.ledgerName}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">{e.ledgerId}</p></td>
-                            <td className="px-8 py-6 text-right font-black text-emerald-600 text-sm">{(e.debit || 0) > 0 ? `₹${e.debit.toLocaleString('en-IN')}` : '---'}</td>
-                            <td className="px-8 py-6 text-right font-black text-rose-600 text-sm">{(e.credit || 0) > 0 ? `₹${e.credit.toLocaleString('en-IN')}` : '---'}</td>
-                        </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-slate-50 border-t-2 border-slate-200">
-                        <tr className="font-black">
-                            <td className="px-8 py-6 uppercase tracking-widest text-slate-400 text-[9px]">Consolidated Totals</td>
-                            <td className="px-8 py-6 text-right text-emerald-600 text-base">₹{(voucher.totalAmount || 0).toLocaleString('en-IN')}</td>
-                            <td className="px-8 py-6 text-right text-rose-600 text-base">₹{(voucher.totalAmount || 0).toLocaleString('en-IN')}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-               </div>
-                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-200 shadow-inner relative group">
-                   <div className="flex justify-between items-center mb-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><MessageSquare size={14}/> Narration Statement</p>
-                      {!isEditingNarration ? (
-                        <button onClick={() => setIsEditingNarration(true)} className="text-[9px] font-black uppercase text-medical-600 flex items-center gap-1 hover:underline">
-                          <Edit3 size={12}/> Edit Narration
-                        </button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button onClick={() => setIsEditingNarration(false)} className="text-[9px] font-black uppercase text-slate-400 hover:underline">Cancel</button>
-                          <button onClick={handleSaveNarration} className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1 hover:underline"><Check size={12}/> Save</button>
-                        </div>
-                      )}
-                   </div>
-                   
-                   {isEditingNarration ? (
-                     <textarea 
-                       className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 resize-none h-[80px]"
-                       value={narrationText}
-                       onChange={(e) => setNarrationText(e.target.value)}
-                     />
-                   ) : (
-                     <p className="text-sm font-bold text-slate-600 leading-relaxed italic">"{voucher.narration || 'No narrative recorded for this transaction.'}"</p>
-                   )}
-                </div>
-
-                {!isCancelled && (
-                  <div className="flex justify-end pt-4 border-t border-slate-100 gap-3">
-                    {onEdit && (
-                      <button 
-                        onClick={() => { onEdit(voucher); onClose(); }}
-                        className="px-6 py-3 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95"
-                      >
-                        <Edit3 size={14}/> Edit Voucher
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => setShowCancelPrompt(true)}
-                      className="px-6 py-3 bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-all rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95"
-                    >
-                      <AlertTriangle size={14}/> Cancel / Reverse Voucher
-                    </button>
-                  </div>
-                )}
-             </div>
-           ) : (
-             <div className="p-6 sm:p-10 h-full"><AuditTrailViewer history={voucher.editHistory || []} /></div>
-           )}
-         </div>
-       </div>
-
-       {showCancelPrompt && (
-         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-             <div className="p-8 border-b border-slate-100 bg-rose-50/50">
-               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 text-rose-600"><AlertTriangle size={20}/> Cancel Transaction</h3>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 leading-tight">This will post a counter reversal voucher for audited integrity.</p>
-             </div>
-             <div className="p-8 space-y-4">
-               <FormRow label="Cancellation Reason">
-                 <input 
-                   type="text" 
-                   className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-rose-500/5"
-                   placeholder="e.g. Duplicate voucher entry / Typo in amounts"
-                   value={cancelReason}
-                   onChange={(e) => setCancelReason(e.target.value)}
-                 />
-               </FormRow>
-             </div>
-             <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-               <button onClick={() => { setShowCancelPrompt(false); setCancelReason(''); }} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Abort</button>
-               <button onClick={handleCancelVoucher} className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95">Post Reversal</button>
-             </div>
-           </div>
-         </div>
-       )}
-     </div>
-   );
- };
-
-// ─── Rule Engine ────────────────────────────────────────────────────────────
-type RuleResult = { 
-  voucherType: VoucherType; 
-  drLedgerId: string; 
-  drLedgerName: string; 
-  crLedgerId: string; 
-  crLedgerName: string; 
-  ruleLabel: string; 
-};
-
-function classifyBankEntry(
-  description: string, 
-  txType: 'Debit' | 'Credit', 
-  bankLedgerId: string, 
-  bankLedgerName: string, 
-  ledgers: Ledger[], 
-  bankRules?: BankRule[]
-): RuleResult {
-  const d = description.toUpperCase();
-  const find = (id: string, fallbackName: string) => {
-    const l = ledgers.find(lg => lg.id === id);
-    return l ? { id: l.id, name: l.name } : { id: `LDG-SUSPENSE`, name: fallbackName };
-  };
-
-  // Helper: build result for a Payment (bank → expense/creditor)
-  const payment = (expId: string, expName: string, label: string): RuleResult => {
-    const exp = find(expId, expName);
-    return { voucherType: 'Payment', drLedgerId: exp.id, drLedgerName: exp.name, crLedgerId: bankLedgerId, crLedgerName: bankLedgerName, ruleLabel: label };
-  };
-  // Helper: build result for a Receipt (bank ← income/debtor)
-  const receipt = (incId: string, incName: string, label: string): RuleResult => {
-    const inc = find(incId, incName);
-    return { voucherType: 'Receipt', drLedgerId: bankLedgerId, drLedgerName: bankLedgerName, crLedgerId: inc.id, crLedgerName: inc.name, ruleLabel: label };
-  };
-  // Helper: Contra
-  const contra = (drId: string, drName: string, crId: string, crName: string, label: string): RuleResult => {
-    const dr = find(drId, drName); const cr = find(crId, crName);
-    return { voucherType: 'Contra', drLedgerId: dr.id, drLedgerName: dr.name, crLedgerId: cr.id, crLedgerName: cr.name, ruleLabel: label };
-  };
-  // Helper: Journal
-  const journal = (drId: string, drName: string, crId: string, crName: string, label: string): RuleResult => {
-    const dr = find(drId, drName); const cr = find(crId, crName);
-    return { voucherType: 'Journal', drLedgerId: dr.id, drLedgerName: dr.name, crLedgerId: cr.id, crLedgerName: cr.name, ruleLabel: label };
-  };
-
-  // ── 1. Dynamic Custom Rules ──
-  for (const rule of bankRules || []) {
-    const patternUpper = rule.pattern.toUpperCase();
-    const typeMatches = rule.txType === 'Both' || rule.txType === txType;
-    if (typeMatches && d.includes(patternUpper)) {
-      const dr = find(rule.drLedgerId, rule.drLedgerName);
-      const cr = find(rule.crLedgerId, rule.crLedgerName);
-      return {
-        voucherType: rule.voucherType,
-        drLedgerId: dr.id,
-        drLedgerName: dr.name,
-        crLedgerId: cr.id,
-        crLedgerName: cr.name,
-        ruleLabel: rule.ruleLabel
-      };
-    }
-  }
-
-  // ── 2. Static Fallback Debit rules ──
-  if (txType === 'Debit') {
-    if (/SALARY|PAYROLL|SAL\/|WAGES/.test(d))        return payment('LDG-SALARY-EXP',      'Salary Expense',       'Salary/Payroll');
-    if (/\bRENT\b/.test(d))                           return payment('LDG-RENT-EXP',         'Rent Expense',         'Rent Payment');
-    if (/GST|IGST|CGST|SGST/.test(d))                return payment('LDG-GST-PAYABLE',      'GST Payable',          'GST Payment');
-    if (/\bTDS\b|TAX DEDUCTED/.test(d))              return payment('LDG-TDS-PAYABLE',       'TDS Payable',          'TDS Payment');
-    if (/ELECTRICITY|ELEC|POWER BILL/.test(d))        return payment('LDG-ELEC-EXP',         'Electricity Expense',  'Electricity Bill');
-    if (/TELEPHONE|MOBILE|BROADBAND|INTERNET/.test(d))return payment('LDG-PHONE-EXP',        'Telephone Expense',    'Telephone/Internet');
-    if (/PETROL|FUEL|DIESEL/.test(d))                 return payment('LDG-TRAVEL-EXP',       'Travelling Expense',   'Fuel/Petrol');
-    if (/INSURANCE|INSUR/.test(d))                    return payment('LDG-INSURANCE-EXP',    'Insurance Expense',    'Insurance Premium');
-    if (/PRINTING|STATIONERY/.test(d))                return payment('LDG-PRINT-EXP',        'Printing & Stationery','Stationery');
-    if (/ADVERTISEMENT|MARKETING/.test(d))            return payment('LDG-ADV-EXP',          'Advertisement Expense','Advertisement');
-    if (/REPAIR|MAINTENANCE|AMC/.test(d))             return payment('LDG-REPAIR-EXP',       'Repairs & Maintenance','Repair/AMC');
-    if (/AUDIT|PROFESSION|CA FEES|CONSULT/.test(d))   return payment('LDG-PROF-EXP',         'Professional Fees',    'Professional Fees');
-    if (/EMI|LOAN REPAY|LOAN EMI|LOAN/.test(d))       return payment('LDG-LOAN-PAYABLE',     'Loan Account',         'Loan Repayment');
-    if (/ATM|CASH WDL|CASH WITHDRAWAL|CASH DISP/.test(d)) return contra(find('LDG-CASH','Cash Account').id, find('LDG-CASH','Cash Account').name, bankLedgerId, bankLedgerName, 'ATM/Cash Withdrawal');
-    
-    // Vendor fallback (Debit from bank -> Sundry Creditors / vendor payment)
-    const sp = find('LDG-SUNDRY-CREDITORS', 'Sundry Creditors');
-    return { voucherType: 'Payment', drLedgerId: sp.id, drLedgerName: sp.name, crLedgerId: bankLedgerId, crLedgerName: bankLedgerName, ruleLabel: 'Vendor Fallback (Payment)' };
-  } 
-  
-  // ── 3. Static Fallback Credit rules ──
-  else {
-    if (/INTEREST|INT CREDIT|INT\.COLL/.test(d))      return journal(bankLedgerId, bankLedgerName, find('LDG-INT-INC', 'Interest Income').id, find('LDG-INT-INC', 'Interest Income').name, 'Interest Income Received');
-    if (/COMMISSION|COMM/.test(d))                     return receipt('LDG-COMM-INC',       'Commission Income',    'Commission Earned');
-    if (/DIVIDEND/.test(d))                           return receipt('LDG-DIV-INC',        'Dividend Income',      'Dividend Earned');
-    if (/REFUND|REBATE/.test(d))                       return receipt('LDG-MISC-INC',       'Miscellaneous Income', 'Refund Received');
-    if (/CASH DEP|CASH DEPOSIT|CDM/.test(d))          return contra(bankLedgerId, bankLedgerName, find('LDG-CASH','Cash Account').id, find('LDG-CASH','Cash Account').name, 'Cash Deposit');
-
-    // Customer fallback (Credit to bank -> Sundry Debtors / client payment)
-    const sb = find('LDG-SUNDRY-DEBTORS', 'Sundry Debtors');
-    return { voucherType: 'Receipt', drLedgerId: bankLedgerId, drLedgerName: bankLedgerName, crLedgerId: sb.id, crLedgerName: sb.name, ruleLabel: 'Client Fallback (Receipt)' };
-  }
-}
-
-// ── Normalize Date Format ──
-const normalizePDFDate = (rawDate: string): string => {
-  if (!rawDate) return new Date().toISOString().split('T')[0];
-  const clean = rawDate.replace(/[\/\s.-]/g, '-');
-  const dmy = clean.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-  if (dmy) {
-    let day = dmy[1].padStart(2, '0');
-    let month = dmy[2].padStart(2, '0');
-    let year = dmy[3];
-    if (year.length === 2) year = '20' + year;
-    return `${year}-${month}-${day}`;
-  }
-  const ymd = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (ymd) {
-    let year = ymd[1];
-    let month = ymd[2].padStart(2, '0');
-    let day = ymd[3].padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-  const dmyStr = clean.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
-  if (dmyStr) {
-    let day = dmyStr[1].padStart(2, '0');
-    const months: Record<string, string> = {
-      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-    };
-    let month = months[dmyStr[2].toLowerCase()] || '01';
-    let year = dmyStr[3];
-    if (year.length === 2) year = '20' + year;
-    return `${year}-${month}-${day}`;
-  }
-  return rawDate;
-};
-
-// ── Generic Regex PDF Parser Fallback ──
-const parsePDFText = (fullText: string): { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] => {
-  const rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
-  const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
-  const dateRx = /\b(\d{2}[\/-]\d{2}[\/-]\d{4}|\d{4}-\d{2}-\d{2}|\d{2}\s(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4})\b/i;
-  const amtRx = /([\d,]+\.\d{2})/g;
-
-  for (const line of lines) {
-    const dateMatch = line.match(dateRx);
-    if (!dateMatch) continue;
-
-    const rawDate = dateMatch[0];
-    let date = normalizePDFDate(rawDate);
-
-    const afterDate = line.slice(line.indexOf(rawDate) + rawDate.length).replace(/Page Total|Opening Bal|Closing Bal|Withdrawls|Deposits|Legends Used|End Of Statement/i, '').trim();
-    const amounts = [...afterDate.matchAll(amtRx)].map(m => parseFloat(m[1].replace(/,/g, '')));
-    if (amounts.length === 0) continue;
-
-    const descMatch = afterDate.match(/^([^\d]{3,}?)\s+[\d,]/);
-    const description = descMatch ? descMatch[1].trim() : afterDate.split(/[\d,]/)[0].trim() || 'Transaction';
-
-    let amount: number;
-    let txType: 'Debit' | 'Credit';
-
-    if (/\bDr\b/i.test(afterDate)) {
-      amount = amounts[0]; txType = 'Debit';
-    } else if (/\bCr\b/i.test(afterDate)) {
-      amount = amounts[0]; txType = 'Credit';
-    } else if (amounts.length >= 2) {
-      if (amounts.length >= 3) {
-        if (amounts[0] > 0 && amounts[1] === 0) { amount = amounts[0]; txType = 'Debit'; }
-        else if (amounts[1] > 0 && amounts[0] === 0) { amount = amounts[1]; txType = 'Credit'; }
-        else { amount = amounts[0]; txType = 'Debit'; }
-      } else {
-        amount = amounts[0]; txType = 'Credit';
-      }
-    } else {
-      amount = amounts[0]; txType = 'Credit';
-    }
-
-    if (amount > 0 && description.length > 1) {
-      rows.push({ date, description, amount, txType });
-    }
-  }
-  return rows;
-};
-
-// ─── Reconciliation Terminal Component ───
-const BankReconciliationTerminal: React.FC = () => {
-  const { 
-    ledgers, 
-    vouchers, 
-    bankStatements, 
-    updateVoucher, 
-    uploadBankStatement, 
-    autoMatchBankEntries, 
-    postAutoVouchers, 
-    addNotification, 
-    bankDetailsList,
-    bankRules,
-    addBankRule,
-    updateBankRule,
-    removeBankRule
-  } = useData();
-
-  const [selectedBank, setSelectedBank] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'idle' | 'preview' | 'posting' | 'done'>('idle');
-  const [isImporting, setIsImporting] = useState(false);
-  const [isAutoMatching, setIsAutoMatching] = useState(false);
-  const [drafts, setDrafts] = useState<AutoVoucherDraft[]>([]);
-  const [postResult, setPostResult] = useState<{ posted: number; skipped: number } | null>(null);
-
-  // --- Dynamic Rules Modal State ---
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
-  const [rulePattern, setRulePattern] = useState('');
-  const [ruleTxType, setRuleTxType] = useState<'Debit' | 'Credit' | 'Both'>('Both');
-  const [ruleVoucherType, setRuleVoucherType] = useState<VoucherType>('Payment');
-  const [ruleDrLedger, setRuleDrLedger] = useState('');
-  const [ruleCrLedger, setRuleCrLedger] = useState('');
-  const [ruleLabel, setRuleLabel] = useState('');
-
-  const bankLedgers = ledgers.filter(l => l.groupId === 'GRP-CASH' || l.groupId === 'GRP-BANK');
-
-  const currentStatements = useMemo(() => {
-    return bankStatements.filter(s => (s as any).ledgerId === selectedBank);
-  }, [bankStatements, selectedBank]);
-
-  const bookBalance = useMemo(() => {
-    const l = ledgers.find(lg => lg.id === selectedBank);
-    return l ? (l.currentBalance || 0) : 0;
-  }, [ledgers, selectedBank]);
-
-  const unreconciledVouchers = useMemo(() => {
-    if (!selectedBank) return [];
-    return vouchers.filter(v => 
-      (v.entries || []).some(e => e.ledgerId === selectedBank) && 
-      !v.bankReconciliationDate
     );
-  }, [vouchers, selectedBank]);
-
-  const handleMatch = async (vId: string) => {
-    const v = vouchers.find(v => v.id === vId);
-    if (!v) return;
-    const recoDate = new Date().toISOString().split('T')[0];
-    await updateVoucher(vId, { bankReconciliationDate: recoDate }, `Bank reconciliation matched on ${recoDate}`);
-    addNotification('Reconciled', `Voucher matched with bank on ${recoDate}`, 'success');
   };
 
-  const processRows = async (rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[]) => {
-    const bankLedger = ledgers.find(l => l.id === selectedBank);
-    const bankLedgerName = bankLedger?.name || 'Bank Account';
-    const parsed: AutoVoucherDraft[] = [];
-    rows.forEach((row, i) => {
-      const { date, description, amount, txType } = row;
-      if (amount === 0) return;
-      const stmtId = `BANK-STMT-${Date.now()}-${i}`;
-      const rule = classifyBankEntry(description, txType, selectedBank, bankLedgerName, ledgers, bankRules);
-      parsed.push({
-        statementEntryId: stmtId,
-        date,
-        description,
-        amount,
-        txType,
-        voucherType: rule.voucherType,
-        drLedgerId: rule.drLedgerId,
-        drLedgerName: rule.drLedgerName,
-        crLedgerId: rule.crLedgerId,
-        crLedgerName: rule.crLedgerName,
-        narration: `${rule.ruleLabel} — ${description}`,
-        skip: false,
-        ruleLabel: rule.ruleLabel
-      });
-    });
-    if (parsed.length === 0) return false;
-    const rawEntries: BankStatementEntry[] = parsed.map(p => ({
-      id: p.statementEntryId,
-      date: p.date,
-      description: p.description,
-      amount: p.amount,
-      type: p.txType,
-      isMatched: false
-    }));
-    await uploadBankStatement(selectedBank, rawEntries);
-    setDrafts(parsed);
-    setStep('preview');
-    return true;
-  };
-
-  const parseCSVText = (text: string): { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] => {
-    const lines = text.split('\n').filter(l => l.trim());
-    const delimiter = text.includes('\t') ? '\t' : ',';
-    const startIdx = lines[0].toLowerCase().includes('date') ? 1 : 0;
-    const rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
-    for (let i = startIdx; i < lines.length; i++) {
-      const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
-      if (cols.length < 3) continue;
-      const date = cols[0];
-      const description = cols[1] || '';
-      const amount1 = parseFloat(cols[2]?.replace(/[^0-9.-]/g, '')) || 0;
-      const amount2 = parseFloat(cols[3]?.replace(/[^0-9.-]/g, '')) || 0;
-      let amount = amount1;
-      let txType: 'Debit' | 'Credit' = 'Credit';
-      if (cols.length >= 4 && amount1 > 0 && amount2 > 0) {
-        amount = amount1; txType = 'Debit';
-      } else if (amount < 0) {
-        amount = Math.abs(amount1); txType = 'Debit';
-      }
-      if (amount === 0) continue;
-      rows.push({ date, description, amount, txType });
-    }
-    return rows;
-  };
-
-  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedBank) return;
-    setIsImporting(true);
-    try {
-      const isPDF = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
-      let rows: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
-
-      if (isPDF) {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.min.mjs',
-          import.meta.url
-        ).toString();
-
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        let allCoordinatesParsed: { date: string; description: string; amount: number; txType: 'Debit' | 'Credit' }[] = [];
-        let hasSnoMarkers = false;
-
-        // Scan for coordinate-based SNo markers
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          const items = textContent.items as any[];
-
-          const snoMarkers: { sno: number; y: number; index: number }[] = [];
-          items.forEach((item, index) => {
-            const x = item.transform[4];
-            const y = item.transform[5];
-            const text = item.str.trim();
-            if (x >= 85 && x <= 95 && /^\d+$/.test(text)) {
-              snoMarkers.push({ sno: parseInt(text, 10), y, index });
-            }
-          });
-
-          if (snoMarkers.length > 0) {
-            hasSnoMarkers = true;
-            snoMarkers.sort((a, b) => b.y - a.y);
-
-            for (let i = 0; i < snoMarkers.length; i++) {
-              const currentMarker = snoMarkers[i];
-              const nextMarker = snoMarkers[i + 1];
-
-              const minY = nextMarker ? nextMarker.y : Math.max(115, currentMarker.y - 50);
-              const maxY = currentMarker.y + 3;
-
-              const rowItems = items.filter(item => {
-                const y = item.transform[5];
-                return y > minY && y <= maxY;
-              });
-
-              let valueDateParts: string[] = [];
-              let postDateParts: string[] = [];
-              let descParts: string[] = [];
-              let withdrawalParts: string[] = [];
-              let depositParts: string[] = [];
-
-              rowItems.sort((a, b) => {
-                const yDiff = b.transform[5] - a.transform[5];
-                if (Math.abs(yDiff) > 2) return yDiff;
-                return a.transform[4] - b.transform[4];
-              });
-
-              rowItems.forEach(item => {
-                const x = item.transform[4];
-                const text = item.str.trim();
-                if (!text) return;
-
-                if (/(Page Total|Opening Bal|Closing Bal|Withdrawls|Deposits|Legends Used|End Of Statement)/i.test(text)) {
-                  return;
-                }
-
-                if (x >= 130 && x < 165) {
-                  valueDateParts.push(text);
-                } else if (x >= 165 && x < 210) {
-                  postDateParts.push(text);
-                } else if (x >= 300 && x < 390) {
-                  descParts.push(text);
-                } else if (x >= 390 && x < 425) {
-                  withdrawalParts.push(text);
-                } else if (x >= 425 && x < 465) {
-                  depositParts.push(text);
-                }
-              });
-
-              const rawValueDate = valueDateParts.join('').replace(/\s+/g, '');
-              const rawPostDate = postDateParts.join('').replace(/\s+/g, '');
-              const valueDate = normalizePDFDate(rawValueDate);
-              const postDate = normalizePDFDate(rawPostDate);
-              const description = descParts.join(' ').replace(/\s+/g, ' ').trim();
-              
-              const withdrawalStr = withdrawalParts.join('').replace(/\s+/g, '').replace(/,/g, '');
-              const depositStr = depositParts.join('').replace(/\s+/g, '').replace(/,/g, '');
-
-              let amount = 0;
-              let txType: 'Debit' | 'Credit' = 'Debit';
-
-              if (withdrawalStr && !isNaN(parseFloat(withdrawalStr)) && parseFloat(withdrawalStr) > 0) {
-                amount = parseFloat(withdrawalStr);
-                txType = 'Debit';
-              } else if (depositStr && !isNaN(parseFloat(depositStr)) && parseFloat(depositStr) > 0) {
-                amount = parseFloat(depositStr);
-                txType = 'Credit';
-              }
-
-              if (amount > 0 && description) {
-                allCoordinatesParsed.push({
-                  date: valueDate || postDate,
-                  description,
-                  amount,
-                  txType
-                });
-              }
-            }
-          }
-        }
-
-        if (hasSnoMarkers && allCoordinatesParsed.length > 0) {
-          rows = allCoordinatesParsed;
-        } else {
-          // Fallback to text line parser
-          let fullText = '';
-          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            const pageLines: string[] = [];
-            let lastY: number | null = null;
-            let currentLine = '';
-            for (const item of textContent.items as any[]) {
-              const y = Math.round(item.transform[5]);
-              if (lastY !== null && Math.abs(y - lastY) > 3) {
-                pageLines.push(currentLine.trim());
-                currentLine = '';
-              }
-              currentLine += ' ' + item.str;
-              lastY = y;
-            }
-            if (currentLine.trim()) pageLines.push(currentLine.trim());
-            fullText += pageLines.join('\n') + '\n';
-          }
-          rows = parsePDFText(fullText);
-        }
-      } else {
-        const text = await file.text();
-        rows = parseCSVText(text);
-      }
-
-      if (rows.length === 0) {
-        addNotification(
-          'Import Failed',
-          isPDF
-            ? 'No transactions detected in PDF. Ensure it is a text-based bank statement.'
-            : 'No valid entries found. Check format: Date, Description, Amount.',
-          'alert'
-        );
-        setIsImporting(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        return;
-      }
-
-      const ok = await processRows(rows);
-      if (!ok) {
-        addNotification('Import Failed', 'Entries found but could not be classified. Try a CSV export instead.', 'alert');
-      }
-    } catch (err: any) {
-      addNotification('Import Error', err.message || 'Failed to parse file.', 'alert');
-    }
-    setIsImporting(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handlePostAll = async () => {
-    setStep('posting');
-    const toPost = drafts.filter(d => !d.skip);
-
-    // Auto-save dynamic rules for drafts where saveRule is enabled
-    for (const draft of toPost) {
-      if ((draft as any).saveRule) {
-        const words = draft.description.split('/');
-        const rawPattern = (words[0] || '').trim();
-        const pattern = rawPattern.split(/\s+/).slice(0, 3).join(' '); // Take up to first 3 words
-        
-        if (pattern && !bankRules.some(r => r.pattern.toUpperCase() === pattern.toUpperCase())) {
-          await addBankRule({
-            id: `RULE-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            pattern,
-            txType: draft.txType,
-            voucherType: draft.voucherType,
-            drLedgerId: draft.drLedgerId,
-            drLedgerName: draft.drLedgerName,
-            crLedgerId: draft.crLedgerId,
-            crLedgerName: draft.crLedgerName,
-            ruleLabel: `${draft.txType === 'Credit' ? 'Receipt' : 'Payment'} for ${pattern}`
-          });
-        }
-      }
-    }
-
-    const skipped = drafts.filter(d => d.skip).length;
-    const posted = await postAutoVouchers(selectedBank, toPost);
-    setPostResult({ posted, skipped });
-    setStep('done');
-    addNotification('Vouchers Posted', `${posted} vouchers created from bank statement.`, 'success');
-  };
-
-  const updateDraft = (idx: number, patch: Partial<AutoVoucherDraft & { saveRule: boolean }>) => {
-    setDrafts(prev => prev.map((d, i) => i === idx ? { ...d, ...patch } : d));
-  };
-
-  const handleSaveRule = async () => {
-    if (!rulePattern || !ruleLabel || !ruleDrLedger || !ruleCrLedger) {
-      addNotification('Validation Error', 'Please fill in all fields to create a rule.', 'alert');
-      return;
-    }
-
-    const drL = ledgers.find(l => l.id === ruleDrLedger);
-    const crL = ledgers.find(l => l.id === ruleCrLedger);
-
-    await addBankRule({
-      id: `RULE-${Date.now()}`,
-      pattern: rulePattern,
-      txType: ruleTxType,
-      voucherType: ruleVoucherType,
-      drLedgerId: ruleDrLedger,
-      drLedgerName: drL?.name || ruleDrLedger,
-      crLedgerId: ruleCrLedger,
-      crLedgerName: crL?.name || ruleCrLedger,
-      ruleLabel
-    });
-
-    addNotification('Rule Saved', `Reconciliation rule "${ruleLabel}" has been added.`, 'success');
-    
-    setRulePattern('');
-    setRuleLabel('');
-    setRuleDrLedger('');
-    setRuleCrLedger('');
-    setShowAddRuleModal(false);
-  };
-
-  const matchedStatements = useMemo(() => currentStatements.filter(s => s.isMatched), [currentStatements]);
-  const unmatchedStatements = useMemo(() => currentStatements.filter(s => !s.isMatched), [currentStatements]);
-
-  const handleAutoMatch = async () => {
-    if (!selectedBank) return;
-    setIsAutoMatching(true);
-    const count = await autoMatchBankEntries(selectedBank);
-    addNotification('Auto-Match', `${count} entries auto-matched.`, count > 0 ? 'success' : 'info');
-    setIsAutoMatching(false);
-  };
-
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in">
-      <input ref={fileInputRef} type="file" accept=".csv,.tsv,.txt,.pdf" className="hidden" onChange={handleFileImport} />
-
-      {step === 'idle' && (
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="w-full lg:w-80 space-y-4">
-            <div className="bg-slate-50 p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
-              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest flex items-center justify-between">
-                <span className="flex items-center gap-2"><Building2 size={16} className="text-indigo-500"/> Select Account</span>
-                <button 
-                  onClick={() => setShowRulesModal(true)} 
-                  className="px-2 py-1 bg-white hover:bg-slate-100 text-indigo-600 rounded-lg border border-slate-200 text-[8px] font-black uppercase tracking-widest flex items-center gap-1 transition-all"
-                >
-                  <Settings size={10} /> Rules
-                </button>
-              </h3>
-              <select className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
-                <option value="">Select Cash/Bank Account...</option>
-                {bankLedgers.map(l => {
-                  const configBank = bankDetailsList.find(b => b.bankName.toUpperCase() === l.name.toUpperCase());
-                  const label = configBank ? `${l.name} (${configBank.accountNo})` : l.name;
-                  return <option key={l.id} value={l.id}>{label}</option>;
-                })}
-              </select>
-            </div>
-
-            {selectedBank && (
-              <>
-                <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6 animate-in slide-in-from-left-4">
-                  <h3 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><Activity size={16}/> Reco Summary</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Book Balance</span><span className="text-slate-800">₹{bookBalance.toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Statement Entries</span><span className="text-slate-800">{currentStatements.length}</span></div>
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Auto-Matched</span><span className="text-emerald-600">{matchedStatements.length}</span></div>
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Pending Match</span><span className="text-amber-600">{unmatchedStatements.length}</span></div>
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Uncleared (+)</span><span className="text-emerald-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.debit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
-                    <div className="flex justify-between text-[10px] font-black uppercase"><span className="text-slate-400">Unpresented (-)</span><span className="text-rose-600">₹{unreconciledVouchers.filter(v => v.entries.find(e => e.ledgerId === selectedBank)!.credit > 0).reduce((sum, v) => sum + (v.totalAmount || 0), 0).toLocaleString('en-IN')}</span></div>
-                    <div className="pt-4 border-t border-slate-100 flex justify-between items-end"><span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Expected Bank</span><span className="text-lg font-black text-indigo-600">₹{(bookBalance + unreconciledVouchers.reduce((sum, v) => { const e = v.entries.find(ent => ent.ledgerId === selectedBank)!; return sum + ((e.debit || 0) - (e.credit || 0)); }, 0)).toLocaleString('en-IN')}</span></div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <button onClick={handleAutoMatch} disabled={isAutoMatching} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-50">
-                    <RotateCcw size={14} className={isAutoMatching ? 'animate-spin' : ''} /> {isAutoMatching ? 'Matching...' : 'Auto-Match Entries'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0 space-y-6">
-            {!selectedBank ? (
-              <div className="h-[400px] bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center text-center p-12 opacity-50">
-                 <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-slate-200 mb-6 shadow-sm"><CheckCircle2 size={40} /></div>
-                 <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Reconciliation Terminal</h4>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] max-w-[240px] mt-2 leading-relaxed">Select a financial ledger to synchronize book entries with bank statements.</p>
-              </div>
-            ) : (
-              <>
-                {/* Statement Entries */}
-                {currentStatements.length > 0 && (
-                  <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Bank Statement ({currentStatements.length})</h4>
-                      <span className="text-[9px] font-black text-slate-400">{matchedStatements.length} matched | {unmatchedStatements.length} open</span>
-                    </div>
-                    <div className="overflow-auto max-h-[300px] custom-scrollbar">
-                      <table className="w-full text-left text-[11px]">
-                        <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                          <tr><th className="px-6 py-3">Date</th><th className="px-6 py-3">Description</th><th className="px-6 py-3 text-right">Amount</th><th className="px-6 py-3 text-center">Status</th></tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {currentStatements.sort((a, b) => b.date.localeCompare(a.date)).map(s => (
-                            <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isMatched ? 'opacity-60' : ''}`}>
-                              <td className="px-6 py-3 font-bold text-slate-400">{s.date}</td>
-                              <td className="px-6 py-3 font-bold text-slate-600 truncate max-w-[200px]">{s.description}</td>
-                              <td className={`px-6 py-3 text-right font-black ${s.type === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>₹{s.amount.toLocaleString('en-IN')}</td>
-                              <td className="px-6 py-3 text-center">
-                                <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${s.isMatched ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{s.isMatched ? 'Matched' : 'Open'}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending Book Entries */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden flex flex-col animate-in fade-in">
-                  <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/30">
-                      <div className="text-center sm:text-left">
-                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Pending Book Entries</h4>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Verification sequence required</p>
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <div className="hidden sm:block relative group">
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest cursor-help border-b border-dotted border-slate-300">File Formats</span>
-                          <div className="absolute bottom-full right-0 mb-2 w-64 bg-slate-900 text-white text-[8px] font-bold p-3 rounded-xl shadow-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50 leading-relaxed">
-                            Expected CSV columns: <span className="text-emerald-300">Date, Description, Amount</span><br/>
-                            Or PDF: <span className="text-emerald-300">Standard text-based statement format</span><br/>
-                            Matches transaction narratives dynamically.
-                          </div>
-                        </div>
-                        <button onClick={handleAutoMatch} disabled={isAutoMatching} className="px-4 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
-                          <RotateCcw size={14} /> Auto-Match
-                        </button>
-                        <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="px-4 py-2.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-500/20 active:scale-95">
-                          <UploadCloud size={16} /> {isImporting ? 'Importing...' : 'Import CSV/PDF'}
-                        </button>
-                      </div>
-                  </div>
-                  
-                  <div className="overflow-auto max-h-[400px] custom-scrollbar">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                        <tr><th className="px-8 py-5">Date</th><th className="px-8 py-5">Particulars</th><th className="px-8 py-5 text-right">Debit (₹)</th><th className="px-8 py-5 text-right">Credit (₹)</th><th className="px-8 py-5 text-center">Action</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {unreconciledVouchers.length === 0 ? (
-                          <tr><td colSpan={5} className="py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">Registry is Synchronized</td></tr>
-                        ) : unreconciledVouchers.map(v => {
-                          const entry = v.entries.find(e => e.ledgerId === selectedBank)!;
-                          const opposite = v.entries.find(e => e.ledgerId !== selectedBank);
-                          return (
-                            <tr key={v.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-8 py-6 font-bold text-slate-400">{v.date}</td>
-                              <td className="px-8 py-6"><p className="font-black text-slate-800 uppercase">{opposite?.ledgerName || 'Multi-ledger Offset'}</p><p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic leading-tight truncate max-w-[200px]">"{v.narration}"</p></td>
-                              <td className="px-8 py-6 text-right font-black text-emerald-600 text-sm">{(entry.debit || 0) > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '---'}</td>
-                              <td className="px-8 py-6 text-right font-black text-rose-600 text-sm">{(entry.credit || 0) > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '---'}</td>
-                              <td className="px-8 py-6 text-center"><button onClick={() => handleMatch(v.id)} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all">Match Entry</button></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 'preview' && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden animate-in fade-in">
-          <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
-            <div>
-              <h3 className="text-base font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">Auto-Voucher Drafts Review</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Review ledger assignments and customize rules dynamically before posting</p>
-            </div>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => { setStep('idle'); setDrafts([]); }} 
-                className="px-6 py-3 bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
-              >
-                Cancel Review
-              </button>
-              <button 
-                onClick={handlePostAll} 
-                className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all hover:bg-emerald-700"
-              >
-                Post Vouchers
-              </button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[11px]">
-              <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b z-10">
-                <tr>
-                  <th className="px-6 py-4">Transaction Details</th>
-                  <th className="px-6 py-4 text-right">Value (₹)</th>
-                  <th className="px-6 py-4">Voucher Type</th>
-                  <th className="px-6 py-4">Debit Ledger</th>
-                  <th className="px-6 py-4">Credit Ledger</th>
-                  <th className="px-6 py-4">Narration</th>
-                  <th className="px-6 py-4 text-center">Automation</th>
-                  <th className="px-6 py-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {drafts.map((draft, idx) => (
-                  <tr key={idx} className={`hover:bg-slate-50/50 transition-colors ${draft.skip ? 'opacity-40 bg-slate-50' : ''}`}>
-                    <td className="px-6 py-4 max-w-[200px]">
-                      <span className="text-[9px] font-bold text-slate-400 block mb-1">{draft.date}</span>
-                      <span className="font-bold text-slate-800 block truncate" title={draft.description}>{draft.description}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className={`font-black text-xs ${draft.txType === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {draft.txType === 'Credit' ? '+' : '-'} ₹{draft.amount.toLocaleString('en-IN')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select 
-                        value={draft.voucherType} 
-                        onChange={(e) => updateDraft(idx, { voucherType: e.target.value as VoucherType })}
-                        className="p-2 border rounded-xl text-xs bg-white uppercase font-black tracking-tight outline-none focus:ring-4 focus:ring-indigo-500/5"
-                        disabled={draft.skip}
-                      >
-                        <option value="Payment">Payment</option>
-                        <option value="Receipt">Receipt</option>
-                        <option value="Contra">Contra</option>
-                        <option value="Journal">Journal</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select 
-                        value={draft.drLedgerId} 
-                        onChange={(e) => {
-                          const l = ledgers.find(lg => lg.id === e.target.value);
-                          updateDraft(idx, { drLedgerId: e.target.value, drLedgerName: l?.name || e.target.value });
-                        }}
-                        className="p-2 border rounded-xl text-xs bg-white uppercase font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 max-w-[150px] truncate"
-                        disabled={draft.skip}
-                      >
-                        {ledgers.map(l => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select 
-                        value={draft.crLedgerId} 
-                        onChange={(e) => {
-                          const l = ledgers.find(lg => lg.id === e.target.value);
-                          updateDraft(idx, { crLedgerId: e.target.value, crLedgerName: l?.name || e.target.value });
-                        }}
-                        className="p-2 border rounded-xl text-xs bg-white uppercase font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 max-w-[150px] truncate"
-                        disabled={draft.skip}
-                      >
-                        {ledgers.map(l => (
-                          <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-6 py-4">
-                      <input 
-                        type="text" 
-                        value={draft.narration} 
-                        onChange={(e) => updateDraft(idx, { narration: e.target.value })}
-                        className="p-2 border rounded-xl text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 w-44 font-medium"
-                        placeholder="Narration Text"
-                        disabled={draft.skip}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                        <input 
-                          type="checkbox" 
-                          checked={!!(draft as any).saveRule} 
-                          onChange={(e) => updateDraft(idx, { saveRule: e.target.checked })} 
-                          className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                          disabled={draft.skip}
-                        />
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">Save Rule</span>
-                      </label>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        onClick={() => updateDraft(idx, { skip: !draft.skip })}
-                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight active:scale-95 border transition-all ${
-                          draft.skip 
-                            ? 'bg-rose-50 text-rose-600 border-rose-200' 
-                            : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600'
-                        }`}
-                      >
-                        {draft.skip ? 'Skipped' : 'Skip'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {step === 'posting' && (
-        <div className="h-[400px] bg-white rounded-[2.5rem] border border-slate-300 shadow-xl flex flex-col items-center justify-center text-center p-12 animate-in fade-in">
-           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-           <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Posting Vouchers to Ledger</h4>
-           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Writing transaction records dynamically. Please wait...</p>
-        </div>
-      )}
-
-      {step === 'done' && postResult && (
-        <div className="h-[400px] bg-white rounded-[2.5rem] border border-slate-300 shadow-xl flex flex-col items-center justify-center text-center p-12 animate-in fade-in">
-           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2rem] flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/10"><CheckCircle2 size={40} /></div>
-           <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Import & Classification Complete</h4>
-           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-2">{postResult.posted} Vouchers posted successfully · {postResult.skipped} Entries skipped</p>
-           <button onClick={() => { setStep('idle'); setDrafts([]); setPostResult(null); }} className="mt-8 px-6 py-3.5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 shadow-xl transition-all">Return to Terminal</button>
-        </div>
-      )}
-
-      {/* --- Automation Rules Manager Modal --- */}
-      {showRulesModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden max-h-[85vh]">
-            <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Settings className="text-indigo-500" size={20} /> Automation Rules Manager</h3>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Automatic classification keyword patterns for descriptions</p>
-              </div>
-              <button onClick={() => setShowRulesModal(false)} className="w-10 h-10 bg-white hover:bg-slate-100 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 active:scale-95 transition-all"><X size={18} /></button>
-            </div>
-            <div className="p-8 overflow-y-auto custom-scrollbar flex-1 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bankRules.length} Rules Defined</span>
-                <button 
-                  onClick={() => setShowAddRuleModal(true)} 
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all active:scale-95"
-                >
-                  <Plus size={14} /> Add Rule
-                </button>
-              </div>
-
-              {bankRules.length === 0 ? (
-                <div className="py-16 text-center text-slate-300 font-black uppercase tracking-[0.2em] text-[9px] border-2 border-dashed border-slate-100 rounded-2xl">
-                  No automated rules configured. Create one to classify imports.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 border rounded-2xl overflow-hidden bg-slate-50/50">
-                  {bankRules.map(rule => (
-                    <div key={rule.id} className="p-4 flex justify-between items-center hover:bg-white transition-colors bg-white/40">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-800 uppercase">{rule.ruleLabel}</span>
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-black uppercase rounded-md">Keyword: "{rule.pattern}"</span>
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-md">Type: {rule.txType}</span>
-                        </div>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-1 flex items-center gap-2">
-                          <span>Vch: <strong className="text-slate-600">{rule.voucherType}</strong></span>
-                          <span>·</span>
-                          <span>Dr: <strong className="text-slate-600">{rule.drLedgerName}</strong></span>
-                          <span>·</span>
-                          <span>Cr: <strong className="text-slate-600">{rule.crLedgerName}</strong></span>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => removeBankRule(rule.id)} 
-                        className="w-8 h-8 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors border border-slate-100 active:scale-95"
-                        title="Delete Rule"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button onClick={() => setShowRulesModal(false)} className="px-6 py-3.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">Close Rules Manager</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- Add Automation Rule Modal --- */}
-      {showAddRuleModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 bg-indigo-50/30 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Plus size={18} className="text-indigo-600"/> Add Automation Rule</h3>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Specify pattern matching parameters</p>
-              </div>
-              <button onClick={() => setShowAddRuleModal(false)} className="w-10 h-10 bg-white hover:bg-slate-100 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 active:scale-95 transition-all"><X size={18} /></button>
-            </div>
-            <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              <FormRow label="Rule Label / Description">
-                <input 
-                  type="text" 
-                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5"
-                  placeholder="e.g. Salary Payment, Monthly Rent"
-                  value={ruleLabel}
-                  onChange={(e) => setRuleLabel(e.target.value)}
-                />
-              </FormRow>
-
-              <FormRow label="Pattern (Keyword to Match Description)">
-                <input 
-                  type="text" 
-                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
-                  placeholder="e.g. SALARY, RENT, ZOMATO"
-                  value={rulePattern}
-                  onChange={(e) => setRulePattern(e.target.value)}
-                />
-              </FormRow>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormRow label="Statement Side">
-                  <select 
-                    value={ruleTxType} 
-                    onChange={(e) => setRuleTxType(e.target.value as any)}
-                    className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
-                  >
-                    <option value="Both">Debit & Credit</option>
-                    <option value="Debit">Debit Only (Spend)</option>
-                    <option value="Credit">Credit Only (Income)</option>
-                  </select>
-                </FormRow>
-
-                <FormRow label="Voucher Type">
-                  <select 
-                    value={ruleVoucherType} 
-                    onChange={(e) => setRuleVoucherType(e.target.value as VoucherType)}
-                    className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
-                  >
-                    <option value="Payment">Payment</option>
-                    <option value="Receipt">Receipt</option>
-                    <option value="Contra">Contra</option>
-                    <option value="Journal">Journal</option>
-                  </select>
-                </FormRow>
-              </div>
-
-              <FormRow label="Debit Account">
-                <select 
-                  value={ruleDrLedger} 
-                  onChange={(e) => setRuleDrLedger(e.target.value)}
-                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
-                >
-                  <option value="">Select Ledger...</option>
-                  {ledgers.map(l => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </FormRow>
-
-              <FormRow label="Credit Account">
-                <select 
-                  value={ruleCrLedger} 
-                  onChange={(e) => setRuleCrLedger(e.target.value)}
-                  className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase"
-                >
-                  <option value="">Select Ledger...</option>
-                  {ledgers.map(l => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
-              </FormRow>
-            </div>
-            <div className="p-8 border-t border-slate-100 bg-slate-50/90 backdrop-blur-md flex gap-4">
-              <button onClick={() => setShowAddRuleModal(false)} className="flex-1 bg-white border border-slate-300 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400">Abort</button>
-              <button onClick={handleSaveRule} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 active:scale-95">Save Rule</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-const TrialBalanceView: React.FC<{ ledgers: Ledger[], accountGroups: AccountGroup[] }> = ({ ledgers, accountGroups }) => {
-  const categories = ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'];
-  
-  const processedLedgers = useMemo(() => {
-    const hasNegativeBalances = ledgers.some(l => (l.currentBalance || 0) < 0);
-    return ledgers.map(l => {
-      const bal = l.currentBalance || 0;
-      const g = accountGroups.find(g => g.id === l.groupId);
-      const type = g ? g.type : 'Asset';
-      const isCreditNormal = ['Liability', 'Equity', 'Revenue'].includes(type);
-      
-      let debit = 0;
-      let credit = 0;
-      
-      if (hasNegativeBalances) {
-        if (bal >= 0) {
-          debit = bal;
-        } else {
-          credit = Math.abs(bal);
-        }
-      } else {
-        if (isCreditNormal) {
-          credit = bal;
-        } else {
-          debit = bal;
-        }
-      }
-      return {
-        ...l,
-        debit,
-        credit
-      };
-    });
-  }, [ledgers, accountGroups]);
-
-  const totals = useMemo(() => {
-    return processedLedgers.reduce((acc, l) => {
-      acc.debit += l.debit;
-      acc.credit += l.credit;
-      return acc;
-    }, { debit: 0, credit: 0 });
-  }, [processedLedgers]);
-
-  return (
-    <div className="p-4 sm:p-8 space-y-8 animate-in fade-in pb-20">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 border-b border-slate-100 pb-6">
-        <div>
-           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2"><Briefcase size={20} className="text-medical-600"/> Trial Balance Statement</h3>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">Integrity Status: <span className={Math.abs(totals.debit - totals.credit) < 0.1 ? 'text-emerald-600' : 'text-rose-600'}>{Math.abs(totals.debit - totals.credit) < 0.1 ? 'Balanced Registry' : 'Mismatch Detected'}</span></p>
-        </div>
-        <div className="flex gap-8 bg-slate-50 p-6 rounded-3xl border border-slate-200 shadow-inner w-full sm:w-auto">
-           <div className="text-right flex-1 sm:flex-none">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debits</p>
-              <p className="text-xl font-black text-emerald-600 tracking-tight">₹{totals.debit.toLocaleString('en-IN')}</p>
-           </div>
-           <div className="text-right flex-1 sm:flex-none">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credits</p>
-              <p className="text-xl font-black text-rose-600 tracking-tight">₹{totals.credit.toLocaleString('en-IN')}</p>
-           </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-            <table className="w-full text-left text-[11px]">
-                <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-                    <tr><th className="px-8 py-5">Particulars / Fiscal Classification</th><th className="px-8 py-5 text-right w-44">Debit (₹)</th><th className="px-8 py-5 text-right w-44">Credit (₹)</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {categories.map(cat => {
-                        const groupsInCat = accountGroups.filter(g => g.type === cat);
-                        const ledgersInCat = processedLedgers.filter(l => groupsInCat.some(g => g.id === l.groupId));
-                        const catDebit = ledgersInCat.reduce((sum, l) => sum + l.debit, 0);
-                        const catCredit = ledgersInCat.reduce((sum, l) => sum + l.credit, 0);
-                        if (ledgersInCat.length === 0) return null;
-                        return (
-                            <React.Fragment key={cat}>
-                                <tr className="bg-slate-50/80"><td className="px-8 py-4 font-black text-slate-800 uppercase tracking-widest text-[10px]">{cat} Ledger Accounts</td><td className="px-8 py-4 text-right font-black text-slate-800">{catDebit > 0 ? `₹${catDebit.toLocaleString('en-IN')}` : '---'}</td><td className="px-8 py-4 text-right font-black text-slate-800">{catCredit > 0 ? `₹${catCredit.toLocaleString('en-IN')}` : '---'}</td></tr>
-                                {ledgersInCat.map(l => (
-                                    <tr key={l.id} className="hover:bg-slate-50 transition-colors"><td className="px-12 py-3 text-slate-500 font-bold uppercase tracking-tight">{l.name}</td><td className="px-8 py-3 text-right font-black text-emerald-600">{l.debit > 0 ? `₹${l.debit.toLocaleString('en-IN')}` : '---'}</td><td className="px-8 py-3 text-right font-black text-rose-600">{l.credit > 0 ? `₹${l.credit.toLocaleString('en-IN')}` : '---'}</td></tr>
-                                ))}
-                            </React.Fragment>
-                        );
-                    })}
-                </tbody>
-                <tfoot className="bg-slate-900 text-white">
-                    <tr><td className="px-8 py-8 font-black uppercase tracking-[0.3em] text-xs">Registry Consolidated Balance</td><td className="px-8 py-8 text-right font-black text-2xl tracking-tighter">₹{totals.debit.toLocaleString('en-IN')}</td><td className="px-8 py-8 text-right font-black text-2xl tracking-tighter">₹{totals.credit.toLocaleString('en-IN')}</td></tr>
-                </tfoot>
-            </table>
-        </div>
-      </div>
-      
-      {Math.abs(totals.debit - totals.credit) > 0.1 && (
-          <div className="p-6 bg-rose-50 border border-rose-200 rounded-[2rem] flex items-center gap-4 text-rose-600 shadow-lg shadow-rose-100 animate-in slide-in-from-bottom-4">
-           <AlertCircle size={24} className="shrink-0" /><p className="text-[11px] font-black uppercase tracking-widest leading-relaxed">Registry Mismatch of ₹{Math.abs(totals.debit - totals.credit).toLocaleString('en-IN')}. Verify audit trail for orphaned ledger postings.</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const DayBookView: React.FC<{ 
-  vouchers: AccountingVoucher[], 
-  date: string, 
-  onVoucherSelect: (v: AccountingVoucher) => void 
-}> = ({ vouchers, date, onVoucherSelect }) => {
-  const dayVouchers = useMemo(() => {
-    return vouchers
-      .filter(v => v.date === date)
-      .sort((a, b) => a.id.localeCompare(b.id));
-  }, [vouchers, date]);
-
-  const totals = useMemo(() => {
-    return dayVouchers.reduce((acc, v) => acc + (v.totalAmount || 0), 0);
-  }, [dayVouchers]);
-
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in pb-20 overflow-auto custom-scrollbar flex-1">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 border-b border-slate-100 pb-6">
-        <div>
-           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-             <Calendar size={20} className="text-medical-600"/> Day Book Registry
-           </h3>
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-2">
-             Date: <span className="text-medical-600 font-black">{date}</span> | Transactions: <span className="text-medical-600 font-black">{dayVouchers.length}</span>
-           </p>
-        </div>
-        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 shadow-inner w-full sm:w-auto text-right">
-           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Consolidated Value</p>
-           <p className="text-xl font-black text-slate-800 tracking-tight">₹{totals.toLocaleString('en-IN')}</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-        <table className="w-full text-left text-[11px]">
-            <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-                <tr>
-                  <th className="px-8 py-5">Vch Number</th>
-                  <th className="px-8 py-5">Particulars / Ledgers</th>
-                  <th className="px-8 py-5">Vch Type</th>
-                  <th className="px-8 py-5 text-right w-44">Total Amount (₹)</th>
-                </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {dayVouchers.length === 0 ? (
-                  <tr><td colSpan={4} className="py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em] text-[10px]">No Transactions Logged Today</td></tr>
-                ) : dayVouchers.map(v => (
-                  <tr key={v.id} onClick={() => onVoucherSelect(v)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
-                    <td className="px-8 py-6 font-black text-medical-600">{v.voucherNumber}</td>
-                    <td className="px-8 py-6">
-                      <div className="font-bold text-slate-800 uppercase">
-                        {v.entries.map(e => e.ledgerName).join(' | ')}
-                      </div>
-                      {v.narration && <p className="text-[9px] text-slate-400 italic font-bold mt-1">"{v.narration}"</p>}
-                    </td>
-                    <td className="px-8 py-6 uppercase font-black text-[9px]"><span className="px-2 py-0.5 bg-slate-100 rounded-lg">{v.type}</span></td>
-                    <td className="px-8 py-6 text-right font-black text-slate-900 text-sm">₹{(v.totalAmount || 0).toLocaleString('en-IN')}</td>
-                  </tr>
-                ))}
-            </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
-const AGING_BUCKETS = [
-  { label: '0–30 Days', min: 0, max: 30, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  { label: '31–60 Days', min: 31, max: 60, color: 'text-amber-600', bg: 'bg-amber-50' },
-  { label: '61–90 Days', min: 61, max: 90, color: 'text-orange-600', bg: 'bg-orange-50' },
-  { label: '90+ Days', min: 91, max: Infinity, color: 'text-rose-600', bg: 'bg-rose-50' },
-];
-
-const AgingView: React.FC<{ invoices: any[] }> = ({ invoices }) => {
-  const today = new Date();
-
-  const outstanding = useMemo(() => {
-    return invoices.filter(inv =>
-      inv.status !== 'Draft' &&
-      inv.status !== 'Cancelled' &&
-      inv.documentType !== 'Quotation' &&
-      (inv.balanceDue === undefined || inv.balanceDue > 0)
-    );
-  }, [invoices]);
-
-  const getAgingBucket = (dateStr: string) => {
-    const invDate = new Date(dateStr);
-    const daysDiff = Math.floor((today.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24));
-    return AGING_BUCKETS.find(b => daysDiff >= b.min && daysDiff <= b.max) || AGING_BUCKETS[AGING_BUCKETS.length - 1];
-  };
-
-  const receivables = useMemo(() => outstanding.filter(i => i.documentType === 'Invoice' || !i.documentType), [outstanding]);
-  const payables = useMemo(() => outstanding.filter(i => i.documentType === 'SupplierPO'), [outstanding]);
-
-  const renderAgingTable = (title: string, items: any[], icon: React.ReactNode) => {
-    const buckets = AGING_BUCKETS.map(b => {
-      const bucketItems = items.filter(i => getAgingBucket(i.date) === b);
-      const total = bucketItems.reduce((sum: number, i: any) => sum + (i.balanceDue || i.grandTotal || 0), 0);
-      return { ...b, items: bucketItems, total };
-    });
-    const grandTotal = buckets.reduce((sum: number, b: any) => sum + b.total, 0);
-
+  // ========== GST ==========
+  const renderGST = () => {
+    const sales = vouchers.filter(v => v.type === 'Sales');
+    const total = sales.reduce((s, v) => s + v.totalAmount, 0);
+    const sections: GSTR1Section[] = [
+      { section: 'B2B (Registered)', invoices: sales.length, taxableValue: total, totalGst: Math.round(total * 0.12), status: 'Ready' },
+      { section: 'B2C (Unreg/₹2.5L+)', invoices: 0, taxableValue: 0, totalGst: 0, status: 'N/A' },
+      { section: 'Export', invoices: 0, taxableValue: 0, totalGst: 0, status: 'N/A' },
+      { section: 'Credit Notes', invoices: vouchers.filter(v => v.type === 'Credit Note').length, taxableValue: vouchers.filter(v => v.type === 'Credit Note').reduce((s, v) => s + v.totalAmount, 0), totalGst: 0, status: 'Ready' },
+    ];
     return (
-      <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
-          {icon}
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">{title}</h3>
-          <span className="ml-auto text-xs font-black text-slate-500">₹{grandTotal.toLocaleString('en-IN')}</span>
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{marginBottom:12}}>GSTR-1 REPORT — Period: {new Date().toLocaleDateString('en-IN', {month:'long', year:'numeric'})}</div>
+        <table className="tally-rpt" style={{width:'100%', marginBottom:12}}>
+          <thead><tr><th>Section</th><th style={{textAlign:'right'}}>Invoices</th><th style={{textAlign:'right'}}>Taxable Value</th><th style={{textAlign:'right'}}>Total GST</th><th>Status</th></tr></thead>
+          <tbody>
+            {sections.map((s, i) => (
+              <tr key={i}><td>{s.section}</td><td style={{textAlign:'right'}}>{s.invoices}</td><td className="amt">₹{fmt(s.taxableValue)}</td><td className="amt">₹{fmt(s.totalGst)}</td><td><span style={{color: s.status === 'Ready' ? '#00C853' : '#3A6A90'}}>{s.status}</span></td></tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{background:'#091D30', border:'1px solid #1A3A5A', padding:12, marginBottom:12}}>
+          <div style={{color:'#90CAF9', fontSize:11, fontWeight:'bold', marginBottom:6}}>HSN Summary</div>
+          <div style={{color:'#A8CCE8', fontSize:11, fontFamily:'Courier New,monospace'}}>9018 — Medical devices: ₹{fmt(total)} @ 12% = ₹{fmt(Math.round(total * 0.12))}</div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[11px]">
-            <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-              <tr>
-                <th className="px-6 py-4">Customer / Vendor</th>
-                <th className="px-6 py-4">Invoice #</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4 text-right">Amount</th>
-                <th className="px-6 py-4 text-right">Balance Due</th>
-                <th className="px-6 py-4 text-center">Aging</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {items.length === 0 ? (
-                <tr><td colSpan={6} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No outstanding</td></tr>
-              ) : items.map((inv: any) => {
-                const bucket = getAgingBucket(inv.date);
-                const daysDiff = Math.floor((today.getTime() - new Date(inv.date).getTime()) / (1000 * 60 * 60 * 24));
-                return (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-black text-slate-800 uppercase">{inv.customerName}</td>
-                    <td className="px-6 py-4 font-bold text-medical-600">{inv.invoiceNumber}</td>
-                    <td className="px-6 py-4 font-bold text-slate-400">{inv.date}</td>
-                    <td className="px-6 py-4 text-right font-black text-slate-600">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-right font-black text-rose-600">₹{(inv.balanceDue || inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-0.5 rounded-lg font-black text-[9px] uppercase tracking-widest ${bucket.color} ${bucket.bg}`}>{bucket.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {buckets.map((b: any) => (
-            <div key={b.label} className={`${b.bg} ${b.color} p-3 rounded-xl text-center`}>
-              <p className="text-[9px] font-black uppercase tracking-widest">{b.label}</p>
-              <p className="text-sm font-black">₹{b.total.toLocaleString('en-IN')}</p>
-            </div>
-          ))}
+        <div style={{display:'flex', gap:8}}>
+          <button className="tally-fkey" style={{background:'#0A3060', borderColor:'#2196F3'}}>Export JSON (GSTR-1)</button>
+          <button className="tally-fkey">Export Excel</button>
+          <button className="tally-fkey">Print</button>
         </div>
       </div>
     );
   };
 
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex items-center gap-4 border-b border-slate-100 pb-6">
-        <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><TrendingUp size={20} /></div>
-        <div>
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Outstanding Aging Report</h3>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{outstanding.length} outstanding invoices</p>
+  // ========== SHORTCUTS ==========
+  const renderShortcuts = () => {
+    const groups = [
+      { title: 'VOUCHER ENTRY (press any key below to test)', items: [
+        { key: 'F4', desc: 'Contra Voucher — Cash/Bank transfer', ctx: '✓ Working' },
+        { key: 'F5', desc: 'Payment Voucher — Pay vendor/expense', ctx: '✓ Working' },
+        { key: 'F6', desc: 'Receipt Voucher — Receive from customer', ctx: '✓ Working' },
+        { key: 'F7', desc: 'Journal Voucher — Adjustments/accruals', ctx: '✓ Working' },
+        { key: 'F8', desc: 'Sales Invoice — GST-integrated invoice', ctx: '✓ Working' },
+        { key: 'F9', desc: 'Purchase Invoice — Purchase + GST entry', ctx: '✓ Working' },
+        { key: 'Ctrl+F8', desc: 'Credit Note — Sales return', ctx: '✓ Working' },
+        { key: 'Ctrl+F9', desc: 'Debit Note — Purchase return', ctx: '✓ Working' },
+      ]},
+      { title: 'NAVIGATION', items: [
+        { key: 'F1', desc: 'Gateway of Accounts — Home menu', ctx: '✓ Working' },
+        { key: 'F2', desc: 'Change Date — Change voucher/list date', ctx: '✓ Working' },
+        { key: 'F3', desc: 'Company Info — Show current company', ctx: '✓ Working' },
+        { key: 'Alt+G', desc: 'Go To — Global search, type to jump', ctx: '✓ Working' },
+        { key: 'Escape', desc: 'Go Back — One level up / quit voucher', ctx: '✓ Working' },
+        { key: 'Tab / Enter', desc: 'Next Field — Move to next input', ctx: 'Native' },
+        { key: 'Shift+Tab', desc: 'Previous Field — Move back', ctx: 'Native' },
+        { key: 'Ctrl+Home', desc: 'Top of page / first record', ctx: '✓ Working' },
+        { key: 'Ctrl+End', desc: 'Bottom of page / last record', ctx: '✓ Working' },
+      ]},
+      { title: 'VOUCHER ACTIONS (inside voucher form)', items: [
+        { key: 'Ctrl+A', desc: 'Accept & Save — Post voucher to ledger', ctx: '✓ Working' },
+        { key: 'Ctrl+Q', desc: 'Quit without saving — Discard voucher', ctx: '✓ Working' },
+        { key: 'Ctrl+Enter', desc: 'Accept without field fill', ctx: '✓ Working' },
+        { key: 'Alt+C', desc: 'Create Master — New ledger inline', ctx: '✓ Working' },
+        { key: 'Alt+D', desc: 'Delete Line — Remove current entry', ctx: '✓ Working' },
+        { key: 'Alt+I', desc: 'Insert Line — Add row above cursor', ctx: '✓ Working' },
+        { key: 'Alt+P', desc: 'Print — Print current voucher', ctx: '✓ Working' },
+        { key: 'Alt+E', desc: 'Export — Export voucher data', ctx: '✓ Working' },
+      ]},
+      { title: 'REPORTS & CONFIG', items: [
+        { key: 'Alt+F1', desc: 'Detailed view toggle (reports)', ctx: '✓ Working' },
+        { key: 'Alt+F2', desc: 'Change period (reports)', ctx: '✓ Working' },
+        { key: 'Alt+P', desc: 'Print current report', ctx: '✓ Working' },
+        { key: 'Alt+E', desc: 'Export report data', ctx: '✓ Working' },
+        { key: 'F11', desc: 'Features configuration', ctx: '✓ Working' },
+        { key: 'F12', desc: 'Voucher/Report configuration', ctx: '✓ Working' },
+      ]},
+    ];
+    return (
+      <div style={{padding:'8px 14px', flex:1, overflow:'auto'}}>
+        <div className="tally-section-header" style={{marginBottom:12}}>
+          ALL SHORTCUT KEYS — <span style={{color:'#64B5F6', fontWeight:'normal', fontSize:11}}>Press any key to test, all shortcuts are active</span>
         </div>
-        <div className="ml-auto text-right">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Outstanding</p>
-          <p className="text-2xl font-black text-slate-800">₹{outstanding.reduce((s: number, i: any) => s + (i.balanceDue || i.grandTotal || 0), 0).toLocaleString('en-IN')}</p>
-        </div>
-      </div>
-      {renderAgingTable('Receivables (Sales)', receivables, <ArrowUpRight size={18} className="text-emerald-600" />)}
-      {payables.length > 0 && renderAgingTable('Payables (Purchases)', payables, <ArrowDownLeft size={18} className="text-rose-600" />)}
-    </div>
-  );
-};
-
-const getTaxRates = (taxRate: number, customerGstin: string, sellerGstin: string) => {
-  const custState = (customerGstin || '').trim().slice(0, 2);
-  const sellState = (sellerGstin || '33APGPS4675G2ZL').trim().slice(0, 2);
-  const isIntraState = !custState || custState === sellState;
-  
-  if (isIntraState) {
-    return {
-      cgstRate: taxRate / 2,
-      sgstRate: taxRate / 2,
-      igstRate: 0
-    };
-  } else {
-    return {
-      cgstRate: 0,
-      sgstRate: 0,
-      igstRate: taxRate
-    };
-  }
-};
-
-const GSTView: React.FC<{ invoices: any[], purchaseRecords: any[] }> = ({ invoices, purchaseRecords }) => {
-  const [gstTab, setGstTab] = useState<'gstr1' | 'gstr3b' | 'hsn'>('gstr1');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-
-  const gstInvoices = useMemo(() => {
-    return invoices.filter(i =>
-      i.date.startsWith(selectedMonth) &&
-      i.status !== 'Draft' &&
-      i.status !== 'Cancelled' &&
-      i.documentType !== 'Quotation' &&
-      (i.documentType === 'Invoice' || !i.documentType) &&
-      i.items && i.items.length > 0
-    );
-  }, [invoices, selectedMonth]);
-
-  const gstSummary = useMemo(() => {
-    let totalTaxable = 0, totalCGST = 0, totalSGST = 0, totalIGST = 0;
-    const hsnMap: Record<string, { taxable: number; cgst: number; sgst: number; igst: number; qty: number; desc: string }> = {};
-
-    gstInvoices.forEach(inv => {
-      const customerGstin = inv.customerGstin || '';
-      const sellerGstin = inv.sellerProfile?.gstin || '33APGPS4675G2ZL';
-
-      (inv.items || []).forEach((item: any) => {
-        const taxable = item.amount || (item.unitPrice * item.quantity) || 0;
-        const taxRate = item.taxRate !== undefined ? item.taxRate : 18;
-        const rates = getTaxRates(taxRate, customerGstin, sellerGstin);
-
-        const cgst = (taxable * rates.cgstRate) / 100;
-        const sgst = (taxable * rates.sgstRate) / 100;
-        const igst = (taxable * rates.igstRate) / 100;
-
-        totalTaxable += taxable;
-        totalCGST += cgst;
-        totalSGST += sgst;
-        totalIGST += igst;
-
-        const hsn = item.hsn || 'GENERAL';
-        if (!hsnMap[hsn]) hsnMap[hsn] = { taxable: 0, cgst: 0, sgst: 0, igst: 0, qty: 0, desc: item.equipmentName || 'Goods/Services' };
-        hsnMap[hsn].taxable += taxable;
-        hsnMap[hsn].cgst += cgst;
-        hsnMap[hsn].sgst += sgst;
-        hsnMap[hsn].igst += igst;
-        hsnMap[hsn].qty += item.quantity || 0;
-      });
-    });
-
-    return { totalTaxable, totalCGST, totalSGST, totalIGST, hsnMap };
-  }, [gstInvoices]);
-
-  const gstr3bData = useMemo(() => {
-    const outward = gstInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-    
-    // ITC from purchase records
-    let itcTaxable = 0;
-    let itcCGST = 0;
-    let itcSGST = 0;
-    let itcIGST = 0;
-
-    purchaseRecords.filter(p => 
-      p.dateSupply.startsWith(selectedMonth) &&
-      p.status !== 'Draft' &&
-      p.status !== 'Cancelled'
-    ).forEach(p => {
-      if (p.items && p.items.length > 0) {
-        p.items.forEach((it: any) => {
-          const taxable = (it.rate * it.qty) || 0;
-          itcTaxable += taxable;
-          const cgstRate = it.cgstPercent !== undefined ? it.cgstPercent : (it.gstPercent ? it.gstPercent / 2 : 9);
-          const sgstRate = it.sgstPercent !== undefined ? it.sgstPercent : (it.gstPercent ? it.gstPercent / 2 : 9);
-          const igstRate = it.igstPercent !== undefined ? it.igstPercent : (it.totalIgst ? (it.totalIgst * 100 / taxable) : 0);
-
-          itcCGST += (taxable * cgstRate) / 100;
-          itcSGST += (taxable * sgstRate) / 100;
-          itcIGST += (taxable * igstRate) / 100;
-        });
-      } else {
-        const taxable = p.total - (p.totalGst || p.totalIgst || 0) - (p.packingCharges || 0) - (p.forwardingCharges || 0) - (p.freightCharges || 0);
-        itcTaxable += Math.max(0, taxable);
-        if (p.totalIgst > 0) {
-          itcIGST += p.totalIgst;
-        } else {
-          itcCGST += (p.totalGst || 0) / 2;
-          itcSGST += (p.totalGst || 0) / 2;
-        }
-      }
-    });
-
-    return {
-      outwardTaxable: gstSummary.totalTaxable,
-      outwardTotal: outward,
-      totalCGST: gstSummary.totalCGST,
-      totalSGST: gstSummary.totalSGST,
-      totalIGST: gstSummary.totalIGST,
-      totalTax: gstSummary.totalCGST + gstSummary.totalSGST + gstSummary.totalIGST,
-      itcTaxable,
-      itcCGST,
-      itcSGST,
-      itcIGST,
-      itcTax: itcCGST + itcSGST + itcIGST
-    };
-  }, [gstInvoices, gstSummary, purchaseRecords, selectedMonth]);
-
-  const handleExportGSTR1 = () => {
-    const headers = ["GSTIN", "Receiver Name", "Invoice No", "Date", "Value", "Taxable Value", "CGST", "SGST", "IGST", "Total Tax"];
-    const rows = gstInvoices.map(i => {
-      const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
-      let invTaxable = 0, invCGST = 0, invSGST = 0, invIGST = 0;
-      (i.items || []).forEach((it: any) => {
-        const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
-        const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
-        const rates = getTaxRates(taxRate, i.customerGstin || '', sellerGstin);
-        invTaxable += taxable;
-        invCGST += (taxable * rates.cgstRate) / 100;
-        invSGST += (taxable * rates.sgstRate) / 100;
-        invIGST += (taxable * rates.igstRate) / 100;
-      });
-
-      return [
-        i.customerGstin || "Unregistered",
-        `"${i.customerName.replace(/"/g, '""')}"`,
-        i.invoiceNumber,
-        i.date,
-        i.grandTotal,
-        invTaxable,
-        invCGST,
-        invSGST,
-        invIGST,
-        invCGST + invSGST + invIGST
-      ];
-    });
-
-    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `GSTR1_${selectedMonth}.csv`;
-    link.click();
-  };
-
-  const handleExportGSTR1JSON = () => {
-    const b2bInvoices = gstInvoices.filter(i => i.customerGstin);
-    const b2csInvoices = gstInvoices.filter(i => !i.customerGstin);
-
-    const json = {
-      gstin: "33APGPS4675G2ZL",
-      fp: selectedMonth.replace('-', ''),
-      version: "V1.0",
-      b2b: b2bInvoices.map(i => {
-        const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
-        const itms = (i.items || []).map((it: any, idx: number) => {
-          const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
-          const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
-          const rates = getTaxRates(taxRate, i.customerGstin || '', sellerGstin);
-          
-          return {
-            num: idx + 1,
-            itm_det: {
-              ty: "G",
-              hsn_sc: it.hsn || "0000",
-              txval: taxable,
-              rt: taxRate,
-              iamt: rates.igstRate > 0 ? (taxable * rates.igstRate / 100) : 0,
-              camt: rates.cgstRate > 0 ? (taxable * rates.cgstRate / 100) : 0,
-              samt: rates.sgstRate > 0 ? (taxable * rates.sgstRate / 100) : 0
-            }
-          };
-        });
-
-        return {
-          ctin: i.customerGstin,
-          inv: [{
-            inum: i.invoiceNumber,
-            idt: i.date,
-            val: i.grandTotal,
-            pos: (i.customerGstin || '').trim().slice(0, 2) || "33",
-            rchrg: "N",
-            inv_typ: "R",
-            itms
-          }]
-        };
-      }),
-      b2cs: b2csInvoices.map(i => {
-        const sellerGstin = i.sellerProfile?.gstin || '33APGPS4675G2ZL';
-        const invTaxable = (i.items || []).reduce((s: number, it: any) => s + (it.amount || (it.unitPrice * it.quantity) || 0), 0);
-        const invTax = (i.items || []).reduce((s: number, it: any) => s + (it.amount || (it.unitPrice * it.quantity) || 0) * (it.taxRate !== undefined ? it.taxRate : 18) / 100, 0);
-        const firstItemRate = i.items?.[0]?.taxRate || 18;
-        const rates = getTaxRates(firstItemRate, '', sellerGstin);
-
-        return {
-          sply_ty: rates.igstRate > 0 ? "INTER" : "INTRA",
-          pos: "33",
-          typ: "OE",
-          txval: invTaxable,
-          rt: firstItemRate,
-          iamt: rates.igstRate > 0 ? invTax : 0,
-          camt: rates.cgstRate > 0 ? invTax / 2 : 0,
-          samt: rates.sgstRate > 0 ? invTax / 2 : 0
-        };
-      })
-    };
-
-    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `GSTR1_${selectedMonth}.json`;
-    link.click();
-  };
-
-  const handleExportHSN = () => {
-    const headers = ["HSN/SAC", "Description", "Quantity", "Taxable Value", "CGST", "SGST", "IGST", "Total Tax"];
-    const rows = Object.entries(gstSummary.hsnMap).map(([hsn, data]) => [
-      hsn,
-      `"${data.desc.replace(/"/g, '""')}"`,
-      data.qty,
-      data.taxable,
-      data.cgst,
-      data.sgst,
-      data.igst,
-      data.cgst + data.sgst + data.igst
-    ]);
-
-    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `HSN_Summary_${selectedMonth}.csv`;
-    link.click();
-  };
-
-  return (
-    <div className="p-4 sm:p-8 space-y-6 animate-in fade-in overflow-auto custom-scrollbar flex-1">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 border-b border-slate-100 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><Percent size={20} /></div>
-          <div>
-            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">GST Reports</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{gstInvoices.length} taxable invoices for {selectedMonth}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 bg-slate-100 p-2 rounded-2xl w-full sm:w-auto">
-          <Calendar size={16} className="text-slate-400 ml-2" />
-          <input 
-            type="month" 
-            className="bg-transparent border-none text-xs font-black uppercase outline-none text-slate-700 w-full sm:w-auto"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-between items-center gap-4">
-        <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shadow-sm">
-          {[
-            { id: 'gstr1', label: 'GSTR-1 Summary' },
-            { id: 'gstr3b', label: 'GSTR-3B Summary' },
-            { id: 'hsn', label: 'HSN Grouping' }
-          ].map(t => (
-            <button key={t.id} onClick={() => setGstTab(t.id as any)}
-              className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${gstTab === t.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-            >{t.label}</button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          {gstTab === 'gstr1' && (
-            <>
-              <button onClick={handleExportGSTR1} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold">
-                <Download size={12} /> CSV
-              </button>
-              <button onClick={handleExportGSTR1JSON} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-md hover:bg-emerald-700 transition-all">
-                <Download size={12} /> JSON
-              </button>
-            </>
-          )}
-          {gstTab === 'hsn' && (
-            <button onClick={handleExportHSN} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold">
-              <Download size={12} /> Export CSV
-            </button>
-          )}
-        </div>
-      </div>
-
-      {gstTab === 'gstr1' && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GSTR-1 — Outward Supply Summary</h4>
-          </div>
-          <table className="w-full text-left text-[11px]">
-            <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-              <tr>
-                <th className="px-6 py-4">Invoice #</th>
-                <th className="px-6 py-4">Customer</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4 text-right">Taxable</th>
-                <th className="px-6 py-4 text-right">CGST</th>
-                <th className="px-6 py-4 text-right">SGST</th>
-                <th className="px-6 py-4 text-right">IGST</th>
-                <th className="px-6 py-4 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {gstInvoices.length === 0 ? (
-                <tr><td colSpan={8} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No GST invoices found</td></tr>
-              ) : gstInvoices.map(inv => {
-                const customerGstin = inv.customerGstin || '';
-                const sellerGstin = inv.sellerProfile?.gstin || '33APGPS4675G2ZL';
-                let invTaxable = 0, invCGST = 0, invSGST = 0, invIGST = 0;
-                
-                (inv.items || []).forEach((it: any) => {
-                  const taxable = it.amount || (it.unitPrice * it.quantity) || 0;
-                  const taxRate = it.taxRate !== undefined ? it.taxRate : 18;
-                  const rates = getTaxRates(taxRate, customerGstin, sellerGstin);
-                  invTaxable += taxable;
-                  invCGST += (taxable * rates.cgstRate) / 100;
-                  invSGST += (taxable * rates.sgstRate) / 100;
-                  invIGST += (taxable * rates.igstRate) / 100;
-                });
-                
-                return (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-black text-medical-600">{inv.invoiceNumber}</td>
-                    <td className="px-6 py-4 font-black text-slate-800 uppercase">{inv.customerName}</td>
-                    <td className="px-6 py-4 font-bold text-slate-400">{inv.date}</td>
-                    <td className="px-6 py-4 text-right font-black text-slate-600">₹{invTaxable.toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-right font-black text-emerald-600">₹{invCGST.toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-right font-black text-emerald-600">₹{invSGST.toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-right font-black text-indigo-600">₹{invIGST.toLocaleString('en-IN')}</td>
-                    <td className="px-6 py-4 text-right font-black text-slate-900">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="bg-slate-900 text-white">
-              <tr>
-                <td colSpan={3} className="px-6 py-5 font-black uppercase tracking-widest text-[10px]">Totals</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalTaxable.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalCGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalSGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalIGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{(gstSummary.totalTaxable + gstSummary.totalCGST + gstSummary.totalSGST + gstSummary.totalIGST).toLocaleString('en-IN')}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
-
-      {gstTab === 'gstr3b' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-              <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">GSTR-3B — Summary Return</h4>
-            </div>
-            <div className="p-8 space-y-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Outward Taxable Supplies</span>
-                  <span className="text-sm font-black text-slate-800">₹{gstr3bData.outwardTaxable.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Outward Value (incl. Tax)</span>
-                  <span className="text-sm font-black text-slate-800">₹{gstr3bData.outwardTotal.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-slate-200">
-                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Output Liability Breakdown</h5>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CGST Liability</span>
-                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.totalCGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">SGST Liability</span>
-                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.totalSGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">IGST Liability</span>
-                    <span className="text-sm font-black text-indigo-600">₹{gstr3bData.totalIGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Total Output Tax</span>
-                    <span className="text-lg font-black text-slate-900">₹{gstr3bData.totalTax.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200">
-                <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Input Tax Credit (ITC)</h5>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (CGST)</span>
-                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.itcCGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (SGST)</span>
-                    <span className="text-sm font-black text-emerald-600">₹{gstr3bData.itcSGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Eligible ITC (IGST)</span>
-                    <span className="text-sm font-black text-indigo-600">₹{gstr3bData.itcIGST.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Total ITC</span>
-                    <span className="text-lg font-black text-emerald-600">₹{gstr3bData.itcTax.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t-2 border-indigo-600">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-black text-slate-800 uppercase tracking-widest">Net Payable / (Refund)</span>
-                  <span className={`text-xl font-black ${gstr3bData.totalTax >= gstr3bData.itcTax ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    ₹{Math.abs(gstr3bData.totalTax - gstr3bData.itcTax).toLocaleString('en-IN')}
-                    <span className="text-[10px] ml-1">{gstr3bData.totalTax >= gstr3bData.itcTax ? 'Payable' : 'Carry Forward'}</span>
+        {groups.map((g, i) => (
+          <React.Fragment key={i}>
+            <div className="tally-menu-section-title">{g.title}</div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:2, marginBottom:8}}>
+              {g.items.map((item, j) => (
+                <div key={j} className="tally-gw-item" style={{cursor:'default', padding:'5px 8px'}}
+                  onClick={() => {
+                    const keyMap: Record<string, () => void> = {
+                      'F4': () => resetVf('Contra'), 'F5': () => resetVf('Payment'), 'F6': () => resetVf('Receipt'),
+                      'F7': () => resetVf('Journal'), 'F8': () => resetVf('Sales'), 'F9': () => resetVf('Purchase'),
+                      'Ctrl+F8': () => resetVf('Credit Note'), 'Ctrl+F9': () => resetVf('Debit Note'),
+                      'F1': () => { setScreen('gateway'); setShowVf(false); setStatusMsg('Gateway of Accounts'); },
+                      'Alt+G': () => { setShowGoto(true); setTimeout(() => gotoRef.current?.focus(), 50); },
+                      'F11': () => addNotification('Features', 'F11 Features configuration.', 'info'),
+                      'F12': () => addNotification('Configure', 'F12 Configuration.', 'info'),
+                    };
+                    if (keyMap[item.key]) keyMap[item.key]();
+                  }}>
+                  <span style={{display:'flex', alignItems:'baseline', gap:10}}>
+                    <span className="tally-fkey" style={{minWidth:90, textAlign:'center', cursor:'pointer', background:'#0F2A42', color:'#42A5F5'}}>{item.key}</span>
+                    <span style={{color:'#A8CCE8', fontSize:11}}>{item.desc}</span>
                   </span>
+                  <span style={{color: item.ctx.startsWith('✓') ? '#00C853' : '#4A90C4', fontSize:9, whiteSpace:'nowrap'}}>{item.ctx}</span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-50 rounded-[2.5rem] border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
-            <BarChart3 size={48} className="text-slate-300 mb-4" />
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Tax Composition</h4>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">CGST / SGST / IGST</p>
-            <div className="w-full mt-6 space-y-3">
-              {[
-                { label: 'CGST', value: gstr3bData.totalCGST, color: 'bg-emerald-500' },
-                { label: 'SGST', value: gstr3bData.totalSGST, color: 'bg-emerald-400' },
-                { label: 'IGST', value: gstr3bData.totalIGST, color: 'bg-indigo-500' },
-              ].map(d => {
-                const pct = gstr3bData.totalTax > 0 ? (d.value / gstr3bData.totalTax * 100) : 0;
-                return (
-                  <div key={d.label} className="text-left">
-                    <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
-                      <span className="text-slate-500">{d.label}</span>
-                      <span className="text-slate-700">{pct.toFixed(1)}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${d.color}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {gstTab === 'hsn' && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-300 shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">HSN-wise Summary</h4>
-          </div>
-          <table className="w-full text-left text-[11px]">
-            <thead className="bg-slate-50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b">
-              <tr>
-                <th className="px-6 py-4">HSN / SAC</th>
-                <th className="px-6 py-4">Description</th>
-                <th className="px-6 py-4 text-right">Qty</th>
-                <th className="px-6 py-4 text-right">Taxable Value</th>
-                <th className="px-6 py-4 text-right">CGST</th>
-                <th className="px-6 py-4 text-right">SGST</th>
-                <th className="px-6 py-4 text-right">IGST</th>
-                <th className="px-6 py-4 text-right">Total Tax</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {Object.entries(gstSummary.hsnMap).length === 0 ? (
-                <tr><td colSpan={8} className="py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">No HSN data</td></tr>
-              ) : Object.entries(gstSummary.hsnMap).map(([hsn, data]: [string, any]) => (
-                <tr key={hsn} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-black text-slate-800 uppercase">{hsn}</td>
-                  <td className="px-6 py-4 font-bold text-slate-400 uppercase">{data.desc}</td>
-                  <td className="px-6 py-4 text-right font-bold text-slate-500">{data.qty}</td>
-                  <td className="px-6 py-4 text-right font-black text-slate-600">₹{data.taxable.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-right font-black text-emerald-600">₹{data.cgst.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-right font-black text-emerald-600">₹{data.sgst.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-right font-black text-indigo-600">₹{data.igst.toLocaleString('en-IN')}</td>
-                  <td className="px-6 py-4 text-right font-black text-slate-900">₹{(data.cgst + data.sgst + data.igst).toLocaleString('en-IN')}</td>
-                </tr>
               ))}
-            </tbody>
-            <tfoot className="bg-slate-900 text-white">
-              <tr>
-                <td colSpan={2} className="px-6 py-5 font-black uppercase tracking-widest text-[10px]">Total</td>
-                <td className="px-6 py-5 text-right font-black">{Object.values(gstSummary.hsnMap).reduce((s: number, d: any) => s + d.qty, 0)}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalTaxable.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalCGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalSGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{gstSummary.totalIGST.toLocaleString('en-IN')}</td>
-                <td className="px-6 py-5 text-right font-black">₹{(gstSummary.totalCGST + gstSummary.totalSGST + gstSummary.totalIGST).toLocaleString('en-IN')}</td>
-              </tr>
-            </tfoot>
-          </table>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
+  // ========== MAIN RENDER ==========
+  return (
+    <div className="tally-shell" style={{minHeight:'100%'}}>
+      {renderTopBar()}
+      {renderFKeyBar()}
+      {renderGoTo()}
+      <div className="tally-main-layout">
+        {renderLeftMenu()}
+        <div className="tally-content-area">
+          <div className="tally-screen-panel">
+            {screen === 'gateway' && !showVf && renderGateway()}
+            {showVf && renderVoucher(vf.type)}
+            {screen === 'daybook' && !showVf && renderDayBook()}
+            {screen === 'bs' && !showVf && renderBS()}
+            {screen === 'pl' && !showVf && renderPL()}
+            {screen === 'tb' && !showVf && renderTB()}
+            {screen === 'outstanding' && !showVf && renderOutstanding()}
+            {screen === 'gst' && !showVf && renderGST()}
+            {screen === 'shortcuts' && !showVf && renderShortcuts()}
+          </div>
         </div>
-      )}
+      </div>
+      {renderStatusBar()}
     </div>
   );
 };

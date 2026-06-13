@@ -81,7 +81,7 @@ export const SupportModule: React.FC = () => {
             id: `msg-${Date.now()}`,
             sender: 'Admin',
             text: replyText,
-            timestamp: new Date().toLocaleString(),
+            timestamp: new Date().toLocaleString('en-IN'),
             isAdmin: true
         };
 
@@ -121,13 +121,13 @@ export const SupportModule: React.FC = () => {
             priority: newTicket.priority as any,
             status: 'Open',
             category: newTicket.category as any,
-            createdAt: new Date().toLocaleString(),
-            updatedAt: new Date().toLocaleString(),
+            createdAt: new Date().toLocaleString('en-IN'),
+            updatedAt: new Date().toLocaleString('en-IN'),
             messages: [{
                 id: `m-init-${Date.now()}`,
                 sender: newTicket.customerName,
                 text: 'Manual Ticket Initialization',
-                timestamp: new Date().toLocaleString(),
+                timestamp: new Date().toLocaleString('en-IN'),
                 isAdmin: false
             }]
         };

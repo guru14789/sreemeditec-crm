@@ -48,7 +48,8 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const cgst = taxTotal / 2;
     const sgst = taxTotal / 2;
     const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
-    const grandTotalRaw = taxableValue + taxTotal;
+    const discount = Number(invoice.discount) || 0;
+    const grandTotalRaw = taxableValue + taxTotal - discount;
     const freightTotal = freight + freightTax;
     
     let roundOff = 0;
@@ -58,11 +59,11 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
     
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff };
+    return { taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount };
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [] } = useData();
+    const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [] } = useData();
 
     const handleDelete = async (id: string, num: string) => {
         if (!confirm(`Are you sure you want to PERMANENTLY delete document ${num}? This action cannot be undone.`)) return;
@@ -292,7 +293,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                             ₹{invoices
                                 .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status === 'Pending')
                                 .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0)
-                                .toLocaleString()}
+                                .toLocaleString('en-IN')}
                         </p>
                     </div>
                 </div>
@@ -341,6 +342,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                     <th className="px-6 py-4">Author</th>
                                     <th className="px-6 py-4 text-right">Grand Total</th>
                                     <th className="px-6 py-4 text-center">Paid Amt</th>
+                                    <th className="px-6 py-4 text-center">Closed By</th>
                                     <th className="px-6 py-4 text-right">Balance</th>
                                     <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-right">Action</th>
@@ -365,7 +367,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                                 <input 
@@ -402,7 +404,19 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString()}</td>
+                                        <td className="px-6 py-4">
+                                            {inv.closedBy ? (
+                                                <div 
+                                                    title={employees?.find(e => e.id === inv.closedBy)?.name || 'Unknown'}
+                                                    className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-black uppercase text-indigo-600 shadow-inner border border-indigo-200 cursor-help mx-auto"
+                                                >
+                                                    {(employees?.find(e => e.id === inv.closedBy)?.name || '?').charAt(0).toUpperCase()}
+                                                </div>
+                                            ) : (
+                                                <span className="text-slate-300 text-center block">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4 text-center">
                                             {(() => {
                                                 const displayStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
@@ -517,7 +531,6 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                     <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
                         <button onClick={() => setBuilderTab('form')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
                         <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
-                        <button onClick={() => setBuilderTab('catalog')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'catalog' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><ListIcon size={18}/> Catalog</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
@@ -569,6 +582,18 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <option value="">Default (Sree Meditec)</option>
                                                 {companyProfiles.map(profile => (
                                                     <option key={profile.id} value={profile.id}>{profile.companyName}</option>
+                                                ))}
+                                            </select>
+                                        </FormRow>
+                                        <FormRow label="Closed By">
+                                            <select 
+                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
+                                                value={invoice.closedBy || ''}
+                                                onChange={e => setInvoice({ ...invoice, closedBy: e.target.value })}
+                                            >
+                                                <option value="">-- Select Employee --</option>
+                                                {(employees || []).filter(emp => emp.status === 'Active').map(emp => (
+                                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
                                                 ))}
                                             </select>
                                         </FormRow>
@@ -701,7 +726,17 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                             </div>
                                         )}
 
-                                        <div className="p-6 bg-medical-50/30 border border-medical-200 rounded-[1.5rem] mt-6">
+                                        <div className="p-6 bg-medical-50/30 border border-medical-200 rounded-[1.5rem] mt-6 space-y-4">
+                                            <div className="grid grid-cols-12 gap-6 items-center">
+                                                <div className="col-span-12 md:col-span-6">
+                                                    <label className="text-[9px] font-black text-medical-600 uppercase block mb-1">Discount</label>
+                                                    <p className="text-[10px] text-slate-400 font-bold italic">Flat discount applied to the total</p>
+                                                </div>
+                                                <div className="col-span-12 md:col-span-6">
+                                                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Amount (₹)</label>
+                                                    <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black text-right" value={invoice.discount ?? 0} onChange={e => setInvoice({...invoice, discount: e.target.value as any})} />
+                                                </div>
+                                            </div>
                                             <div className="grid grid-cols-12 gap-6 items-center">
                                                 <div className="col-span-12 md:col-span-6">
                                                     <label className="text-[9px] font-black text-medical-600 uppercase block mb-1">Additional Charges (Freight / Packing)</label>
@@ -722,11 +757,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                             <div className="flex flex-wrap gap-8">
                                                 <div>
                                                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Subtotal</p>
-                                                    <p className="text-lg font-bold">₹{totals.taxableValue.toLocaleString()}</p>
+                                                    <p className="text-lg font-bold">₹{totals.taxableValue.toLocaleString('en-IN')}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Tax</p>
-                                                    <p className="text-lg font-bold text-emerald-400">₹{totals.taxTotal.toLocaleString()}</p>
+                                                    <p className="text-lg font-bold text-emerald-400">₹{totals.taxTotal.toLocaleString('en-IN')}</p>
                                                 </div>
                                             </div>
                                             
@@ -741,7 +776,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <div className="text-center md:text-right">
                                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1">Grand Total</p>
                                                     <p className="text-3xl font-black text-white tracking-tighter flex items-baseline gap-2">
-                                                        ₹{totals.grandTotal.toLocaleString()}
+                                                        ₹{totals.grandTotal.toLocaleString('en-IN')}
                                                         {invoice.isRoundOff && totals.roundOff !== 0 && (
                                                             <span className={`text-[12px] font-bold ${totals.roundOff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                 ({totals.roundOff > 0 ? '+' : ''}{totals.roundOff})
@@ -836,7 +871,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
 
                                         <table className="w-full border-x border-b border-black text-center text-[10px] mt-0 table-fixed">
                                             <thead className="bg-slate-50 font-bold border-b border-black">
-                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm]">
+                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm]">
                                                     <th className="border-r border-black p-1 flex items-center justify-center">Sl No.</th>
                                                     <th className="border-r border-black p-1 text-left flex items-center">Description of Goods</th>
                                                     <th className="border-r border-black p-1 flex items-center justify-center">HSN/SAC</th>
@@ -852,7 +887,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 {(invoice.items || []).map((it, idx) => {
                                                     const base = (it.quantity || 0) * (it.unitPrice || 0);
                                                     return (
-                                                        <tr key={`${idx}-m`} className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] border-b border-slate-300">
+                                                        <tr key={`${idx}-m`} className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] border-b border-slate-300">
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center">{idx + 1}</td>
                                                             <td className="border-r border-black p-1.5 text-left flex flex-col justify-center overflow-hidden">
                                                                 <span className="font-bold uppercase truncate text-[9px]">{it.description}</span>
@@ -860,56 +895,64 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                              </td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.hsn}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.taxRate}%</td>
-                                                            <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toFixed(2)} nos</td>
-                                                            <td className="border-r border-black p-1.5 text-right flex items-center justify-end text-[10px]">{(it.unitPrice || 0).toFixed(2)}</td>
+                                                            <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos</td>
+                                                            <td className="border-r border-black p-1.5 text-right flex items-center justify-end text-[10px]">{(it.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">nos</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center"></td>
-                                                            <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {base.toFixed(2)}</td>
+                                                            <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         </tr>
                                                     );
                                                 })}
                                                  {(invoice.freightAmount || 0) > 0 && (
-                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
+                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                         <td className="border-r border-black"></td>
                                                         <td className="border-r border-black p-1 text-left flex items-center">Freight</td>
                                                         <td className="border-r border-black"></td>
                                                         <td className="border-r border-black p-1 text-center flex items-center justify-center">{(invoice.freightTaxRate || 0)}%</td>
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.freightTotal.toFixed(2)}</td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.freightTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     </tr>
                                                  )}
-                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
+                                                 {(invoice.discount || 0) > 0 && (
+                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
+                                                        <td className="border-r border-black"></td>
+                                                        <td className="border-r border-black p-1 text-left flex items-center font-bold text-rose-600">Discount</td>
+                                                        <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2 text-rose-600">-{totals.discount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    </tr>
+                                                 )}
+                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
                                                      <td className="border-r border-black p-1 text-left flex items-center font-bold">Output CGST (9%)</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.cgst.toFixed(2)}</td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                  </tr>
-                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
+                                                 <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
                                                      <td className="border-r border-black p-1 text-left flex items-center font-bold">Output SGST (9%)</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.sgst.toFixed(2)}</td>
+                                                     <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                  </tr>
                                                 {invoice.isRoundOff && (
-                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-5 italic border-b border-slate-50">
+                                                    <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                         <td className="border-r border-black"></td>
                                                         <td className="border-r border-black p-1 text-left flex items-center font-bold">Round Off</td>
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.roundOff.toFixed(2)}</td>
+                                                        <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.roundOff.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     </tr>
                                                 )}
                                                 {Array.from({ length: Math.max(0, 8 - (invoice.items?.length || 0)) }).map((_, i) => (
-                                                    <tr key={`f-${i}`} className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] h-6 border-b border-slate-50 opacity-10">
+                                                    <tr key={`f-${i}`} className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-6 border-b border-slate-50 opacity-10">
                                                         <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td></td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_20mm_15mm_10mm_8mm_18mm] border-t border-black font-black bg-slate-50 text-[11px]">
+                                                <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] border-t border-black font-black bg-slate-50 text-[11px]">
                                                     <td className="border-r border-black"></td>
                                                     <td className="border-r border-black p-1.5 text-right flex items-center justify-end font-bold">Total</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td>
-                                                    <td className="border-r border-black p-1.5 text-center flex items-center justify-center font-black">{(totals.totalQty || 0).toFixed(2)} nos</td>
+                                                    <td className="border-r border-black p-1.5 text-center flex items-center justify-center font-black">{(totals.totalQty || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos</td>
                                                     <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
                                                     <td className="p-1.5 text-right flex items-center justify-end font-black text-teal-800 pr-2">Rs. {totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                                 </tr>
@@ -943,21 +986,21 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                 <tbody>
                                                     <tr className="border-b border-black">
                                                         <td className="border-r border-black p-1 text-center">9402</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         <td className="border-r border-black p-1 text-center">9%</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         <td className="border-r border-black p-1 text-center">9%</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toFixed(2)}</td>
-                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     </tr>
                                                     <tr className="font-bold bg-slate-50/50">
                                                         <td className="border-r border-black p-1 text-right">Total</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         <td className="border-r border-black p-1"></td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         <td className="border-r border-black p-1"></td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toFixed(2)}</td>
-                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toFixed(2)}</td>
+                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -1011,7 +1054,7 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                         <div key={prod.id} className="p-6 bg-slate-50 border border-slate-300 rounded-[2rem] hover:border-teal-400 transition-all cursor-pointer flex justify-between items-center group shadow-sm hover:shadow-xl" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-black text-slate-800 text-sm group-hover:text-teal-700 transition-colors truncate uppercase">{prod.name}</h4>
-                                                <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">₹{(prod.sellingPrice || 0).toLocaleString()} • {prod.sku}</p>
+                                                <p className="text-[10px] text-slate-400 font-black uppercase mt-1 tracking-widest">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')} • {prod.sku}</p>
                                             </div>
                                             <div className="ml-4 p-2.5 bg-white rounded-xl border border-slate-300 group-hover:bg-teal-600 group-hover:text-white transition-all shadow-md active:scale-90"><Plus size={20} /></div>
                                         </div>

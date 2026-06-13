@@ -247,7 +247,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                         <tr key={l.id} className={`hover:bg-slate-50 transition-colors group cursor-pointer ${selectedLead?.id === l.id ? 'bg-medical-50/50' : ''}`} onClick={() => setSelectedLead(l)}>
                                             <td className="px-8 py-5"><div className="font-black text-slate-800 uppercase text-[13px] tracking-tight">{l.name}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{l.hospital}</div></td>
                                             <td className="px-8 py-5"><span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">{l.source}</span></td>
-                                            <td className="px-8 py-5"><div className="font-bold text-slate-700">{l.productInterest}</div><div className="text-emerald-600 font-black mt-0.5">₹{(l.value || 0).toLocaleString()}</div></td>
+                                            <td className="px-8 py-5"><div className="font-bold text-slate-700">{l.productInterest}</div><div className="text-emerald-600 font-black mt-0.5">₹{(l.value || 0).toLocaleString('en-IN')}</div></td>
                                             <td className="px-8 py-5">
                                                 {getNextFollowUp(l) ? (
                                                     <div className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 w-fit uppercase tracking-tighter"><Calendar size={12}/> {getNextFollowUp(l)?.type} {getNextFollowUp(l)?.date}</div>
@@ -299,7 +299,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Box size={100} /></div>
                                             <p className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-2">Requirement Forecast</p>
                                             <h4 className="text-xl font-black tracking-tight">{selectedLead.productInterest}</h4>
-                                            <div className="mt-6 flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] font-black text-indigo-200 uppercase">Valuation</span><span className="text-2xl font-black">₹{(selectedLead.value || 0).toLocaleString()}</span></div><div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/20"><Activity size={24}/></div></div>
+                                            <div className="mt-6 flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] font-black text-indigo-200 uppercase">Valuation</span><span className="text-2xl font-black">₹{(selectedLead.value || 0).toLocaleString('en-IN')}</span></div><div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/20"><Activity size={24}/></div></div>
                                         </section>
 
                                         <div className="grid grid-cols-2 gap-4">
