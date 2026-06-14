@@ -612,6 +612,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ensureBankLedgers();
     }, [bankDetailsList, ledgers]);
 
+    // --- STARTUP AUTOMATION: runs once per session after data loads ---
+    useEffect(() => {
+        if (!currentUser || products.length === 0) return;
+        checkLowStockAlerts(products);
+        checkGstFilingReminder();
+    }, [currentUser?.id, products.length]);
+
+    useEffect(() => {
+        if (!currentUser || serviceTickets.length === 0) return;
+        checkAmcReminders(serviceTickets);
+    }, [currentUser?.id, serviceTickets.length]);
+
+
+
     const userStats = useMemo(() => {
         if (!currentUser) return { points: 0, tasksCompleted: 0, attendanceStreak: 0, salesRevenue: 0 };
 
@@ -1216,6 +1230,64 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await setDoc(settingsRef, { lastResetMonth: currentMonth });
         }
     };
+
+    // --- AUTOMATION HELPERS ---
+
+    // Auto-alert when product stock falls below minLevel
+    const checkLowStockAlerts = (productList: typeof products) => {
+        productList.forEach(p => {
+            const min = p.minLevel || 5;
+            if ((p.stock || 0) <= min) {
+                addNotification(
+                    '⚠️ Low Stock Alert',
+                    `${p.name} is at ${p.stock} units (min: ${min}). Please reorder.`,
+                    'warning'
+                );
+            }
+        });
+    };
+
+    // Auto-create tasks 30 days before AMC expiry (stored in serviceTickets or products)
+    const checkAmcReminders = (tickets: typeof serviceTickets) => {
+        const today = new Date();
+        const thirtyDaysFromNow = new Date(today);
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+        tickets.forEach(ticket => {
+            if (ticket.dueDate) {
+                const dueDate = new Date(ticket.dueDate);
+                if (dueDate >= today && dueDate <= thirtyDaysFromNow && ticket.status !== 'Resolved') {
+                    addNotification(
+                        '📅 AMC Expiry Reminder',
+                        `${ticket.customer} — ${ticket.equipment}: Service due on ${ticket.dueDate}. Assign engineer.`,
+                        'info'
+                    );
+                }
+            }
+        });
+    };
+
+    // Remind about GST filing on 7th of each month
+    const checkGstFilingReminder = () => {
+        const today = new Date();
+        if (today.getDate() === 7) {
+            addNotification(
+                '📋 GST Filing Reminder',
+                'Today is the 7th. GSTR-1 or GSTR-3B may be due. Please verify and file on time.',
+                'warning'
+            );
+        }
+        // Also alert on 20th for GSTR-3B
+        if (today.getDate() === 20) {
+            addNotification(
+                '📋 GSTR-3B Due',
+                'GSTR-3B deadline is today (20th). Ensure tax payment and filing is complete.',
+                'warning'
+            );
+        }
+    };
+
+
 
     const updateTaskRemote = async (id: string, u: Partial<Task>) => {
         const existing = tasks.find(t => t.id === id);

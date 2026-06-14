@@ -21,7 +21,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
     const { 
         leads, addLead, updateLead, removeLead, addNotification, 
         setPendingQuoteData, employees, addLog, searchRecords, 
-        fetchMoreData, clients, products 
+        fetchMoreData, clients, products, addClient
     } = useData();
 
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
@@ -176,6 +176,24 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             await updateLead(lead.id!, updates);
             await addLog('Leads', 'Lead Evolution', `Updated details for ${lead.name}.`);
             addNotification('Lead Updated', `${lead.name} details saved.`, 'success');
+
+            // Auto-convert to Client when status is Won
+            if (updates.status === LeadStatus.WON) {
+                const alreadyExists = clients.find(c => c.name.toUpperCase() === (updates.name || '').toUpperCase());
+                if (!alreadyExists) {
+                    const newClient = {
+                        id: `CLT-${Date.now()}`,
+                        name: updates.name || lead.name || '',
+                        hospital: updates.hospital || lead.hospital || '',
+                        address: updates.address || lead.address || '',
+                        email: updates.email || lead.email || '',
+                        phone: updates.phone || lead.phone || '',
+                    };
+                    await addClient(newClient);
+                    await addLog('Leads', 'Auto Client Convert', `Lead ${newClient.name} won — added to Client registry.`);
+                    addNotification('🎉 Lead Won!', `${newClient.name} has been added as a Client automatically.`, 'success');
+                }
+            }
         }
 
         setViewState('stock');
@@ -351,6 +369,16 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
                             <div className="p-6 bg-slate-50/50 border-t border-slate-300 shrink-0 flex gap-4">
                                 <button onClick={() => handleDelete(selectedLead)} className="p-4 bg-white border border-rose-200 text-rose-500 rounded-2xl hover:bg-rose-50 transition-all shadow-sm"><Trash2 size={20}/></button>
+                                {selectedLead.phone && (
+                                    <a
+                                        href={`https://wa.me/91${selectedLead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${selectedLead.name}, this is Sreemeditec regarding your interest in ${selectedLead.productInterest}.`)}`}
+                                        target="_blank" rel="noreferrer"
+                                        className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all shadow-sm flex items-center justify-center"
+                                        title="WhatsApp"
+                                    >
+                                        <Send size={20}/>
+                                    </a>
+                                )}
                                 <button onClick={() => { setLead({ ...selectedLead }); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"><Edit2 size={16}/> Modify Profile</button>
                             </div>
                         </div>
