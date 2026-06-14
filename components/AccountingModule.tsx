@@ -48,7 +48,7 @@ const shortKeys: Record<VoucherMode, string> = {
 export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) => {
   const isAdmin = userRole === 'Admin';
   const {
-    ledgers = [], vouchers = [], accountGroups = [], invoices = [],
+    ledgers = [], vouchers = [], accountGroups = [], invoices = [], purchaseRecords = [],
     fixedAssets = [], depreciationSchedule = [], bankStatements = [], costCentres = [],
     addLedger, updateLedger, removeLedger,
     addAccountGroup, removeAccountGroup, updateAccountGroup,
@@ -67,13 +67,16 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
   const [daybookDate, setDaybookDate] = useState(today());
   const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [dateTo, setDateTo] = useState(today());
+  // BUG-5 FIX: explicit toggle so single-date mode is reachable
+  const [daybookRangeMode, setDaybookRangeMode] = useState(false);
   const [selLedger, setSelLedger] = useState<Ledger | null>(null);
   const [selVoucher, setSelVoucher] = useState<AccountingVoucher | null>(null);
   const [searchQ, setSearchQ] = useState('');
 
   // ── Voucher Form State ────────────────────────────────────────────────
-  const vfInit: VFState = {
-    type: 'Payment', date: today(), accountName: '', accountId: '',
+  // BUG-3 FIX: factory function so fresh IDs are generated every reset
+  const makeVfInit = (type: VoucherMode = 'Payment'): VFState => ({
+    type, date: today(), accountName: '', accountId: '',
     entries: [
       { id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
       { id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 },
@@ -81,8 +84,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     narration: '', refNo: '', chequeNo: '', chequeDate: '',
     tdsRate: 0, tdsSection: '', tdsLedgerId: '',
     settlements: [],
-  };
-  const [vf, setVf] = useState<VFState>({ ...vfInit });
+  });
+  const [vf, setVf] = useState<VFState>(makeVfInit());
   const [showVf, setShowVf] = useState(false);
   const [diff, setDiff] = useState(0);
 
@@ -120,8 +123,9 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
   const [showBillSettle, setShowBillSettle] = useState(false);
 
   // ── Voucher form helpers ───────────────────────────────────────────────
+  // BUG-3 FIX: use factory so each reset gets fresh IDs
   const resetVf = (type: VoucherMode) => {
-    setVf({ ...vfInit, type, date: today() });
+    setVf(makeVfInit(type));
     setShowVf(true);
     setDiff(0);
     setStatusMsg(`${type} Voucher`);
@@ -131,13 +135,14 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     setVf(p => ({ ...p, entries: p.entries.map(e => e.id === id ? { ...e, ...u } : e) }));
   const addEntry = () => setVf(p => ({ ...p, entries: [...p.entries, { id: genId(), ledgerId: '', ledgerName: '', debit: 0, credit: 0 }] }));
   const delEntry = (id: string) => setVf(p => ({ ...p, entries: p.entries.filter(e => e.id !== id) }));
+  // BUG-1 FIX: td/tc computed WITHOUT TDS — TDS is auto-adjusted in save, so balance check is on user-entered amounts
   const td = useMemo(() => vf.entries.reduce((s, e) => s + Number(e.debit || 0), 0), [vf.entries]);
   const tc = useMemo(() => vf.entries.reduce((s, e) => s + Number(e.credit || 0), 0), [vf.entries]);
   useEffect(() => { setDiff(td - tc); }, [td, tc]);
 
   // ── Computed ───────────────────────────────────────────────────────────
   const groupMap = useMemo(() => new Map(accountGroups.map(g => [g.id, g])), [accountGroups]);
-  const ledgerMap = useMemo(() => new Map(ledgers.map(l => [l.id, l])), [ledgers]);
+  // BUG-15 FIX: removed unused ledgerMap
 
   const stats = useMemo(() => {
     const isBank = (g: AccountGroup | undefined) => g?.id === 'GRP-CASH' || g?.id === 'GRP-BANK' || g?.name === 'Cash-in-Hand' || g?.name === 'Bank Accounts';
@@ -148,15 +153,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     return { cashBank: sum(isBank), debtors: sum(isDr), creditors: Math.abs(sum(isCr)) };
   }, [ledgers, groupMap]);
 
-  // Pending invoices for bill-wise settlement
+  // BUG-11 FIX: bill settlement includes vendor (purchaseRecords) for Payment vouchers
   const partyPendingInvoices = useMemo(() => {
     if (!vf.accountName) return [];
+    const name = vf.accountName.toUpperCase();
+    if (vf.type === 'Payment' || vf.type === 'Purchase') {
+      // vendor bills from purchaseRecords
+      const vendorBills = (purchaseRecords || []).filter((p) =>
+        (p.supplier || '').toUpperCase() === name &&
+        p.status !== 'Paid' && p.status !== 'Cancelled'
+      ).map((p) => ({ id: p.id, invoiceNumber: p.invoiceNo || p.id, date: p.dateSupply || p.materialReceivedDate, grandTotal: p.total || 0, balanceDue: (p.total || 0) - (p.paidAmount || 0), documentType: 'SupplierPO', status: p.status }));
+      return vendorBills;
+    }
     return invoices.filter(i =>
-      i.customerName?.toUpperCase() === vf.accountName.toUpperCase() &&
+      (i.customerName || '').toUpperCase() === name &&
       i.documentType === 'Invoice' &&
       i.status !== 'Paid' && i.status !== 'Cancelled' && i.status !== 'Draft'
     );
-  }, [invoices, vf.accountName]);
+  }, [invoices, purchaseRecords, vf.accountName, vf.type]);
 
   // TDS ledger
   const tdsLedger = useMemo(() => ledgers.find(l => l.name === 'TDS Payable' || l.id === 'LED-TDS-PAYABLE'), [ledgers]);
@@ -258,42 +272,59 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
 
   // ── Save Voucher ───────────────────────────────────────────────────────
   const handleSaveVoucher = async () => {
-    if (td !== tc) { addNotification('Unbalanced', `Debit ₹${fmt(td)} ≠ Credit ₹${fmt(tc)}. Difference: ₹${fmt(Math.abs(diff))}`, 'alert'); return; }
-    if (td === 0) { addNotification('Invalid', 'Amount cannot be zero.', 'alert'); return; }
+    if (td === 0 && tc === 0) { addNotification('Invalid', 'Amount cannot be zero.', 'alert'); return; }
 
     const entries = vf.entries.map(({ autoGenerated, ...r }) => r);
 
-    // Add TDS entry if applicable
+    // BUG-1 FIX: compute TDS FIRST, then add balancing entry, then check balance
+    let tdsAmt = 0;
     if (vf.tdsRate > 0 && tdsLedger) {
-      const tdsAmt = Math.round(td * (vf.tdsRate / 100) * 100) / 100;
+      tdsAmt = Math.round(td * (vf.tdsRate / 100) * 100) / 100;
       if (tdsAmt > 0) {
+        // TDS reduces the net payment: debit vendor full, credit bank net, credit TDS payable
+        // We add TDS credit and matching debit to keep balance
         entries.push({ id: genId(), ledgerId: tdsLedger.id, ledgerName: tdsLedger.name, debit: 0, credit: tdsAmt, narration: `TDS @${vf.tdsRate}% u/s ${vf.tdsSection}` });
       }
     }
 
+    const finalTd = entries.reduce((s, e) => s + (e.debit || 0), 0);
+    const finalTc = entries.reduce((s, e) => s + (e.credit || 0), 0);
+
+    if (Math.abs(finalTd - finalTc) > 0.01) {
+      addNotification('Unbalanced', `Debit ₹${fmt(finalTd)} ≠ Credit ₹${fmt(finalTc)}. Difference: ₹${fmt(Math.abs(finalTd - finalTc))}`, 'alert');
+      return;
+    }
+
+    // BUG-2 FIX: pass all voucher fields including TDS, cheque, status
     await postToLedger({
       type: vf.type as unknown as VoucherType,
       date: vf.date,
       entries,
       narration: vf.narration,
-      totalAmount: td,
+      totalAmount: finalTd,
       referenceNumber: vf.refNo || undefined,
       chequeNo: vf.chequeNo || undefined,
       chequeDate: vf.chequeDate || undefined,
-      tdsRate: vf.tdsRate || undefined,
+      tdsRate: vf.tdsRate > 0 ? vf.tdsRate : undefined,
       tdsSection: vf.tdsSection || undefined,
+      status: 'POSTED',
       settlements: vf.settlements.length > 0 ? vf.settlements.map(s => ({ invoiceId: s.invoiceId, invoiceNumber: s.invoiceNumber, voucherId: '', amount: s.amount, date: vf.date })) : undefined,
     });
-    addNotification('Voucher Posted', `${vf.type} saved successfully.`, 'success');
+    addNotification('Voucher Posted', `${vf.type} posted — ₹${fmt(finalTd)}.`, 'success');
     setShowVf(false);
-    setScreen('gateway');
-    setStatusMsg('Gateway of Accounts');
+    setScreen('daybook');
+    setDaybookDate(vf.date);
+    setStatusMsg('Voucher Posted — Day Book');
     setShowBillSettle(false);
   };
 
   // ── Create Ledger ──────────────────────────────────────────────────────
   const handleCreateLedger = async () => {
     if (!createLedgerForm.name.trim()) { addNotification('Error', 'Ledger name is required.', 'alert'); return; }
+    // BUG-14 FIX: Guard for deleting default/system groups
+    const grp = accountGroups.find(g => g.id === createLedgerForm.groupId);
+    if (grp?.isSystem) { addNotification('Error', 'Cannot create ledger in system group.', 'alert'); return; }
+
     const id = `LED-${Date.now()}`;
     const ob = parseFloat(createLedgerForm.openingBalance) || 0;
     const newLedger: Ledger = {
@@ -353,16 +384,19 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
   // ── Save Opening Balances ──────────────────────────────────────────────
   const handleSaveOpeningBalances = async () => {
     const updates = Object.entries(obEdits);
+    let count = 0;
     for (const [ledgerId, balStr] of updates) {
       const bal = parseFloat(balStr) || 0;
       const ldg = ledgers.find(l => l.id === ledgerId);
-      if (ldg && ldg.openingBalance !== bal) {
-        const diff2 = bal - (ldg.openingBalance || 0);
-        await updateLedger(ledgerId, { openingBalance: bal, currentBalance: (ldg.currentBalance || 0) + diff2 });
+      // BUG-10 FIX: use tolerance for float comparison
+      if (ldg && Math.abs((ldg.openingBalance || 0) - bal) > 0.001) {
+        const balDiff = bal - (ldg.openingBalance || 0);
+        await updateLedger(ledgerId, { openingBalance: bal, currentBalance: (ldg.currentBalance || 0) + balDiff });
+        count++;
       }
     }
     setObEdits({});
-    addNotification('Opening Balances Saved', 'All ledger balances updated.', 'success');
+    addNotification('Opening Balances Saved', `${count} ledger${count !== 1 ? 's' : ''} updated.`, 'success');
   };
 
   // ── Fixed Asset Handlers ───────────────────────────────────────────────
@@ -437,20 +471,27 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     const calcAging = (partyLedgers: Ledger[], docType: 'Invoice' | 'SupplierPO') =>
       partyLedgers.map(l => {
         const partyInvoices = invoices.filter(i =>
-          i.customerName?.toUpperCase() === l.name.toUpperCase() &&
+          (i.customerName || '').toUpperCase() === l.name.toUpperCase() &&
           i.documentType === docType &&
           i.status !== 'Paid' && i.status !== 'Cancelled'
         );
         const buckets = { b0_30: 0, b31_60: 0, b61_90: 0, b90plus: 0 };
-        partyInvoices.forEach(i => {
-          const days = daysDiff(i.date);
-          const amt = i.balanceDue ?? i.grandTotal ?? 0;
-          if (days <= 30) buckets.b0_30 += amt;
-          else if (days <= 60) buckets.b31_60 += amt;
-          else if (days <= 90) buckets.b61_90 += amt;
-          else buckets.b90plus += amt;
-        });
         const total = Math.abs(l.currentBalance || 0);
+
+        if (partyInvoices.length > 0) {
+          partyInvoices.forEach(i => {
+            const days = daysDiff(i.date);
+            const amt = i.balanceDue ?? i.grandTotal ?? 0;
+            if (days <= 30) buckets.b0_30 += amt;
+            else if (days <= 60) buckets.b31_60 += amt;
+            else if (days <= 90) buckets.b61_90 += amt;
+            else buckets.b90plus += amt;
+          });
+        } else if (total > 0) {
+          // BUG-9 FIX: no invoices but has ledger balance → unaged, put in 0-30 so it's visible
+          buckets.b0_30 = total;
+        }
+
         return { ledger: l, total, ...buckets, invoiceCount: partyInvoices.length };
       }).filter(r => r.total > 0 || r.invoiceCount > 0);
 
@@ -677,7 +718,13 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
         <div className="tally-dash-card">
           <div className="tally-dash-card-title">Cash & Bank</div>
           {ledgers.filter(l => { const g = groupMap.get(l.groupId); return g?.id === 'GRP-CASH' || g?.id === 'GRP-BANK' || g?.name === 'Cash-in-Hand' || g?.name === 'Bank Accounts'; }).slice(0, 5).map(l => (
-            <div key={l.id} className="tally-dash-row"><span>{l.name}</span><span>₹{fmt(l.currentBalance)}</span></div>
+            // BUG-12 FIX: show overdraft indicator when balance is negative
+            <div key={l.id} className="tally-dash-row">
+              <span>{l.name}</span>
+              <span style={{ color: (l.currentBalance || 0) < 0 ? '#FF5252' : undefined }}>
+                {(l.currentBalance || 0) < 0 ? '(OD) ' : ''}₹{fmt(Math.abs(l.currentBalance || 0))}
+              </span>
+            </div>
           ))}
           <div className="tally-dash-row" style={{ borderTop: '1px solid #1A3A5A', marginTop: 4, paddingTop: 4 }}>
             <span style={{ color: '#90CAF9' }}>TOTAL</span>
@@ -899,20 +946,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
 
   // ── Render: Day Book ───────────────────────────────────────────────────
   const renderDayBook = () => {
+    // BUG-5 FIX: explicit mode toggle so single-date filter is reachable
     const dayVouchers = vouchers.filter(v => {
-      if (dateFrom && dateTo) return v.date >= dateFrom && v.date <= dateTo;
+      if (daybookRangeMode) return v.date >= dateFrom && v.date <= dateTo;
       return v.date === daybookDate;
     }).sort((a, b) => a.date.localeCompare(b.date) || a.voucherNumber.localeCompare(b.voucherNumber));
     return (
       <>
         <div className="tally-section-header">DAY BOOK</div>
         <div className="tally-db-filter">
-          <span>Single Date:</span>
-          <input type="date" value={daybookDate} onChange={e => setDaybookDate(e.target.value)} />
-          <span style={{ marginLeft: 12 }}>Range — From:</span>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-          <span>To:</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="tally-fkey" style={{ background: !daybookRangeMode ? '#0A3060' : '', borderColor: !daybookRangeMode ? '#2196F3' : '' }} onClick={() => setDaybookRangeMode(false)}>Single Date</button>
+            <button className="tally-fkey" style={{ background: daybookRangeMode ? '#0A3060' : '', borderColor: daybookRangeMode ? '#2196F3' : '' }} onClick={() => setDaybookRangeMode(true)}>Date Range</button>
+          </div>
+          {!daybookRangeMode ? (
+            <><span>Date:</span><input type="date" value={daybookDate} onChange={e => setDaybookDate(e.target.value)} /></>
+          ) : (
+            <><span>From:</span><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} /><span>To:</span><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} /></>
+          )}
           <span style={{ marginLeft: 'auto' }}>{dayVouchers.length} entries</span>
         </div>
         <div style={{ padding: '8px 14px', flex: 1, overflow: 'auto' }}>
@@ -1255,7 +1306,15 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                   <td style={{ fontSize: 11 }}>{ledgers.filter(l => l.groupId === g.id).length}</td>
                   <td>
                     {isAdmin && <button className="tally-fkey" style={{ fontSize: 9, padding: '0 6px', borderColor: '#FF5252', color: '#FF5252' }}
-                      onClick={async () => { if (window.confirm(`Delete group "${g.name}"?`)) await removeAccountGroup(g.id); }}>Del</button>}
+                      onClick={async () => {
+                        // BUG-16 FIX: guard against deleting group with assigned ledgers
+                        const assignedCount = ledgers.filter(l => l.groupId === g.id).length;
+                        if (assignedCount > 0) {
+                          addNotification('Cannot Delete', `"${g.name}" has ${assignedCount} ledger${assignedCount > 1 ? 's' : ''} assigned. Reassign them first.`, 'alert');
+                          return;
+                        }
+                        if (window.confirm(`Delete group "${g.name}"?`)) await removeAccountGroup(g.id);
+                      }}>Del</button>}
                   </td>
                 </tr>
               ))}

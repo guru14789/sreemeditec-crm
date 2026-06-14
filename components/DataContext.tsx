@@ -2126,7 +2126,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             referenceNumber: vData.referenceNumber,
             totalAmount: vData.totalAmount || 0,
             settlements: vData.settlements || [],
-            createdBy: currentUser?.name || 'System'
+            // BUG-2 FIX: persist all additional fields passed from voucher form
+            tdsRate: vData.tdsRate,
+            tdsSection: vData.tdsSection,
+            chequeNo: vData.chequeNo,
+            chequeDate: vData.chequeDate,
+            status: vData.status || 'POSTED',
+            createdBy: currentUser?.name || 'System',
+            createdOn: new Date().toISOString(),
         };
         await addVoucher(voucher);
     };
