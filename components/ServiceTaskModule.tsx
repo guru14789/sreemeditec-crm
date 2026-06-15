@@ -220,21 +220,26 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     addNotification('Notes Saved', 'Visit notes recorded.', 'success');
   };
 
-  const MetricCard = ({ label, value, icon, color, sub }: { label: string; value: number; icon: any; color: string; sub?: string }) => (
-    <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 min-w-0">
-      <div className={`p-3 rounded-xl ${color} text-white shadow-lg shrink-0`}>{icon}</div>
-      <div className="min-w-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
-        <p className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none mt-1">{value}</p>
-        {sub && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-1">{sub}</p>}
+  const MetricCard = ({ label, value, icon, color }: { label: string; value: number; icon: any; color: string }) => (
+    <div className="bg-white dark:bg-slate-900 p-2.5 md:p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-2.5 min-w-0">
+      <div className={`p-1.5 rounded-lg ${color} text-white shadow shrink-0`}>{icon}</div>
+      <div className="min-w-0 flex items-baseline gap-1.5">
+        <p className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{value}</p>
+        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider truncate">{label}</p>
       </div>
     </div>
   );
 
   const SectionCard = ({ task }: { task: ServiceTask }) => {
     const cfg = STATUS_CONFIG[task.status];
+    const handleDragStart = (e: React.DragEvent) => {
+      e.dataTransfer.setData('text/plain', task.id);
+      e.dataTransfer.effectAllowed = 'move';
+    };
     return (
       <div
+        draggable
+        onDragStart={handleDragStart}
         onClick={() => { setSelectedTaskId(task.id); setVisitNotes(task.visitNotes || ''); }}
         className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-300 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all shadow-sm"
       >
@@ -269,8 +274,26 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const KanbanColumn = ({ status }: { status: ServiceTaskStatus }) => {
     const cfg = STATUS_CONFIG[status];
     const tasks = groupedTasks[status];
+    const [dropOver, setDropOver] = useState(false);
+    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true); };
+    const handleDragLeave = (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOver(false);
+    };
+    const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setDropOver(false);
+      const taskId = e.dataTransfer.getData('text/plain');
+      if (taskId) handleStatusChange(taskId, status);
+    };
     return (
-      <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden">
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 rounded-[2.5rem] border shadow-inner overflow-hidden transition-all ${
+          dropOver ? 'border-teal-400 bg-teal-50/40 dark:bg-teal-900/10 shadow-lg' : 'border-slate-300/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20'
+        }`}
+      >
         <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full ${cfg.dotColor}`}></div>
@@ -335,14 +358,14 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
       </div>
 
       {/* Dashboard Metrics */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 md:gap-3 shrink-0">
-        <MetricCard label="Total" value={metrics.total} icon={<BarChart3 size={18} />} color="bg-slate-600" />
-        <MetricCard label="New" value={metrics.newTasks} icon={<AlertCircle size={18} />} color="bg-blue-600" />
-        <MetricCard label="Unassigned" value={metrics.unassigned} icon={<User size={18} />} color="bg-amber-600" />
-        <MetricCard label="Claimed" value={metrics.claimed} icon={<Play size={18} />} color="bg-indigo-600" />
-        <MetricCard label="In Progress" value={metrics.inProgress} icon={<Package size={18} />} color="bg-teal-600" />
-        <MetricCard label="Completed" value={metrics.completed} icon={<CheckCircle size={18} />} color="bg-emerald-600" />
-        <MetricCard label="Overdue" value={metrics.overdue} icon={<Clock size={18} />} color={metrics.overdue > 0 ? 'bg-rose-600' : 'bg-slate-400'} />
+      <div className="grid grid-cols-7 gap-1.5 shrink-0">
+        <MetricCard label="Total" value={metrics.total} icon={<BarChart3 size={14} />} color="bg-slate-600" />
+        <MetricCard label="New" value={metrics.newTasks} icon={<AlertCircle size={14} />} color="bg-blue-600" />
+        <MetricCard label="Unassigned" value={metrics.unassigned} icon={<User size={14} />} color="bg-amber-600" />
+        <MetricCard label="Claimed" value={metrics.claimed} icon={<Play size={14} />} color="bg-indigo-600" />
+        <MetricCard label="In Progress" value={metrics.inProgress} icon={<Package size={14} />} color="bg-teal-600" />
+        <MetricCard label="Completed" value={metrics.completed} icon={<CheckCircle size={14} />} color="bg-emerald-600" />
+        <MetricCard label="Overdue" value={metrics.overdue} icon={<Clock size={14} />} color={metrics.overdue > 0 ? 'bg-rose-600' : 'bg-slate-400'} />
       </div>
 
       {/* QR Code Section */}

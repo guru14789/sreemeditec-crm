@@ -454,8 +454,26 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
     const KanbanColumn = ({ status, title, color }: { status: Task['status'], title: string, color: string }) => {
         const columnTasks = visibleTasks.filter(t => t.status === status);
         const isCompleted = status === 'Done';
+        const [dropOver, setDropOver] = useState(false);
+        const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true); };
+        const handleDragLeave = (e: React.DragEvent) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropOver(false);
+        };
+        const handleDrop = (e: React.DragEvent) => {
+            e.preventDefault();
+            setDropOver(false);
+            const taskId = e.dataTransfer.getData('text/plain');
+            if (taskId) handleUpdateStatus(taskId, status);
+        };
         return (
-            <div className="flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-300/60 dark:border-slate-800 shadow-inner overflow-hidden uppercase">
+            <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`flex-1 min-w-[280px] md:min-w-[320px] flex flex-col min-h-0 rounded-[2.5rem] border shadow-inner overflow-hidden uppercase transition-all ${
+                    dropOver ? 'border-teal-400 bg-teal-50/40 dark:bg-teal-900/10 shadow-lg' : 'border-slate-300/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20'
+                }`}
+            >
                 <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
@@ -467,6 +485,8 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                     {(isCompleted ? columnTasks.slice(0, completedLimit) : columnTasks).map(task => (
                         <div
                             key={task.id}
+                            draggable
+                            onDragStart={(e) => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move'; }}
                             onClick={() => setSelectedTaskId(task.id)}
                             className={`group bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${task.priority === 'High' && task.status !== 'Done' ? 'border-rose-100 dark:border-rose-900' : 'border-slate-300 dark:border-slate-800'}`}
                         >
