@@ -420,6 +420,7 @@ export interface Invoice {
   grandTotal: number;
   isRoundOff?: boolean;
   roundOff?: number;
+  incentivePercentage?: number;
   documentType?: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   createdBy?: string;
   closedBy?: string;

@@ -1217,6 +1217,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Sync with Inventory (reversing old and applying updated record)
         const updatedRecord = { ...existing, ...u } as Invoice;
         await syncInventoryFromInvoice(updatedRecord, existing || null);
+        await checkAndAddInvoiceIncentive(updatedRecord);
 
         // Update Summary if status changed to approved or amount changed
         if (existing && existing.documentType !== 'Quotation') {
@@ -2726,12 +2727,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
 
+    const checkAndAddInvoiceIncentive = async (inv: Invoice) => {
+        if (!inv.incentivePercentage || inv.incentivePercentage <= 0 || !inv.closedBy) return;
+        if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+
+        const alreadyAwarded = pointHistory.some(p => p.category === 'Sales' && p.description.includes(`(${inv.id})`));
+        if (alreadyAwarded) return;
+
+        const incentiveAmount = Math.round((inv.grandTotal || 0) * (inv.incentivePercentage / 100));
+        if (incentiveAmount > 0) {
+            const empName = employees.find(e => e.id === inv.closedBy)?.name || 'Employee';
+            await addPoints(
+                incentiveAmount,
+                'Sales',
+                `Sales Incentive for Invoice ${inv.invoiceNumber} (${inv.id}) — closed by ${empName}`,
+                inv.closedBy
+            );
+            addNotification(
+                '💰 Incentive Awarded',
+                `${incentiveAmount} points added to ${empName} for Invoice ${inv.invoiceNumber}.`,
+                'success'
+            );
+        }
+    };
+
     const addInvoice = async (i: Invoice) => { 
         await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
         await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
         
         // Sync with Inventory (subtract stock)
         await syncInventoryFromInvoice(i, null);
+        
+        await checkAndAddInvoiceIncentive(i);
 
         // Aggregation trigger
         if (i.status !== 'Draft' && i.status !== 'Cancelled' && i.documentType !== 'Quotation') {

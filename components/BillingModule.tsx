@@ -707,6 +707,21 @@ Sree Meditec`;
                                                 ))}
                                             </select>
                                         </FormRow>
+                                        <FormRow label="Incentive (%)">
+                                            <input 
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                placeholder="0.0"
+                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
+                                                value={invoice.incentivePercentage !== undefined ? invoice.incentivePercentage : ''}
+                                                onChange={e => {
+                                                    const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                                    setInvoice({ ...invoice, incentivePercentage: val });
+                                                }}
+                                            />
+                                        </FormRow>
                                         <FormRow label="Select Bank">
                                             <select 
                                                 className="w-full h-[46px] bg-white border border-medical-200 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
