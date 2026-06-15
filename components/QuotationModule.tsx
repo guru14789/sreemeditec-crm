@@ -107,13 +107,11 @@ export const QuotationModule: React.FC = () => {
     const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt } = useData();
 
     const handleWhatsAppSend = async (inv: Invoice) => {
-        let phone = inv.phone || '';
-        if (!phone) {
-            const result = await showPrompt('Enter recipient phone number with country code (e.g. 919876543210):');
-            if (!result) return;
-            phone = result;
-        }
-        phone = phone.replace(/\D/g, '');
+        const clientObj = clients.find(c => c.name === inv.customerName);
+        const prefilledPhone = inv.phone || clientObj?.phone || '';
+        const result = await showPrompt('Confirm WhatsApp recipient number (with country code e.g. 919876543210):', prefilledPhone);
+        if (!result) return;
+        let phone = result.replace(/\D/g, '');
         if (!phone.startsWith('91') && phone.length === 10) {
             phone = '91' + phone;
         }

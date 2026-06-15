@@ -66,13 +66,11 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
     const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
 
     const handleWhatsAppSend = async (inv: Invoice) => {
-        let phone = inv.phone || '';
-        if (!phone) {
-            const result = await showPrompt('Enter recipient phone number with country code (e.g. 919876543210):');
-            if (!result) return;
-            phone = result;
-        }
-        phone = phone.replace(/\D/g, '');
+        const clientObj = clients.find(c => c.name === inv.customerName);
+        const prefilledPhone = inv.phone || clientObj?.phone || '';
+        const result = await showPrompt('Confirm WhatsApp recipient number (with country code e.g. 919876543210):', prefilledPhone);
+        if (!result) return;
+        let phone = result.replace(/\D/g, '');
         if (!phone.startsWith('91') && phone.length === 10) {
             phone = '91' + phone;
         }
