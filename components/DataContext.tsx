@@ -2967,6 +2967,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         
                         {dialogConfig.type === 'prompt' && (
                             <input
+                                key={dialogConfig.message + '_' + (dialogConfig.defaultValue || '')}
                                 id="custom-dialog-input"
                                 type="text"
                                 defaultValue={dialogConfig.defaultValue}
