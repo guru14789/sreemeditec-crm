@@ -454,6 +454,8 @@ export interface Invoice {
   paymentDate?: string;
   paymentBank?: string;
   sellerProfile?: CompanyProfile;
+  remarks?: string;
+  freight?: string;
   equipmentName?: string;
   model?: string;
   serialNumber?: string;
@@ -539,6 +541,9 @@ export interface AttendanceRecord {
   status: 'CheckedIn' | 'Paused' | 'Completed' | 'OnLeave';
   leaveReason?: string;
   workMode: 'Office' | 'Field' | 'Remote';
+  lat?: number;
+  lng?: number;
+  accuracy?: number;
   editHistory?: {
     editedAt: string;
     editedBy: string;
@@ -700,6 +705,12 @@ export interface ServiceReport {
   installationOf?: string;
   trainedPersons?: string;
   sellerProfile?: CompanyProfile;
+  phone?: string;
+  model?: string;
+  department?: string;
+  visitType?: string;
+  referenceOrderNumber?: string;
+  referenceOrderId?: string;
 }
 
 export interface SupportMessage {
@@ -759,6 +770,7 @@ export interface DeliveryChallan {
   remarks?: string;
   sellerProfile?: CompanyProfile;
   createdBy?: string;
+  invoiceId?: string;
 }
 
 export interface Holiday {

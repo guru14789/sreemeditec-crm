@@ -39,7 +39,9 @@ export const InstallationReportModule: React.FC = () => {
         addNotification, 
         financialYear, 
         currentUser,
-        isSystemAdmin
+        isSystemAdmin,
+        showConfirm,
+        previewPDF
     } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview'>('form');
@@ -79,12 +81,7 @@ export const InstallationReportModule: React.FC = () => {
     const handleDownloadPDF = async (data: SimpleInstallationReport) => {
         try {
             const blob = await PDFService.generateInstallationReportPDF(data);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.smirNo || 'InstallationReport'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.smirNo || 'InstallationReport'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
             addNotification('Download Failed', 'Could not generate PDF file.', 'alert');
@@ -232,7 +229,8 @@ export const InstallationReportModule: React.FC = () => {
                                                             <button 
                                                                 onClick={async (e) => { 
                                                                     e.stopPropagation(); 
-                                                                    if (window.confirm('Are you sure you want to delete this report?')) {
+                                                                    const confirmed = await showConfirm('Are you sure you want to delete this report?');
+                                                                    if (confirmed) {
                                                                         await removeInstallationReport(r.id);
                                                                         addNotification('Record Deleted', 'Installation report has been removed.', 'success');
                                                                         setActiveMenuId(null);

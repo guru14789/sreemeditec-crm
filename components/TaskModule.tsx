@@ -9,9 +9,10 @@ import { useData } from './DataContext';
 
 interface TaskModuleProps {
     userRole?: 'Admin' | 'Employee';
+    readOnly?: boolean;
 }
 
-export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
+export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) => {
     const {
         tasks,
         addPoints,
@@ -21,7 +22,9 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
         addTask,
         removeTask,
         currentUser: authUser,
-        fetchMoreData
+        fetchMoreData,
+        showAlert,
+        showConfirm
     } = useData();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -135,6 +138,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleUpdateStatus = async (id: string, newStatus: Task['status'], note?: string) => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         const existing = tasks.find(t => t.id === id);
         if (!existing) return;
 
@@ -230,7 +237,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleDeleteTask = async (id: string) => {
-        if (confirm("Permanently delete this task?")) {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
+        const confirmed = await showConfirm("Permanently delete this task?");
+        if (confirmed) {
             try {
                 await removeTask(id);
                 setSelectedTaskId(null);
@@ -242,6 +254,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleCreateTask = async () => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         if (!newTask.title || !newTask.assignedTo) {
             addNotification("Incomplete Field", "Please fill in Title and Assigned Staff member.", "warning");
             return;
@@ -276,6 +292,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleReschedule = async () => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         if (!selectedTask || !rescheduleDate) return;
         try {
             const log: TaskLog = {
@@ -299,6 +319,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleRequestReschedule = async () => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         if (!selectedTask || !reqNewDate || !reqReason) return;
         try {
             const req = {
@@ -330,6 +354,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleProcessReschedule = async (approved: boolean, adminNote?: string) => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         if (!selectedTask || !selectedTask.rescheduleRequest) return;
         try {
             const req = selectedTask.rescheduleRequest;
@@ -361,6 +389,10 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole }) => {
     };
 
     const handleSaveTaskEdit = async () => {
+        if (readOnly) {
+            await showAlert("This system is in Read-Only mode. Please check in to edit tasks.", "Read-Only Mode");
+            return;
+        }
         if (!selectedTask) return;
         if (!editTitle.trim()) {
             addNotification("Validation Error", "Title cannot be empty", "warning");

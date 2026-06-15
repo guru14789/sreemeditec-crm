@@ -21,7 +21,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
     const { 
         leads, addLead, updateLead, removeLead, addNotification, 
         setPendingQuoteData, employees, addLog, searchRecords, 
-        fetchMoreData, clients, products, addClient
+        fetchMoreData, clients, products, addClient, showConfirm
     } = useData();
 
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
@@ -161,6 +161,17 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             return;
         }
 
+        // Duplicate detection
+        const isDuplicate = leads.some(l => 
+            (l.id !== lead.id) && 
+            ((lead.phone && l.phone === lead.phone) || 
+             (lead.name && l.name.toLowerCase().trim() === lead.name.toLowerCase().trim()))
+        );
+        if (isDuplicate) {
+            const confirmed = await showConfirm(`A lead with name "${lead.name}" or phone "${lead.phone}" already exists. Save anyway?`, "Duplicate Detected");
+            if (!confirmed) return;
+        }
+
         if (builderMode === 'add') {
             const finalLead: Lead = {
                 ...lead as Lead,
@@ -201,7 +212,8 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
     };
 
     const handleDelete = async (targetLead: Lead) => {
-        if (window.confirm(`Delete lead "${targetLead.name}"?`)) {
+        const confirmed = await showConfirm(`Delete lead "${targetLead.name}"?`);
+        if (confirmed) {
             await addLog('Leads', 'Lead Deletion', `Purged lead record: ${targetLead.name}.`);
             await removeLead(targetLead.id);
             addNotification('Lead Deleted', `${targetLead.name} removed from registry.`, 'warning');

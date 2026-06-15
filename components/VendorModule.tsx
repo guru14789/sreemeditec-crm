@@ -20,7 +20,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const VendorModule: React.FC = () => {
-    const { vendors, addVendor, updateVendor, removeVendor, addNotification, products, purchaseRecords } = useData();
+    const { vendors, addVendor, updateVendor, removeVendor, addNotification, products, purchaseRecords, showConfirm } = useData();
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
     const [searchQuery, setSearchQuery] = useState('');
@@ -138,6 +138,17 @@ export const VendorModule: React.FC = () => {
             id: editingId || `VEN-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
             status: vendor.status || 'Finalized'
         };
+
+        // Duplicate detection
+        const isDuplicate = vendors.some(v => 
+            (v.id !== finalData.id) && 
+            ((finalData.phone && v.phone === finalData.phone) || 
+             (finalData.name && v.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()))
+        );
+        if (isDuplicate) {
+            const confirmed = await showConfirm(`A vendor with name "${finalData.name}" or phone "${finalData.phone}" already exists. Save anyway?`, "Duplicate Detected");
+            if (!confirmed) return;
+        }
 
         if (editingId) {
             await updateVendor(editingId, finalData);

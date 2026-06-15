@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem } from '../types';
+import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -105,7 +104,23 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 };
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [] } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt } = useData();
+
+    const handleWhatsAppSend = async (inv: Invoice) => {
+        let phone = inv.phone || '';
+        if (!phone) {
+            const result = await showPrompt('Enter recipient phone number with country code (e.g. 919876543210):');
+            if (!result) return;
+            phone = result;
+        }
+        phone = phone.replace(/\D/g, '');
+        if (!phone.startsWith('91') && phone.length === 10) {
+            phone = '91' + phone;
+        }
+        const message = `Hello, here are the details for your Quotation *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    };
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -191,17 +206,10 @@ export const QuotationModule: React.FC = () => {
                 repName,
                 repPhone
             }, data.selectedBank);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.invoiceNumber || 'Quotation'}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.invoiceNumber || 'Quotation'}.pdf`);
         } catch (error) {
             console.error("Failed to generate Quotation PDF:", error);
-            addNotification('Error', 'Failed to generate PDF. Please check the console.', 'error');
+            await showAlert("Failed to generate PDF. Please check the console.", "Error");
         }
     };
 
@@ -322,7 +330,8 @@ export const QuotationModule: React.FC = () => {
     };
 
     const handleDelete = async (id: string, ref: string) => {
-        if (window.confirm(`Are you sure you want to delete quotation ${ref}? This action cannot be undone.`)) {
+        const confirmed = await showConfirm(`Are you sure you want to delete quotation ${ref}? This action cannot be undone.`);
+        if (confirmed) {
             try {
                 await removeInvoice(id);
                 addNotification('Quotation Deleted', `Successfully removed ${ref} from the registry.`, 'success');
@@ -460,6 +469,32 @@ export const QuotationModule: React.FC = () => {
                                                 {activeMenuId === inv.id && (
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 border-slate-300">
                                                         <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                setPendingInvoiceData({
+                                                                    customerName: inv.customerName,
+                                                                    customerGstin: inv.customerGstin,
+                                                                    customerAddress: inv.customerAddress,
+                                                                    phone: inv.phone,
+                                                                    email: inv.email,
+                                                                    items: inv.items,
+                                                                    discount: inv.discount,
+                                                                    freight: inv.freight,
+                                                                    freightTaxRate: inv.freightTaxRate,
+                                                                    isRoundOff: inv.isRoundOff,
+                                                                    remarks: `Converted from Quotation ${inv.invoiceNumber}`,
+                                                                    subject: inv.subject,
+                                                                    selectedBank: inv.selectedBank
+                                                                });
+                                                                setActiveTab(TabView.BILLING);
+                                                                setActiveMenuId(null); 
+                                                            }} 
+                                                            className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                                                            title="Convert to Invoice"
+                                                        >
+                                                            <ArrowUpRight size={18} />
+                                                        </button>
+                                                        <button 
                                                             onClick={(e) => { e.stopPropagation(); handleRevise(inv); setActiveMenuId(null); }} 
                                                             className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
                                                             title="Revise Quote"
@@ -479,6 +514,13 @@ export const QuotationModule: React.FC = () => {
                                                             title="Download PDF"
                                                         >
                                                             <Download size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                                            title="Send on WhatsApp"
+                                                        >
+                                                            <MessageSquare size={18} />
                                                         </button>
 
                                                         {isSystemAdmin && (

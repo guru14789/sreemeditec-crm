@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export const PayrollModule: React.FC = () => {
-    const { currentUser: me, addNotification, attendanceRecords, holidays } = useData();
+    const { currentUser: me, addNotification, attendanceRecords, holidays, expenses = [] } = useData();
     const [selectedSalaryMonth, setSelectedSalaryMonth] = useState(new Date().getMonth());
     const [selectedSalaryYear, setSelectedSalaryYear] = useState(new Date().getFullYear());
     const [isGeneratingSlip, setIsGeneratingSlip] = useState(false);
@@ -89,7 +89,10 @@ export const PayrollModule: React.FC = () => {
             
             const pf = Math.floor(basic * 0.12);
             const pt = 200;
-            const totalDeductions = pf + pt;
+            const salaryAdvance = expenses
+                .filter(e => e.employeeName === me.name && e.category === 'Salary Advance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+            const totalDeductions = pf + pt + salaryAdvance;
             const netPay = grossSalary - totalDeductions;
 
             // Updated Employee Info Table
@@ -104,7 +107,7 @@ export const PayrollModule: React.FC = () => {
             const financeData = [
                 ['Basic Salary', basic.toLocaleString('en-IN'), 'Provident Fund (PF)', pf.toLocaleString('en-IN')],
                 ['House Rent Allowance (HRA)', hra.toLocaleString('en-IN'), 'Professional Tax', pt.toLocaleString('en-IN')],
-                ['Conveyance Allowance', conv.toLocaleString('en-IN'), '', ''],
+                ['Conveyance Allowance', conv.toLocaleString('en-IN'), 'Salary Advance', salaryAdvance.toLocaleString('en-IN')],
                 ['Special Allowance', other.toLocaleString('en-IN'), '', ''],
                 [{ content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${grossSalary.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: 'Total Deductions', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, { content: `₹${totalDeductions.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }]
             ];

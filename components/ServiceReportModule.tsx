@@ -44,10 +44,11 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
 }
 
 export const ServiceReportModule: React.FC = () => {
-    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin } = useData();
+    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin, pendingServiceReportData, setPendingServiceReportData, showConfirm, previewPDF } = useData();
 
     const handleDelete = async (id: string, num: string) => {
-        if (!confirm(`Are you sure you want to PERMANENTLY delete Service Report ${num}? This action cannot be undone.`)) return;
+        const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Service Report ${num}? This action cannot be undone.`);
+        if (!confirmed) return;
         try {
             await removeServiceReport(id);
             addNotification('Report Deleted', `${num} has been removed.`, 'success');
@@ -90,6 +91,30 @@ export const ServiceReportModule: React.FC = () => {
     });
 
     useEffect(() => {
+        if (pendingServiceReportData) {
+            setReport(prev => ({
+                ...prev,
+                customerName: pendingServiceReportData.customerName || '',
+                customerHospital: pendingServiceReportData.customerHospital || '',
+                customerAddress: pendingServiceReportData.customerAddress || '',
+                phone: pendingServiceReportData.phone || '',
+                equipmentName: pendingServiceReportData.equipmentName || '',
+                model: pendingServiceReportData.model || '',
+                serialNumber: pendingServiceReportData.serialNumber || '',
+                department: pendingServiceReportData.department || '',
+                engineerName: pendingServiceReportData.engineerName || prev.engineerName,
+                problemReported: pendingServiceReportData.problemReported || '',
+                visitType: pendingServiceReportData.visitType || 'Breakdown',
+                poWoNumber: pendingServiceReportData.referenceOrderNumber || '',
+            }));
+            setEditingId(null);
+            setViewState('builder');
+            setBuilderTab('form');
+            setPendingServiceReportData(null);
+        }
+    }, [pendingServiceReportData]);
+
+    useEffect(() => {
         if (viewState === 'builder' && !editingId && !report.reportNumber) {
             const currentYearReports = serviceReports.filter(r => r.reportNumber && r.reportNumber.includes(`/${financialYear}/`));
             const nextNum = currentYearReports.length + 1;
@@ -126,12 +151,7 @@ export const ServiceReportModule: React.FC = () => {
     const handleDownloadPDF = async (data: DetailedServiceReport) => {
         try {
             const blob = await PDFService.generateServiceReportPDF(data as ServiceReport);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.reportNumber || 'ServiceReport'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.reportNumber || 'ServiceReport'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
             addNotification('Download Failed', 'Could not generate PDF file.', 'alert');
@@ -530,7 +550,7 @@ export const ServiceReportModule: React.FC = () => {
                                             </h3>
                                         </div>
                                         <div className="space-y-3 pb-4">
-                                            {(report.itemsUsed?.length ?? 0) > 0 ? report.itemsUsed.map((item, idx) => (
+                                            {(report.itemsUsed || []).length > 0 ? (report.itemsUsed || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
                                                     <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                                         <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">

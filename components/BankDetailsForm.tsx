@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export const BankDetailsForm: React.FC = () => {
-    const { bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails, addNotification, isSystemAdmin } = useData();
+    const { bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails, addNotification, isSystemAdmin, showConfirm } = useData();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -48,7 +48,8 @@ export const BankDetailsForm: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (window.confirm('Delete this bank account?')) {
+        const confirmed = await showConfirm('Delete this bank account?');
+        if (confirmed) {
             await removeBankDetails(id);
             addNotification('Deleted', 'Bank account removed.', 'warning');
         }

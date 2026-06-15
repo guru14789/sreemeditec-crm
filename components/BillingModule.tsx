@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem } from '../types';
+import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
     History, MoreVertical, XCircle, RotateCcw, Wallet,
-    ChevronDown, ArrowUpRight, CheckCheck
+    ChevronDown, ArrowUpRight, CheckCheck, Truck, MessageSquare
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -63,10 +63,28 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 };
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [] } = useData();
+    const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
+
+    const handleWhatsAppSend = async (inv: Invoice) => {
+        let phone = inv.phone || '';
+        if (!phone) {
+            const result = await showPrompt('Enter recipient phone number with country code (e.g. 919876543210):');
+            if (!result) return;
+            phone = result;
+        }
+        phone = phone.replace(/\D/g, '');
+        if (!phone.startsWith('91') && phone.length === 10) {
+            phone = '91' + phone;
+        }
+        const docName = inv.documentType === 'Quotation' ? 'Quotation' : 'Invoice';
+        const message = `Hello, here are the details for your ${docName} *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    };
 
     const handleDelete = async (id: string, num: string) => {
-        if (!confirm(`Are you sure you want to PERMANENTLY delete document ${num}? This action cannot be undone.`)) return;
+        const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete document ${num}? This action cannot be undone.`);
+        if (!confirmed) return;
         try {
             await removeInvoice(id);
             addNotification('Document Deleted', `${num} has been removed.`, 'success');
@@ -104,6 +122,30 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         isRoundOff: false
     });
 
+    useEffect(() => {
+        if (pendingInvoiceData) {
+            setInvoice(prev => ({
+                ...prev,
+                customerName: pendingInvoiceData.customerName || '',
+                customerGstin: pendingInvoiceData.customerGstin || '',
+                customerAddress: pendingInvoiceData.customerAddress || '',
+                phone: pendingInvoiceData.phone || '',
+                email: pendingInvoiceData.email || '',
+                items: pendingInvoiceData.items || [],
+                discount: pendingInvoiceData.discount || 0,
+                freight: pendingInvoiceData.freight || 0,
+                freightTaxRate: pendingInvoiceData.freightTaxRate || 0,
+                isRoundOff: pendingInvoiceData.isRoundOff || false,
+                remarks: pendingInvoiceData.remarks || '',
+                subject: pendingInvoiceData.subject || '',
+                selectedBank: pendingInvoiceData.selectedBank || prev.selectedBank
+            }));
+            setEditingId(null);
+            setViewState('builder');
+            setBuilderTab('form');
+            setPendingInvoiceData(null);
+        }
+    }, [pendingInvoiceData]);
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !invoice.invoiceNumber) {
@@ -165,21 +207,16 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         try {
             const isQuotation = data.documentType === 'Quotation';
             const blob = await PDFService.generateInvoicePDF(data, isQuotation, data.selectedBank);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.invoiceNumber || 'Document'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.invoiceNumber || 'Document'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
-            alert("Error generating PDF.");
+            await showAlert("Error generating PDF.", "Error");
         }
     };
 
     const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!invoice.customerName || !invoice.items?.length) {
-            alert("Please fill customer details and add at least one item.");
+            await showAlert("Please fill customer details and add at least one item.", "Validation Error");
             return;
         }
 
@@ -461,36 +498,71 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                         >
                                                             <Download size={18} />
                                                         </button>
-                                                        {inv.status === 'Cancelled' ? (
-                                                            <button 
-                                                                onClick={(e) => { 
-                                                                    e.stopPropagation(); 
-                                                                    if(confirm('Restore this invoice? it will be re-added to calculations.')) {
-                                                                        const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
-                                                                        updateInvoice(inv.id, { status: balance <= 0 ? 'Completed' : 'Pending' });
-                                                                    }
-                                                                    setActiveMenuId(null); 
-                                                                }} 
-                                                                className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl transition-all flex-1 flex justify-center"
-                                                                title="Uncancel Invoice"
-                                                            >
-                                                                <RotateCcw size={18} />
-                                                            </button>
-                                                        ) : (
-                                                            <button 
-                                                                onClick={(e) => { 
-                                                                    e.stopPropagation(); 
-                                                                    if(confirm('Are you sure you want to cancel this invoice? It will be excluded from all calculations.')) {
-                                                                        updateInvoice(inv.id, { status: 'Cancelled' });
-                                                                    }
-                                                                    setActiveMenuId(null); 
-                                                                }} 
-                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
-                                                                title="Cancel Invoice"
-                                                            >
-                                                                <XCircle size={18} />
-                                                            </button>
-                                                        )}
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Send on WhatsApp"
+                                                        >
+                                                            <MessageSquare size={18} />
+                                                        </button>
+                                                        {variant === 'billing' && (
+                                                             <button 
+                                                                 onClick={(e) => { 
+                                                                     e.stopPropagation(); 
+                                                                     setPendingChallanData({
+                                                                         customerName: inv.customerName,
+                                                                         customerAddress: inv.customerAddress,
+                                                                         invoiceId: inv.id,
+                                                                         remarks: `Raised for Invoice ${inv.invoiceNumber}`,
+                                                                         items: (inv.items || []).map(item => ({
+                                                                             id: item.id || `DC-ITM-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                                                                             name: item.name,
+                                                                             sku: item.sku || '',
+                                                                             quantity: item.quantity,
+                                                                             serialNo: item.serialNo || ''
+                                                                         }))
+                                                                     });
+                                                                     setActiveTab(TabView.DELIVERY);
+                                                                     setActiveMenuId(null); 
+                                                                 }} 
+                                                                 className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                 title="Generate Delivery Challan"
+                                                             >
+                                                                 <Truck size={18} />
+                                                             </button>
+                                                         )}
+                                                         {inv.status === 'Cancelled' ? (
+                                                             <button 
+                                                                 onClick={async (e) => { 
+                                                                     e.stopPropagation(); 
+                                                                     const confirmed = await showConfirm('Restore this invoice? it will be re-added to calculations.');
+                                                                     if(confirmed) {
+                                                                         const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
+                                                                         updateInvoice(inv.id, { status: balance <= 0 ? 'Completed' : 'Pending' });
+                                                                     }
+                                                                     setActiveMenuId(null); 
+                                                                 }} 
+                                                                 className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                 title="Uncancel Invoice"
+                                                             >
+                                                                 <RotateCcw size={18} />
+                                                             </button>
+                                                         ) : (
+                                                             <button 
+                                                                 onClick={async (e) => { 
+                                                                     e.stopPropagation(); 
+                                                                     const confirmed = await showConfirm('Are you sure you want to cancel this invoice? It will be excluded from all calculations.');
+                                                                     if(confirmed) {
+                                                                         updateInvoice(inv.id, { status: 'Cancelled' });
+                                                                     }
+                                                                     setActiveMenuId(null); 
+                                                                 }} 
+                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                 title="Cancel Invoice"
+                                                             >
+                                                                 <XCircle size={18} />
+                                                             </button>
+                                                         )}
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber || 'Document'); setActiveMenuId(null); }} 

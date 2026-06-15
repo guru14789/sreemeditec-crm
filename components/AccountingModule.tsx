@@ -52,10 +52,10 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
     fixedAssets = [], depreciationSchedule = [], bankStatements = [], costCentres = [],
     addLedger, updateLedger, removeLedger,
     addAccountGroup, removeAccountGroup, updateAccountGroup,
-    reverseVoucher, updateVoucher, postToLedger,
+    reverseVoucher, updateVoucher, postToLedger, reconcileLedgerBalances,
     addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry,
     uploadBankStatement, autoMatchBankEntries, ensurePartyLedger,
-    addNotification, currentUser,
+    addNotification, currentUser, showAlert, showConfirm, showPrompt
   } = useData();
 
   // ── Screen / Navigation State ─────────────────────────────────────────
@@ -205,7 +205,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
 
   // ── Keyboard handler ───────────────────────────────────────────────────
   useEffect(() => {
-    const h = (e: KeyboardEvent) => {
+    const h = async (e: KeyboardEvent) => {
       if (showGoto) {
         if (e.key === 'Escape') { e.preventDefault(); setShowGoto(false); setGotoQ(''); return; }
         if (e.key === 'Enter' && filteredGoto.length > 0) { e.preventDefault(); filteredGoto[0].action(); setShowGoto(false); setGotoQ(''); return; }
@@ -220,13 +220,13 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
       if (e.key === 'F1') { e.preventDefault(); setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); return; }
       if (e.key === 'F2') {
         e.preventDefault();
-        if (showVf) { const d = prompt('Voucher date (YYYY-MM-DD):', vf.date); if (d) setVf(p => ({ ...p, date: d })); }
-        else { const d = prompt('Change date (YYYY-MM-DD):', daybookDate); if (d) setDaybookDate(d); }
+        if (showVf) { const d = await showPrompt('Voucher date (YYYY-MM-DD):', vf.date); if (d) setVf(p => ({ ...p, date: d })); }
+        else { const d = await showPrompt('Change date (YYYY-MM-DD):', daybookDate); if (d) setDaybookDate(d); }
         return;
       }
       if (e.key === 'F3') { e.preventDefault(); addNotification('Company Info', 'Sreemeditec — current company.', 'info'); return; }
       if (e.altKey && e.key === 'F1') { e.preventDefault(); addNotification('View', 'Detailed view toggled.', 'success'); return; }
-      if (e.altKey && e.key === 'F2') { e.preventDefault(); const d = prompt('Change period:', daybookDate); if (d) setDaybookDate(d); return; }
+      if (e.altKey && e.key === 'F2') { e.preventDefault(); const d = await showPrompt('Change period:', daybookDate); if (d) setDaybookDate(d); return; }
       if (e.key === 'F4') { e.preventDefault(); resetVf('Contra'); return; }
       if (e.key === 'F5') { e.preventDefault(); resetVf('Payment'); return; }
       if (e.key === 'F6') { e.preventDefault(); resetVf('Receipt'); return; }
@@ -239,7 +239,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
       if (e.key === 'F12') { e.preventDefault(); addNotification('Configure', 'F12 configuration.', 'info'); return; }
 
       if (e.key === 'Escape') {
-        if (showVf) { if (window.confirm('Quit without saving?')) { setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); } return; }
+        if (showVf) { const confirmed = await showConfirm('Quit without saving?'); if (confirmed) { setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); } return; }
         if (screen !== 'gateway') { e.preventDefault(); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); return; }
       }
 
@@ -255,7 +255,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           }
         }
         if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); handleSaveVoucher(); return; }
-        if (e.ctrlKey && (e.key === 'q' || e.key === 'Q')) { e.preventDefault(); if (window.confirm('Quit without saving?')) { setShowVf(false); setScreen('gateway'); } return; }
+        if (e.ctrlKey && (e.key === 'q' || e.key === 'Q')) { e.preventDefault(); const confirmed = await showConfirm('Quit without saving?'); if (confirmed) { setShowVf(false); setScreen('gateway'); } return; }
         if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSaveVoucher(); return; }
         if (e.altKey && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); setShowCreateLedger(true); return; }
         if (e.altKey && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); const entries = vf.entries; if (entries.length > 2) delEntry(entries[entries.length - 2]?.id || entries[0]?.id); return; }
@@ -1141,17 +1141,33 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
   };
 
   // ── Render: Outstanding (with real aging) ──────────────────────────────
+  const handleOutstandingWhatsApp = async (r: any) => {
+    let phone = r.ledger.phone || '';
+    if (!phone) {
+      const result = await showPrompt(`Enter recipient phone number for ${r.ledger.name} with country code (e.g. 919876543210):`);
+      if (!result) return;
+      phone = result;
+    }
+    phone = phone.replace(/\D/g, '');
+    if (!phone.startsWith('91') && phone.length === 10) {
+      phone = '91' + phone;
+    }
+    const message = `Dear ${r.ledger.name},\nThis is a friendly reminder that an outstanding amount of *₹${fmt(r.total)}* is pending in your account with Sree Meditec. Please arrange for payment at the earliest.\nThank you!\n- Sree Meditec`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
   const renderOutstanding = () => {
     const AgingTable = ({ data, title }: { data: typeof agingData.debtors; title: string }) => (
       <>
         <div className="tally-section-header" style={{ marginBottom: 8 }}>{title}</div>
         <table className="tally-rpt" style={{ width: '100%', marginBottom: 20 }}>
           <thead>
-            <tr><th>Party</th><th style={{ textAlign: 'right' }}>Total Due</th><th style={{ textAlign: 'right' }}>0-30 days</th><th style={{ textAlign: 'right' }}>31-60 days</th><th style={{ textAlign: 'right' }}>61-90 days</th><th style={{ textAlign: 'right', color: '#FF5252' }}>90+ days</th><th>Invoices</th></tr>
+            <tr><th>Party</th><th style={{ textAlign: 'right' }}>Total Due</th><th style={{ textAlign: 'right' }}>0-30 days</th><th style={{ textAlign: 'right' }}>31-60 days</th><th style={{ textAlign: 'right' }}>61-90 days</th><th style={{ textAlign: 'right', color: '#FF5252' }}>90+ days</th><th>Invoices</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: 16, color: '#3A6A90' }}>No outstanding amounts</td></tr>
+              <tr><td colSpan={8} style={{ textAlign: 'center', padding: 16, color: '#3A6A90' }}>No outstanding amounts</td></tr>
             ) : data.map(r => (
               <tr key={r.ledger.id} style={{ cursor: 'pointer' }} onClick={() => { setSelLedger(r.ledger); setScreen('ledger_stmt'); }}>
                 <td style={{ color: '#A8CCE8' }}>{r.ledger.name}</td>
@@ -1161,6 +1177,9 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                 <td className="amt" style={{ color: '#FF5722' }}>{r.b61_90 > 0 ? `₹${fmt(r.b61_90)}` : '-'}</td>
                 <td className="amt" style={{ color: '#FF1744', fontWeight: 'bold' }}>{r.b90plus > 0 ? `₹${fmt(r.b90plus)}` : '-'}</td>
                 <td style={{ fontSize: 10, color: '#4A90C4' }}>{r.invoiceCount} bills</td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => handleOutstandingWhatsApp(r)} className="tally-fkey" style={{ fontSize: 9, borderColor: '#00C853', color: '#00C853', padding: '0 6px' }}>WA</button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1173,6 +1192,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                 <td style={{ textAlign: 'right' }}>₹{fmt(data.reduce((s, r) => s + r.b31_60, 0))}</td>
                 <td style={{ textAlign: 'right' }}>₹{fmt(data.reduce((s, r) => s + r.b61_90, 0))}</td>
                 <td style={{ textAlign: 'right', color: '#FF1744' }}>₹{fmt(data.reduce((s, r) => s + r.b90plus, 0))}</td>
+                <td></td>
                 <td></td>
               </tr>
             </tfoot>
@@ -1265,6 +1285,15 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
             onClick={() => { setEditLedger(null); setLedgerFormData({ groupId: accountGroups[0]?.id, openingBalance: 0, currentBalance: 0, isActive: true }); setShowLedgerForm(true); }}>
             + New Ledger
           </button>
+          {/* 6.4 — Reconcile ledger balances */}
+          <button className="tally-fkey" style={{ borderColor: '#FF9800', color: '#FF9800' }}
+            onClick={async () => {
+              addNotification('Reconciling…', 'Recalculating all ledger balances from vouchers.', 'info');
+              const fixed = await reconcileLedgerBalances();
+              addNotification('Reconciliation Done', `${fixed} ledger${fixed !== 1 ? 's' : ''} corrected.`, fixed > 0 ? 'success' : 'info');
+            }}>
+            ↻ Reconcile Balances
+          </button>
         </div>
 
         {coaTab === 'ledgers' ? (
@@ -1286,7 +1315,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                         <button className="tally-fkey" style={{ fontSize: 9, padding: '0 6px' }}
                           onClick={() => { setEditLedger(l); setLedgerFormData({ ...l }); setShowLedgerForm(true); }}>Edit</button>
                         {isAdmin && <button className="tally-fkey" style={{ fontSize: 9, padding: '0 6px', borderColor: '#FF5252', color: '#FF5252' }}
-                          onClick={async () => { if (window.confirm(`Delete "${l.name}"?`)) await removeLedger(l.id); }}>Del</button>}
+                          onClick={async () => { const confirmed = await showConfirm(`Delete "${l.name}"?`); if (confirmed) await removeLedger(l.id); }}>Del</button>}
                       </div>
                     </td>
                   </tr>
@@ -1313,7 +1342,8 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                           addNotification('Cannot Delete', `"${g.name}" has ${assignedCount} ledger${assignedCount > 1 ? 's' : ''} assigned. Reassign them first.`, 'alert');
                           return;
                         }
-                        if (window.confirm(`Delete group "${g.name}"?`)) await removeAccountGroup(g.id);
+                         const confirmed = await showConfirm(`Delete group "${g.name}"?`);
+                         if (confirmed) await removeAccountGroup(g.id);
                       }}>Del</button>}
                   </td>
                 </tr>
@@ -1642,7 +1672,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                     {a.status === 'Active' && (
                       <button className="tally-fkey" style={{ fontSize: 9 }} onClick={() => handleRunDepreciation(a.id)}>Run Dep.</button>
                     )}
-                    {isAdmin && <button className="tally-fkey" style={{ fontSize: 9, borderColor: '#FF5252', color: '#FF5252' }} onClick={async () => { if (window.confirm(`Delete "${a.name}"?`)) await removeFixedAsset(a.id); }}>Del</button>}
+                    {isAdmin && <button className="tally-fkey" style={{ fontSize: 9, borderColor: '#FF5252', color: '#FF5252' }} onClick={async () => { const confirmed = await showConfirm(`Delete "${a.name}"?`); if (confirmed) await removeFixedAsset(a.id); }}>Del</button>}
                   </div>
                 </td>
               </tr>

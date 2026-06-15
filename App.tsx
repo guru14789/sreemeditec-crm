@@ -5,9 +5,10 @@ import { collection, getDocs, query, updateDoc, doc } from 'firebase/firestore';
 import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
-  Receipt, ShoppingCart, Wallet,
+  Receipt, ShoppingCart, Wallet, Search,
   Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database
 } from 'lucide-react';
+import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
 import { LeadsModule } from './components/LeadsModule';
@@ -91,7 +92,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { label: string, value: string, icon: any, colorClass: string, subText?: string }) => (
-    <div className={`hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:border-${colorClass.split('-')[1]}-200 group`}>
+    <div className={`flex shrink-0 items-center gap-2 px-3 py-1 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm transition-all hover:border-${colorClass.split('-')[1]}-200 group`}>
         <div className={`p-1 rounded-lg ${colorClass} text-white group-hover:scale-110 transition-transform`}>
             <Icon size={12} />
         </div>
@@ -110,7 +111,7 @@ export const App: React.FC = () => {
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
         userStats, attendanceRecords, invoices, financialYear, updateFinancialYear,
         clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
-        addNotification, expenseStats, updateEmployee
+        addNotification, expenseStats, updateEmployee, activeTab, setActiveTab
     } = useData();
 
     const [isEditingPrize, setIsEditingPrize] = useState(false);
@@ -125,8 +126,20 @@ export const App: React.FC = () => {
         }
     }, [currentUser?.permissions, currentUser?.id]);
 
-    const [activeTab, setActiveTab] = useState<TabView>(TabView.DASHBOARD);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [taskReadOnlyUnlocked, setTaskReadOnlyUnlocked] = useState(false);
+    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                setIsCommandPaletteOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     useEffect(() => {
         const handleResize = () => {
@@ -144,7 +157,8 @@ export const App: React.FC = () => {
 
     const handleMigratePermissions = async () => {
       if (!isSuperAdmin) return;
-      if (!window.confirm("CRITICAL: This will migrate ALL employees to the new granular permission structure. This is required to resolve legacy Array issues. Continue?")) return;
+      const confirmed = await showConfirm("CRITICAL: This will migrate ALL employees to the new granular permission structure. This is required to resolve legacy Array issues. Continue?");
+      if (!confirmed) return;
       
       try {
         const q = query(collection(db, "employees"));
@@ -159,10 +173,10 @@ export const App: React.FC = () => {
             count++;
           }
         }
-        alert(`Security Maintenance Complete: ${count} employees normalized to Record structure.`);
+        await showAlert(`Security Maintenance Complete: ${count} employees normalized to Record structure.`, "Migration Success");
       } catch (err) {
         console.error("Migration failed:", err);
-        alert("Maintenance Error: System was unable to write to the employee registry. Check Firestore rules.");
+        await showAlert("Maintenance Error: System was unable to write to the employee registry. Check Firestore rules.", "Migration Error");
       }
     };
 
@@ -439,7 +453,8 @@ export const App: React.FC = () => {
 
     // GATING: Lock tasks and dashboard if not checked in (except for Admin)
     const isTaskOrDashboard = activeTab === TabView.TASKS || activeTab === TabView.DASHBOARD;
-    if (isTaskOrDashboard && !isCheckedInToday && userRole !== 'Admin') {
+    const isTaskReadOnlyBypass = activeTab === TabView.TASKS && taskReadOnlyUnlocked;
+    if (isTaskOrDashboard && !isCheckedInToday && userRole !== 'Admin' && !isTaskReadOnlyBypass) {
         return (
             <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
                 <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse border-4 border-amber-200">
@@ -449,6 +464,9 @@ export const App: React.FC = () => {
                 <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm max-w-[320px] text-center font-medium">Tasks are synchronized only after a successful check-in. Please log your attendance to continue.</p>
                 <div className="flex gap-4 mt-8">
                     <button onClick={() => setActiveTab(TabView.ATTENDANCE)} className="px-8 py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all active:scale-95">Go to Check-In</button>
+                    {activeTab === TabView.TASKS && (
+                        <button onClick={() => setTaskReadOnlyUnlocked(true)} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all active:scale-95">View Tasks (Read-Only)</button>
+                    )}
                 </div>
             </div>
         );
@@ -466,7 +484,7 @@ export const App: React.FC = () => {
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
       case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} userRole={tabRole} />;
-      case TabView.TASKS: return <TaskModule userRole={tabRole} />;
+      case TabView.TASKS: return <TaskModule userRole={tabRole} readOnly={taskReadOnlyUnlocked && !isCheckedInToday && userRole !== 'Admin'} />;
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
@@ -525,7 +543,7 @@ export const App: React.FC = () => {
                             <div 
                                 onClick={async () => {
                                     if (userRole !== 'Admin') {
-                                        alert("Administrative privileges required for System Backup.");
+                                        await showAlert("Administrative privileges required for System Backup.", "Access Denied");
                                         return;
                                     }
                                     handleFullBackup();
@@ -558,17 +576,18 @@ export const App: React.FC = () => {
                             <div 
                                 onClick={async () => {
                                     if (userRole !== 'Admin') {
-                                        alert("Access Denied: Administrative privileges required.");
+                                        await showAlert("Access Denied: Administrative privileges required.", "Access Denied");
                                         return;
                                     }
-                                    const pass = window.prompt("Enter Admin Password to modify Fiscal Period:");
-                                    if (pass !== 'sree') {
-                                        alert("Invalid Password.");
+                                    const pass = await showPrompt("Enter Admin Password to modify Fiscal Period:");
+                                    if (pass !== (currentUser?.password || 'sree')) {
+                                        await showAlert("Invalid Password.", "Error");
                                         return;
                                     }
-                                    const nextFY = window.prompt("Enter New Financial Year (e.g. 26-27):", financialYear);
+                                    const nextFY = await showPrompt("Enter New Financial Year (e.g. 26-27):", financialYear);
                                     if (nextFY && nextFY !== financialYear) {
-                                        if (window.confirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`)) {
+                                        const confirmed = await showConfirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`);
+                                        if (confirmed) {
                                             await updateFinancialYear(nextFY);
                                         }
                                     }
@@ -643,6 +662,24 @@ export const App: React.FC = () => {
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all transform active:scale-90"><Menu size={24} /></button>
         </div>
 
+        {/* Global Ctrl+K Search Pill */}
+        <div className="px-4 mb-2 shrink-0">
+          <button 
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className={`w-full flex items-center justify-between bg-black/20 hover:bg-black/35 text-emerald-50/55 hover:text-white border border-white/5 hover:border-white/10 rounded-xl transition-all ${
+              isSidebarOpen ? 'px-3.5 py-2' : 'p-2 justify-center'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Search size={14} className="shrink-0 text-emerald-400" />
+              {isSidebarOpen && <span className="text-xs font-semibold">Search...</span>}
+            </div>
+            {isSidebarOpen && (
+              <span className="text-[9px] font-black opacity-40 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0">⌘K</span>
+            )}
+          </button>
+        </div>
+
         {/* Scrollable Navigation Area */}
         <div className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
           {sidebarSections.map((section, idx) => {
@@ -704,7 +741,7 @@ export const App: React.FC = () => {
           </div>
           
           {activeTab === TabView.BILLING && (
-            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
                {(() => {
                  const outstanding = invoices
                     .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status !== 'Cancelled')
@@ -723,7 +760,7 @@ export const App: React.FC = () => {
             </div>
           )}
           {activeTab === TabView.INVENTORY && (
-            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
                {/* Valuation Calculations */}
                {(() => {
                  const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
@@ -760,7 +797,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.ATTENDANCE && currentUser && (
-            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
                {(() => {
                  const workMode = (currentUser.department === 'Service' || currentUser.department === 'Sales' || currentUser.department === 'Support') ? 'Field' : (currentUser.department === 'Remote' ? 'Remote' : 'Office');
                  const goal = workMode === 'Field' ? 'Complete Tasks' : '7 Hours Work';
@@ -795,7 +832,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.EXPENSES && (
-            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
                {(() => {
                  return (
                    <>
@@ -827,7 +864,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.PERFORMANCE && (
-            <div className="hidden lg:flex items-center gap-3 mx-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
                <HeaderStatCard 
                   label="My Points" 
                   value={userStats.points.toString()} 
@@ -850,7 +887,7 @@ export const App: React.FC = () => {
                   subText="Active"
                />
                
-               <div className={`hidden lg:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-orange-500/10 transition-all group relative overflow-hidden`}>
+               <div className={`flex shrink-0 items-center gap-2.5 px-4 py-1.5 rounded-2xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-orange-500/10 transition-all group relative overflow-hidden`}>
                   <div className="absolute top-0 right-0 p-1 opacity-20"><Trophy size={24} /></div>
                   <div className="text-white relative z-10 flex items-center gap-3">
                       <div>
@@ -896,6 +933,7 @@ export const App: React.FC = () => {
         </div>
       </main>
       <WinnerPopup />
+      <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
     </div>
   );
 };

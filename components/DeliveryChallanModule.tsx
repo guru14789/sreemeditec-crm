@@ -25,10 +25,11 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const DeliveryChallanModule: React.FC = () => {
-    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan, updateProduct, recordStockMovement, addNotification, currentUser, financialYear, companyProfiles, isSystemAdmin } = useData();
+    const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan, updateProduct, recordStockMovement, addNotification, currentUser, financialYear, companyProfiles, isSystemAdmin, pendingChallanData, setPendingChallanData, showConfirm, previewPDF } = useData();
 
     const handleDelete = async (id: string, num: string) => {
-        if (!confirm(`Are you sure you want to PERMANENTLY delete Challan ${num}? This action cannot be undone.`)) return;
+        const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Challan ${num}? This action cannot be undone.`);
+        if (!confirmed) return;
         try {
             await removeDeliveryChallan(id);
             addNotification('Challan Deleted', `${num} has been removed.`, 'success');
@@ -56,6 +57,23 @@ export const DeliveryChallanModule: React.FC = () => {
     });
 
     useEffect(() => {
+        if (pendingChallanData) {
+            setChallan(prev => ({
+                ...prev,
+                customerName: pendingChallanData.customerName || '',
+                customerAddress: pendingChallanData.customerAddress || '',
+                invoiceId: pendingChallanData.invoiceId || '',
+                remarks: pendingChallanData.remarks || '',
+                items: pendingChallanData.items || []
+            }));
+            setEditingId(null);
+            setViewState('builder');
+            setBuilderTab('form');
+            setPendingChallanData(null);
+        }
+    }, [pendingChallanData]);
+
+    useEffect(() => {
         if (viewState === 'builder' && !editingId && !challan.challanNumber) {
             const currentYearChallans = deliveryChallans.filter(c => c.challanNumber && c.challanNumber.includes(`/${financialYear}/`));
             const nextNum = currentYearChallans.length + 1;
@@ -75,12 +93,7 @@ export const DeliveryChallanModule: React.FC = () => {
     const handleDownloadPDF = async (data: Partial<DeliveryChallan>) => {
         try {
             const blob = await PDFService.generateDeliveryChallanPDF(data as DeliveryChallan);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.challanNumber || 'DeliveryChallan'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.challanNumber || 'DeliveryChallan'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
             addNotification('Download Failed', 'Could not generate PDF file.', 'alert');

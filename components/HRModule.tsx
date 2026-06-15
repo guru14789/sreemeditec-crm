@@ -43,7 +43,7 @@ const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
 ];
 
 export const HRModule: React.FC = () => {
-    const { employees, updateEmployee, addEmployee, removeEmployee, addNotification } = useData();
+    const { employees, updateEmployee, addEmployee, removeEmployee, addNotification, showAlert, showConfirm } = useData();
     const [activeTab, setActiveTab] = useState<'employees' | 'permissions'>('employees');
     const [searchQuery, setSearchQuery] = useState('');
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
@@ -140,16 +140,17 @@ export const HRModule: React.FC = () => {
 
         const employee = employees.find(e => e.id === selectedEmployeeId);
         if (!employee) {
-            alert("Employee not found in registry.");
+            await showAlert("Employee not found in registry.", "Error");
             return;
         }
 
         if (confirmPassword !== employee.password && confirmPassword !== 'SreeAdmin2026') {
-            alert("Incorrect Confirmation Password.");
+            await showAlert("Incorrect Confirmation Password.", "Error");
             return;
         }
 
-        if (window.confirm(`CRITICAL: Are you sure you want to permanently remove ${employee.name} from the enterprise registry?`)) {
+        const confirmed = await showConfirm(`CRITICAL: Are you sure you want to permanently remove ${employee.name} from the enterprise registry?`);
+        if (confirmed) {
             try {
                 await removeEmployee(selectedEmployeeId);
                 addNotification('Registry Purged', `${employee.name} has been removed.`, 'warning');
@@ -158,7 +159,7 @@ export const HRModule: React.FC = () => {
                 setConfirmPassword('');
             } catch (err: any) {
                 console.error("Deletion failed:", err);
-                alert(`System Error: Deletion failed. ${err.message || 'Check firestore permissions.'}`);
+                await showAlert(`System Error: Deletion failed. ${err.message || 'Check firestore permissions.'}`, "System Error");
             }
         }
     };

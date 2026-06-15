@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem } from '../types';
+import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, 
     History, Download, Edit, Eye, List as ListIcon, CreditCard, MoreVertical,
-    FileText, User, CheckCircle, Percent, ImageIcon, ShieldCheck, ShoppingCart, Calendar, Building2, Save
+    FileText, User, CheckCircle, Percent, ImageIcon, ShieldCheck, ShoppingCart, Calendar, Building2, Save, ArrowUpRight, MessageSquare
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -46,7 +46,23 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const PurchaseOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingSupplierPOData, setActiveTab, showConfirm, showPrompt, previewPDF } = useData();
+
+    const handleWhatsAppSend = async (inv: Invoice) => {
+        let phone = inv.phone || '';
+        if (!phone) {
+            const result = await showPrompt('Enter recipient phone number with country code (e.g. 919876543210):');
+            if (!result) return;
+            phone = result;
+        }
+        phone = phone.replace(/\D/g, '');
+        if (!phone.startsWith('91') && phone.length === 10) {
+            phone = '91' + phone;
+        }
+        const message = `Hello, here are the details for your Customer PO *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank');
+    };
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,12 +118,7 @@ export const PurchaseOrderModule: React.FC = () => {
     const handleDownloadPDF = async (data: Partial<Invoice>) => {
         try {
             const blob = await PDFService.generatePurchaseOrderPDF(data as Invoice, data.documentType !== 'SupplierPO');
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.invoiceNumber || 'PurchaseOrder'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.invoiceNumber || 'PurchaseOrder'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
             addNotification('Download Failed', 'Could not generate PDF file.', 'alert');
@@ -373,17 +384,33 @@ export const PurchaseOrderModule: React.FC = () => {
                                                 </button>
                                                 {activeMenuId === inv.id && (
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button title="Raise Supplier PO" onClick={(e) => { 
+                                                             e.stopPropagation(); 
+                                                             setPendingSupplierPOData({
+                                                                 items: inv.items,
+                                                                 discount: inv.discount,
+                                                                 freightAmount: inv.freightAmount,
+                                                                 freightTaxRate: inv.freightTaxRate,
+                                                                 isRoundOff: inv.isRoundOff,
+                                                                 remarks: `Created from Customer PO ${inv.invoiceNumber}`,
+                                                                 subject: inv.subject
+                                                             });
+                                                             setActiveTab(TabView.SUPPLIER_PO);
+                                                             setActiveMenuId(null); 
+                                                         }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all flex-1 flex justify-center"><ArrowUpRight size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
                                                                     e.stopPropagation(); 
-                                                                    if (window.confirm('Are you sure you want to delete this order?')) {
+                                                                    const confirmed = await showConfirm('Are you sure you want to delete this order?');
+                                                                    if (confirmed) {
                                                                         await removeInvoice(inv.id);
                                                                         addNotification('Record Deleted', 'Purchase Order has been removed.', 'success');
-                                                                        setActiveMenuId(null);
                                                                     }
+                                                                    setActiveMenuId(null);
                                                                 }} 
                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
                                                             >

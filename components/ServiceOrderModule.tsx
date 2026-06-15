@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem, Client, Product } from '../types';
+import { Invoice, InvoiceItem, Client, Product, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, 
     History, Download, Edit, Eye, List as ListIcon, Wrench, MoreVertical, Package, User, MapPin, AlertCircle
@@ -43,7 +43,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const ServiceOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingServiceReportData, setActiveTab, showConfirm, previewPDF } = useData();
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,12 +114,7 @@ export const ServiceOrderModule: React.FC = () => {
     const handleDownloadPDF = async (data: Partial<Invoice>) => {
         try {
             const blob = await PDFService.generateServiceOrderPDF(data as Invoice);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${data.invoiceNumber || 'ServiceOrder'}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            previewPDF(blob, `${data.invoiceNumber || 'ServiceOrder'}.pdf`);
         } catch (err) {
             console.error(err);
             addNotification('Error', 'Failed to generate Service Order PDF.', 'alert');
@@ -374,10 +369,30 @@ export const ServiceOrderModule: React.FC = () => {
                                                 </button>
                                                 {activeMenuId === inv.id && (
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button title="Generate Service Report" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPendingServiceReportData({
+                                                                customerName: inv.customerName,
+                                                                customerHospital: inv.customerHospital,
+                                                                customerAddress: inv.customerAddress,
+                                                                phone: inv.phone,
+                                                                equipmentName: inv.equipmentName,
+                                                                model: inv.model,
+                                                                serialNumber: inv.serialNumber,
+                                                                department: inv.department,
+                                                                engineerName: inv.engineerName,
+                                                                problemReported: inv.problemReported,
+                                                                visitType: inv.visitType,
+                                                                referenceOrderNumber: inv.invoiceNumber,
+                                                                referenceOrderId: inv.id
+                                                            });
+                                                            setActiveTab(TabView.SERVICE_REPORTS);
+                                                            setActiveMenuId(null);
+                                                        }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all flex-1 flex justify-center"><Wrench size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         {isSystemAdmin && (
-                                                            <button onClick={async (e) => { e.stopPropagation(); if (window.confirm('Are you sure you want to delete this record?')) { await removeInvoice(inv.id); addNotification('Record Deleted', 'The service record has been removed.', 'success'); setActiveMenuId(null); } }} className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"><Trash2 size={18} /></button>
+                                                            <button onClick={async (e) => { e.stopPropagation(); const confirmed = await showConfirm('Are you sure you want to delete this record?'); if (confirmed) { await removeInvoice(inv.id); addNotification('Record Deleted', 'The service record has been removed.', 'success'); } setActiveMenuId(null); }} className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"><Trash2 size={18} /></button>
                                                         )}
                                                     </div>
                                                 )}
@@ -470,7 +485,7 @@ export const ServiceOrderModule: React.FC = () => {
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">4. Spares & Service Manifest</h3>
                                         </div>
                                         <div className="space-y-3 pb-24">
-                                            {(order.items?.length ?? 0) > 0 ? order.items.map((item, idx) => (
+                                            {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
                                                     <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                                         <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">{idx + 1}</div>

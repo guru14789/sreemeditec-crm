@@ -20,7 +20,7 @@ const formatIndianNumber = (num: number) => {
 };
 
 export const ClientModule: React.FC = () => {
-    const { clients, invoices, addClient, updateClient, removeClient, addNotification } = useData();
+    const { clients, invoices, addClient, updateClient, removeClient, addNotification, showConfirm } = useData();
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
     const [searchQuery, setSearchQuery] = useState('');
@@ -101,6 +101,17 @@ export const ClientModule: React.FC = () => {
             id: editingId || `CLI-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
             status: client.status || 'Finalized'
         };
+
+        // Duplicate detection
+        const isDuplicate = clients.some(c => 
+            (c.id !== finalData.id) && 
+            ((finalData.phone && c.phone === finalData.phone) || 
+             (finalData.name && c.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()))
+        );
+        if (isDuplicate) {
+            const confirmed = await showConfirm(`A client with name "${finalData.name}" or phone "${finalData.phone}" already exists. Save anyway?`, "Duplicate Detected");
+            if (!confirmed) return;
+        }
 
         if (editingId) {
             await updateClient(editingId, finalData);

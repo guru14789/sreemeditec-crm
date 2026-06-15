@@ -17,7 +17,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const { 
         addPoints, currentUser: me, attendanceRecords, updateAttendance, removeAttendance, 
         employees, addNotification, holidays, addHoliday, removeHoliday, addLog,
-        leaveRequests, addLeaveRequest, updateLeaveRequest 
+        leaveRequests, addLeaveRequest, updateLeaveRequest, showAlert, showConfirm 
     } = useData();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -258,13 +258,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             setEditReason('');
         } catch (err) {
             console.error(err);
-            alert("Failed to update record.");
+            await showAlert("Failed to update record.", "Error");
         }
     };
 
     const handleResetAttendance = async () => {
         if (!editingAttendanceRecord) return;
-        if (!window.confirm(`Are you sure you want to COMPLETELY CLEAR the attendance record for ${editingAttendanceRecord.userName} on ${editingAttendanceRecord.date}? This will reset them to "Not Started".`)) return;
+        const confirmed = await showConfirm(`Are you sure you want to COMPLETELY CLEAR the attendance record for ${editingAttendanceRecord.userName} on ${editingAttendanceRecord.date}? This will reset them to "Not Started".`);
+        if (!confirmed) return;
         
         try {
             await removeAttendance(editingAttendanceRecord.id);
@@ -274,13 +275,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             setEditingAttendanceRecord(null);
         } catch (err) {
             console.error(err);
-            alert("Failed to reset record.");
+            await showAlert("Failed to reset record.", "Error");
         }
     };
 
     const handleApplyLeave = async () => {
         if (!me || !leaveForm.reason.trim()) {
-            alert("Please provide a proper reason for leave.");
+            await showAlert("Please provide a proper reason for leave.", "Validation Error");
             return;
         }
         
@@ -333,6 +334,22 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             if (isCheckedIn) {
                 setShowConfirmModal(true);
             } else {
+                let locationData: { lat?: number; lng?: number; accuracy?: number } = {};
+                if (navigator.geolocation) {
+                    try {
+                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
+                        });
+                        locationData = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                    } catch (err) {
+                        console.warn("Could not retrieve geolocation:", err);
+                    }
+                }
+
                 await updateAttendance({
                     id: recordId,
                     userId: me.id,
@@ -343,7 +360,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     status: 'CheckedIn',
                     workMode: workMode,
                     checkInTime: todayRecord?.checkInTime || now.toISOString(),
-                    checkOutTime: null
+                    checkOutTime: null,
+                    ...locationData
                 });
                 
                 // Award points for punctuality on first check-in

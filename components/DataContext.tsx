@@ -65,6 +65,22 @@ export interface DataContextType {
 
     pendingQuoteData: Partial<Invoice> | null;
     setPendingQuoteData: (data: Partial<Invoice> | null) => void;
+    pendingInvoiceData: Partial<Invoice> | null;
+    setPendingInvoiceData: (data: Partial<Invoice> | null) => void;
+    pendingServiceReportData: Partial<ServiceReport> | null;
+    setPendingServiceReportData: (data: Partial<ServiceReport> | null) => void;
+    pendingChallanData: Partial<DeliveryChallan> | null;
+    setPendingChallanData: (data: Partial<DeliveryChallan> | null) => void;
+    pendingSupplierPOData: Partial<Invoice> | null;
+    setPendingSupplierPOData: (data: Partial<Invoice> | null) => void;
+
+    activeTab: TabView;
+    setActiveTab: (tab: TabView) => void;
+
+    showAlert: (message: string, title?: string) => Promise<void>;
+    showConfirm: (message: string, title?: string) => Promise<boolean>;
+    showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
+    previewPDF: (blob: Blob, filename: string) => void;
 
     currentUser: Employee | null;
     isAuthenticated: boolean;
@@ -98,18 +114,18 @@ export interface DataContextType {
     // Activity Logs
     logs: LogEntry[];
     hasMoreLogs: boolean;
-    addLog: (category: LogEntry['category'], action: string, details: string, before?: any, after?: any) => Promise<void>;
+    addLog: (category: LogEntry['category'], action: string, details: string, beforeValues?: any, afterValues?: any) => Promise<void>;
     fetchAuditLogs: (isLoadMore?: boolean) => Promise<void>;
 
     seedDatabase: () => Promise<void>;
-    addClient: (client: Client) => Promise<void>;
-    updateClient: (id: string, client: Partial<Client>) => Promise<void>;
+    addClient: (c: Client) => Promise<void>;
+    updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
     removeClient: (id: string) => Promise<void>;
-    addVendor: (vendor: Vendor) => Promise<void>;
-    updateVendor: (id: string, vendor: Partial<Vendor>) => Promise<void>;
+    addVendor: (v: Vendor) => Promise<void>;
+    updateVendor: (id: string, updates: Partial<Vendor>) => Promise<void>;
     removeVendor: (id: string) => Promise<void>;
-    addProduct: (product: Product) => Promise<void>;
-    updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+    addProduct: (p: Product) => Promise<void>;
+    updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
     removeProduct: (id: string) => Promise<void>;
     addInvoice: (invoice: Invoice) => Promise<void>;
     updateInvoice: (id: string, invoice: Partial<Invoice>) => Promise<void>;
@@ -122,7 +138,7 @@ export interface DataContextType {
     addTask: (task: Task) => Promise<void>;
     removeTask: (id: string) => Promise<void>;
     updateTaskRemote: (id: string, updates: Partial<Task>) => Promise<void>;
-    addLead: (lead: Lead) => Promise<void>;
+    addLead: (l: Lead) => Promise<void>;
     updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
     removeLead: (id: string) => Promise<void>;
     addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
@@ -171,6 +187,7 @@ export interface DataContextType {
     reverseVoucher: (id: string, reason: string) => Promise<void>;
     postToLedger: (voucherData: Partial<AccountingVoucher>) => Promise<void>;
     addStockTransfer: (transfer: StockTransfer) => Promise<void>;
+    reconcileLedgerBalances: () => Promise<number>;
 
     // Cost Centre Methods
     addCostCentre: (cc: CostCentre) => Promise<void>;
@@ -305,10 +322,101 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [prizePool, setPrizePool] = useState<number>(1500);
     const [financialYear, setFinancialYear] = useState<string>("26-27");
     const [bankDetailsList, setBankDetailsList] = useState<BankDetails[]>([]);
-    const [dbError] = useState<string | null>(null);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
+    const [pendingInvoiceData, setPendingInvoiceData] = useState<Partial<Invoice> | null>(null);
+    const [pendingServiceReportData, setPendingServiceReportData] = useState<Partial<ServiceReport> | null>(null);
+    const [pendingChallanData, setPendingChallanData] = useState<Partial<DeliveryChallan> | null>(null);
+    const [pendingSupplierPOData, setPendingSupplierPOData] = useState<Partial<Invoice> | null>(null);
+
+    const [activeTab, setActiveTabState] = useState<TabView>(TabView.DASHBOARD);
+    const setActiveTab = (tab: TabView) => {
+        setActiveTabState(tab);
+    };
+
+    // Dialog state
+    interface DialogConfig {
+        isOpen: boolean;
+        title: string;
+        message: string;
+        type: 'alert' | 'confirm' | 'prompt';
+        defaultValue?: string;
+        resolve: (value: any) => void;
+    }
+    const [dialogConfig, setDialogConfig] = useState<DialogConfig | null>(null);
+
+    const showAlert = (message: string, title: string = 'Alert') => {
+        return new Promise<void>((resolve) => {
+            setDialogConfig({
+                isOpen: true,
+                title,
+                message,
+                type: 'alert',
+                resolve: () => {
+                    setDialogConfig(null);
+                    resolve();
+                }
+            });
+        });
+    };
+
+    const showConfirm = (message: string, title: string = 'Confirm') => {
+        return new Promise<boolean>((resolve) => {
+            setDialogConfig({
+                isOpen: true,
+                title,
+                message,
+                type: 'confirm',
+                resolve: (val) => {
+                    setDialogConfig(null);
+                    resolve(!!val);
+                }
+            });
+        });
+    };
+
+    const showPrompt = (message: string, defaultValue: string = '', title: string = 'Prompt') => {
+        return new Promise<string | null>((resolve) => {
+            setDialogConfig({
+                isOpen: true,
+                title,
+                message,
+                type: 'prompt',
+                defaultValue,
+                resolve: (val) => {
+                    setDialogConfig(null);
+                    resolve(val);
+                }
+            });
+        });
+    };
+
+    // PDF Preview state
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<{ url: string, filename: string } | null>(null);
+    const previewPDF = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        setPdfPreviewUrl({ url, filename });
+    };
+
+    // Active Notifications state
+    const [notifications, setNotifications] = useState<any[]>([]);
+
+    const addNotification = (title: string, message: string, type: string) => {
+        const id = `NOTIF-${Date.now()}-${Math.random()}`;
+        setNotifications(prev => {
+            if (prev.some(n => n.title === title && n.message === message && !n.read)) return prev;
+            return [{ id, title, message, type, read: false, timestamp: new Date().toLocaleTimeString() }, ...prev];
+        });
+    };
+    const markNotificationRead = (id: string) => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    };
+    const clearAllNotifications = () => {
+        setNotifications([]);
+    };
+
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [dbError, setDbError] = useState<string | null>(null);
     const [firebaseUser, setFirebaseUser] = useState<any>(null);
     const loginLoggedRef = React.useRef(false);
 
@@ -624,6 +732,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkAmcReminders(serviceTickets);
     }, [currentUser?.id, serviceTickets.length]);
 
+    // 1.4 — Lead follow-up reminders: fire when nextFollowUpDate === today
+    useEffect(() => {
+        if (!currentUser || leads.length === 0) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        leads.forEach(l => {
+            if (l.nextFollowUpDate === todayStr && l.status !== 'Won' && l.status !== 'Lost') {
+                addNotification(
+                    '📞 Follow-up Due Today',
+                    `${l.name} (${l.hospital || l.phone || ''}) — Scheduled follow-up for ${l.product || 'lead'}.`,
+                    'info'
+                );
+            }
+        });
+    }, [currentUser?.id, leads.length]);
+
 
 
     const userStats = useMemo(() => {
@@ -931,11 +1054,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
     const removeAttendance = async (id: string) => { await deleteDoc(doc(db, "attendance", id)); await addLog('Attendance', 'Deleted Record', `ID: ${id}`); };
-
-    const addNotification = (title: string, message: string, type: string) => { void title; void message; void type; };
-    const markNotificationRead = (id: string) => { void id; };
-    const clearAllNotifications = () => {};
-    
     const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), sanitizeData(l)); await addLog('Leads', 'New Lead', `${l.name}`); };
     const updateLead = async (id: string, u: Partial<Lead>) => {
         const existing = leads.find(l => l.id === id);
@@ -978,7 +1096,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             { id: 'LDG-SPARES-REV', name: 'Spares Revenue', groupId: 'GRP-INCOME', openingBalance: 0, currentBalance: 0 },
             { id: 'LDG-TRAVEL-EXP', name: 'Travelling Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
             { id: 'LDG-FOOD-EXP', name: 'Food Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
-            { id: 'LDG-OFFICE-EXP', name: 'Office Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 }
+            { id: 'LDG-OFFICE-EXP', name: 'Office Expense', groupId: 'GRP-EXPENSES', openingBalance: 0, currentBalance: 0 },
+            { id: 'LDG-SALARY-ADV', name: 'Salary Advance', groupId: 'GRP-ASSETS', openingBalance: 0, currentBalance: 0 }
         ];
 
         // Also seed fixed asset / depreciation groups if missing
@@ -1305,6 +1424,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (!wasDone && isNowDone) await updateUserSummary(currentUser.id, currentUser.name, 0, 1);
             else if (wasDone && !isNowDone) await updateUserSummary(currentUser.id, currentUser.name, 0, -1);
         }
+
+        // 1.5 — Auto-close parent task when all subtasks are done
+        const merged = { ...existing, ...u } as Task;
+        const subTasksList = merged.subTasks || (merged as any).subtasks;
+        if (subTasksList && subTasksList.length > 0) {
+            const allDone = subTasksList.every((s: any) => s.done);
+            if (allDone && merged.status !== 'Done') {
+                await updateDoc(doc(db, "tasks", id), sanitizeData({ status: 'Done' }));
+                setTaskSnap(prev => prev.map(t => t.id === id ? { ...t, status: 'Done' } as Task : t));
+                addNotification('✅ Task Auto-Completed', `All subtasks done — "${merged.title}" marked complete.`, 'success');
+                if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, 0, 1);
+            }
+        }
     };
     const addTask = async (t: Task) => { 
         setTaskSnap(prev => [t, ...prev].sort((a,b) => b.id.localeCompare(a.id)));
@@ -1318,7 +1450,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Tasks', 'Deleted Task', id); 
     };
 
-    const addServiceTicket = async (t: ServiceTicket) => { await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t)); await addLog('System', 'New Ticket', t.issue); };
+    const addServiceTicket = async (t: ServiceTicket) => {
+        await setDoc(doc(db, "serviceTickets", t.id), sanitizeData(t));
+        await addLog('System', 'New Ticket', t.issue);
+        // 1.6 — Auto-create a Task for the assigned engineer
+        if (t.assignedTo) {
+            const autoTask: Task = {
+                id: `TASK-TKT-${t.id}`,
+                title: `[Service] ${t.equipment || 'Equipment'} — ${t.customer}`,
+                description: `Auto-created from ticket. Issue: ${t.issue}`,
+                status: 'In Progress',
+                priority: t.priority === 'Urgent' ? 'High' : (t.priority || 'Medium') as any,
+                assignedTo: t.assignedTo,
+                submittedBy: 'System',
+                dueDate: t.dueDate || new Date().toISOString().split('T')[0],
+                createdAt: new Date().toISOString(),
+                ticketId: t.id,
+                subtasks: [],
+            };
+            await setDoc(doc(db, "tasks", autoTask.id), sanitizeData(autoTask));
+            setTaskSnap(prev => [autoTask as Task, ...prev]);
+            await addLog('Tasks', 'Auto Task from Ticket', `Ticket ${t.id} → Task created for ${t.assignedTo}`);
+            addNotification('🔧 Task Auto-Created', `Service task assigned to ${t.assignedTo} for ${t.customer}.`, 'info');
+        }
+    };
     const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
 
     const autoPostExpenseVoucher = async (e: ExpenseRecord) => {
@@ -2741,10 +2896,39 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Removed Company Profile', id);
     };
 
+    // 6.4 — Reconcile all ledger balances from voucher sum
+    const reconcileLedgerBalances = async (): Promise<number> => {
+        let fixed = 0;
+        for (const ledger of ledgers) {
+            let balance = ledger.openingBalance || 0;
+            const grp = accountGroups.find(g => g.id === ledger.groupId);
+            const isDebitNormal = grp?.type === 'Asset' || grp?.type === 'Expense';
+            for (const v of vouchers) {
+                for (const e of v.entries) {
+                    if (e.ledgerId !== ledger.id) continue;
+                    balance += isDebitNormal ? (e.debit - e.credit) : (e.credit - e.debit);
+                }
+            }
+            const roundedBalance = Math.round(balance * 100) / 100;
+            if (Math.abs(roundedBalance - (ledger.currentBalance || 0)) > 0.5) {
+                await updateDoc(doc(db, 'ledgers', ledger.id), sanitizeData({ currentBalance: roundedBalance }));
+                fixed++;
+            }
+        }
+        await addLog('Accounting', 'Ledger Reconciliation', `Reconciled ${ledgers.length} ledgers, fixed ${fixed}`);
+        return fixed;
+    };
+
     return (
         <DataContext.Provider value={{
-            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications: [], tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
+            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
             pendingQuoteData, setPendingQuoteData,
+            pendingInvoiceData, setPendingInvoiceData,
+            pendingServiceReportData, setPendingServiceReportData,
+            pendingChallanData, setPendingChallanData,
+            pendingSupplierPOData, setPendingSupplierPOData,
+            activeTab, setActiveTab,
+            showAlert, showConfirm, showPrompt, previewPDF,
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
@@ -2766,13 +2950,96 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
             ledgers, accountGroups, vouchers, stockTransfers, expenseStats,
             costCentres, fixedAssets, depreciationSchedule, bankStatements,
-            addLedger, updateLedger, removeLedger, addAccountGroup, removeAccountGroup, updateAccountGroup, addVoucher, updateVoucher, reverseVoucher, postToLedger, addStockTransfer,
+            addLedger, updateLedger, removeLedger, addAccountGroup, removeAccountGroup, updateAccountGroup, addVoucher, updateVoucher, reverseVoucher, postToLedger, addStockTransfer, reconcileLedgerBalances,
             addCostCentre, updateCostCentre, removeCostCentre,
             addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry,
             uploadBankStatement, autoMatchBankEntries, postAutoVouchers,
             isSystemAdmin
         }}>
             {children}
+            
+            {/* Custom Dialog Overlay */}
+            {dialogConfig && dialogConfig.isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 text-slate-100">
+                        <h3 className="text-xl font-bold text-teal-400 mb-2">{dialogConfig.title}</h3>
+                        <p className="text-slate-300 text-sm mb-6 whitespace-pre-wrap">{dialogConfig.message}</p>
+                        
+                        {dialogConfig.type === 'prompt' && (
+                            <input
+                                id="custom-dialog-input"
+                                type="text"
+                                defaultValue={dialogConfig.defaultValue}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-teal-500 mb-6 text-sm"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        dialogConfig.resolve((e.target as HTMLInputElement).value);
+                                    }
+                                }}
+                            />
+                        )}
+                        
+                        <div className="flex justify-end gap-3">
+                            {dialogConfig.type !== 'alert' && (
+                                <button
+                                    onClick={() => dialogConfig.resolve(null)}
+                                    className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            )}
+                            <button
+                                onClick={() => {
+                                    if (dialogConfig.type === 'prompt') {
+                                        const input = document.getElementById('custom-dialog-input') as HTMLInputElement;
+                                        dialogConfig.resolve(input ? input.value : '');
+                                    } else {
+                                        dialogConfig.resolve(true);
+                                    }
+                                }}
+                                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-sm font-semibold shadow-lg shadow-teal-500/20 transition-all active:scale-95"
+                            >
+                                {dialogConfig.type === 'alert' ? 'OK' : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PDF Preview Modal */}
+            {pdfPreviewUrl && (
+                <div className="fixed inset-0 z-[9999] flex flex-col bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="flex justify-between items-center bg-slate-900 border border-slate-800 px-6 py-4 rounded-t-2xl w-full max-w-5xl mx-auto mt-4">
+                        <h3 className="text-lg font-bold text-teal-400 truncate">{pdfPreviewUrl.filename}</h3>
+                        <div className="flex gap-3">
+                            <a
+                                href={pdfPreviewUrl.url}
+                                download={pdfPreviewUrl.filename}
+                                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 text-sm font-medium transition-all"
+                            >
+                                Download PDF
+                            </a>
+                            <button
+                                onClick={() => {
+                                    URL.revokeObjectURL(pdfPreviewUrl.url);
+                                    setPdfPreviewUrl(null);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 text-sm font-medium transition-all border border-rose-900/30"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex-1 bg-slate-900 rounded-b-2xl overflow-hidden w-full max-w-5xl mx-auto mb-4 p-2">
+                        <iframe
+                            src={pdfPreviewUrl.url}
+                            className="w-full h-full border-none rounded-xl bg-white"
+                            title="PDF Preview"
+                        />
+                    </div>
+                </div>
+            )}
         </DataContext.Provider>
     );
 };
