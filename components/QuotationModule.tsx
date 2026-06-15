@@ -122,7 +122,9 @@ export const QuotationModule: React.FC = () => {
         window.open(url, '_blank');
     };
     const handleEmailSend = async (inv: Invoice) => {
-        const email = await showPrompt('Confirm recipient email address:', inv.email || '');
+        const clientObj = clients.find(c => c.name === inv.customerName);
+        const prefilledEmail = inv.email || clientObj?.email || '';
+        const email = await showPrompt('Confirm recipient email address:', prefilledEmail);
         if (!email) return;
         
         // 1. Generate and download PDF
