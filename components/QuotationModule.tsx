@@ -3,7 +3,7 @@ import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -121,6 +121,37 @@ export const QuotationModule: React.FC = () => {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
     };
+    const handleEmailSend = async (inv: Invoice) => {
+        let email = inv.email || '';
+        if (!email) {
+            const result = await showPrompt('Enter recipient email address:');
+            if (!result) return;
+            email = result;
+        }
+        
+        // 1. Generate and download PDF
+        await handleDownloadPDF(inv);
+        
+        // 2. Draft mail client link
+        const subject = `Quotation ${inv.invoiceNumber} from Sree Meditec`;
+        const body = `Dear Customer,
+
+Please find the summary of your quotation #${inv.invoiceNumber} below:
+
+Date: ${formatDateDDMMYYYY(inv.date)}
+Total Amount: INR ${(inv.grandTotal || 0).toLocaleString('en-IN')}
+
+(Note: Your PDF document has been prepared. Please attach the downloaded file to this email before sending.)
+
+Thank you for your business.
+
+Warm regards,
+Sree Meditec`;
+        
+        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = url;
+    };
+
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -521,6 +552,13 @@ export const QuotationModule: React.FC = () => {
                                                             title="Send on WhatsApp"
                                                         >
                                                             <MessageSquare size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                            title="Send via Email"
+                                                        >
+                                                            <Mail size={18} />
                                                         </button>
 
                                                         {isSystemAdmin && (

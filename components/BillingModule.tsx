@@ -4,7 +4,7 @@ import {
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
     History, MoreVertical, XCircle, RotateCcw, Wallet,
-    ChevronDown, ArrowUpRight, CheckCheck, Truck, MessageSquare
+    ChevronDown, ArrowUpRight, CheckCheck, Truck, MessageSquare, Mail
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -80,6 +80,38 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         const message = `Hello, here are the details for your ${docName} *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
+    };
+
+    const handleEmailSend = async (inv: Invoice) => {
+        let email = inv.email || '';
+        if (!email) {
+            const result = await showPrompt('Enter recipient email address:');
+            if (!result) return;
+            email = result;
+        }
+        
+        // 1. Generate and download PDF
+        await handleDownloadPDF(inv);
+        
+        // 2. Draft mail client link
+        const docName = inv.documentType === 'Quotation' ? 'Quotation' : 'Invoice';
+        const subject = `${docName} ${inv.invoiceNumber} from Sree Meditec`;
+        const body = `Dear Customer,
+
+Please find the summary of your ${docName.toLowerCase()} #${inv.invoiceNumber} below:
+
+Date: ${formatDateDDMMYYYY(inv.date)}
+Total Amount: INR ${(inv.grandTotal || 0).toLocaleString('en-IN')}
+
+(Note: Your PDF document has been prepared. Please attach the downloaded file to this email before sending.)
+
+Thank you for your business.
+
+Warm regards,
+Sree Meditec`;
+        
+        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = url;
     };
 
     const handleDelete = async (id: string, num: string) => {
@@ -504,6 +536,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
                                                             title="Send on WhatsApp"
                                                         >
                                                             <MessageSquare size={18} />
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} 
+                                                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                            title="Send via Email"
+                                                        >
+                                                            <Mail size={18} />
                                                         </button>
                                                         {variant === 'billing' && (
                                                              <button 
