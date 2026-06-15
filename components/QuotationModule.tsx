@@ -108,7 +108,10 @@ export const QuotationModule: React.FC = () => {
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
-        const prefilledPhone = inv.phone || clientObj?.phone || '';
+        let prefilledPhone = (inv.phone || clientObj?.phone || '').replace(/\D/g, '');
+        if (prefilledPhone && !prefilledPhone.startsWith('91') && prefilledPhone.length === 10) {
+            prefilledPhone = '91' + prefilledPhone;
+        }
         const result = await showPrompt('Confirm WhatsApp recipient number (with country code e.g. 919876543210):', prefilledPhone);
         if (!result) return;
         let phone = result.replace(/\D/g, '');
