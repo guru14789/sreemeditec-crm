@@ -83,17 +83,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
     };
 
     const handleEmailSend = async (inv: Invoice) => {
-        let email = inv.email || '';
-        if (!email) {
-            const result = await showPrompt('Enter recipient email address:');
-            if (!result) return;
-            email = result;
-        }
+        const email = await showPrompt('Confirm recipient email address:', inv.email || '');
+        if (!email) return;
         
         // 1. Generate and download PDF
         await handleDownloadPDF(inv);
         
-        // 2. Draft mail client link
+        // 2. Draft Gmail web link
         const docName = inv.documentType === 'Quotation' ? 'Quotation' : 'Invoice';
         const subject = `${docName} ${inv.invoiceNumber} from Sree Meditec`;
         const body = `Dear Customer,
@@ -103,15 +99,15 @@ Please find the summary of your ${docName.toLowerCase()} #${inv.invoiceNumber} b
 Date: ${formatDateDDMMYYYY(inv.date)}
 Total Amount: INR ${(inv.grandTotal || 0).toLocaleString('en-IN')}
 
-(Note: Your PDF document has been prepared. Please attach the downloaded file to this email before sending.)
+(Note: Your PDF document has been prepared and downloaded. Please drag and drop or attach it to this Gmail window before sending.)
 
 Thank you for your business.
 
 Warm regards,
 Sree Meditec`;
         
-        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = url;
+        const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.open(url, '_blank');
     };
 
     const handleDelete = async (id: string, num: string) => {
