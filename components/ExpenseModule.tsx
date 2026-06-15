@@ -24,8 +24,103 @@ interface ExpenseModuleProps {
 export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userRole }) => {
     const { 
         expenses, addExpense, updateExpense, removeExpense, updateExpenseStatus, 
-        addNotification, fetchMoreData, ledgers, addLedger, postToLedger 
+        addNotification, fetchMoreData, ledgers, addLedger, postToLedger,
+        employees = [], attendanceRecords = []
     } = useData();
+
+    const [selectedEmployeeName, setSelectedEmployeeName] = useState(currentUser);
+
+    // Sync selectedEmployeeName if currentUser prop changes
+    useEffect(() => {
+        if (currentUser) {
+            setSelectedEmployeeName(currentUser);
+        }
+    }, [currentUser]);
+
+    // Find the target employee for allowance tracking
+    const targetEmployee = useMemo(() => {
+        return employees.find(e => e.name.toLowerCase() === selectedEmployeeName.toLowerCase());
+    }, [employees, selectedEmployeeName]);
+
+    // Calculate allowance balances dynamically based on attendance and claims
+    const allowanceBalances = useMemo(() => {
+        if (!targetEmployee) {
+            return { 
+                dailyAvailable: 0, 
+                outstationAvailable: 0, 
+                totalClaimable: 0, 
+                eligiblePresentDays: 0, 
+                eligibleOutstationDays: 0, 
+                totalDailyAllowance: 0, 
+                totalOutstationAllowance: 0, 
+                claimedDaily: 0, 
+                claimedOutstation: 0 
+            };
+        }
+
+        const now = new Date();
+        const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        const empRecords = attendanceRecords.filter(r => r.userId === targetEmployee.id && r.date.startsWith(currentYearMonth));
+        
+        let eligiblePresentDays = 0;
+        let eligibleOutstationDays = 0;
+
+        empRecords.forEach(record => {
+            const dateObj = new Date(record.date);
+            const isSunday = dateObj.getDay() === 0;
+
+            if (record.status !== 'OnLeave') {
+                if (record.workMode === 'Outstation') {
+                    // Include Sundays only when marked as Outstation
+                    eligibleOutstationDays++;
+                } else {
+                    // Daily allowance: Present Days, exclude outstation days, exclude sundays
+                    if (!isSunday) {
+                        eligiblePresentDays++;
+                    }
+                }
+            }
+        });
+
+        const dailyRate = targetEmployee.dailyAllowance || 0;
+        const outstationRate = targetEmployee.outstationAllowance || 0;
+
+        const totalDailyAllowance = eligiblePresentDays * dailyRate;
+        const totalOutstationAllowance = eligibleOutstationDays * outstationRate;
+
+        // Sum up claimed expenses that are 'Approved' and NOT 'Company' category and are in the current month
+        const employeeExpenses = expenses.filter(e => 
+            e.employeeName.toLowerCase() === targetEmployee.name.toLowerCase() && 
+            e.status === 'Approved' &&
+            e.category !== 'Company' &&
+            e.date.startsWith(currentYearMonth)
+        );
+
+        const claimedDaily = employeeExpenses
+            .filter(e => e.category === 'Daily Allowance')
+            .reduce((sum, curr) => sum + (curr.amount || 0), 0);
+
+        const claimedOutstation = employeeExpenses
+            .filter(e => e.category === 'Outstation Allowance')
+            .reduce((sum, curr) => sum + (curr.amount || 0), 0);
+
+        const dailyAvailable = Math.max(0, totalDailyAllowance - claimedDaily);
+        const outstationAvailable = Math.max(0, totalOutstationAllowance - claimedOutstation);
+        const totalClaimable = dailyAvailable + outstationAvailable;
+
+        return {
+            dailyAvailable,
+            outstationAvailable,
+            totalClaimable,
+            eligiblePresentDays,
+            eligibleOutstationDays,
+            totalDailyAllowance,
+            totalOutstationAllowance,
+            claimedDaily,
+            claimedOutstation
+        };
+    }, [targetEmployee, attendanceRecords, expenses, selectedEmployeeName]);
 
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
@@ -51,7 +146,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
     const DEFAULT_EXPENSE: Partial<ExpenseRecord> = {
         date: new Date().toISOString().split('T')[0],
-        category: 'Travel',
+        category: 'Daily Allowance',
         amount: 0,
         description: '',
         status: 'Pending'
@@ -141,7 +236,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                 const record: ExpenseRecord = {
                     ...expense as ExpenseRecord,
                     id: `EXP-${Date.now()}`,
-                    employeeName: currentUser,
+                    employeeName: expense.employeeName || selectedEmployeeName || currentUser,
                     receiptUrl: receiptPreview || undefined,
                     status: 'Pending'
                 };
@@ -267,7 +362,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         <div className="h-full flex flex-col gap-2 md:gap-4 overflow-hidden p-1 md:p-2">
             <div className="flex bg-white p-1 rounded-xl md:rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('stock')} className={`px-4 md:px-8 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'stock' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><List size={14} /> Console</button>
-                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense(DEFAULT_EXPENSE); setReceiptPreview(null); }} className={`px-4 md:px-8 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' && builderMode === 'add' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><Plus size={14} /> Claim</button>
+                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-4 md:px-8 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' && builderMode === 'add' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><Plus size={14} /> Claim</button>
             </div>
 
             {viewState === 'stock' ? (
@@ -281,6 +376,45 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <div className="relative flex-1 sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input type="text" placeholder="Filter..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl md:rounded-2xl text-[10px] font-bold outline-none focus:border-medical-500 transition-all shadow-inner uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
                                 {userRole === 'Admin' && <button onClick={handleExportCSV} className="p-2 bg-white border border-slate-300 rounded-xl text-slate-400 hover:text-medical-600 transition-all shadow-sm"><Download size={16}/></button>}
+                            </div>
+                        </div>
+
+                        {/* Allowance Balances Summary Bar */}
+                        <div className="bg-slate-50/50 border-b border-slate-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Allowance Focus:</span>
+                                {userRole === 'Admin' ? (
+                                    <select 
+                                        value={selectedEmployeeName}
+                                        onChange={e => setSelectedEmployeeName(e.target.value)}
+                                        className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
+                                    >
+                                        {employees.map(emp => (
+                                            <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{currentUser}</span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
+                                    <Clock size={10} className="text-indigo-500" />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Daily:</span>
+                                    <span className="text-[10px] font-black text-slate-800">₹{allowanceBalances.dailyAvailable.toLocaleString('en-IN')}</span>
+                                    <span className="text-[7.5px] text-slate-400 font-bold uppercase bg-slate-100 px-1 py-0.25 rounded-md">{allowanceBalances.eligiblePresentDays}d</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
+                                    <ArrowUpRight size={10} className="text-emerald-500" />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Outstation:</span>
+                                    <span className="text-[10px] font-black text-slate-800">₹{allowanceBalances.outstationAvailable.toLocaleString('en-IN')}</span>
+                                    <span className="text-[7.5px] text-slate-400 font-bold uppercase bg-slate-100 px-1 py-0.25 rounded-md">{allowanceBalances.eligibleOutstationDays}d</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-sm">
+                                    <Sparkles size={10} className="text-amber-400 animate-pulse" />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Claimable:</span>
+                                    <span className="text-[10px] font-black text-emerald-400">₹{allowanceBalances.totalClaimable.toLocaleString('en-IN')}</span>
+                                </div>
                             </div>
                         </div>
 
@@ -304,8 +438,9 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                             <td className="px-4 md:px-8 py-4 md:py-6 align-middle">
                                                 <div className="flex flex-col gap-1 min-w-0">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase shrink-0">{e.category}</span>
+                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${e.category === 'Company' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-indigo-600 bg-indigo-50 border-indigo-100'}`}>{e.category}</span>
                                                         <span className="font-bold text-slate-700 uppercase truncate max-w-[150px] md:max-w-[250px]">{e.description}</span>
+                                                        {e.category === 'Company' && <span className="text-[7.5px] font-black text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter hidden md:inline-block">Not Deducted</span>}
                                                     </div>
                                                     {e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"><ImageIcon size={8}/> Proof Available</button>}
                                                 </div>
@@ -374,6 +509,11 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 md:mb-2">Claim Valuation</p>
                                     <h4 className="text-2xl md:text-3xl font-black tracking-tighter text-emerald-400">₹{selectedExpense.amount.toLocaleString('en-IN')}</h4>
                                     <div className="mt-2 md:mt-4 flex items-center gap-2"><span className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase">Category:</span><span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-indigo-400">{selectedExpense.category}</span></div>
+                                    {selectedExpense.category === 'Company' && (
+                                        <div className="mt-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[8.5px] font-black text-emerald-400 uppercase tracking-wider text-center">
+                                            Company Expense – Not Deducted from Employee Allowance
+                                        </div>
+                                    )}
                                 </section>
 
                                 <section className="space-y-3">
@@ -436,9 +576,24 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <section className="space-y-4 md:space-y-6">
                             <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><PieChart size={12} className="text-medical-500" />1. Valuation Logic</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                                {userRole === 'Admin' && (
+                                    <div className="sm:col-span-1">
+                                        <FormRow label="Personnel / Employee">
+                                            <select 
+                                                className="w-full h-[42px] md:h-[48px] bg-white border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer" 
+                                                value={expense.employeeName || selectedEmployeeName} 
+                                                onChange={e => setExpense({...expense, employeeName: e.target.value})}
+                                            >
+                                                {employees.map(emp => (
+                                                    <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                                ))}
+                                            </select>
+                                        </FormRow>
+                                    </div>
+                                )}
                                 <div className="sm:col-span-1"><FormRow label="Voucher Date"><input type="date" className="w-full h-[42px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={expense.date} onChange={e => setExpense({...expense, date: e.target.value})} /></FormRow></div>
-                                <FormRow label="Expense Category"><select className="w-full h-[42px] md:h-[48px] bg-white border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-[11px] md:text-xs font-black uppercase" value={expense.category} onChange={e => setExpense({...expense, category: e.target.value as any})}><option>Travel</option><option>Food</option><option>Lodging</option><option>Supplies</option><option>Salary Advance</option><option>Other</option></select></FormRow>
-                                <div className="sm:col-span-2"><FormRow label="Settlement Value (₹) *"><input type="number" className="w-full h-[42px] md:h-[48px] bg-white border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-lg md:text-xl font-black text-emerald-600 tracking-tighter" placeholder="0.00" value={expense.amount || ''} onChange={e => setExpense({...expense, amount: Number(e.target.value)})} /></FormRow></div>
+                                <FormRow label="Expense Category"><select className="w-full h-[42px] md:h-[48px] bg-white border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer" value={expense.category} onChange={e => setExpense({...expense, category: e.target.value as any})}><option value="Daily Allowance">Daily Allowance</option><option value="Outstation Allowance">Outstation Allowance</option><option value="Salary Advance">Advance Payment</option><option value="Company">Company</option></select></FormRow>
+                                <div className={userRole === 'Admin' ? "sm:col-span-1" : "sm:col-span-2"}><FormRow label="Settlement Value (₹) *"><input type="number" className="w-full h-[42px] md:h-[48px] bg-white border border-slate-300 rounded-xl md:rounded-2xl px-4 md:px-5 text-lg md:text-xl font-black text-emerald-600 tracking-tighter" placeholder="0.00" value={expense.amount || ''} onChange={e => setExpense({...expense, amount: Number(e.target.value)})} /></FormRow></div>
                             </div>
                         </section>
 

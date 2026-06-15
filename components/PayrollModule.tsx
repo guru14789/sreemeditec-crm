@@ -41,6 +41,8 @@ export const PayrollModule: React.FC = () => {
         let absentDays = 0;
         let leaveDays = 0;
         let holidayCredits = 0;
+        let outstationDays = 0;
+        let eligiblePresentDays = 0;
 
         const employeeRecords = attendanceRecords.filter(r => r.userId === targetEmployee.id && r.date.startsWith(yearMonthStr));
 
@@ -51,19 +53,27 @@ export const PayrollModule: React.FC = () => {
             const isHoliday = holidays.some(h => h.date === dateStr);
             const record = employeeRecords.find(r => r.date === dateStr);
 
-            if (isSunday || isHoliday) {
-                holidayCredits++;
-            } else if (record) {
+            if (record) {
                 if (record.status === 'OnLeave') {
                     leaveDays++;
+                    absentDays++;
+                } else if (record.workMode === 'Outstation') {
+                    outstationDays++;
                 } else {
                     presentDays++;
+                    if (!isSunday) {
+                        eligiblePresentDays++;
+                    }
                 }
             } else {
-                const today = new Date();
-                const checkDate = new Date(selectedSalaryYear, selectedSalaryMonth, i);
-                if (checkDate <= today) {
-                    absentDays++;
+                if (isSunday || isHoliday) {
+                    holidayCredits++;
+                } else {
+                    const today = new Date();
+                    const checkDate = new Date(selectedSalaryYear, selectedSalaryMonth, i);
+                    if (checkDate <= today) {
+                        absentDays++;
+                    }
                 }
             }
         }
@@ -73,13 +83,18 @@ export const PayrollModule: React.FC = () => {
         const absenceDeduction = Math.floor(absentDays * dailyRate);
         const grossSalary = baseSalary - absenceDeduction;
 
-        const basic = Math.floor(grossSalary * 0.5);
-        const hra = Math.floor(grossSalary * 0.3);
-        const conv = Math.floor(grossSalary * 0.15);
-        const other = grossSalary - basic - hra - conv;
+        const dailyAllowanceRate = targetEmployee.dailyAllowance || 0;
+        const outstationAllowanceRate = targetEmployee.outstationAllowance || 0;
+        const totalDailyAllowance = eligiblePresentDays * dailyAllowanceRate;
+        const totalOutstationAllowance = outstationDays * outstationAllowanceRate;
 
-        const pf = Math.floor(basic * 0.12);
-        const pt = 200;
+        const basic = grossSalary;
+        const hra = 0;
+        const conv = 0;
+        const other = 0;
+
+        const pf = 0;
+        const pt = 0;
 
         // Fetch salary advances from expenses
         const salaryAdvance = expenses
@@ -91,8 +106,8 @@ export const PayrollModule: React.FC = () => {
             .filter(p => p.userId === targetEmployee.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
             .reduce((acc, curr) => acc + (curr.points || 0), 0);
 
-        const totalEarnings = grossSalary + salesIncentive;
-        const totalDeductions = pf + pt + salaryAdvance;
+        const totalEarnings = grossSalary + salesIncentive + totalDailyAllowance + totalOutstationAllowance;
+        const totalDeductions = salaryAdvance;
         const netPay = totalEarnings - totalDeductions;
 
         return {
@@ -100,9 +115,14 @@ export const PayrollModule: React.FC = () => {
             presentDays,
             absentDays,
             leaveDays,
+            outstationDays,
             baseSalary,
             absenceDeduction,
             grossSalary,
+            dailyAllowanceRate,
+            outstationAllowanceRate,
+            totalDailyAllowance,
+            totalOutstationAllowance,
             basic,
             hra,
             conv,
@@ -116,6 +136,95 @@ export const PayrollModule: React.FC = () => {
             netPay
         };
     }, [targetEmployee, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, yearMonthStr]);
+
+    const allEmployeesSalarySummary = useMemo(() => {
+        if (!isAdmin) return [];
+        return employees.map(emp => {
+            const daysInMonth = new Date(selectedSalaryYear, selectedSalaryMonth + 1, 0).getDate();
+            let presentDays = 0;
+            let absentDays = 0;
+            let leaveDays = 0;
+            let holidayCredits = 0;
+            let outstationDays = 0;
+            let eligiblePresentDays = 0;
+
+            const employeeRecords = attendanceRecords.filter(r => r.userId === emp.id && r.date.startsWith(yearMonthStr));
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${yearMonthStr}-${String(i).padStart(2, '0')}`;
+                const dateObj = new Date(selectedSalaryYear, selectedSalaryMonth, i);
+                const isSunday = dateObj.getDay() === 0;
+                const isHoliday = holidays.some(h => h.date === dateStr);
+                const record = employeeRecords.find(r => r.date === dateStr);
+
+                if (record) {
+                    if (record.status === 'OnLeave') {
+                        leaveDays++;
+                        absentDays++;
+                    } else if (record.workMode === 'Outstation') {
+                        outstationDays++;
+                    } else {
+                        presentDays++;
+                        if (!isSunday) {
+                            eligiblePresentDays++;
+                        }
+                    }
+                } else {
+                    if (isSunday || isHoliday) {
+                        holidayCredits++;
+                    } else {
+                        const today = new Date();
+                        const checkDate = new Date(selectedSalaryYear, selectedSalaryMonth, i);
+                        if (checkDate <= today) {
+                            absentDays++;
+                        }
+                    }
+                }
+            }
+
+            const baseSalary = emp.baseSalary || 25000;
+            const dailyRate = baseSalary / daysInMonth;
+            const absenceDeduction = Math.floor(absentDays * dailyRate);
+            const grossSalary = baseSalary - absenceDeduction;
+
+            const dailyAllowanceRate = emp.dailyAllowance || 0;
+            const outstationAllowanceRate = emp.outstationAllowance || 0;
+            const totalDailyAllowance = eligiblePresentDays * dailyAllowanceRate;
+            const totalOutstationAllowance = outstationDays * outstationAllowanceRate;
+
+            const basic = grossSalary;
+            const pf = 0;
+            const pt = 0;
+
+            const salaryAdvance = expenses
+                .filter(e => e.employeeName === emp.name && e.category === 'Salary Advance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+            const salesIncentive = pointHistory
+                .filter(p => p.userId === emp.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.points || 0), 0);
+
+            const totalEarnings = grossSalary + salesIncentive + totalDailyAllowance + totalOutstationAllowance;
+            const totalDeductions = salaryAdvance;
+            const netPay = totalEarnings - totalDeductions;
+
+            return {
+                id: emp.id,
+                name: emp.name,
+                department: emp.department,
+                role: emp.role,
+                presentDays,
+                absentDays,
+                outstationDays,
+                baseSalary,
+                salesIncentive,
+                tillDaySalary: grossSalary,
+                totalDailyAllowance,
+                totalOutstationAllowance,
+                netPay
+            };
+        });
+    }, [isAdmin, employees, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, yearMonthStr]);
 
     const handleDownloadSalarySlip = () => {
         if (!targetEmployee || !salaryDetails) return;
@@ -152,6 +261,9 @@ export const PayrollModule: React.FC = () => {
                 ['Month/Year', `${monthName} ${selectedSalaryYear}`, 'Bank Name', 'HDFC Bank'],
                 ['Working Days', salaryDetails.daysInMonth.toString(), 'Absent Days', salaryDetails.absentDays.toString()],
             ];
+            if (salaryDetails.outstationDays > 0) {
+                empInfo.push(['Outstation Days', salaryDetails.outstationDays.toString(), '', '']);
+            }
 
             autoTable(doc, {
                 startY: 65,
@@ -164,12 +276,12 @@ export const PayrollModule: React.FC = () => {
                 }
             });
 
-            // Earnings & Deductions Table
+             // Earnings & Deductions Table
             const financeData = [
-                ['Basic Salary', salaryDetails.basic.toLocaleString('en-IN'), 'Provident Fund (PF)', salaryDetails.pf.toLocaleString('en-IN')],
-                ['House Rent Allowance (HRA)', salaryDetails.hra.toLocaleString('en-IN'), 'Professional Tax', salaryDetails.pt.toLocaleString('en-IN')],
-                ['Conveyance Allowance', salaryDetails.conv.toLocaleString('en-IN'), 'Salary Advance', salaryDetails.salaryAdvance.toLocaleString('en-IN')],
-                ['Special Allowance', salaryDetails.other.toLocaleString('en-IN'), 'Sales Incentive', salaryDetails.salesIncentive.toLocaleString('en-IN')],
+                ['Basic Salary', salaryDetails.basic.toLocaleString('en-IN'), 'Salary Advance', salaryDetails.salaryAdvance.toLocaleString('en-IN')],
+                ['Sales Incentive', salaryDetails.salesIncentive.toLocaleString('en-IN'), '', ''],
+                ['Daily Allowance', salaryDetails.totalDailyAllowance.toLocaleString('en-IN'), '', ''],
+                ['Outstation Allowance', salaryDetails.totalOutstationAllowance.toLocaleString('en-IN'), '', ''],
                 [
                     { content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
                     { content: `₹${salaryDetails.totalEarnings.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
@@ -216,7 +328,7 @@ export const PayrollModule: React.FC = () => {
     };
 
     return (
-        <div className="min-h-full flex flex-col gap-6 md:gap-8 items-center relative py-6 px-2">
+        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-6 md:gap-8 items-center relative py-6 px-2">
             <div className="w-full max-w-4xl space-y-6">
                 {/* Hero / Selection Panel */}
                 <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2rem] p-6 md:p-10 text-white shadow-2xl relative overflow-hidden">
@@ -291,6 +403,83 @@ export const PayrollModule: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Admin Overview Panel */}
+                {isAdmin && allEmployeesSalarySummary.length > 0 && (
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                            <div>
+                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                    <Users size={16} className="text-emerald-500" />
+                                    All Employees Payroll Summary
+                                </h3>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">
+                                    Overview of incentives and attendance-based salary for {monthName} {selectedSalaryYear}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                                        <th className="py-3 px-4">Employee</th>
+                                        <th className="py-3 px-4">Attendance</th>
+                                        <th className="py-3 px-4 text-right">Base Salary</th>
+                                        <th className="py-3 px-4 text-right text-indigo-600 dark:text-indigo-400">Till-Day Salary</th>
+                                        <th className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400">Sales Incentives</th>
+                                        <th className="py-3 px-4 text-right">Net Payable</th>
+                                        <th className="py-3 px-4 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                    {allEmployeesSalarySummary.map((row) => (
+                                        <tr 
+                                            key={row.id} 
+                                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all text-xs cursor-pointer ${selectedEmployeeId === row.id ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : ''}`}
+                                            onClick={() => setSelectedEmployeeId(row.id)}
+                                        >
+                                            <td className="py-3 px-4">
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">{row.name}</div>
+                                                <div className="text-[9px] text-slate-400 font-semibold uppercase">{row.department} · {row.role}</div>
+                                            </td>
+                                            <td className="py-3 px-4 font-black text-[10px] md:text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                                 <span className="text-emerald-600 dark:text-emerald-400">{row.presentDays} Pres</span>
+                                                 <span className="mx-1.5 text-slate-300 dark:text-slate-700">|</span>
+                                                 <span className="text-rose-500">{row.absentDays} Abs</span>
+                                                 <span className="mx-1.5 text-slate-300 dark:text-slate-700">|</span>
+                                                 <span className="text-indigo-600 dark:text-indigo-400">{row.outstationDays} Out</span>
+                                            </td>
+                                            <td className="py-3 px-4 text-right font-semibold text-slate-700 dark:text-slate-300">
+                                                ₹{row.baseSalary.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-4 text-right font-black text-indigo-600 dark:text-indigo-400">
+                                                ₹{row.tillDaySalary.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
+                                                ₹{row.salesIncentive.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">
+                                                ₹{row.netPay.toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedEmployeeId(row.id);
+                                                    }}
+                                                    className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all"
+                                                >
+                                                    Select
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Live Payslip Summary Panel (Visible if targetEmployee selected) */}
                 {targetEmployee && salaryDetails && (
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -315,11 +504,19 @@ export const PayrollModule: React.FC = () => {
                         {/* Breakdown Metrics Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Attendance Card */}
-                            <div className="bg-slate-50 dark:bg-slate-800/40 p-4.5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
+                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Shift Performance</p>
-                                <div className="my-3 flex items-baseline gap-2">
-                                    <span className="text-2xl font-black text-slate-800 dark:text-white">{salaryDetails.presentDays}</span>
-                                    <span className="text-xs font-bold text-slate-400">/ {salaryDetails.daysInMonth} Days Present</span>
+                                <div className="my-3 space-y-1">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-2xl font-black text-slate-800 dark:text-white">{salaryDetails.presentDays}</span>
+                                        <span className="text-xs font-bold text-slate-400">/ {salaryDetails.daysInMonth} Days Present</span>
+                                    </div>
+                                    {salaryDetails.outstationDays > 0 && (
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{salaryDetails.outstationDays}</span>
+                                            <span className="text-[10px] font-bold text-slate-400">Days Outstation</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-tighter">
                                     {salaryDetails.absentDays} days absence deduction (-₹{salaryDetails.absenceDeduction.toLocaleString('en-IN')})
@@ -327,7 +524,7 @@ export const PayrollModule: React.FC = () => {
                             </div>
 
                             {/* Sales Incentives Card */}
-                            <div className="bg-slate-50 dark:bg-slate-800/40 p-4.5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
+                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                                     <TrendingUp size={12} className="text-emerald-500" /> Realized Sales Incentives
                                 </p>
@@ -341,7 +538,7 @@ export const PayrollModule: React.FC = () => {
                             </div>
 
                             {/* Net Payout Card */}
-                            <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4.5 rounded-2xl border border-slate-750 flex flex-col justify-between shadow-lg">
+                            <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700/50 dark:border-slate-700 flex flex-col justify-between shadow-lg">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
                                     <Landmark size={12} className="text-emerald-400" /> Final Net Payable
                                 </p>
@@ -362,10 +559,10 @@ export const PayrollModule: React.FC = () => {
                             <div className="space-y-3">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earnings Breakup</h4>
                                 <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Basic Pay (50%)</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.basic.toLocaleString('en-IN')}</span></div>
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">House Rent Allowance</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.hra.toLocaleString('en-IN')}</span></div>
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Conveyance Allowance</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.conv.toLocaleString('en-IN')}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Basic Pay</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.basic.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Sales Incentive</span><span className="text-emerald-600 dark:text-emerald-400 font-black">₹{salaryDetails.salesIncentive.toLocaleString('en-IN')}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Daily Allowance (₹{salaryDetails.dailyAllowanceRate}/day)</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.totalDailyAllowance.toLocaleString('en-IN')}</span></div>
+                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Outstation Allowance (₹{salaryDetails.outstationAllowanceRate}/day)</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.totalOutstationAllowance.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800"><span className="text-slate-800 dark:text-slate-200 font-black uppercase">Gross Earnings</span><span className="text-slate-800 dark:text-slate-200 font-black text-sm">₹{salaryDetails.totalEarnings.toLocaleString('en-IN')}</span></div>
                                 </div>
                             </div>
@@ -374,8 +571,6 @@ export const PayrollModule: React.FC = () => {
                             <div className="space-y-3">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deductions Breakup</h4>
                                 <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Provident Fund (PF)</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.pf.toLocaleString('en-IN')}</span></div>
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Professional Tax</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.pt.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Salary Advance Deductions</span><span className="text-rose-500 font-black">₹{salaryDetails.salaryAdvance.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800"><span className="text-slate-850 dark:text-slate-200 font-black uppercase">Total Deductions</span><span className="text-slate-850 dark:text-slate-200 font-black text-sm">₹{salaryDetails.totalDeductions.toLocaleString('en-IN')}</span></div>
                                 </div>

@@ -43,7 +43,8 @@ export enum TabView {
   PURCHASE_REGISTER = 'PURCHASE_REGISTER',
   ACCOUNTING = 'ACCOUNTING',
   COMPLIANCE = 'COMPLIANCE',
-  COMPANIES = 'COMPANIES'
+  COMPANIES = 'COMPANIES',
+  SERVICE_TASK = 'SERVICE_TASK'
 }
 
 export enum LeadStatus {
@@ -497,7 +498,7 @@ export interface ExpenseRecord {
   id: string;
   employeeName: string;
   date: string;
-  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Other';
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Salary Advance' | 'Daily Allowance' | 'Outstation Allowance' | 'Company' | 'Other';
   amount: number;
   description: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -515,6 +516,8 @@ export interface Employee {
   phone?: string;
   joinDate?: string;
   baseSalary?: number;
+  dailyAllowance?: number;
+  outstationAllowance?: number;
   status: 'Active' | 'On Leave';
   permissions: Record<string, 'Admin' | 'Employee'>;
   password?: string;
@@ -541,7 +544,7 @@ export interface AttendanceRecord {
   lastSessionStartTime: string | null;
   status: 'CheckedIn' | 'Paused' | 'Completed' | 'OnLeave';
   leaveReason?: string;
-  workMode: 'Office' | 'Field' | 'Remote';
+  workMode: 'Office' | 'Field' | 'Remote' | 'Outstation';
   lat?: number;
   lng?: number;
   accuracy?: number;
@@ -712,6 +715,66 @@ export interface ServiceReport {
   visitType?: string;
   referenceOrderNumber?: string;
   referenceOrderId?: string;
+}
+
+export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened';
+
+export interface ServiceTaskAttachment {
+  name: string;
+  type: string;
+  size: number;
+  data: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  category: 'customer_submission' | 'work_photo' | 'completion_proof' | 'comment';
+}
+
+export interface ServiceTaskComment {
+  id: string;
+  text: string;
+  author: string;
+  authorId?: string;
+  createdAt: string;
+  attachments?: ServiceTaskAttachment[];
+}
+
+export interface ServiceTaskActivity {
+  id: string;
+  action: string;
+  user: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface ServiceTask {
+  id: string;
+  taskNumber: string;
+  customerName: string;
+  companyName?: string;
+  customerPhone: string;
+  customerEmail?: string;
+  subject?: string;
+  equipment: string;
+  serviceCategory?: string;
+  issue: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  status: ServiceTaskStatus;
+  assignedTo?: string;
+  assignedToId?: string;
+  createdAt: string;
+  claimedAt?: string;
+  completedAt?: string;
+  location?: string;
+  notes?: string;
+  visitNotes?: string;
+  completionNotes?: string;
+  source: 'public_form' | 'manual';
+  comments: ServiceTaskComment[];
+  attachments: ServiceTaskAttachment[];
+  activityLog: ServiceTaskActivity[];
+  completionAttachments?: ServiceTaskAttachment[];
+  overdueAt?: string;
+  reopenedAt?: string;
 }
 
 export interface SupportMessage {

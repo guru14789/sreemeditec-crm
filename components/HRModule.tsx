@@ -124,6 +124,8 @@ export const HRModule: React.FC = () => {
                 phone: employeeFormData.phone || '',
                 joinDate: employeeFormData.joinDate || new Date().toISOString().split('T')[0],
                 baseSalary: Number(employeeFormData.baseSalary),
+                dailyAllowance: employeeFormData.dailyAllowance ? Number(employeeFormData.dailyAllowance) : 0,
+                outstationAllowance: employeeFormData.outstationAllowance ? Number(employeeFormData.outstationAllowance) : 0,
                 status: 'Active',
                 permissions: employeeFormData.permissions || {},
                 password: employeeFormData.password,
@@ -351,7 +353,7 @@ export const HRModule: React.FC = () => {
 
             {showEmployeeModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
                         <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50 shrink-0">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
@@ -404,6 +406,17 @@ export const HRModule: React.FC = () => {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
                                     <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Daily Allowance (₹/Day)</label>
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.dailyAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, dailyAllowance: Number(e.target.value) })} />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Outstation Allowance (₹/Day)</label>
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.outstationAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, outstationAllowance: Number(e.target.value) })} />
                                 </div>
                             </div>
 

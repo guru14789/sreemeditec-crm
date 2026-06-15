@@ -41,6 +41,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const [editCheckOut, setEditCheckOut] = useState('');
     const [editReason, setEditReason] = useState('');
     const [editStatus, setEditStatus] = useState<'CheckedIn' | 'Paused' | 'Completed' | 'OnLeave'>('Completed');
+    const [editWorkMode, setEditWorkMode] = useState<WorkMode>('Office');
     const [editLeaveReason, setEditLeaveReason] = useState('');
 
     // Leave Request States
@@ -49,7 +50,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const [showCalendarModal, setShowCalendarModal] = useState(false);
     const [showQuickAttendanceModal, setShowQuickAttendanceModal] = useState(false);
     const [quickSelectedDate, setQuickSelectedDate] = useState('');
-    const [quickStatus, setQuickStatus] = useState<'Present' | 'Absent' | 'Leave'>('Present');
+    const [quickStatus, setQuickStatus] = useState<'Present' | 'Absent' | 'Leave' | 'Outstation'>('Present');
     const [quickReason, setQuickReason] = useState('');
     const [calendarViewDate, setCalendarViewDate] = useState(new Date());
     const [calendarSelectedUser, setCalendarSelectedUser] = useState<Employee | null>(null);
@@ -236,6 +237,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 checkOutTime: finalStatus === 'OnLeave' ? null : (checkOutDate ? checkOutDate.toISOString() : null),
                 totalWorkedMs: finalStatus === 'OnLeave' ? 0 : diffMs,
                 status: finalStatus,
+                workMode: finalStatus === 'OnLeave' ? editingAttendanceRecord.workMode : editWorkMode,
                 leaveReason: finalStatus === 'OnLeave' ? editLeaveReason : '',
                 lastSessionStartTime: finalStatus === 'OnLeave' ? null : lastSession,
                 editHistory: [
@@ -989,6 +991,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                                 setEditCheckIn(rec.checkInTime ? rec.checkInTime.slice(0, 16) : '');
                                                                 setEditCheckOut(rec.checkOutTime ? rec.checkOutTime.slice(0, 16) : '');
                                                                 setEditStatus(rec.status);
+                                                                setEditWorkMode(rec.workMode || 'Office');
                                                                 setEditLeaveReason(rec.leaveReason || '');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
@@ -1029,6 +1032,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                                 setEditCheckIn(newRec.checkInTime ? newRec.checkInTime.slice(0, 16) : '');
                                                                 setEditCheckOut('');
                                                                 setEditStatus('CheckedIn');
+                                                                setEditWorkMode('Office');
                                                                 setEditLeaveReason('');
                                                                 setShowEditAttendanceModal(true);
                                                             }}
@@ -1089,6 +1093,19 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             value={editCheckOut} 
                                             onChange={e => setEditCheckOut(e.target.value)}
                                         />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Mode</label>
+                                        <select 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 appearance-none cursor-pointer" 
+                                            value={editWorkMode} 
+                                            onChange={e => setEditWorkMode(e.target.value as any)}
+                                        >
+                                            <option value="Office">Office</option>
+                                            <option value="Field">Field</option>
+                                            <option value="Remote">Remote</option>
+                                            <option value="Outstation">Outstation</option>
+                                        </select>
                                     </div>
                                 </>
                             ) : (
@@ -1368,6 +1385,26 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         if (isFuture) {
                                             bgColor = 'bg-slate-50/50';
                                             textColor = 'text-slate-300';
+                                        } else if (record) {
+                                            if (record.status === 'OnLeave') {
+                                                bgColor = 'bg-rose-50';
+                                                textColor = 'text-rose-700';
+                                                borderColor = 'border-rose-100';
+                                                statusText = 'Leave';
+                                                reasonText = record.leaveReason || 'On Approved Leave';
+                                            } else if (record.workMode === 'Outstation') {
+                                                bgColor = 'bg-purple-50';
+                                                textColor = 'text-purple-700';
+                                                borderColor = 'border-purple-100';
+                                                statusText = 'Outstation';
+                                                reasonText = 'Outstation Duty';
+                                            } else if (record.status === 'Completed' || record.status === 'CheckedIn') {
+                                                bgColor = 'bg-emerald-50';
+                                                textColor = 'text-emerald-700';
+                                                borderColor = 'border-emerald-100';
+                                                statusText = 'Present';
+                                                reasonText = formatDuration(record.totalWorkedMs);
+                                            }
                                         } else if (isHoliday) {
                                             bgColor = 'bg-amber-50';
                                             textColor = 'text-amber-600';
@@ -1378,20 +1415,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             bgColor = 'bg-slate-100';
                                             textColor = 'text-slate-500';
                                             statusText = 'Sunday';
-                                        } else if (record) {
-                                            if (record.status === 'Completed' || record.status === 'CheckedIn') {
-                                                bgColor = 'bg-emerald-50';
-                                                textColor = 'text-emerald-700';
-                                                borderColor = 'border-emerald-100';
-                                                statusText = 'Present';
-                                                reasonText = formatDuration(record.totalWorkedMs);
-                                            } else if (record.status === 'OnLeave') {
-                                                bgColor = 'bg-rose-50';
-                                                textColor = 'text-rose-700';
-                                                borderColor = 'border-rose-100';
-                                                statusText = 'Leave';
-                                                reasonText = record.leaveReason || 'On Approved Leave';
-                                            }
                                         } else {
                                             // Absent
                                             bgColor = 'bg-rose-100/50';
@@ -1408,9 +1431,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                         setCalendarSelectedUser(calendarSelectedUser);
                                                         setQuickSelectedDate(ds);
                                                         setQuickReason(record?.leaveReason || '');
-                                                        
                                                         if (record) {
                                                             if (record.status === 'OnLeave') setQuickStatus('Leave');
+                                                            else if (record.workMode === 'Outstation') setQuickStatus('Outstation');
                                                             else setQuickStatus('Present');
                                                         } else {
                                                             setQuickStatus('Absent');
@@ -1483,11 +1506,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                         </div>
                         
                         <div className="p-6 space-y-4">
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-4 gap-1.5">
                                 {[
                                     { id: 'Present', icon: CheckCircle, color: 'emerald' },
                                     { id: 'Absent', icon: X, color: 'rose' },
-                                    { id: 'Leave', icon: Calendar, color: 'indigo' }
+                                    { id: 'Leave', icon: Calendar, color: 'indigo' },
+                                    { id: 'Outstation', icon: Timer, color: 'purple' }
                                 ].map((opt) => {
                                     const Icon = opt.icon;
                                     const isActive = quickStatus === opt.id;
@@ -1495,14 +1519,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         <button
                                             key={opt.id}
                                             onClick={() => setQuickStatus(opt.id as any)}
-                                            className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                                            className={`flex flex-col items-center gap-2 p-2 rounded-xl border-2 transition-all ${
                                                 isActive 
                                                     ? `bg-${opt.color}-50 border-${opt.color}-500 text-${opt.color}-600 scale-105 shadow-lg shadow-${opt.color}-500/10` 
                                                     : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
                                             }`}
                                         >
-                                            <Icon size={20} />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">{opt.id}</span>
+                                            <Icon size={18} />
+                                            <span className="text-[8px] font-black uppercase tracking-widest">{opt.id}</span>
                                         </button>
                                     );
                                 })}
@@ -1533,12 +1557,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             userId: calendarSelectedUser.id,
                                             userName: calendarSelectedUser.name,
                                             date: quickSelectedDate,
-                                            status: quickStatus === 'Present' ? 'Completed' : 'OnLeave',
-                                            totalWorkedMs: quickStatus === 'Present' ? (8 * 3600000) : 0,
-                                            checkInTime: quickStatus === 'Present' ? `${quickSelectedDate}T09:15:00Z` : null,
-                                            checkOutTime: quickStatus === 'Present' ? `${quickSelectedDate}T17:15:00Z` : null,
+                                            status: quickStatus === 'Leave' ? 'OnLeave' : 'Completed',
+                                            totalWorkedMs: (quickStatus === 'Present' || quickStatus === 'Outstation') ? (8 * 3600000) : 0,
+                                            checkInTime: (quickStatus === 'Present' || quickStatus === 'Outstation') ? `${quickSelectedDate}T09:15:00Z` : null,
+                                            checkOutTime: (quickStatus === 'Present' || quickStatus === 'Outstation') ? `${quickSelectedDate}T17:15:00Z` : null,
                                             leaveReason: quickStatus === 'Leave' ? quickReason : '',
-                                            workMode: 'Office'
+                                            workMode: quickStatus === 'Outstation' ? 'Outstation' : 'Office'
                                         };
                                         await updateAttendance(updates);
                                         addLog('Attendance', 'Quick Update', `Marked ${calendarSelectedUser.name} as ${quickStatus} on ${quickSelectedDate}`);

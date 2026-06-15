@@ -23,7 +23,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
 
 export interface DataContextType {
     clients: Client[];
@@ -46,6 +46,7 @@ export interface DataContextType {
     installationReports: ServiceReport[];
     monthlyWinners: MonthlyWinner[];
     purchaseRecords: PurchaseRecord[];
+    serviceTasks: ServiceTask[];
     
     // New Accounting States
     ledgers: Ledger[];
@@ -143,6 +144,8 @@ export interface DataContextType {
     removeLead: (id: string) => Promise<void>;
     addServiceTicket: (ticket: ServiceTicket) => Promise<void>;
     updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
+    addServiceTask: (task: ServiceTask) => Promise<void>;
+    updateServiceTask: (id: string, updates: Partial<ServiceTask>) => Promise<void>;
     addExpense: (expense: ExpenseRecord) => Promise<void>;
     updateExpense: (id: string, updates: Partial<ExpenseRecord>) => Promise<void>;
     updateExpenseStatus: (id: string, status: ExpenseRecord['status'], reason?: string) => Promise<void>;
@@ -304,6 +307,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
     const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
+    const [serviceTasks, setServiceTasks] = useState<ServiceTask[]>([]);
     
     // Accounting States
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
@@ -618,6 +622,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(500)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)), (err) => console.warn("leave_requests listener:", err));
         const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(500)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
         const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)), (err) => console.warn("stockBatches listener:", err));
+        const unsubServiceTasks = onSnapshot(query(collection(db, "serviceTasks"), orderBy('createdAt', 'desc'), limit(200)), (s) => setServiceTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTask)), (err) => console.warn("serviceTasks listener:", err));
         
         // Accounting Listeners
         const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)), (err) => console.warn("ledgers listener:", err));
@@ -667,7 +672,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             unsubLeads(); unsubTickets();
             unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
             unsubChallans(); unsubServiceReports(); unsubInstallReports();
-            unsubLeave(); unsubSettings(); unsubPurchases(); unsubBatches();
+            unsubLeave(); unsubSettings(); unsubPurchases(); unsubBatches(); unsubServiceTasks();
             unsubLedgers(); unsubGroups(); unsubVouchers(); unsubTransfers();
             unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements();
             unsubStats();
@@ -1476,6 +1481,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
     const updateServiceTicket = async (id: string, u: Partial<ServiceTicket>) => { await updateDoc(doc(db, "serviceTickets", id), sanitizeData(u)); await addLog('System', 'Updated Ticket', id); };
+
+    const addServiceTask = async (t: ServiceTask) => {
+        setServiceTasks(prev => [t, ...prev]);
+        await setDoc(doc(db, "serviceTasks", t.id), sanitizeData(t));
+        await addLog('Tasks', 'New Service Task', `From: ${t.customerName} — ${t.equipment}`);
+    };
+
+    const updateServiceTask = async (id: string, u: Partial<ServiceTask>) => {
+        setServiceTasks(prev => prev.map(t => t.id === id ? { ...t, ...u } as ServiceTask : t));
+        await updateDoc(doc(db, "serviceTasks", id), sanitizeData(u));
+        const existing = serviceTasks.find(t => t.id === id);
+        await addLog('Tasks', 'Updated Service Task', existing?.customerName || id, existing, { ...existing, ...u });
+    };
 
     const autoPostExpenseVoucher = async (e: ExpenseRecord) => {
         try {
@@ -2959,6 +2977,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
+            serviceTasks, addServiceTask, updateServiceTask,
             addInvoice, updateInvoice, removeInvoice, recordStockMovement, addExpense, updateExpense, removeExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             addTask, removeTask, updateTaskRemote,

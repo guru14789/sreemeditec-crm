@@ -6,7 +6,7 @@ import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet, Search,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, QrCode
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -38,6 +38,8 @@ import { ArchiveModule } from './components/ArchiveModule';
 import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
 import { CompanyModule } from './components/CompanyModule';
+import { ServiceTaskModule } from './components/ServiceTaskModule';
+import { PublicServiceForm } from './components/PublicServiceForm';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { BankDetailsForm } from './components/BankDetailsForm';
@@ -352,6 +354,12 @@ export const App: React.FC = () => {
     };
 
 
+  // PUBLIC FORM: If ?form=service param is present, show public service request form
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  if (searchParams.get('form') === 'service') {
+    return <PublicServiceForm />;
+  }
+
   // AUTH GUARD: If not logged in, show Login screen
   if (!isAuthenticated || !currentUser) {
     return <Login />;
@@ -418,6 +426,7 @@ export const App: React.FC = () => {
         { tab: TabView.PAYROLL, icon: Receipt, label: 'Payroll portal' },
         { tab: TabView.EXPENSES, icon: Receipt, label: 'Vouchers' },
         { tab: TabView.PERFORMANCE, icon: Trophy, label: 'Leaderboard' },
+        { tab: TabView.SERVICE_TASK, icon: QrCode, label: 'Service Task' },
       ]
     },
     {
@@ -495,6 +504,7 @@ export const App: React.FC = () => {
       case TabView.LOGS: return <LogsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule />;
+      case TabView.SERVICE_TASK: return <ServiceTaskModule userRole={tabRole} />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
       case TabView.CATALOG: return <CatalogModule />;
       case TabView.PAYROLL: return <PayrollModule />;
