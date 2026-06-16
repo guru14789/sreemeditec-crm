@@ -7,6 +7,7 @@ import {
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
+import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -61,6 +62,8 @@ export const ServiceReportModule: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [report, setReport] = useState<DetailedServiceReport>({
         reportNumber: '',
@@ -355,7 +358,31 @@ export const ServiceReportModule: React.FC = () => {
 
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30"><h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Service Archive</h3></div>
+                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Service Archive</h3>
+                        <div className="flex items-center gap-2">
+                            <select 
+                                value={filingFilter}
+                                onChange={(e) => setFilingFilter(e.target.value as any)}
+                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                            >
+                                <option value="All">All Filing</option>
+                                <option value="Filed">Filed</option>
+                                <option value="Not Filed">Not Filed</option>
+                                <option value="Not Updated">Not Updated</option>
+                            </select>
+                            <div className="relative w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search reports..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                />
+                            </div>
+                        </div>
+                    </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
@@ -364,12 +391,28 @@ export const ServiceReportModule: React.FC = () => {
                                     <th className="px-6 py-4">Facility</th>
                                     <th className="px-6 py-4">Engineer</th>
                                     <th className="px-6 py-4">Machine</th>
+                                    <th className="px-6 py-4 text-center">Filed Status</th>
                                     <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {serviceReports
+                                    .filter((r: any) => {
+                                        if (!searchQuery) return true;
+                                        const query = searchQuery.toLowerCase();
+                                        return (
+                                            (r.reportNumber || '').toLowerCase().includes(query) ||
+                                            (r.customerName || '').toLowerCase().includes(query) ||
+                                            (r.equipmentName || '').toLowerCase().includes(query) ||
+                                            (r.engineerName || '').toLowerCase().includes(query)
+                                        );
+                                    })
+                                    .filter((r: any) => {
+                                        if (filingFilter === 'All') return true;
+                                        if (filingFilter === 'Not Updated') return !r.filedStatus || r.filedStatus === 'Not Updated';
+                                        return r.filedStatus === filingFilter;
+                                    })
                                     .sort((a, b) => (b.reportNumber || '').localeCompare(a.reportNumber || '', undefined, { numeric: true }))
                                     .map((r: any) => (
                                     <tr key={r.id} onClick={() => { setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
@@ -381,6 +424,17 @@ export const ServiceReportModule: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 font-bold uppercase text-[10px] tracking-tight truncate max-w-[150px]">{r.equipmentName}</td>
+                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <FiledStatusIndicator 
+                                                id={r.id!}
+                                                filedStatus={r.filedStatus}
+                                                filedHistory={r.filedHistory}
+                                                currentUser={currentUser?.name || 'System'}
+                                                onUpdate={async (docId, updates) => {
+                                                    await updateServiceReport(docId, updates);
+                                                }}
+                                            />
+                                        </td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{r.status}</span></td>
                                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === r.id! ? 'z-50' : 'z-0'}`}>

@@ -14,6 +14,13 @@ export interface AuditLogEntry {
   reason?: string;
 }
 
+export interface FiledHistoryEntry {
+  changedBy: string;
+  changedAt: string;
+  prevStatus: 'Not Updated' | 'Filed' | 'Not Filed';
+  newStatus: 'Filed' | 'Not Filed';
+}
+
 export enum TabView {
   DASHBOARD = 'DASHBOARD',
   LEADS = 'LEADS',
@@ -471,6 +478,8 @@ export interface Invoice {
   machineLocation?: string;
   balanceDue?: number;
   editHistory?: AuditLogEntry[];
+  filedStatus?: 'Not Updated' | 'Filed' | 'Not Filed';
+  filedHistory?: FiledHistoryEntry[];
 }
 
 export interface StockMovement {
@@ -835,6 +844,8 @@ export interface DeliveryChallan {
   sellerProfile?: CompanyProfile;
   createdBy?: string;
   invoiceId?: string;
+  filedStatus?: 'Not Updated' | 'Filed' | 'Not Filed';
+  filedHistory?: FiledHistoryEntry[];
 }
 
 export interface Holiday {
@@ -909,5 +920,7 @@ export interface PurchaseRecord {
   items?: PurchaseItem[];
   paidAmount?: number;
   status?: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
+  filedStatus?: 'Not Updated' | 'Filed' | 'Not Filed';
+  filedHistory?: FiledHistoryEntry[];
 }
 

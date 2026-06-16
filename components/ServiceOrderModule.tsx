@@ -7,6 +7,7 @@ import {
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
+import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
     const items = order.items || [];
@@ -49,6 +50,8 @@ export const ServiceOrderModule: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [order, setOrder] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -104,7 +107,7 @@ export const ServiceOrderModule: React.FC = () => {
         setOrder(prev => ({
             ...prev,
             customerName: client.name,
-            customerHospital: client.hospital || '',
+            customerHospital: client.hospital || client.name || '',
             customerAddress: client.address || '',
             customerGstin: client.gstin || '',
             phone: client.phone || ''
@@ -331,13 +334,35 @@ export const ServiceOrderModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('history')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', visitType: 'Breakdown', priority: 'Medium', machineStatus: 'Warranty', documentType: 'ServiceOrder', expectedResolutionDate: new Date().toISOString().split('T')[0] }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Job Card</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ invoiceNumber: '', date: new Date().toISOString().split('T')[0], items: [], discount: 0, status: 'Pending', customerName: '', customerHospital: '', customerAddress: '', customerGstin: '', phone: '', equipmentName: '', model: '', serialNumber: '', machineStatus: 'Warranty', department: '', machineLocation: '', engineerName: '', problemReported: '', visitType: 'Breakdown', priority: 'Medium', expectedResolutionDate: new Date().toISOString().split('T')[0], documentType: 'ServiceOrder', isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Job Card</button>
             </div>
 
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                     <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30">
                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Service Order History</h3>
+                        <div className="flex items-center gap-2">
+                            <select 
+                                value={filingFilter}
+                                onChange={(e) => setFilingFilter(e.target.value as any)}
+                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                            >
+                                <option value="All">All Filing</option>
+                                <option value="Filed">Filed</option>
+                                <option value="Not Filed">Not Filed</option>
+                                <option value="Not Updated">Not Updated</option>
+                            </select>
+                            <div className="relative w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search service orders..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                />
+                            </div>
+                        </div>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
@@ -347,6 +372,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     <th className="px-6 py-4">Institution</th>
                                     <th className="px-6 py-4">Machine</th>
                                     <th className="px-6 py-4 text-right">Value</th>
+                                    <th className="px-6 py-4 text-center">Filed Status</th>
                                     <th className="px-6 py-4 text-center">Priority</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
@@ -354,6 +380,21 @@ export const ServiceOrderModule: React.FC = () => {
                             <tbody className="divide-y divide-slate-100">
                                 {invoices
                                     .filter(i => i.documentType === 'ServiceOrder')
+                                    .filter(i => {
+                                        if (!searchQuery) return true;
+                                        const query = searchQuery.toLowerCase();
+                                        return (
+                                            (i.invoiceNumber || '').toLowerCase().includes(query) ||
+                                            (i.customerHospital || '').toLowerCase().includes(query) ||
+                                            (i.equipmentName || '').toLowerCase().includes(query) ||
+                                            (i.model || '').toLowerCase().includes(query)
+                                        );
+                                    })
+                                    .filter(i => {
+                                        if (filingFilter === 'All') return true;
+                                        if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
+                                        return i.filedStatus === filingFilter;
+                                    })
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
@@ -361,6 +402,17 @@ export const ServiceOrderModule: React.FC = () => {
                                         <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerHospital}</td>
                                         <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{inv.equipmentName} ({inv.model})</td>
                                         <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <FiledStatusIndicator 
+                                                id={inv.id}
+                                                filedStatus={inv.filedStatus}
+                                                filedHistory={inv.filedHistory}
+                                                currentUser={currentUser?.name || 'System'}
+                                                onUpdate={async (docId, updates) => {
+                                                    await updateInvoice(docId, updates);
+                                                }}
+                                            />
+                                        </td>
                                         <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
                                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>

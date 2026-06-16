@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem } from '../types';
 import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
 import { useData } from './DataContext';
+import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const formatIndianNumber = (num: number) => {
     return (num || 0).toLocaleString('en-IN', {
@@ -19,6 +20,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 export const PurchaseRecordModule: React.FC = () => {
     const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors } = useData();
     const [searchQuery, setSearchQuery] = useState('');
+    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedRecord, setSelectedRecord] = useState<PurchaseRecord | null>(null);
     const INITIAL_RECORD_STATE: Partial<PurchaseRecord> = {
@@ -378,12 +380,23 @@ export const PurchaseRecordModule: React.FC = () => {
     };
 
     const filteredRecords = useMemo(() => {
-        return purchaseRecords.filter(r =>
+        let filtered = purchaseRecords.filter(r =>
             (r.supplier || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (r.equipmentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (r.invoiceNo || '').toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [purchaseRecords, searchQuery]);
+
+        if (filingFilter !== 'All') {
+            filtered = filtered.filter(r => {
+                if (filingFilter === 'Not Updated') {
+                    return !r.filedStatus || r.filedStatus === 'Not Updated';
+                }
+                return r.filedStatus === filingFilter;
+            });
+        }
+
+        return filtered;
+    }, [purchaseRecords, searchQuery, filingFilter]);
 
     if (!isAuthenticated) {
         return (
@@ -430,6 +443,16 @@ export const PurchaseRecordModule: React.FC = () => {
                 </div>
 
                 <div className="flex flex-1 max-w-xl gap-2 w-full md:justify-end">
+                    <select 
+                        value={filingFilter}
+                        onChange={(e) => setFilingFilter(e.target.value as any)}
+                        className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase shrink-0"
+                    >
+                        <option value="All">All Filing</option>
+                        <option value="Filed">Filed</option>
+                        <option value="Not Filed">Not Filed</option>
+                        <option value="Not Updated">Not Updated</option>
+                    </select>
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
@@ -460,6 +483,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                 <th className="px-4 py-3 text-right">Grand Total</th>
                                 <th className="px-4 py-3 text-center">Paid Amt</th>
                                 <th className="px-4 py-3 text-right">Balance</th>
+                                <th className="px-4 py-3 text-center">Filed Status</th>
                                 <th className="px-4 py-3 text-center">Status</th>
                                 <th className="px-4 py-3 text-right">Actions</th>
                             </tr>
@@ -518,6 +542,17 @@ export const PurchaseRecordModule: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-3 text-right font-black text-rose-600">
                                             ₹{formatIndianNumber(balance)}
+                                        </td>
+                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <FiledStatusIndicator 
+                                                id={record.id}
+                                                filedStatus={record.filedStatus}
+                                                filedHistory={record.filedHistory}
+                                                currentUser={currentUser?.name || 'System'}
+                                                onUpdate={async (docId, updates) => {
+                                                    await updatePurchaseRecord(docId, updates);
+                                                }}
+                                            />
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${

@@ -9,6 +9,7 @@ import {
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
+import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -129,6 +130,7 @@ Sree Meditec`;
     const [catalogSearch, setCatalogSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [serverInvoices, setServerInvoices] = useState<Invoice[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -372,6 +374,16 @@ Sree Meditec`;
                     <div className="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50/30">
                         <div className="flex items-center gap-4 flex-1">
                             <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] shrink-0">Financial Archive</h3>
+                            <select 
+                                value={filingFilter}
+                                onChange={(e) => setFilingFilter(e.target.value as any)}
+                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-1.5 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                            >
+                                <option value="All">All Filing</option>
+                                <option value="Filed">Filed</option>
+                                <option value="Not Filed">Not Filed</option>
+                                <option value="Not Updated">Not Updated</option>
+                            </select>
                             <div className="relative max-w-xs flex-1">
                                 <input 
                                     type="text" 
@@ -412,6 +424,7 @@ Sree Meditec`;
                                     <th className="px-6 py-4 text-center">Paid Amt</th>
                                     <th className="px-6 py-4 text-center">Closed By</th>
                                     <th className="px-6 py-4 text-right">Balance</th>
+                                    <th className="px-6 py-4 text-center">Filed Status</th>
                                     <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-right">Action</th>
                                 </tr>
@@ -422,6 +435,11 @@ Sree Meditec`;
                                     (i.customerName || '').toLowerCase().includes(searchQuery.toLowerCase())
                                 ))
                                     .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
+                                    .filter(i => {
+                                        if (filingFilter === 'All') return true;
+                                        if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
+                                        return i.filedStatus === filingFilter;
+                                    })
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className={`hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0 ${inv.status === 'Cancelled' ? 'bg-rose-50/50 text-rose-900 border-rose-100' : ''}`}>
@@ -485,6 +503,17 @@ Sree Meditec`;
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
+                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <FiledStatusIndicator 
+                                                id={inv.id} 
+                                                filedStatus={inv.filedStatus} 
+                                                filedHistory={inv.filedHistory} 
+                                                currentUser={currentUser?.name || 'System'} 
+                                                onUpdate={async (docId, updates) => {
+                                                    await updateInvoice(docId, updates);
+                                                }} 
+                                            />
+                                        </td>
                                         <td className="px-6 py-4 text-center">
                                             {(() => {
                                                 const displayStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')

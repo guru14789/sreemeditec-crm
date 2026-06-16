@@ -27,9 +27,11 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
 
   useEffect(() => {
     if (value && showSuggestions) {
-      const results = suggestions.filter(item =>
-        String(item[filterKey] || '').toLowerCase().includes(value.toLowerCase())
-      );
+      const results = suggestions.filter(item => {
+        const primary = String(item[filterKey] || '').toLowerCase();
+        const secondary = filterKey === 'hospital' ? String(item.name || '').toLowerCase() : '';
+        return primary.includes(value.toLowerCase()) || secondary.includes(value.toLowerCase());
+      });
       setFiltered(results.slice(0, 10));
     } else {
       setFiltered([]);
@@ -71,7 +73,7 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
               }}
             >
               {renderSuggestion ? renderSuggestion(item) : (
-                <div className="text-xs font-bold text-slate-700">{item[filterKey]}</div>
+                <div className="text-xs font-bold text-slate-700">{item[filterKey] || item.name || ''}</div>
               )}
             </div>
           ))}

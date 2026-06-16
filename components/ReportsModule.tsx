@@ -34,7 +34,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products, purchaseRecords, employees } = useData();
+  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -49,6 +49,31 @@ export const ReportsModule: React.FC = () => {
 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
+
+  const filingStats = useMemo(() => {
+    let filed = 0;
+    let notFiled = 0;
+    let notUpdated = 0;
+
+    const checkStatus = (status?: string) => {
+      if (!status || status === 'Not Updated') notUpdated++;
+      else if (status === 'Filed') filed++;
+      else if (status === 'Not Filed') notFiled++;
+    };
+
+    invoices.forEach(i => checkStatus(i.filedStatus));
+    purchaseRecords.forEach(r => checkStatus(r.filedStatus));
+    (deliveryChallans || []).forEach(c => checkStatus(c.filedStatus));
+    (serviceReports || []).forEach(r => checkStatus(r.filedStatus));
+    (installationReports || []).forEach(r => checkStatus(r.filedStatus));
+
+    const total = filed + notFiled + notUpdated;
+    const filedRatio = total > 0 ? (filed / total) * 100 : 0;
+    const notFiledRatio = total > 0 ? (notFiled / total) * 100 : 0;
+    const notUpdatedRatio = total > 0 ? (notUpdated / total) * 100 : 0;
+
+    return { total, filed, notFiled, notUpdated, filedRatio, notFiledRatio, notUpdatedRatio };
+  }, [invoices, purchaseRecords, deliveryChallans, serviceReports, installationReports]);
 
   const getCardClasses = (sectionId: string, defaultSpan: string) => {
     const isExpanded = expandedSection === sectionId;
@@ -466,6 +491,23 @@ export const ReportsModule: React.FC = () => {
     }
 
     const headers = ['Section', 'Metric/Month', 'Value 1 (Revenue)', 'Value 2 (Expense)', 'Value 3 (Net Profit)'];
+    
+    // Pre-calculate filing status categories
+    const filingCategoriesList = ['Invoices', 'Purchase Records', 'Delivery Challans', 'Service Reports', 'Installation Reports'].map((type) => {
+      let filed = 0, pending = 0, notUpdated = 0;
+      const check = (status?: string) => {
+        if (!status || status === 'Not Updated') notUpdated++;
+        else if (status === 'Filed') filed++;
+        else if (status === 'Not Filed') pending++;
+      };
+      if (type === 'Invoices') invoices.forEach(i => check(i.filedStatus));
+      else if (type === 'Purchase Records') purchaseRecords.forEach(r => check(r.filedStatus));
+      else if (type === 'Delivery Challans') (deliveryChallans || []).forEach(c => check(c.filedStatus));
+      else if (type === 'Service Reports') (serviceReports || []).forEach(r => check(r.filedStatus));
+      else if (type === 'Installation Reports') (installationReports || []).forEach(r => check(r.filedStatus));
+      return ['FILING TRACKER', type, `Filed: ${filed}`, `Pending: ${pending}`, `Not Updated: ${notUpdated}`];
+    });
+
     const summaryRows = [
       ['SUMMARY', 'Total Sales', totalRevenue, '', ''],
       ['SUMMARY', 'Net Profit', totalProfit, '', ''],
@@ -473,6 +515,9 @@ export const ReportsModule: React.FC = () => {
       ['', '', '', '', ''],
       ['TOP PRODUCTS', 'Product Name', 'Units', 'Revenue', ''],
       ...TOP_PRODUCTS.map((p) => ['TOP PRODUCTS', `"${p.name.replace(/"/g, '""')}"`, p.totalQty, p.totalRevenue.toFixed(2), '']),
+      ['', '', '', '', ''],
+      ['FILING TRACKER', 'Document Type', 'Filed Count', 'Pending Count', 'Not Updated Count'],
+      ...filingCategoriesList
     ];
     const csv = [headers, ...summaryRows].map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1370,6 +1415,116 @@ export const ReportsModule: React.FC = () => {
                 </div>
               )}
             </div>
+
+          {/* 7. Filing Status Tracker */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'filing' ? null : 'filing')}
+            className={getCardClasses('filing', 'md:col-span-2 min-h-[350px]')}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b">
+              <div>
+                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Document Filing Tracker</h3>
+                <p className="text-[7px] text-slate-400 font-bold uppercase">Physical Archive Audits</p>
+              </div>
+              <FileText size={12} className="text-slate-400" />
+            </div>
+
+            {expandedSection !== 'filing' ? (
+              <div className="space-y-4 my-auto">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-2xl font-black text-slate-800">{filingStats.filed}</span>
+                  <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    {filingStats.filedRatio.toFixed(1)}% Filed
+                  </span>
+                </div>
+                <div className="space-y-2 text-[9px] font-black uppercase">
+                  <div>
+                    <div className="flex justify-between text-slate-500 mb-1">
+                      <span>Filed</span>
+                      <span>{filingStats.filed}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${filingStats.filedRatio}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-slate-500 mb-1">
+                      <span>Pending Filing</span>
+                      <span>{filingStats.notFiled}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-400 rounded-full" style={{ width: `${filingStats.notFiledRatio}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-slate-500 mb-1">
+                      <span>Not Updated</span>
+                      <span>{filingStats.notUpdated}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-200 rounded-full" style={{ width: `${filingStats.notUpdatedRatio}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  {[
+                    { label: 'Physically Filed', count: filingStats.filed, ratio: filingStats.filedRatio, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+                    { label: 'Pending Filing', count: filingStats.notFiled, ratio: filingStats.notFiledRatio, color: 'text-slate-600 bg-slate-50 border-slate-200' },
+                    { label: 'Not Yet Updated', count: filingStats.notUpdated, ratio: filingStats.notUpdatedRatio, color: 'text-slate-400 bg-transparent border-slate-100 border-dashed animate-pulse' }
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-black text-slate-700 uppercase block">{item.label}</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase">{item.count} total records</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${item.color}`}>
+                        {item.ratio.toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie 
+                        data={[
+                          { name: 'Filed', value: filingStats.filed },
+                          { name: 'Pending', value: filingStats.notFiled },
+                          { name: 'Not Updated', value: filingStats.notUpdated }
+                        ]} 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={40} 
+                        outerRadius={60} 
+                        paddingAngle={2} 
+                        dataKey="value"
+                      >
+                        <Cell fill="#10b981" />
+                        <Cell fill="#64748b" />
+                        <Cell fill="#cbd5e1" />
+                      </Pie>
+                      <Tooltip formatter={(v: any) => `${v} docs`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
+                    {[
+                      { name: 'Filed', color: '#10b981' },
+                      { name: 'Pending', color: '#64748b' },
+                      { name: 'Not Updated', color: '#cbd5e1' }
+                    ].map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className="text-slate-500">{entry.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
         </div>
       )}
