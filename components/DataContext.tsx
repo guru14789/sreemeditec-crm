@@ -2754,12 +2754,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const incentiveAmount = Math.round((inv.grandTotal || 0) * (inv.incentivePercentage / 100));
         if (incentiveAmount > 0) {
-            const empName = employees.find(e => e.id === inv.closedBy)?.name || 'Employee';
+            const matchedEmp = employees.find(e => e.id === inv.closedBy || e.name.trim().toLowerCase() === inv.closedBy.trim().toLowerCase());
+            const empId = matchedEmp ? matchedEmp.id : inv.closedBy;
+            const empName = matchedEmp ? matchedEmp.name : inv.closedBy;
             await addPoints(
                 incentiveAmount,
                 'Sales',
                 `Sales Incentive for Invoice ${inv.invoiceNumber} (${inv.id}) — closed by ${empName}`,
-                inv.closedBy
+                empId
             );
             addNotification(
                 '💰 Incentive Awarded',

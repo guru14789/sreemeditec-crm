@@ -493,10 +493,10 @@ Sree Meditec`;
                                         <td className="px-6 py-4">
                                             {inv.closedBy ? (
                                                 <div 
-                                                    title={employees?.find(e => e.id === inv.closedBy)?.name || 'Unknown'}
+                                                    title={employees?.find(e => e.id === inv.closedBy)?.name || inv.closedBy || 'Unknown'}
                                                     className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[9px] font-black uppercase text-indigo-600 shadow-inner border border-indigo-200 cursor-help mx-auto"
                                                 >
-                                                    {(employees?.find(e => e.id === inv.closedBy)?.name || '?').charAt(0).toUpperCase()}
+                                                    {(employees?.find(e => e.id === inv.closedBy)?.name || inv.closedBy || '?').charAt(0).toUpperCase()}
                                                 </div>
                                             ) : (
                                                 <span className="text-slate-300 text-center block">-</span>
@@ -725,16 +725,13 @@ Sree Meditec`;
                                             </select>
                                         </FormRow>
                                         <FormRow label="Closed By">
-                                            <select 
-                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
+                                            <input 
+                                                type="text"
+                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
                                                 value={invoice.closedBy || ''}
                                                 onChange={e => setInvoice({ ...invoice, closedBy: e.target.value })}
-                                            >
-                                                <option value="">-- Select Employee --</option>
-                                                {(employees || []).filter(emp => emp.status === 'Active').map(emp => (
-                                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                                ))}
-                                            </select>
+                                                placeholder="Enter employee name..."
+                                            />
                                         </FormRow>
                                         <FormRow label="Incentive (%)">
                                             <input 
