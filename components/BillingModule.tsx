@@ -725,13 +725,16 @@ Sree Meditec`;
                                             </select>
                                         </FormRow>
                                         <FormRow label="Closed By">
-                                            <input 
-                                                type="text"
-                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
+                                            <select 
+                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
                                                 value={invoice.closedBy || ''}
                                                 onChange={e => setInvoice({ ...invoice, closedBy: e.target.value })}
-                                                placeholder="Enter employee name..."
-                                            />
+                                            >
+                                                <option value="">-- Select Employee --</option>
+                                                {(employees || []).filter(emp => emp.status === 'Active').map(emp => (
+                                                    <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                                ))}
+                                            </select>
                                         </FormRow>
                                         <FormRow label="Incentive (%)">
                                             <input 
