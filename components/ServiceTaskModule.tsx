@@ -5,7 +5,7 @@ import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
-  Eye, Paperclip, Download
+  Eye, Paperclip, Download, Plus, Building2, Mail
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -44,7 +44,7 @@ const getNextStatuses = (current: ServiceTaskStatus): ServiceTaskStatus[] => {
 };
 
 export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }) => {
-  const { serviceTasks, updateServiceTask, currentUser, showConfirm, addNotification } = useData();
+  const { serviceTasks, addServiceTask, updateServiceTask, currentUser, showConfirm, addNotification } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -54,6 +54,12 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const [isUploading, setIsUploading] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<'work_photo' | 'completion_proof'>('work_photo');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTaskForm, setNewTaskForm] = useState({
+    customerName: '', companyName: '', customerPhone: '', customerEmail: '',
+    subject: '', equipment: '', serviceCategory: '', issue: '', location: '',
+    priority: 'Medium' as ServiceTask['priority']
+  });
 
   const isAdmin = userRole === 'Admin';
 
@@ -152,6 +158,39 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     await updateServiceTask(id, updates);
     await addActivity(id, `Status changed to ${newStatus}`, `From ${task.status} to ${newStatus} by ${currentUser?.name}`);
     addNotification('Status Updated', `Task moved to ${newStatus}.`, 'info');
+  };
+
+  const handleCreateTask = async () => {
+    const f = newTaskForm;
+    if (!f.customerName.trim() || !f.customerPhone.trim() || !f.equipment.trim() || !f.issue.trim()) {
+      addNotification('Validation', 'Please fill in all required fields.', 'error');
+      return;
+    }
+    const timestamp = Date.now();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    const taskId = `SRV-${timestamp}-${rand}`;
+    const taskNumber = `SRV-${new Date().getFullYear().toString().slice(-2)}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+    const task: ServiceTask = {
+      id: taskId, taskNumber,
+      customerName: f.customerName.trim(), companyName: f.companyName.trim() || undefined,
+      customerPhone: f.customerPhone.trim(), customerEmail: f.customerEmail.trim() || undefined,
+      subject: f.subject.trim() || undefined, equipment: f.equipment.trim(),
+      serviceCategory: f.serviceCategory || undefined, issue: f.issue.trim(),
+      priority: f.priority, status: 'New', createdAt: new Date().toISOString(),
+      location: f.location.trim() || undefined, source: 'manual',
+      assignedTo: currentUser?.name, assignedToId: currentUser?.id,
+      comments: [], attachments: [], activityLog: [{
+        id: `ACT-${timestamp}`,
+        action: 'Task Created',
+        detail: `Created manually by ${currentUser?.name || 'Admin'}`,
+        user: currentUser?.name || 'Admin',
+        timestamp: new Date().toISOString()
+      }]
+    };
+    await addServiceTask(task);
+    addNotification('Task Created', `Service task ${taskNumber} created for ${f.customerName}.`, 'success');
+    setShowCreateModal(false);
+    setNewTaskForm({ customerName: '', companyName: '', customerPhone: '', customerEmail: '', subject: '', equipment: '', serviceCategory: '', issue: '', location: '', priority: 'Medium' });
   };
 
   const handleAddComment = async () => {
@@ -354,6 +393,11 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
           >
             <QrCode size={16} /> {showQR ? 'Hide QR' : 'Show QR'}
           </button>
+          {isAdmin && (
+            <button onClick={() => setShowCreateModal(true)} className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 bg-[#022c22] text-white shadow-lg hover:bg-black active:scale-95">
+              <Plus size={16} /> Create
+            </button>
+          )}
         </div>
       </div>
 
@@ -770,6 +814,80 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         </div>
       )}
     </div>
+  );
+
+  const SERVICE_CATEGORIES = ['Installation', 'Repair', 'Maintenance', 'AMC Service', 'Calibration', 'Upgrade', 'Demo', 'Training', 'Other'];
+
+  return (
+    <>
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
+          <div className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+            <div className="sticky top-0 bg-white dark:bg-slate-900 z-10 p-6 md:p-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Create Service Task</h3>
+              <button onClick={() => setShowCreateModal(false)} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={20} /></button>
+            </div>
+            <div className="p-6 md:p-8 space-y-5">
+              <div className="grid sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Customer Name <span className="text-rose-400">*</span></label>
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Rajesh Kumar" value={newTaskForm.customerName} onChange={e => setNewTaskForm(p => ({ ...p, customerName: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Company</label>
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Sree Meditech" value={newTaskForm.companyName} onChange={e => setNewTaskForm(p => ({ ...p, companyName: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Phone <span className="text-rose-400">*</span></label>
+                  <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Email</label>
+                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Subject</label>
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Service request title" value={newTaskForm.subject} onChange={e => setNewTaskForm(p => ({ ...p, subject: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment <span className="text-rose-400">*</span></label>
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="X-Ray Machine" value={newTaskForm.equipment} onChange={e => setNewTaskForm(p => ({ ...p, equipment: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Category</label>
+                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.serviceCategory} onChange={e => setNewTaskForm(p => ({ ...p, serviceCategory: e.target.value }))}>
+                    <option value="">Select category</option>
+                    {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Priority</label>
+                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.priority} onChange={e => setNewTaskForm(p => ({ ...p, priority: e.target.value as ServiceTask['priority'] }))}>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Location</label>
+                <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Full address or landmark" value={newTaskForm.location} onChange={e => setNewTaskForm(p => ({ ...p, location: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Issue Description <span className="text-rose-400">*</span></label>
+                <textarea rows={4} className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none" placeholder="Describe the problem in detail..." value={newTaskForm.issue} onChange={e => setNewTaskForm(p => ({ ...p, issue: e.target.value }))} />
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 md:p-8 flex justify-end gap-3">
+              <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
+              <button onClick={handleCreateTask} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95">Create Task</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
