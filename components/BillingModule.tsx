@@ -731,6 +731,7 @@ Sree Meditec`;
                                                 onChange={e => setInvoice({ ...invoice, closedBy: e.target.value })}
                                             >
                                                 <option value="">-- Select Employee --</option>
+                                                <option value="Direct">Direct</option>
                                                 {(employees || []).filter(emp => emp.status === 'Active').map(emp => (
                                                     <option key={emp.id} value={emp.name}>{emp.name}</option>
                                                 ))}
