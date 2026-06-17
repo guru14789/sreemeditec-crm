@@ -118,7 +118,6 @@ We sincerely appreciate your business and look forward to our continued collabor
 
 Warm regards,
 
-Medical Engineering Division
 Sree Meditec
 Mob: +91 9884818398 / 7200025642
 Email: sreemeditec@gmail.com`;
