@@ -95,20 +95,35 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         
         // 2. Draft Gmail web link
         const docName = inv.documentType === 'Quotation' ? 'Quotation' : 'Invoice';
-        const subject = `${docName} ${inv.invoiceNumber} from Sree Meditec`;
-        const body = `Dear Customer,
+        const subject = `${docName} ${inv.invoiceNumber} - Sree Meditec`;
+        const recipientName = inv.customerHospital || inv.customerName || 'Valued Customer';
+        
+        const body = `Dear ${recipientName},
 
-Please find the summary of your ${docName.toLowerCase()} #${inv.invoiceNumber} below:
+I hope this email finds you well.
 
-Date: ${formatDateDDMMYYYY(inv.date)}
-Total Amount: INR ${(inv.grandTotal || 0).toLocaleString('en-IN')}
+Please find attached the official ${docName.toLowerCase()} from Sree Meditec for your reference.
 
-(Note: Your PDF document has been prepared and downloaded. Please drag and drop or attach it to this Gmail window before sending.)
+Document Summary:
+• Document Type: ${docName}
+• Document No: ${inv.invoiceNumber}
+• Date: ${formatDateDDMMYYYY(inv.date)}
+• Total Amount: INR ${(inv.grandTotal || 0).toLocaleString('en-IN')} (inclusive of applicable taxes)
 
-Thank you for your business.
+Please review the attached PDF for a detailed itemization of the products/services, terms, and payment options. 
+
+(Note: Your PDF document has been automatically prepared and downloaded to your computer. Please attach/drag it to this email window before sending.)
+
+Should you have any questions or require further clarification, please feel free to reach out to us.
+
+We sincerely appreciate your business and look forward to our continued collaboration.
 
 Warm regards,
-Sree Meditec`;
+
+Medical Engineering Division
+Sree Meditec
+Mob: +91 9884818398 / 7200025642
+Email: sreemeditec@gmail.com`;
         
         const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.open(url, '_blank');
