@@ -24,7 +24,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         fetchMoreData, clients, products, addClient, showConfirm
     } = useData();
 
-    const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
+    const [viewState, setViewState] = useState<'stock' | 'builder' | 'today'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [emailDraft, setEmailDraft] = useState<string>('');
@@ -227,6 +227,26 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         return pending.length > 0 ? pending[0] : null;
     };
 
+    const todayTouchpoints = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const list: { lead: Lead; followUp: FollowUp }[] = [];
+        leads.forEach(l => {
+            if (l.followUps) {
+                l.followUps.forEach(fu => {
+                    if (fu.date === todayStr) {
+                        list.push({ lead: l, followUp: fu });
+                    }
+                });
+            }
+        });
+        return list.sort((a, b) => {
+            if (a.followUp.status === b.followUp.status) {
+                return a.lead.name.localeCompare(b.lead.name);
+            }
+            return a.followUp.status === 'Pending' ? -1 : 1;
+        });
+    }, [leads]);
+
     const filteredLeads = useMemo(() => {
         const source = serverLeads.length > 0 ? serverLeads : leads;
         const lowQuery = searchQuery.toLowerCase();
@@ -242,10 +262,11 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
                 <button onClick={() => setViewState('stock')} className={`px-8 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'stock' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><List size={16} /> Pipeline</button>
+                <button onClick={() => setViewState('today')} className={`px-8 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'today' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><Calendar size={16} /> Today's Touchpoints</button>
                 <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setLead(DEFAULT_LEAD); }} className={`px-8 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' && builderMode === 'add' ? 'bg-medical-600 text-white shadow-lg shadow-medical-500/20' : 'text-slate-400 hover:text-slate-600'}`}><Plus size={16} /> Intake</button>
             </div>
 
-            {viewState === 'stock' ? (
+            {viewState === 'stock' && (
                 <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
                     <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                         <div className="p-5 border-b border-slate-300 bg-slate-50/30 flex flex-col sm:flex-row justify-between items-center shrink-0 gap-4">
@@ -334,7 +355,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <button onClick={() => handleDraftEmail(selectedLead)} disabled={isGenerating} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl flex items-center justify-center gap-3 shadow-sm hover:border-indigo-300 transition-all group">{isGenerating ? <RefreshCw size={18} className="animate-spin text-indigo-600" /> : <Sparkles size={18} className="text-indigo-600 group-hover:scale-110 transition-transform" />}<span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Draft Pitch</span></button>
-                                            <button onClick={() => handleConvertLead(selectedLead)} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-black transition-all active:scale-95"><FileText size={18} className="text-emerald-400"/><span className="text-[10px] font-black uppercase tracking-widest">Quotation</span></button>
+                                            <button onClick={() => handleConvertLead(selectedLead)} className="flex-1 py-4 bg-slate-950 text-white rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-black transition-all active:scale-95"><FileText size={18} className="text-emerald-400"/><span className="text-[10px] font-black uppercase tracking-widest">Quotation</span></button>
                                         </div>
 
                                         {emailDraft && (
@@ -396,7 +417,87 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                         </div>
                     )}
                 </div>
-            ) : (
+            )}
+
+            {viewState === 'today' && (
+                <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in animate-duration-300">
+                    <div className="p-5 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner border border-indigo-50"><Calendar size={20} /></div>
+                            <div>
+                                <h3 className="font-black text-slate-800 uppercase tracking-tight">Today's Scheduled Engagements</h3>
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+                                    {todayTouchpoints.filter(t => t.followUp.status === 'Pending').length} Pending / {todayTouchpoints.length} Total Touchpoints for Today
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-auto custom-scrollbar p-6">
+                        {todayTouchpoints.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {todayTouchpoints.map(({ lead: l, followUp: fu }) => (
+                                    <div key={fu.id} className={`p-6 rounded-[2rem] border transition-all flex flex-col justify-between ${fu.status === 'Completed' ? 'bg-slate-50 border-slate-200 opacity-60 grayscale' : 'bg-white border-slate-300 shadow-sm hover:border-medical-300'}`}>
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-xl ${fu.type === 'Call' ? 'bg-blue-50 text-blue-600' : fu.type === 'Meeting' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                        <Zap size={14}/>
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-800">{fu.type}</span>
+                                                </div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${fu.status === 'Completed' ? 'bg-slate-200 text-slate-500' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>{fu.status}</span>
+                                            </div>
+
+                                            <div className="mb-4">
+                                                <h4 className="font-black text-slate-800 uppercase text-[13px] tracking-tight">{l.name}</h4>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{l.hospital}</p>
+                                            </div>
+
+                                            <p className="text-xs font-semibold text-slate-600 leading-relaxed mb-6 bg-slate-50 p-3.5 rounded-xl border border-slate-100">{fu.notes}</p>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => toggleFollowUpStatus(l.id, fu.id)} 
+                                                className={`flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${fu.status === 'Pending' ? 'bg-medical-50 text-medical-600 hover:bg-medical-600 hover:text-white' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}`}
+                                            >
+                                                {fu.status === 'Pending' ? <><CheckSquare size={12}/> Complete</> : <><RefreshCw size={12}/> Reopen</>}
+                                            </button>
+
+                                            {l.phone && (
+                                                <a
+                                                    href={`https://wa.me/91${l.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${l.name}, this is Sreemeditec following up regarding ${l.productInterest}.`)}`}
+                                                    target="_blank" rel="noreferrer"
+                                                    className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all shadow-sm flex items-center justify-center"
+                                                    title="WhatsApp"
+                                                >
+                                                    <Send size={14}/>
+                                                </a>
+                                            )}
+
+                                            <button 
+                                                onClick={() => { setSelectedLead(l); setViewState('stock'); }}
+                                                className="p-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-250 hover:text-slate-800 transition-all shadow-sm flex items-center justify-center"
+                                                title="View Profile"
+                                            >
+                                                <User size={14}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-40 text-center opacity-20 flex flex-col items-center justify-center animate-in fade-in">
+                                <Calendar size={48} className="mb-4 text-slate-300" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em]">No Touchpoints Scheduled for Today</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {viewState === 'builder' && (
                 <div className="flex-1 flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
                     <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-10 py-6 justify-between items-center">
                         <div className="flex flex-col"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Manual Opportunity Entry' : 'Evolve Lead Profile'}</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Synchronizing pipeline with cloud terminal</p></div>
