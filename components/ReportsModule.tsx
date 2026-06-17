@@ -22,6 +22,101 @@ const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { minimumF
 
 const COLORS = ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1', '#0ea5e9', '#f97316', '#14b8a6', '#a855f7'];
 
+const GRADIENT_COLORS = [
+  'url(#grad-0)', 'url(#grad-1)', 'url(#grad-2)', 'url(#grad-3)', 'url(#grad-4)',
+  'url(#grad-5)', 'url(#grad-6)', 'url(#grad-7)', 'url(#grad-8)', 'url(#grad-9)'
+];
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-3 rounded-xl shadow-2xl text-white min-w-[150px] z-[999]">
+        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mb-2 pb-1 border-b border-slate-800">{label}</p>
+        <div className="space-y-1.5">
+          {payload.map((entry: any, index: number) => {
+            const val = entry.value;
+            const displayVal = typeof val === 'number'
+              ? (entry.name.toLowerCase().includes('unit') || entry.name.toLowerCase().includes('lead') || entry.name.toLowerCase().includes('client') || entry.name.toLowerCase().includes('closure')
+                ? val.toLocaleString('en-IN')
+                : `₹${val.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`)
+              : val;
+            return (
+              <div key={index} className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.color || entry.fill }} />
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-tight">{entry.name}</span>
+                </div>
+                <span className="text-[9px] font-black text-white">{displayVal}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+const GlobalChartDefs: React.FC = () => (
+  <svg className="w-0 h-0 absolute pointer-events-none" aria-hidden="true">
+    <defs>
+      <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+        <feDropShadow dx="0" dy="6" stdDeviation="4" floodColor="#6366f1" floodOpacity="0.25" />
+      </filter>
+      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+      </linearGradient>
+      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#34d399" />
+        <stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+      <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f43f5e" />
+        <stop offset="100%" stopColor="#be123c" />
+      </linearGradient>
+      <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#94a3b8" />
+        <stop offset="100%" stopColor="#64748b" />
+      </linearGradient>
+      <linearGradient id="colorConverted" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#10b981" />
+        <stop offset="100%" stopColor="#047857" />
+      </linearGradient>
+      <linearGradient id="grad-0" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+      <linearGradient id="grad-1" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#3b82f6" /><stop offset="100%" stopColor="#1d4ed8" />
+      </linearGradient>
+      <linearGradient id="grad-2" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#b45309" />
+      </linearGradient>
+      <linearGradient id="grad-3" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#8b5cf6" /><stop offset="100%" stopColor="#6d28d9" />
+      </linearGradient>
+      <linearGradient id="grad-4" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#ec4899" /><stop offset="100%" stopColor="#be185d" />
+      </linearGradient>
+      <linearGradient id="grad-5" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#4338ca" />
+      </linearGradient>
+      <linearGradient id="grad-6" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#0ea5e9" /><stop offset="100%" stopColor="#0369a1" />
+      </linearGradient>
+      <linearGradient id="grad-7" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#f97316" /><stop offset="100%" stopColor="#c2410c" />
+      </linearGradient>
+      <linearGradient id="grad-8" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#14b8a6" /><stop offset="100%" stopColor="#0f766e" />
+      </linearGradient>
+      <linearGradient id="grad-9" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#a855f7" /><stop offset="100%" stopColor="#7e22ce" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
 type ProductDetail = {
   name: string;
   totalQty: number;
@@ -537,6 +632,7 @@ export const ReportsModule: React.FC = () => {
 
     return (
       <div className="h-full flex flex-col gap-4 overflow-y-auto p-1.5 custom-scrollbar">
+        <GlobalChartDefs />
 
         {/* Header */}
         <div className="flex items-center justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-xl border border-slate-300 shadow-sm">
@@ -600,15 +696,10 @@ export const ReportsModule: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} dy={6} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                <Tooltip
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '10px', background: 'rgba(255,255,255,0.97)' }}
-                  formatter={(value: number, name: string) => [`₹${value.toLocaleString('en-IN')}`, name === 'revenue' ? 'Revenue' : 'Units']}
-                  labelStyle={{ fontSize: '9px', fontWeight: 900, color: '#6366f1', marginBottom: '6px', textTransform: 'uppercase' }}
-                />
-                <Bar dataKey="revenue" name="Revenue" radius={[4, 4, 0, 0]} barSize={22} animationDuration={1200}>
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                <Bar dataKey="revenue" name="Revenue" radius={[6, 6, 0, 0]} barSize={22} animationDuration={1200}>
                   {topProductsByRevenue.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={GRADIENT_COLORS[i % GRADIENT_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -780,6 +871,7 @@ export const ReportsModule: React.FC = () => {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="h-full flex flex-col gap-4 overflow-y-auto p-1.5">
+      <GlobalChartDefs />
 
       {/* Header Toolbar */}
       <div className="flex flex-col sm:flex-row justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-xl border border-slate-300 shadow-sm">
@@ -835,48 +927,68 @@ export const ReportsModule: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
-        <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-emerald-100 transition-all">
-          <div className="flex justify-between items-start mb-1">
-            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform"><DollarSign size={14} /></div>
-            <span className="flex items-center gap-1 text-[8px] font-black bg-emerald-50 text-emerald-700 px-1 py-0.5 rounded-md uppercase"><TrendingUp size={8} /> +12.5%</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        {/* Card 1: Total Sales */}
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+          <div className="flex justify-between items-start mb-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+              <DollarSign size={15} />
+            </div>
+            <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <TrendingUp size={8} /> +12.5%
+            </span>
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Sales</p>
-            <h3 className="text-sm font-black text-slate-800 mt-0.5">₹{formatIndianNumber(totalRevenue)}</h3>
+            <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
+            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-medical-100 transition-all">
-          <div className="flex justify-between items-start mb-1">
-            <div className="p-1.5 bg-medical-50 text-medical-600 rounded-lg group-hover:scale-110 transition-transform"><TrendingUp size={14} /></div>
-            <span className="flex items-center gap-1 text-[8px] font-black bg-medical-50 text-medical-700 px-1 py-0.5 rounded-md uppercase"><TrendingUp size={8} /> +8.2%</span>
+        {/* Card 2: Net Profit */}
+        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
+          <div className="flex justify-between items-start mb-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+              <TrendingUp size={15} />
+            </div>
+            <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <TrendingUp size={8} /> +8.2%
+            </span>
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Net Profit</p>
-            <h3 className="text-sm font-black text-slate-800 mt-0.5">₹{formatIndianNumber(totalProfit)}</h3>
+            <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
+            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalProfit)}</h3>
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-rose-100 transition-all">
-          <div className="flex justify-between items-start mb-1">
-            <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg group-hover:scale-110 transition-transform"><ArrowDownRight size={14} /></div>
-            <span className="flex items-center gap-1 text-[8px] font-black bg-rose-50 text-rose-700 px-1 py-0.5 rounded-md uppercase"><TrendingDown size={8} /> -2.4%</span>
+        {/* Card 3: Expense */}
+        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(75,54,33,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(75,54,33,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #4b3621 0%, #6f4e37 100%)' }}>
+          <div className="flex justify-between items-start mb-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
+              <ArrowDownRight size={15} />
+            </div>
+            <span className="flex items-center gap-1 text-[7px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <TrendingDown size={8} /> -2.4%
+            </span>
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Expense</p>
-            <h3 className="text-sm font-black text-slate-800 mt-0.5">₹{formatIndianNumber(totalExpenses)}</h3>
+            <p className="text-[8px] font-extrabold text-amber-200/80 uppercase tracking-widest leading-none">Expense</p>
+            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-amber-100 transition-all">
-          <div className="flex justify-between items-start mb-1">
-            <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg group-hover:scale-110 transition-transform"><PieChartIcon size={14} /></div>
-            <span className="flex items-center gap-1 text-[8px] font-black bg-amber-50 text-amber-700 px-1 py-0.5 rounded-md uppercase">Annual</span>
+        {/* Card 4: Growth */}
+        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+          <div className="flex justify-between items-start mb-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+              <PieChartIcon size={15} />
+            </div>
+            <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Annual
+            </span>
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Growth</p>
-            <h3 className="text-sm font-black text-slate-800 mt-0.5">{growthRate}%</h3>
+            <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Growth</p>
+            <h3 className="text-base font-black text-amber-950 mt-1">{growthRate}%</h3>
           </div>
         </div>
       </div>
@@ -886,8 +998,8 @@ export const ReportsModule: React.FC = () => {
           {/* Charts Section */}
           <div className="flex flex-col lg:flex-row gap-4 mb-4 lg:min-h-[500px]">
             {/* Main Financial Chart */}
-            <div className="flex-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[350px] relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-medical-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
+            <div className="flex-1 bg-white p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 relative z-10">
                 <div>
                   <div className="flex items-center gap-2">
@@ -912,35 +1024,19 @@ export const ReportsModule: React.FC = () => {
               <div className="flex-1 w-full min-h-[220px] relative z-10">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={PERFORMANCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.4} />
-                      </linearGradient>
-                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                    <Tooltip
-                      cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
-                      itemStyle={{ fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                      labelStyle={{ fontSize: '9px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                      formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
-                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }} />
                     <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '20px' }} />
                     {activeChart === 'revenue' ? (
                       <>
                         <Bar dataKey="revenue" name="Inflow" fill="url(#colorRev)" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
-                        <Bar dataKey="expenses" name="Outflow" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
-                        <Line type="monotone" dataKey="profit" name="Profit Delta" stroke="#6366f1" strokeWidth={3} dot={{ r: 3, strokeWidth: 2, stroke: '#fff', fill: '#6366f1' }} activeDot={{ r: 5, strokeWidth: 0 }} animationDuration={2000} />
+                        <Bar dataKey="expenses" name="Outflow" fill="url(#colorExp)" radius={[4, 4, 0, 0]} barSize={viewMode === 'month' ? 6 : 16} animationDuration={1500} />
+                        <Line type="monotone" dataKey="profit" name="Profit Delta" stroke="#6366f1" strokeWidth={3} filter="url(#shadow)" dot={{ r: 4, strokeWidth: 2, stroke: '#fff', fill: '#6366f1' }} activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff', fill: '#4f46e5' }} animationDuration={2000} />
                       </>
                     ) : (
-                      <Area type="monotone" dataKey="profit" name="Net Earnings" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" animationDuration={2000} />
+                      <Area type="monotone" dataKey="profit" name="Net Earnings" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" filter="url(#shadow)" animationDuration={2000} />
                     )}
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -950,15 +1046,15 @@ export const ReportsModule: React.FC = () => {
             {/* Side Column */}
             <div className="w-full lg:w-[260px] flex flex-col gap-4 shrink-0">
               {/* Category Pie */}
-              <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col h-[220px]">
+              <div className="bg-white p-4 rounded-[28px] border border-emerald-950/5 shadow-[0_20px_40px_-10px_rgba(15,32,23,0.12)] flex flex-col h-[220px]">
                 <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest mb-2">Categories</h3>
                 <div className="flex-1 w-full min-h-0 relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={CATEGORY_DATA} cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value">
-                        {CATEGORY_DATA.map((_, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                        {CATEGORY_DATA.map((_, index) => (<Cell key={`cell-${index}`} fill={GRADIENT_COLORS[index % GRADIENT_COLORS.length]} />))}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: '10px', fontSize: '9px' }} />
+                      <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4">
@@ -981,13 +1077,13 @@ export const ReportsModule: React.FC = () => {
               {/* Top Products (Clickable) */}
               <button
                 onClick={() => setView('topProducts')}
-                className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-medical-300 hover:shadow-lg hover:shadow-medical-500/5 transition-all group active:scale-[0.99]"
+                className="bg-white p-4 rounded-[28px] border border-emerald-950/5 shadow-[0_20px_40px_-10px_rgba(15,32,23,0.12)] min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-emerald-700/35 hover:shadow-[0_25px_50px_-12px_rgba(6,78,59,0.18)] transition-all duration-300 group active:scale-[0.99]"
               >
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest group-hover:text-medical-600 transition-colors">Top Products</h3>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest group-hover:text-emerald-800 transition-colors">Top Products</h3>
                   <div className="flex items-center gap-1">
-                    <span className="text-[7px] font-black text-medical-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">View All</span>
-                    <ChevronRight size={12} className="text-slate-300 group-hover:text-medical-500 group-hover:translate-x-0.5 transition-all" />
+                    <span className="text-[7px] font-black text-emerald-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">View All</span>
+                    <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
 
@@ -995,13 +1091,13 @@ export const ReportsModule: React.FC = () => {
                   {TOP_PRODUCTS.map((product, idx) => (
                     <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
                       <div className="flex-1 pr-3">
-                        <h4 className="text-[9px] font-black text-slate-700 uppercase leading-tight group-hover:text-medical-600 transition-colors line-clamp-1">{product.name}</h4>
+                        <h4 className="text-[9px] font-black text-slate-700 uppercase leading-tight group-hover:text-emerald-800 transition-colors line-clamp-1">{product.name}</h4>
                         <p className="text-[7px] text-slate-400 font-black uppercase mt-0.5">{product.totalQty} units</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[9px] font-black text-slate-800">₹{formatIndianNumber(product.totalRevenue)}</p>
                         <div className="w-8 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden ml-auto">
-                          <div className="h-full bg-medical-500 rounded-full" style={{ width: `${(product.totalRevenue / (TOP_PRODUCTS[0]?.totalRevenue || 1)) * 100}%` }} />
+                          <div className="h-full bg-gradient-to-r from-emerald-800 to-emerald-500 rounded-full" style={{ width: `${(product.totalRevenue / (TOP_PRODUCTS[0]?.totalRevenue || 1)) * 100}%` }} />
                         </div>
                       </div>
                     </div>
@@ -1022,13 +1118,16 @@ export const ReportsModule: React.FC = () => {
           </div>
 
           {/* Lead Source & Conversion */}
-          <div className="bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex flex-col min-h-[280px] shrink-0">
+          <div className="bg-white p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[280px] shrink-0">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
               <div>
-                <h3 className="font-black text-[10px] text-slate-800 flex items-center gap-2 uppercase tracking-tight">
-                  <Users size={16} className="text-medical-600" /> Lead Source & Conversion
+                <h3 className="font-black text-[10px] text-slate-800 flex items-center gap-3 uppercase tracking-tight">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),_0_1px_2px_rgba(0,0,0,0.05)] text-emerald-800">
+                    <Users size={14} />
+                  </div>
+                  Lead Source & Conversion
                 </h3>
-                <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Leads vs Converted Clients</p>
+                <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest pl-11">Leads vs Converted Clients</p>
               </div>
             </div>
             <div className="flex-1 w-full min-h-0">
@@ -1037,15 +1136,10 @@ export const ReportsModule: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="source" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 900 }} />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)' }}
-                    itemStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                    labelStyle={{ fontSize: '8px', fontWeight: '900', color: '#6366f1', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
                   <Legend verticalAlign="top" align="right" iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', paddingBottom: '15px' }} />
-                  <Bar dataKey="leads" name="Total Leads" fill="#94a3b8" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
-                  <Bar dataKey="converted" name="Converted Clients" fill="#10b981" radius={[2, 2, 0, 0]} barSize={12} animationDuration={1500} />
+                  <Bar dataKey="leads" name="Total Leads" fill="url(#colorLeads)" radius={[4, 4, 0, 0]} barSize={16} animationDuration={1500} />
+                  <Bar dataKey="converted" name="Converted Clients" fill="url(#colorConverted)" radius={[4, 4, 0, 0]} barSize={16} animationDuration={1500} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1110,8 +1204,8 @@ export const ReportsModule: React.FC = () => {
                       <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ left: -10, right: 10 }}>
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
-                        <Bar dataKey="total" fill="#10b981" radius={[0, 4, 4, 0]} barSize={12} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="url(#colorRev)" radius={[0, 6, 6, 0]} barSize={12} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1174,8 +1268,8 @@ export const ReportsModule: React.FC = () => {
                       <BarChart layout="vertical" data={analyticsData.topEmployees} margin={{ left: -10, right: 10 }}>
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
-                        <Bar dataKey="total" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={12} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[0, 6, 6, 0]} barSize={12} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1225,10 +1319,10 @@ export const ReportsModule: React.FC = () => {
                       <PieChart>
                         <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
                           {analyticsData.expenseCategories.map((_, idx) => (
-                            <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                            <Cell key={idx} fill={GRADIENT_COLORS[idx % GRADIENT_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
+                        <Tooltip content={<CustomTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
@@ -1294,8 +1388,8 @@ export const ReportsModule: React.FC = () => {
                       <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
                         <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
-                        <Bar dataKey="total" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={15} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1348,8 +1442,8 @@ export const ReportsModule: React.FC = () => {
                       <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7 }} />
                         <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
-                        <Bar dataKey="total" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={15} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="url(#grad-2)" radius={[6, 6, 0, 0]} barSize={15} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1397,10 +1491,10 @@ export const ReportsModule: React.FC = () => {
                       <PieChart>
                         <Pie data={analyticsData.agingBuckets} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
                           {analyticsData.agingBuckets.map((_, idx) => (
-                            <Cell key={idx} fill={COLORS[(idx + 2) % COLORS.length]} />
+                            <Cell key={idx} fill={GRADIENT_COLORS[(idx + 2) % GRADIENT_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN')}`} />
+                        <Tooltip content={<CustomTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
@@ -1502,11 +1596,11 @@ export const ReportsModule: React.FC = () => {
                         paddingAngle={2} 
                         dataKey="value"
                       >
-                        <Cell fill="#10b981" />
-                        <Cell fill="#64748b" />
-                        <Cell fill="#cbd5e1" />
+                        <Cell fill="url(#colorRev)" />
+                        <Cell fill="url(#colorLeads)" />
+                        <Cell fill="url(#grad-8)" />
                       </Pie>
-                      <Tooltip formatter={(v: any) => `${v} docs`} />
+                      <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">

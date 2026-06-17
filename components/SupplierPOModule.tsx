@@ -105,6 +105,9 @@ export const SupplierPOModule: React.FC = () => {
         if (pendingSupplierPOData) {
             setOrder(prev => ({
                 ...prev,
+                customerName: pendingSupplierPOData.customerName || prev.customerName,
+                date: pendingSupplierPOData.date || prev.date,
+                cpoNumber: pendingSupplierPOData.cpoNumber || prev.cpoNumber,
                 items: pendingSupplierPOData.items || [],
                 discount: pendingSupplierPOData.discount || 0,
                 freightAmount: pendingSupplierPOData.freightAmount || 0,

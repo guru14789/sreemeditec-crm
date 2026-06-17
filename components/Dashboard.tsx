@@ -85,200 +85,210 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto space-y-4 md:space-y-5 pr-1 pb-4 custom-scrollbar">
+    <div className="h-full overflow-y-auto space-y-6 md:space-y-7 pr-1 pb-4 custom-scrollbar bg-[#F3F0E8]">
       
       {/* Revenue Section */}
-      <div className="space-y-2.5">
-        <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
-            <DollarSign size={13} /> Sales Snapshot
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="bg-gradient-to-br from-[#022c22] to-emerald-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-emerald-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Activity size={80} /></div>
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform"><Activity size={20} /></div>
-                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> Live</span>
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] md:text-[10px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Sales</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
-                    <p className="text-[10px] md:text-xs text-emerald-200/60 mt-0.5 md:mt-1 font-medium italic underline decoration-emerald-500/30">Synced with Registry</p>
-                </div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+            <DollarSign size={13} className="text-emerald-600" /> Sales Snapshot
+          </h3>
+          <span className="text-[7px] font-bold text-slate-400 uppercase">This Period</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+            <div className="flex items-center justify-between">
+              <div className="bg-white/10 p-2 rounded-xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform"><Activity size={20} /></div>
+              <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> Today</span>
             </div>
+            <div>
+              <p className="text-[9px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Sales</p>
+              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
+              <p className="text-[9px] font-bold text-emerald-200/50 mt-1">Synced with Registry</p>
+            </div>
+          </div>
 
-            <div className="bg-gradient-to-br from-blue-800 to-indigo-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-blue-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity"><Calendar size={80} /></div>
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Calendar size={20} /></div>
-                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-blue-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%</span>
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] md:text-[10px] font-black text-blue-200/80 uppercase tracking-widest">Weekly Goal</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.weekRevenue)}</h3>
-                    <p className="text-[10px] md:text-xs text-blue-200/60 mt-0.5 md:mt-1 font-medium italic tracking-tighter">Current Week Cycle</p>
-                </div>
+          <div className="bg-gradient-to-br from-blue-900 to-indigo-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(30,58,138,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(30,58,138,0.6)] transition-all duration-300 min-h-[120px]">
+            <div className="flex items-center justify-between">
+              <div className="bg-white/10 p-2 rounded-xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Calendar size={20} /></div>
+              <span className="flex items-center gap-1 text-[9px] font-bold text-blue-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%</span>
             </div>
+            <div>
+              <p className="text-[9px] font-black text-blue-200/80 uppercase tracking-widest">Weekly Goal</p>
+              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.weekRevenue)}</h3>
+              <p className="text-[9px] font-bold text-blue-200/50 mt-1">Current Week Cycle</p>
+            </div>
+          </div>
 
-            <div className="bg-gradient-to-br from-violet-800 to-purple-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-lg shadow-purple-900/10 text-white hover:shadow-xl transition-all group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={80} /></div>
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="bg-white/10 p-2 md:p-2.5 rounded-xl md:rounded-2xl text-purple-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Wallet size={20} /></div>
-                    <span className="flex items-center gap-1 text-[10px] md:text-xs font-bold text-purple-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={11} /> Monthly</span>
-                </div>
-                <div className="relative z-10">
-                    <p className="text-[9px] md:text-[10px] font-black text-purple-200/80 uppercase tracking-widest">Monthly Intake</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-white mt-0.5 md:mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
-                    <p className="text-[10px] md:text-xs text-purple-200/60 mt-0.5 md:mt-1 font-medium italic underline decoration-purple-500/30">MOM Growth Engine</p>
-                </div>
+          <div className="bg-gradient-to-br from-violet-900 to-purple-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(107,33,168,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(107,33,168,0.6)] transition-all duration-300 min-h-[120px]">
+            <div className="flex items-center justify-between">
+              <div className="bg-white/10 p-2 rounded-xl text-purple-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Wallet size={20} /></div>
+              <span className="flex items-center gap-1 text-[9px] font-bold text-purple-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> Monthly</span>
             </div>
+            <div>
+              <p className="text-[9px] font-black text-purple-200/80 uppercase tracking-widest">Monthly Intake</p>
+              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
+              <p className="text-[9px] font-bold text-purple-200/50 mt-1">MoM Growth Engine</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Expense Snapshot */}
-      <div className="space-y-2.5">
-        <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2 ml-1">
-            <Wallet size={13} /> Live Workspace Summary
+      <div className="space-y-3">
+        <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+          <Wallet size={13} className="text-emerald-600" /> Live Workspace Summary
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-emerald-400 transition-all">
-                <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle2 size={20} /></div>
-                <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Approved / Cleared</p>
-                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.approved || 0)}</h3>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-emerald-400 transition-all duration-300">
+            <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle2 size={20} /></div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Approved / Cleared</p>
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.approved || 0)}</h3>
             </div>
+          </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-amber-400 transition-all">
-                <div className="bg-amber-50 text-amber-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
-                <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pending / Awaiting</p>
-                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.pending || 0)}</h3>
-                </div>
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-amber-400 transition-all duration-300">
+            <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pending / Awaiting</p>
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.pending || 0)}</h3>
             </div>
+          </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex items-center gap-4 group hover:border-rose-400 transition-all">
-                <div className="bg-rose-50 text-rose-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={20} /></div>
-                <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rejected / Declined</p>
-                    <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{formatCurrency(expenseStats?.rejected || 0)}</h3>
-                </div>
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-rose-400 transition-all duration-300">
+            <div className="bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={20} /></div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rejected / Declined</p>
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.rejected || 0)}</h3>
             </div>
+          </div>
         </div>
       </div>
 
       {/* Operations & Feeds */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
-        {/* Real-time Field Feed */}
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[380px] md:h-[400px]">
-            <div className="flex justify-between items-center mb-4 md:mb-5 shrink-0">
-                <h3 className="font-black text-[10px] md:text-xs text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Field Terminal
-                </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col h-[380px] md:h-[400px]">
+          <div className="flex justify-between items-center mb-4 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div> Field Terminal
+              </h3>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 custom-scrollbar pr-1">
-                {visibleTasks.slice(0, 8).map(task => (
-                    <div key={task.id} className="p-3 md:p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between group hover:bg-white transition-all shadow-sm shadow-slate-200/50">
-                        <div className="flex items-center gap-3">
-                            <div className={`p-1.5 md:p-2 rounded-lg md:rounded-xl text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm'}`}><Clock size={14} /></div>
-                            <div>
-                                <p className="text-[10px] md:text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{task.title}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="text-[7.5px] md:text-[8px] font-black text-indigo-500 uppercase tracking-widest">{task.assignedTo}</span>
-                                    <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
-                                    <span className="text-[7.5px] md:text-[8px] font-bold text-slate-400 uppercase">{task.status}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <ArrowUpRight size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+            <span className="text-[7px] font-bold text-slate-400 uppercase">{visibleTasks.slice(0, 8).length} tasks</span>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+            {visibleTasks.slice(0, 8).map(task => (
+              <div key={task.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between group hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
+                <div className="flex items-center gap-3.5">
+                  <div className={`p-2 rounded-xl text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm border border-slate-200'}`}><Clock size={14} /></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{task.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest">{task.assignedTo}</span>
+                      <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">{task.status}</span>
                     </div>
-                ))}
-            </div>
+                  </div>
+                </div>
+                <ArrowUpRight size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Performance Feed */}
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col h-[380px] md:h-[400px]">
-             <div className="flex justify-between items-center mb-4 md:mb-5 shrink-0">
-                <h3 className="font-black text-[10px] md:text-xs text-slate-800 dark:text-slate-100 uppercase tracking-[0.25em] flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div> Recognition
-                </h3>
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col h-[380px] md:h-[400px]">
+          <div className="flex justify-between items-center mb-4 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div> Recognition
+              </h3>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-2 md:space-y-3 custom-scrollbar pr-1">
-                {pointHistory.slice(0, 8).map(log => (
-                    <div key={log.id} className="p-3 md:p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl md:rounded-2xl border border-slate-300 dark:border-slate-800 flex items-center justify-between shadow-sm shadow-slate-200/50 hover:bg-white transition-all">
-                         <div className="flex items-center gap-3">
-                            <div className="p-1.5 md:p-2 bg-indigo-50 text-indigo-600 rounded-lg md:rounded-xl"><Zap size={14} fill="currentColor" /></div>
-                            <div>
-                                <p className="text-[10px] md:text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight leading-tight">{log.description}</p>
-                                <p className="text-[7.5px] md:text-[8px] font-bold text-slate-400 uppercase mt-0.5">Asset ID: {log.userId}</p>
-                            </div>
-                         </div>
-                         <span className="text-[9px] md:text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">+{log.points}</span>
-                    </div>
-                ))}
-                {pointHistory.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center opacity-20 text-center px-10">
-                        <Zap size={48} className="mb-4 text-slate-300" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">No Recent Milestones</p>
-                    </div>
-                )}
-            </div>
+            <span className="text-[7px] font-bold text-slate-400 uppercase">{pointHistory.slice(0, 8).length} entries</span>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+            {pointHistory.slice(0, 8).map(log => (
+              <div key={log.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
+                <div className="flex items-center gap-3.5">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl"><Zap size={14} fill="currentColor" /></div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{log.description}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Asset ID: {log.userId}</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 px-2.5 py-0.5 rounded-lg shrink-0">+{log.points}</span>
+              </div>
+            ))}
+            {pointHistory.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center opacity-20 text-center px-10">
+                <Zap size={48} className="mb-4 text-slate-300" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Recent Milestones</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Analytics Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 h-80 md:h-96 flex flex-col">
-            <div className="flex justify-between items-center mb-5 md:mb-8 shrink-0">
-                <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-[10px] md:text-xs tracking-widest">Internal Forecast</h3>
-                <select className="text-[9px] md:text-[10px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg md:rounded-xl px-2.5 py-1 text-slate-600 dark:text-slate-300 outline-none uppercase">
-                    <option>Last 7 Days</option>
-                </select>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px]">
+          <div className="flex justify-between items-center mb-5 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Internal Forecast</h3>
+              <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Revenue Trend</p>
             </div>
-            <div className="flex-1 min-h-0 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.dailySales}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 900}} axisLine={false} tickLine={false} dy={10} />
-                        <YAxis tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 900}} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
-                        <Tooltip cursor={{fill: '#f0fdf4'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }} />
-                        <Bar dataKey="sales" fill="url(#colorSales)" radius={[8, 8, 8, 8]}>
-                            {stats.dailySales.map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={index === 6 ? '#059669' : '#6366f1'} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+            <select className="text-[9px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-600 dark:text-slate-300 outline-none uppercase">
+              <option>Last 7 Days</option>
+            </select>
+          </div>
+          <div className="flex-1 min-h-0 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.dailySales}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 900}} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 900}} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
+                <Tooltip cursor={{fill: '#f0fdf4'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px' }} />
+                <Bar dataKey="sales" radius={[8, 8, 8, 8]}>
+                  {stats.dailySales.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={index === 6 ? '#059669' : '#6366f1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-300 dark:border-slate-800 h-96 flex flex-col">
-            <h3 className="font-black text-slate-700 dark:text-slate-200 uppercase text-xs tracking-widest mb-8 shrink-0">Field Service Status</h3>
-            <div className="flex-1 min-h-0 w-full relative">
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie data={dataTickets} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
-                            {dataTickets.map((_, index: number) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none' }} />
-                    </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center">
-                        <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{serviceTickets.length}</span>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Jobs</p>
-                    </div>
-                </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px]">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3 mb-5 shrink-0">
+            <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Field Service Status</h3>
+            <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Ticket Distribution</p>
+          </div>
+          <div className="flex-1 min-h-0 w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={dataTickets} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
+                  {dataTickets.map((_, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none' }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center">
+                <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{serviceTickets.length}</span>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Total Jobs</p>
+              </div>
             </div>
-             <div className="flex flex-wrap justify-center gap-6 text-[10px] mt-4 shrink-0">
-                {dataTickets.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{backgroundColor: COLORS[index]}}></div>
-                        <span className="font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">{entry.name} <span className="opacity-40">({entry.value})</span></span>
-                    </div>
-                ))}
-            </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-6 text-[10px] mt-5 shrink-0">
+            {dataTickets.map((entry, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{backgroundColor: COLORS[index]}}></div>
+                <span className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter">{entry.name} <span className="opacity-40">({entry.value})</span></span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

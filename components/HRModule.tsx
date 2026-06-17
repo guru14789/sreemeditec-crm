@@ -207,7 +207,7 @@ export const HRModule: React.FC = () => {
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
                 <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0 shadow-inner">
-                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry ({employees.length})</button>
+                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-amber-50 text-amber-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry ({employees.length})</button>
                     <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14} /> Access Grid</button>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
@@ -222,36 +222,47 @@ export const HRModule: React.FC = () => {
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {activeTab === 'employees' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-                        {filteredEmployees.map(emp => (
-                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className="bg-white p-6 rounded-[2rem] border border-slate-300 hover:shadow-xl transition-all cursor-pointer group relative overflow-hidden">
+                        {filteredEmployees.map((emp, idx) => {
+                            const gradients = [
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-amber-100 text-amber-700 border-amber-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-blue-100 text-blue-700 border-blue-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-indigo-100 text-indigo-700 border-indigo-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-rose-100 text-rose-700 border-rose-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-sky-100 text-sky-700 border-sky-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-violet-100 text-violet-700 border-violet-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                            ];
+                            const g = gradients[idx % gradients.length];
+                            return (
+                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-5 rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99] hover:shadow-[0_25px_45px_-5px_rgba(0,0,0,0.25)]`}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-inner group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-medical-50 text-medical-700 border-medical-100'}`}>{emp.name.charAt(0)}</div>
+                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
                                         <div>
-                                            <h4 className="font-black text-slate-800 truncate uppercase tracking-tight">{emp.name}</h4>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{emp.id} • {emp.role.replace('_', ' ')}</p>
+                                            <h4 className="font-black text-white truncate uppercase tracking-tight">{emp.name}</h4>
+                                            <p className={`text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
                                         </div>
                                     </div>
-                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>{emp.status}</span>
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</span>
                                 </div>
-                                <div className="space-y-3 pt-4 border-t border-slate-50">
+                                <div className={`space-y-3 pt-4 border-t ${g.divider}`}>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase">Department</span>
-                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{emp.department}</span>
+                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Department</span>
+                                        <span className={`text-[10px] font-black ${g.textLight} uppercase tracking-widest`}>{emp.department}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase">Password</span>
-                                        <span className="text-[10px] font-mono font-bold text-slate-800">{emp.password}</span>
+                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Password</span>
+                                        <span className={`text-[10px] font-mono font-bold ${g.textLight}`}>{emp.password}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase">Access Status</span>
-                                        <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-600' : 'text-medical-600'}`}>
+                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Access Status</span>
+                                        <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-300' : g.accent}`}>
                                             {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${Object.keys(emp.permissions || {}).length} Modules Grant`}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     <React.Fragment>

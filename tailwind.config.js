@@ -45,6 +45,7 @@ export default {
         }
       },
       fontFamily: {
+        'playfair': ['Playfair Display', 'Georgia', 'serif'],
         'tally': ['JetBrains Mono', 'Courier New', 'monospace'],
         'ui': ['Inter', 'Segoe UI', 'sans-serif'],
       },

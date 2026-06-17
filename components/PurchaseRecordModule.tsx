@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { PurchaseRecord, PurchaseItem } from '../types';
-import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, Lock, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
+import { PurchaseRecord, PurchaseItem, TabView } from '../types';
+import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
 import { useData } from './DataContext';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
@@ -18,7 +18,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const PurchaseRecordModule: React.FC = () => {
-    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors } = useData();
+    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData } = useData();
     const [searchQuery, setSearchQuery] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [showAddModal, setShowAddModal] = useState(false);
@@ -57,8 +57,6 @@ export const PurchaseRecordModule: React.FC = () => {
     const [newRecord, setNewRecord] = useState<Partial<PurchaseRecord>>(INITIAL_RECORD_STATE);
     const [currentItem, setCurrentItem] = useState<Partial<PurchaseItem> & { taxType?: 'Local' | 'Interstate', gstPercent?: number }>(INITIAL_ITEM_STATE);
 
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [password, setPassword] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,10 +67,6 @@ export const PurchaseRecordModule: React.FC = () => {
         setEditingId(null);
         setShowAddModal(true);
     };
-
-    const verifyPassword = (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if (password === 'admin' || password === 'sree') setIsAuthenticated(true);
         else { alert("Incorrect Security Password."); setPassword(''); }
     };
 
@@ -398,22 +392,6 @@ export const PurchaseRecordModule: React.FC = () => {
         return filtered;
     }, [purchaseRecords, searchQuery, filingFilter]);
 
-    if (!isAuthenticated) {
-        return (
-            <div className="h-full flex items-center justify-center bg-slate-50 p-4">
-                <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border p-8 text-center animate-in fade-in zoom-in-95">
-                    <div className="w-20 h-20 bg-medical-50 rounded-full flex items-center justify-center mx-auto mb-6 text-medical-600 shadow-inner"><Lock size={40} /></div>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">Purchase Register Lock</h2>
-                    <p className="text-slate-500 mb-8 text-sm leading-relaxed">Please enter security password to access purchase entries.</p>
-                    <form onSubmit={verifyPassword} className="space-y-4">
-                        <input type="password" placeholder="Password" className="w-full px-4 py-4 bg-slate-50 border-2 rounded-2xl outline-none focus:border-medical-500 font-bold" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-                        <button type="submit" className="w-full bg-medical-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-medical-500/30">Verify & Unlock</button>
-                    </form>
-                </div>
-            </div>
-        )
-    }
-
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2 bg-slate-50/50">
             {/* Header */}
@@ -571,13 +549,57 @@ export const PurchaseRecordModule: React.FC = () => {
                                                     <Edit size={12} />
                                                 </button>
                                                 <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const mappedItems = (record.items || []).map(item => {
+                                                            const qty = item.qty || 0;
+                                                            const rate = item.rate || 0;
+                                                            const taxRate = item.gstPercent || item.cgstPercent || 0;
+                                                            const amount = qty * rate;
+                                                            const gstValue = amount * (taxRate / 100);
+                                                            const cgstRate = taxRate / 2;
+                                                            const sgstRate = taxRate / 2;
+                                                            return {
+                                                                id: item.id,
+                                                                productName: item.equipmentName,
+                                                                description: item.equipmentName,
+                                                                hsn: '',
+                                                                unit: item.unit || 'nos',
+                                                                quantity: qty,
+                                                                unitPrice: rate,
+                                                                taxRate,
+                                                                cgstRate,
+                                                                sgstRate,
+                                                                igstRate: 0,
+                                                                amount,
+                                                                gstValue,
+                                                                priceWithGst: amount + gstValue,
+                                                                total: item.total || 0,
+                                                                discount: 0,
+                                                            };
+                                                        });
+                                                        setPendingSupplierPOData({
+                                                            customerName: record.supplier,
+                                                            date: new Date().toISOString().split('T')[0],
+                                                            cpoNumber: record.invoiceNo,
+                                                            remarks: `Converted from Purchase Entry ${record.invoiceNo}`,
+                                                            items: mappedItems,
+                                                            isRoundOff: record.isRoundOff,
+                                                        });
+                                                        setActiveTab(TabView.SUPPLIER_PO);
+                                                    }}
+                                                    className="p-1 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded transition-all"
+                                                    title="Convert to Supplier PO"
+                                                >
+                                                    <ArrowUpRight size={14} />
+                                                </button>
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
                                                     className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
                                                     title="Delete Entry"
                                                 >
                                                     <Trash2 size={12} />
                                                 </button>
-                                                <div className="p-1 text-slate-300 group-hover:text-medical-600 transition-all"><ArrowUpRight size={14} /></div>
                                             </div>
                                         </td>
                                     </tr>

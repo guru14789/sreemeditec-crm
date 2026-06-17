@@ -360,9 +360,16 @@ Email: sreemeditec@gmail.com`;
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex justify-between items-center shrink-0">
-                <div className="flex bg-white p-1.5 rounded-2xl border border-slate-300 w-fit shadow-sm">
-                    <button onClick={() => setViewState('history')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                    <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai', paidAmount: 0 }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Invoice</button>
+                <div className="bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-[1px] rounded-[28px] shadow-[0_20px_40px_-10px_rgba(217,119,6,0.3)]">
+                    <div className="relative grid grid-cols-2 bg-gradient-to-br from-emerald-800 to-emerald-600 rounded-[26px] p-1.5 overflow-hidden">
+                        <div className={`absolute top-1.5 bottom-1.5 bg-white rounded-[26px] shadow-lg transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${viewState === 'history' ? 'left-1.5 right-[calc(50%+1.5px)]' : 'left-[calc(50%+1.5px)] right-1.5'}`} />
+                        <button onClick={() => setViewState('history')} className="relative z-10 flex items-center justify-center">
+                            <div className={`px-6 py-2.5 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewState === 'history' ? 'text-emerald-900' : 'text-emerald-200 hover:text-white hover:bg-white/15'}`}><History size={16} /> Registry</div>
+                        </button>
+                        <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai', paidAmount: 0 }); setBuilderTab('form'); }} className="relative z-10 flex items-center justify-center">
+                            <div className={`px-6 py-2.5 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${viewState === 'builder' ? 'text-emerald-900' : 'text-emerald-200 hover:text-white hover:bg-white/15'}`}><PenTool size={16} /> New Invoice</div>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-emerald-50 border border-emerald-200 rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 animate-in fade-in slide-in-from-right-4">
@@ -678,10 +685,10 @@ Email: sreemeditec@gmail.com`;
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col bg-white rounded-[2rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
+                <div className="flex-1 flex flex-col bg-[#E8E3D7] rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] overflow-hidden animate-in slide-in-from-bottom-4">
+                    <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 px-6 py-4 shrink-0 flex items-center gap-2">
+                        <button onClick={() => setBuilderTab('form')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'form' ? 'bg-white text-emerald-900 shadow-lg' : 'text-emerald-200 hover:text-white hover:bg-emerald-700/40'}`}><PenTool size={16}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${builderTab === 'preview' ? 'bg-white text-emerald-900 shadow-lg' : 'text-emerald-200 hover:text-white hover:bg-emerald-700/40'}`}><Eye size={16}/> Print Layout</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">

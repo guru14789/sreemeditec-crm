@@ -751,105 +751,167 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 <div className="w-full flex justify-center">
                     <div className="w-full max-w-3xl">
                         {/* Primary Action Card */}
-                        <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 p-2 md:p-3 flex flex-col relative overflow-hidden group">
-                            <div className={`absolute top-0 left-0 w-full h-1 ${isHolidayToday ? 'bg-amber-500' : isLocked ? 'bg-indigo-500' : isCheckedIn ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                        <div className="rounded-[36px] flex flex-row overflow-hidden relative group" style={{ boxShadow: '0 30px 60px -15px rgba(12, 29, 44, 0.55), inset 0 2px 3px rgba(255, 255, 255, 0.15)', background: '#2b5b84' }}>
+                            {/* Left Panel: Embossed/Carved Botanical vine relief */}
+                            <div className="w-1/3 hidden sm:flex flex-col items-center justify-center relative select-none" style={{ background: '#244c70', borderRight: '2px solid #1c3d5a', boxShadow: 'inset -2px 0 3px rgba(0,0,0,0.2), 2px 0 3px rgba(255,255,255,0.1)' }}>
+                                <svg className="w-full h-full opacity-85 p-2" viewBox="0 0 120 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <filter id="emboss-depth" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feDropShadow dx="1.5" dy="1.5" stdDeviation="1.2" floodColor="#ffffff" floodOpacity="0.1" />
+                                            <feDropShadow dx="-1.5" dy="-1.5" stdDeviation="1.2" floodColor="#0c1d2c" floodOpacity="0.75" />
+                                        </filter>
+                                    </defs>
+                                    
+                                    {/* Vertical stem */}
+                                    <path d="M 60 320 C 45 240 75 160 55 80 C 45 40 30 20 60 10" stroke="#244c70" strokeWidth="4.5" strokeLinecap="round" filter="url(#emboss-depth)" />
+                                    
+                                    {/* Flower 1 (top) */}
+                                    <g filter="url(#emboss-depth)">
+                                        <circle cx="60" cy="40" r="9" fill="#244c70" stroke="#1c3d5a" strokeWidth="1" />
+                                        <circle cx="50" cy="40" r="5" fill="#244c70" />
+                                        <circle cx="70" cy="40" r="5" fill="#244c70" />
+                                        <circle cx="60" cy="30" r="5" fill="#244c70" />
+                                        <circle cx="60" cy="50" r="5" fill="#244c70" />
+                                        <circle cx="60" cy="40" r="3" fill="#1c3d5a" />
+                                    </g>
 
-                            <div className="flex items-center justify-between mb-2 px-1 md:px-2">
-                                <div>
-                                    <h3 className="text-[11px] md:text-[13px] font-black text-slate-800 uppercase tracking-tight leading-none">Time Registry</h3>
-                                    <p className="text-slate-400 text-[7.5px] md:text-[8px] font-bold uppercase tracking-widest leading-none mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => {
-                                            setCalendarSelectedUser(me || null);
-                                            setCalendarViewDate(new Date());
-                                            setShowCalendarModal(true);
-                                        }}
-                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-indigo-100"
-                                        title="View My Attendance Calendar"
-                                    >
-                                        <Calendar size={14} />
-                                    </button>
-                                    {isHolidayToday && (
-                                        <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-200">Holiday Credited</span>
-                                    )}
-                                </div>
+                                    {/* Flower 2 (middle) */}
+                                    <g filter="url(#emboss-depth)" transform="translate(0, 80)">
+                                        <circle cx="55" cy="80" r="8" fill="#244c70" stroke="#1c3d5a" strokeWidth="1" />
+                                        <circle cx="46" cy="80" r="4.5" fill="#244c70" />
+                                        <circle cx="64" cy="80" r="4.5" fill="#244c70" />
+                                        <circle cx="55" cy="71" r="4.5" fill="#244c70" />
+                                        <circle cx="55" cy="89" r="4.5" fill="#244c70" />
+                                    </g>
+
+                                    {/* Leaves along the stem */}
+                                    <path d="M 57 150 C 30 140 40 120 57 120 Z" fill="#244c70" filter="url(#emboss-depth)" />
+                                    <path d="M 57 180 C 85 170 75 150 57 150 Z" fill="#244c70" filter="url(#emboss-depth)" />
+                                    <path d="M 55 230 C 25 220 35 200 55 200 Z" fill="#244c70" filter="url(#emboss-depth)" />
+                                    <path d="M 55 260 C 85 250 75 230 55 230 Z" fill="#244c70" filter="url(#emboss-depth)" />
+                                </svg>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 items-center">
-                                <div className="w-full bg-slate-50 rounded-xl md:rounded-2xl p-2.5 md:p-3 border border-slate-200 flex items-center gap-3 md:gap-4">
-                                    <div className={`aspect-square w-9 md:w-10 rounded-lg md:rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-indigo-50 text-indigo-600' : isCheckedIn ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-300 border border-slate-200'}`}>
-                                        {isLocked ? <Lock size={16} /> : workMode === 'Field' ? <ClipboardCheck size={16} /> : <Timer size={16} className={isCheckedIn ? "animate-pulse" : ""} />}
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <div className={`font-black text-lg md:text-xl transition-all tabular-nums leading-none ${isLocked ? 'text-indigo-600' : isCheckedIn ? 'text-emerald-600' : 'text-slate-300'}`}>
-                                            {workMode === 'Field' 
-                                                ? `${completedTasksCount}/${totalTasksCount}` 
-                                                : isOfficeHoursComplete ? 'Goal Met' : formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}
+                            {/* Right Panel: Content & Clock Actions */}
+                            <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <div className="px-3.5 py-1 rounded-xl text-blue-100 font-extrabold text-[8px] uppercase tracking-widest shadow-[4px_4px_8px_rgba(12,29,44,0.6),_-4px_-4px_8px_rgba(255,255,255,0.1)] border border-[#306d9e]/30 bg-[#2b5b84]">
+                                            {workMode} Mode
                                         </div>
-                                        <span className="text-[6.5px] md:text-[7.5px] font-black text-slate-400 mt-0.5 uppercase tracking-widest">
-                                            {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Remaining (8h)'}
-                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                setCalendarSelectedUser(me || null);
+                                                setCalendarViewDate(new Date());
+                                                setShowCalendarModal(true);
+                                            }}
+                                            className="p-2.5 rounded-xl bg-[#2b5b84] text-blue-100 hover:bg-[#326794] transition-all shadow-[4px_4px_10px_rgba(16,36,56,0.5),_-4px_-4px_10px_rgba(255,255,255,0.12)] border border-[#346c9c]/30 flex items-center justify-center active:scale-95"
+                                            title="View My Attendance Calendar"
+                                        >
+                                            <Calendar size={14} />
+                                        </button>
+                                        {isHolidayToday && (
+                                            <span className="px-3.5 py-1.5 rounded-xl bg-[#c5a059] text-amber-950 font-black text-[9px] uppercase tracking-wider shadow-[4px_4px_10px_rgba(16,36,56,0.3)] border border-[#dfc19c]/30">Holiday Credited</span>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col gap-2">
-                                    {(() => {
-                                        const isAfter7PM = currentTime.getHours() >= 19;
+                                <div className="mb-4">
+                                    <h2 className="text-2xl font-black text-white uppercase tracking-tight leading-none">Time Registry</h2>
+                                    <p className="text-blue-100/70 text-xs font-semibold leading-relaxed max-w-md mt-3">
+                                        {isLocked 
+                                            ? "Your daily shift is successfully completed and locked. Excellent work!" 
+                                            : isCheckedIn 
+                                                ? `Shift is active. Remaining work session to goal: ${formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}.` 
+                                                : "Time Tracking Registry. Please check in to log your active work hours and tasks."}
+                                    </p>
+                                </div>
 
-                                        if (!isLocked && !isHolidayToday) {
-                                            return (
-                                                <button
-                                                    onClick={handleCheckInOut}
-                                                    className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-black text-[8.5px] md:text-[9.5px] uppercase tracking-widest transition-all transform active:scale-95 shadow-sm flex items-center justify-center gap-2 relative z-10 ${isCheckedIn
-                                                        ? 'bg-emerald-600 text-white shadow-emerald-500/10'
-                                                        : 'bg-medical-600 text-white shadow-medical-500/10'
-                                                        }`}
-                                                >
-                                                    {isCheckedIn ? (
-                                                        <><CheckCircle size={12} /> Finish</>
-                                                    ) : (
-                                                        <><Clock size={12} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
-                                                    )}
-                                                </button>
-                                            );
-                                        }
+                                {/* Bottom embossed scroll divider */}
+                                <div className="w-full h-8 relative select-none mt-2 opacity-60 hidden sm:block">
+                                    <svg className="w-full h-full" viewBox="0 0 400 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M 10 15 Q 100 5, 200 15 T 390 15" stroke="#244c70" strokeWidth="3.5" filter="url(#emboss-depth)" strokeLinecap="round" />
+                                        <path d="M 50 15 C 60 5, 70 5, 80 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
+                                        <path d="M 150 15 C 160 5, 170 5, 180 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
+                                        <path d="M 250 15 C 260 5, 270 5, 280 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
+                                    </svg>
+                                </div>
 
-                                        if (isHolidayToday) {
-                                            return (
-                                                <div className="w-full bg-amber-50/50 border border-amber-200/50 rounded-xl px-4 py-3 flex items-center gap-3">
-                                                    <Calendar size={18} className="text-amber-500" />
-                                                    <div>
-                                                        <div className="text-[10px] font-black uppercase text-amber-900 leading-none">{todayHoliday?.name || 'Holiday'}</div>
-                                                        <div className="text-[8px] font-bold text-amber-700/60 uppercase tracking-widest mt-1">System Locked</div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <div className="flex gap-2">
-                                                <div className="flex-1 py-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center gap-2 text-slate-400">
-                                                    <Lock size={14} />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest leading-none">Locked</span>
-                                                </div>
-                                                {!isAfter7PM ? (
-                                                    <button
-                                                        onClick={logActualDeparture}
-                                                        className="flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-slate-800 text-white hover:bg-slate-700 scale-100 animate-in fade-in slide-in-from-right-2"
-                                                    >
-                                                        Log Departure
-                                                    </button>
-                                                ) : (
-                                                    <div className="flex-1 py-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-center gap-2 text-rose-400 italic">
-                                                        <Clock size={12} />
-                                                        <span className="text-[8px] font-black uppercase tracking-widest leading-none text-center">Closed (7PM)</span>
-                                                    </div>
-                                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center mt-4">
+                                    {/* Inset Information display */}
+                                    <div className="w-full bg-[#1c4161]/50 rounded-2xl p-4 border border-[#16334d]/60 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4),_inset_-3px_-3px_6px_rgba(255,255,255,0.06)] flex items-center gap-4">
+                                        <div className={`aspect-square w-10 rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-[#183c5a] text-[#c5a059]' : isCheckedIn ? 'bg-[#183c5a] text-[#34d399]' : 'bg-[#183c5a] text-blue-300'}`}>
+                                            {isLocked ? <Lock size={16} /> : workMode === 'Field' ? <ClipboardCheck size={16} /> : <Timer size={16} className={isCheckedIn ? "animate-pulse" : ""} />}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <div className="font-black text-xl text-white tabular-nums leading-none">
+                                                {workMode === 'Field' 
+                                                    ? `${completedTasksCount}/${totalTasksCount}` 
+                                                    : isOfficeHoursComplete ? 'Goal Met' : formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}
                                             </div>
-                                        );
-                                    })()}
+                                            <span className="text-[7.5px] font-black text-blue-200/80 mt-1 uppercase tracking-widest">
+                                                {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Remaining (8h)'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* 3D Action Buttons */}
+                                    <div className="flex flex-col gap-2">
+                                        {(() => {
+                                            const isAfter7PM = currentTime.getHours() >= 19;
+
+                                            if (!isLocked && !isHolidayToday) {
+                                                return (
+                                                    <button
+                                                        onClick={handleCheckInOut}
+                                                        className="w-full py-3.5 rounded-2xl font-black text-[9.5px] uppercase tracking-widest text-white transition-all transform active:scale-95 shadow-[6px_6px_15px_rgba(12,29,44,0.6),_-6px_-6px_15px_rgba(255,255,255,0.15)] bg-[#2b5b84] hover:bg-[#326794] border border-[#346c9c]/40 flex items-center justify-center gap-2 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5),_inset_-2px_-2px_5px_rgba(255,255,255,0.1)]"
+                                                    >
+                                                        {isCheckedIn ? (
+                                                            <><CheckCircle size={12} /> Finish</>
+                                                        ) : (
+                                                            <><Clock size={12} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
+                                                        )}
+                                                    </button>
+                                                );
+                                            }
+
+                                            if (isHolidayToday) {
+                                                return (
+                                                    <div className="w-full bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
+                                                        <Calendar size={18} className="text-amber-500" />
+                                                        <div>
+                                                            <div className="text-[10px] font-black uppercase text-amber-200 leading-none">{todayHoliday?.name || 'Holiday'}</div>
+                                                            <div className="text-[8px] font-bold text-amber-400/60 uppercase tracking-widest mt-1.5">System Locked</div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1 py-3 bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl flex items-center justify-center gap-2 text-blue-300 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
+                                                        <Lock size={14} />
+                                                        <span className="text-[9.5px] font-black uppercase tracking-widest leading-none">Locked</span>
+                                                    </div>
+                                                    {!isAfter7PM ? (
+                                                        <button
+                                                            onClick={logActualDeparture}
+                                                            className="flex-1 py-3 rounded-2xl font-black text-[9.5px] uppercase tracking-widest transition-all bg-[#c5a059] text-amber-950 hover:bg-[#d4b16e] shadow-[6px_6px_15px_rgba(12,29,44,0.5)] border border-[#dfc19c]/30"
+                                                        >
+                                                            Log Departure
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex-1 py-3 bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl flex items-center justify-center gap-2 text-rose-300 italic shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
+                                                            <Clock size={12} />
+                                                            <span className="text-[8px] font-black uppercase tracking-widest leading-none text-center">Closed (7PM)</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
                         </div>

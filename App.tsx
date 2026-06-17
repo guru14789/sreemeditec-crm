@@ -64,7 +64,7 @@ const NavItem: React.FC<{
         } ${isSidebarOpen ? 'px-3 py-2 md:py-2.5 rounded-xl md:rounded-2xl gap-2.5 md:gap-3' : 'justify-center p-2 rounded-xl w-12 h-12 mx-auto'}`}
     >
       <Icon size={isSidebarOpen ? 16 : 20} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-      {isSidebarOpen && <span className="truncate flex-1 text-left font-bold tracking-tight text-[13px] md:text-sm">{label}</span>}
+      {isSidebarOpen && <span className="truncate flex-1 text-left font-['Playfair_Display'] font-semibold tracking-wide text-xs md:text-sm">{label}</span>}
     </button>
   );
 };
@@ -72,7 +72,7 @@ const NavItem: React.FC<{
 const SectionHeading = ({ children, isSidebarOpen }: { children?: React.ReactNode; isSidebarOpen: boolean }) => {
   if (!isSidebarOpen) return <div className="h-px bg-white/5 my-4 mx-4" />;
   return (
-    <div className="px-4 mb-2 mt-4 text-[9px] font-black text-emerald-100/20 uppercase tracking-[0.25em] flex items-center gap-2">
+    <div className="px-4 mb-2 mt-4 text-[9px] font-['Playfair_Display'] font-bold text-emerald-100/20 uppercase tracking-[0.15em] flex items-center gap-2">
       <span className="shrink-0">{children}</span>
       <div className="h-[1px] bg-white/5 flex-1"></div>
     </div>
@@ -665,8 +665,11 @@ export const App: React.FC = () => {
         <div className={`p-4 md:p-5 flex items-center shrink-0 bg-black/10 pt-[max(env(safe-area-inset-top,24px),24px)] md:pt-[max(env(safe-area-inset-top,20px),20px)] min-h-[4.5rem] ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
           {isSidebarOpen ? (
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
-              <span className="font-black text-white text-xl md:text-2xl tracking-tighter uppercase leading-none">Sree Meditec</span>
-              <span className="text-[8px] font-black text-emerald-400/60 uppercase tracking-[0.4em] ml-0.5 mt-1">Enterprise</span>
+              <span className="flex items-center gap-2">
+                <img src="/logo.png" alt="Logo" className="h-6 md:h-7 w-auto" />
+                <span className="font-['Playfair_Display'] font-black text-white text-xl md:text-2xl tracking-tight leading-none">Sreemeditec</span>
+              </span>
+              <span className="text-[8px] font-bold text-emerald-400/60 uppercase tracking-[0.3em] ml-0.5 mt-1">Enterprise</span>
             </div>
           ) : null}
           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all transform active:scale-90"><Menu size={24} /></button>
@@ -735,7 +738,7 @@ export const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-w-0 h-full relative bg-slate-50/30 dark:bg-slate-900/30 ${activeTab === TabView.ACCOUNTING ? 'overflow-hidden' : ''}`}>
+      <main className={`flex-1 flex flex-col min-w-0 h-full relative bg-[#F3F0E8] ${activeTab === TabView.ACCOUNTING ? 'overflow-hidden' : ''}`}>
         <header className={`bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 z-50 sticky top-0 shadow-sm transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] min-h-[4rem] md:min-h-[4.5rem] ${activeTab === TabView.ACCOUNTING ? 'hidden' : ''}`}>
           <div className="w-12 lg:hidden">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
