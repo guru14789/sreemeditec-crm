@@ -112,8 +112,6 @@ Document Summary:
 
 Please review the attached PDF for a detailed itemization of the products/services, terms, and payment options. 
 
-(Note: Your PDF document has been automatically prepared and downloaded to your computer. Please attach/drag it to this email window before sending.)
-
 Should you have any questions or require further clarification, please feel free to reach out to us.
 
 We sincerely appreciate your business and look forward to our continued collaboration.
