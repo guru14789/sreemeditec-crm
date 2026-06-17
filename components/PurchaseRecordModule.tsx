@@ -67,8 +67,6 @@ export const PurchaseRecordModule: React.FC = () => {
         setEditingId(null);
         setShowAddModal(true);
     };
-        else { alert("Incorrect Security Password."); setPassword(''); }
-    };
 
     const calculateTotals = (data: Partial<PurchaseRecord>, itemsList: PurchaseItem[] = []) => {
         const packing = Number(data.packingCharges) || 0;
