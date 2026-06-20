@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2 } from 'lucide-react';
+import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2, Activity, TrendingUp, Zap } from 'lucide-react';
 import { Task, Employee, AttendanceRecord, LeaveRequest } from '../types';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -659,20 +659,20 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                         <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
                             <CheckCircle size={32} />
                         </div>
-                        <h3 className="text-xl font-black text-center text-slate-800 uppercase tracking-tight mb-2">Lock Attendance?</h3>
+                        <h3 className="text-xl font-playfair font-bold tracking-tight text-center text-slate-800 uppercase tracking-tight mb-2">Lock Attendance?</h3>
                         <p className="text-slate-500 text-center text-sm font-medium mb-8">
                             Confirming will lock your attendance for today. You won't be able to resume until tomorrow.
                         </p>
                         <div className="flex gap-4">
                             <button
                                 onClick={() => setShowConfirmModal(false)}
-                                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors"
                             >
                                 Back
                             </button>
                             <button
                                 onClick={confirmFinalAttendance}
-                                className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all"
+                                className="flex-1 py-3 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all"
                             >
                                 Yes, Confirm
                             </button>
@@ -686,7 +686,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-300 animate-in fade-in zoom-in duration-300">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Organization Holidays</h3>
+                            <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Organization Holidays</h3>
                             <button onClick={() => setShowHolidayModal(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
                         </div>
                         
@@ -694,7 +694,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             <div className="flex flex-col gap-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Holiday Name</label>
                                 <input 
-                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-medical-500 transition-all"
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-[2rem] text-sm outline-none focus:border-medical-500 transition-all"
                                     placeholder="e.g. Independence Day"
                                     value={newHolidayName}
                                     onChange={(e) => setNewHolidayName(e.target.value)}
@@ -704,7 +704,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Date</label>
                                 <input 
                                     type="date"
-                                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm outline-none focus:border-medical-500 transition-all font-mono"
+                                    className="p-3 bg-slate-50 border border-slate-200 rounded-[2rem] text-sm outline-none focus:border-medical-500 transition-all font-mono"
                                     value={newHolidayDate}
                                     onChange={(e) => setNewHolidayDate(e.target.value)}
                                 />
@@ -717,7 +717,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     setNewHolidayDate('');
                                     addNotification('Holiday Added', `${newHolidayName} has been scheduled.`, 'success');
                                 }}
-                                className="col-span-2 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
+                                className="col-span-2 py-3.5 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
                             >
                                 Schedule Holiday
                             </button>
@@ -725,14 +725,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
 
                         <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
                             {holidays.sort((a,b) => a.date.localeCompare(b.date)).map(h => (
-                                <div key={h.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 group">
+                                <div key={h.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-[2rem] border border-slate-200 group">
                                     <div>
                                         <div className="text-sm font-black text-slate-800">{h.name}</div>
                                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(h.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
                                     </div>
                                     <button 
                                         onClick={() => removeHoliday(h.id)}
-                                        className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                        className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-[2rem] transition-all opacity-0 group-hover:opacity-100"
                                     >
                                         <Trash2 size={18} />
                                     </button>
@@ -747,179 +747,129 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             )}
 
             <div className="flex flex-col gap-2 md:gap-3 flex-1 min-h-0">
-                {/* Top Section: Action Card (Centered with max-width) */}
-                <div className="w-full flex justify-center">
-                    <div className="w-full max-w-3xl">
-                        {/* Primary Action Card */}
-                        <div className="rounded-[36px] flex flex-row overflow-hidden relative group" style={{ boxShadow: '0 30px 60px -15px rgba(12, 29, 44, 0.55), inset 0 2px 3px rgba(255, 255, 255, 0.15)', background: '#2b5b84' }}>
-                            {/* Left Panel: Embossed/Carved Botanical vine relief */}
-                            <div className="w-1/3 hidden sm:flex flex-col items-center justify-center relative select-none" style={{ background: '#244c70', borderRight: '2px solid #1c3d5a', boxShadow: 'inset -2px 0 3px rgba(0,0,0,0.2), 2px 0 3px rgba(255,255,255,0.1)' }}>
-                                <svg className="w-full h-full opacity-85 p-2" viewBox="0 0 120 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <defs>
-                                        <filter id="emboss-depth" x="-20%" y="-20%" width="140%" height="140%">
-                                            <feDropShadow dx="1.5" dy="1.5" stdDeviation="1.2" floodColor="#ffffff" floodOpacity="0.1" />
-                                            <feDropShadow dx="-1.5" dy="-1.5" stdDeviation="1.2" floodColor="#0c1d2c" floodOpacity="0.75" />
-                                        </filter>
-                                    </defs>
-                                    
-                                    {/* Vertical stem */}
-                                    <path d="M 60 320 C 45 240 75 160 55 80 C 45 40 30 20 60 10" stroke="#244c70" strokeWidth="4.5" strokeLinecap="round" filter="url(#emboss-depth)" />
-                                    
-                                    {/* Flower 1 (top) */}
-                                    <g filter="url(#emboss-depth)">
-                                        <circle cx="60" cy="40" r="9" fill="#244c70" stroke="#1c3d5a" strokeWidth="1" />
-                                        <circle cx="50" cy="40" r="5" fill="#244c70" />
-                                        <circle cx="70" cy="40" r="5" fill="#244c70" />
-                                        <circle cx="60" cy="30" r="5" fill="#244c70" />
-                                        <circle cx="60" cy="50" r="5" fill="#244c70" />
-                                        <circle cx="60" cy="40" r="3" fill="#1c3d5a" />
-                                    </g>
-
-                                    {/* Flower 2 (middle) */}
-                                    <g filter="url(#emboss-depth)" transform="translate(0, 80)">
-                                        <circle cx="55" cy="80" r="8" fill="#244c70" stroke="#1c3d5a" strokeWidth="1" />
-                                        <circle cx="46" cy="80" r="4.5" fill="#244c70" />
-                                        <circle cx="64" cy="80" r="4.5" fill="#244c70" />
-                                        <circle cx="55" cy="71" r="4.5" fill="#244c70" />
-                                        <circle cx="55" cy="89" r="4.5" fill="#244c70" />
-                                    </g>
-
-                                    {/* Leaves along the stem */}
-                                    <path d="M 57 150 C 30 140 40 120 57 120 Z" fill="#244c70" filter="url(#emboss-depth)" />
-                                    <path d="M 57 180 C 85 170 75 150 57 150 Z" fill="#244c70" filter="url(#emboss-depth)" />
-                                    <path d="M 55 230 C 25 220 35 200 55 200 Z" fill="#244c70" filter="url(#emboss-depth)" />
-                                    <path d="M 55 260 C 85 250 75 230 55 230 Z" fill="#244c70" filter="url(#emboss-depth)" />
-                                </svg>
+                {/* Top Section: Time Registry Cards */}
+                <div className="space-y-3 mb-2">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                            <Clock size={13} className="text-emerald-600" /> Time Registry
+                        </h3>
+                        <button 
+                            onClick={() => {
+                                setCalendarSelectedUser(me || null);
+                                setCalendarViewDate(new Date());
+                                setShowCalendarModal(true);
+                            }}
+                            className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-widest transition-colors"
+                        >
+                            <Calendar size={10} /> My Calendar
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Card 1: Today's Shift */}
+                        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                                    <Activity size={15} />
+                                </div>
+                                <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                    <Building2 size={8} /> {workMode}
+                                </span>
                             </div>
-
-                            {/* Right Panel: Content & Clock Actions */}
-                            <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <div className="px-3.5 py-1 rounded-xl text-blue-100 font-extrabold text-[8px] uppercase tracking-widest shadow-[4px_4px_8px_rgba(12,29,44,0.6),_-4px_-4px_8px_rgba(255,255,255,0.1)] border border-[#306d9e]/30 bg-[#2b5b84]">
-                                            {workMode} Mode
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => {
-                                                setCalendarSelectedUser(me || null);
-                                                setCalendarViewDate(new Date());
-                                                setShowCalendarModal(true);
-                                            }}
-                                            className="p-2.5 rounded-xl bg-[#2b5b84] text-blue-100 hover:bg-[#326794] transition-all shadow-[4px_4px_10px_rgba(16,36,56,0.5),_-4px_-4px_10px_rgba(255,255,255,0.12)] border border-[#346c9c]/30 flex items-center justify-center active:scale-95"
-                                            title="View My Attendance Calendar"
-                                        >
-                                            <Calendar size={14} />
-                                        </button>
-                                        {isHolidayToday && (
-                                            <span className="px-3.5 py-1.5 rounded-xl bg-[#c5a059] text-amber-950 font-black text-[9px] uppercase tracking-wider shadow-[4px_4px_10px_rgba(16,36,56,0.3)] border border-[#dfc19c]/30">Holiday Credited</span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <h2 className="text-2xl font-black text-white uppercase tracking-tight leading-none">Time Registry</h2>
-                                    <p className="text-blue-100/70 text-xs font-semibold leading-relaxed max-w-md mt-3">
-                                        {isLocked 
-                                            ? "Your daily shift is successfully completed and locked. Excellent work!" 
-                                            : isCheckedIn 
-                                                ? `Shift is active. Remaining work session to goal: ${formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}.` 
-                                                : "Time Tracking Registry. Please check in to log your active work hours and tasks."}
-                                    </p>
-                                </div>
-
-                                {/* Bottom embossed scroll divider */}
-                                <div className="w-full h-8 relative select-none mt-2 opacity-60 hidden sm:block">
-                                    <svg className="w-full h-full" viewBox="0 0 400 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M 10 15 Q 100 5, 200 15 T 390 15" stroke="#244c70" strokeWidth="3.5" filter="url(#emboss-depth)" strokeLinecap="round" />
-                                        <path d="M 50 15 C 60 5, 70 5, 80 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
-                                        <path d="M 150 15 C 160 5, 170 5, 180 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
-                                        <path d="M 250 15 C 260 5, 270 5, 280 15" stroke="#244c70" strokeWidth="2.5" filter="url(#emboss-depth)" />
-                                    </svg>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center mt-4">
-                                    {/* Inset Information display */}
-                                    <div className="w-full bg-[#1c4161]/50 rounded-2xl p-4 border border-[#16334d]/60 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4),_inset_-3px_-3px_6px_rgba(255,255,255,0.06)] flex items-center gap-4">
-                                        <div className={`aspect-square w-10 rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-[#183c5a] text-[#c5a059]' : isCheckedIn ? 'bg-[#183c5a] text-[#34d399]' : 'bg-[#183c5a] text-blue-300'}`}>
-                                            {isLocked ? <Lock size={16} /> : workMode === 'Field' ? <ClipboardCheck size={16} /> : <Timer size={16} className={isCheckedIn ? "animate-pulse" : ""} />}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="font-black text-xl text-white tabular-nums leading-none">
-                                                {workMode === 'Field' 
-                                                    ? `${completedTasksCount}/${totalTasksCount}` 
-                                                    : isOfficeHoursComplete ? 'Goal Met' : formatDuration(Math.max(0, (REQUIRED_OFFICE_HOURS * 3600000) - totalWorkedMs))}
-                                            </div>
-                                            <span className="text-[7.5px] font-black text-blue-200/80 mt-1 uppercase tracking-widest">
-                                                {isLocked ? 'Shift Locked' : workMode === 'Field' ? 'Tasks Ratio' : isOfficeHoursComplete ? 'Target Reached' : 'Remaining (8h)'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* 3D Action Buttons */}
-                                    <div className="flex flex-col gap-2">
-                                        {(() => {
-                                            const isAfter7PM = currentTime.getHours() >= 19;
-
-                                            if (!isLocked && !isHolidayToday) {
-                                                return (
-                                                    <button
-                                                        onClick={handleCheckInOut}
-                                                        className="w-full py-3.5 rounded-2xl font-black text-[9.5px] uppercase tracking-widest text-white transition-all transform active:scale-95 shadow-[6px_6px_15px_rgba(12,29,44,0.6),_-6px_-6px_15px_rgba(255,255,255,0.15)] bg-[#2b5b84] hover:bg-[#326794] border border-[#346c9c]/40 flex items-center justify-center gap-2 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5),_inset_-2px_-2px_5px_rgba(255,255,255,0.1)]"
-                                                    >
-                                                        {isCheckedIn ? (
-                                                            <><CheckCircle size={12} /> Finish</>
-                                                        ) : (
-                                                            <><Clock size={12} /> {accumulatedMs > 0 ? 'Resume' : 'Check In'}</>
-                                                        )}
-                                                    </button>
-                                                );
-                                            }
-
-                                            if (isHolidayToday) {
-                                                return (
-                                                    <div className="w-full bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
-                                                        <Calendar size={18} className="text-amber-500" />
-                                                        <div>
-                                                            <div className="text-[10px] font-black uppercase text-amber-200 leading-none">{todayHoliday?.name || 'Holiday'}</div>
-                                                            <div className="text-[8px] font-bold text-amber-400/60 uppercase tracking-widest mt-1.5">System Locked</div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-
-                                            return (
-                                                <div className="flex gap-2">
-                                                    <div className="flex-1 py-3 bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl flex items-center justify-center gap-2 text-blue-300 shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
-                                                        <Lock size={14} />
-                                                        <span className="text-[9.5px] font-black uppercase tracking-widest leading-none">Locked</span>
-                                                    </div>
-                                                    {!isAfter7PM ? (
-                                                        <button
-                                                            onClick={logActualDeparture}
-                                                            className="flex-1 py-3 rounded-2xl font-black text-[9.5px] uppercase tracking-widest transition-all bg-[#c5a059] text-amber-950 hover:bg-[#d4b16e] shadow-[6px_6px_15px_rgba(12,29,44,0.5)] border border-[#dfc19c]/30"
-                                                        >
-                                                            Log Departure
-                                                        </button>
-                                                    ) : (
-                                                        <div className="flex-1 py-3 bg-[#1c4161]/50 border border-[#16334d]/60 rounded-2xl flex items-center justify-center gap-2 text-rose-300 italic shadow-[inset_3px_3px_6px_rgba(0,0,0,0.4)]">
-                                                            <Clock size={12} />
-                                                            <span className="text-[8px] font-black uppercase tracking-widest leading-none text-center">Closed (7PM)</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
+                            <div>
+                                <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Shift</p>
+                                <h3 className="text-lg font-playfair font-bold tracking-tight text-white mt-1">
+                                    {isLocked ? "Day Locked" : isCheckedIn ? "Active Shift" : "Not Started"}
+                                </h3>
                             </div>
                         </div>
+
+                        {/* Card 2: Work Progress */}
+                        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                                    <Timer size={15} />
+                                </div>
+                                <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                    <TrendingUp size={8} /> 
+                                    {workMode === 'Field' 
+                                        ? `${Math.round((completedTasksCount / (totalTasksCount || 1)) * 100)}%` 
+                                        : `${Math.round((totalWorkedMs / (REQUIRED_OFFICE_HOURS * 3600000)) * 100)}%`}
+                                </span>
+                            </div>
+                            <div>
+                                <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">
+                                    {workMode === 'Field' ? "Tasks Progress" : "Time Logged"}
+                                </p>
+                                <h3 className="text-lg font-playfair font-bold tracking-tight text-white mt-1">
+                                    {workMode === 'Field' 
+                                        ? `${completedTasksCount}/${totalTasksCount} Tasks` 
+                                        : isOfficeHoursComplete ? 'Goal Met' : `${formatDuration(totalWorkedMs)}`}
+                                </h3>
+                            </div>
+                        </div>
+
+                        {/* Card 3: Action Desk */}
+                        {(() => {
+                            const isAfter7PM = currentTime.getHours() >= 19;
+                            let card3Action = undefined;
+                            let card3Title = "Quick Action";
+                            let card3Value = "Check In Now";
+                            let card3Icon = <Zap size={15} />;
+                            let card3Pill = "ACTION";
+
+                            if (isHolidayToday) {
+                                card3Title = "System Status";
+                                card3Value = todayHoliday?.name || "Holiday";
+                                card3Icon = <Calendar size={15} />;
+                                card3Pill = "HOLIDAY";
+                            } else if (isLocked) {
+                                if (!isAfter7PM) {
+                                    card3Title = "Optional Action";
+                                    card3Value = "Log Departure";
+                                    card3Icon = <CheckCircle size={15} />;
+                                    card3Pill = "DEPARTURE";
+                                    card3Action = logActualDeparture;
+                                } else {
+                                    card3Title = "System Status";
+                                    card3Value = "Closed (7PM)";
+                                    card3Icon = <Lock size={15} />;
+                                    card3Pill = "LOCKED";
+                                }
+                            } else {
+                                card3Action = handleCheckInOut;
+                                card3Title = "Quick Action";
+                                card3Value = isCheckedIn ? "Finish Shift" : (accumulatedMs > 0 ? "Resume Shift" : "Check In Now");
+                                card3Icon = isCheckedIn ? <CheckCircle size={15} /> : <Clock size={15} />;
+                            }
+
+                            return (
+                                <button
+                                    onClick={card3Action}
+                                    disabled={!card3Action}
+                                    className={`p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between transition-all duration-300 min-h-[120px] text-left relative overflow-hidden ${card3Action ? 'group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] cursor-pointer' : 'opacity-90 cursor-default'}`}
+                                    style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 transition-transform">
+                                            {card3Icon}
+                                        </div>
+                                        <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                            {card3Pill}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">{card3Title}</p>
+ <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">{card3Value}</h3>
+                                    </div>
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
 
+
                 {/* Bottom Section: Staff Registry (Attendance Sheet) - Full Width */}
-                <div className="w-full bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
+                <div className="w-full bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
                     <div className="p-2 md:p-3 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/25">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                             <h3 className="font-black text-[11px] md:text-[13px] text-slate-800 uppercase tracking-tight flex items-center gap-2">
@@ -1068,7 +1018,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                                 e.stopPropagation();
                                                                 handleExportIndividualReport(emp);
                                                             }}
-                                                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                                            className="p-1.5 text-slate-400 hover:text-emerald-700 scale-95 hover:bg-emerald-50 rounded-lg transition-all"
                                                             title="Download Individual Report"
                                                         >
                                                             <Download size={13} />
@@ -1118,18 +1068,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h2 className="font-black text-xl text-slate-800 uppercase tracking-tight">Correct Attendance</h2>
+                                <h2 className="font-playfair font-bold text-xl tracking-tight tracking-tight text-slate-800 uppercase tracking-tight">Correct Attendance</h2>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{editingAttendanceRecord.userName}</p>
                             </div>
                             <button onClick={() => setShowEditAttendanceModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
                         </div>
                         <div className="p-8 space-y-5">
-                            <div className="flex bg-slate-100 p-1 rounded-2xl mb-4">
+                            <div className="flex bg-slate-100 p-1 rounded-[2rem] mb-4">
                                 {['CheckedIn', 'Completed', 'OnLeave'].map((s) => (
                                     <button 
                                         key={s}
                                         onClick={() => setEditStatus(s as any)}
-                                        className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${editStatus === s ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}
+                                        className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-[2rem] transition-all ${editStatus === s ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}
                                     >
                                         {s === 'OnLeave' ? 'On Leave' : s}
                                     </button>
@@ -1142,7 +1092,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-In</label>
                                         <input 
                                             type="datetime-local" 
-                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500" 
                                             value={editCheckIn} 
                                             onChange={e => setEditCheckIn(e.target.value)}
                                         />
@@ -1151,7 +1101,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Manual Check-Out</label>
                                         <input 
                                             type="datetime-local" 
-                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500" 
                                             value={editCheckOut} 
                                             onChange={e => setEditCheckOut(e.target.value)}
                                         />
@@ -1159,7 +1109,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Mode</label>
                                         <select 
-                                            className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500 appearance-none cursor-pointer" 
+                                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500 appearance-none cursor-pointer" 
                                             value={editWorkMode} 
                                             onChange={e => setEditWorkMode(e.target.value as any)}
                                         >
@@ -1174,7 +1124,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 <div className="space-y-1 animate-in slide-in-from-top-2">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Leave Reason</label>
                                     <textarea 
-                                        className="w-full border border-rose-200 bg-rose-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[80px] text-rose-800 placeholder:text-rose-300" 
+                                        className="w-full border border-rose-200 bg-rose-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none min-h-[80px] text-rose-800 placeholder:text-rose-300" 
                                         placeholder="e.g. Sick Leave, Personal Work, Maternity..." 
                                         value={editLeaveReason} 
                                         onChange={e => setEditLeaveReason(e.target.value)}
@@ -1185,7 +1135,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             <div className="space-y-1">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Adjustment Note (Audit)</label>
                                 <textarea 
-                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[60px]" 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none min-h-[60px]" 
                                     placeholder="Explanation for this manual change..." 
                                     value={editReason} 
                                     onChange={e => setEditReason(e.target.value)}
@@ -1193,15 +1143,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-300 flex flex-wrap gap-3 bg-slate-50/30">
-                            <button onClick={handleResetAttendance} className="px-4 py-3 bg-rose-50 text-rose-600 border border-rose-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-2">
+                            <button onClick={handleResetAttendance} className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all flex items-center gap-2">
                                 <Trash2 size={14} /> Clear Record
                             </button>
                             <div className="flex-1 flex gap-3">
-                                <button onClick={() => setShowEditAttendanceModal(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
+                                <button onClick={() => setShowEditAttendanceModal(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
                                 <button 
                                     onClick={handleAdminOverwriteAttendance} 
                                     disabled={!editReason}
-                                    className="flex-[2] bg-indigo-600 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 disabled:opacity-50"
+                                    className="flex-[2] bg-indigo-600 text-white py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 disabled:opacity-50"
                                 >
                                     Apply Correction
                                 </button>
@@ -1217,18 +1167,18 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h2 className="font-black text-xl text-slate-800 uppercase tracking-tight">Apply for Leave</h2>
+                                <h2 className="font-playfair font-bold text-xl tracking-tight tracking-tight text-slate-800 uppercase tracking-tight">Apply for Leave</h2>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Formal Request Submission</p>
                             </div>
                             <button onClick={() => setShowApplyLeaveModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
                         </div>
-                        <div className="p-8 space-y-6">
+                        <div className="p-8 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
                                     <input 
                                         type="date" 
-                                        className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500 transition-all" 
+                                        className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-rose-500 transition-all" 
                                         value={leaveForm.startDate} 
                                         onChange={e => setLeaveForm({ ...leaveForm, startDate: e.target.value })}
                                     />
@@ -1237,7 +1187,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">End Date</label>
                                     <input 
                                         type="date" 
-                                        className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500 transition-all" 
+                                        className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-rose-500 transition-all" 
                                         value={leaveForm.endDate} 
                                         onChange={e => setLeaveForm({ ...leaveForm, endDate: e.target.value })}
                                     />
@@ -1247,7 +1197,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             <div className="space-y-1">
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Reason for Leave <span className="text-rose-500">*</span></label>
                                 <textarea 
-                                    className="w-full border border-slate-300 bg-slate-50 rounded-xl px-4 py-3 text-sm font-bold outline-none min-h-[120px] focus:border-rose-500 transition-all" 
+                                    className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none min-h-[120px] focus:border-rose-500 transition-all" 
                                     placeholder="Please provide a detailed reason for your leave request..." 
                                     value={leaveForm.reason} 
                                     onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })}
@@ -1255,7 +1205,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 <p className="text-[8px] font-bold text-slate-400 uppercase mt-1 italic">Note: Only admins can view your reason.</p>
                             </div>
 
-                            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-4">
+                            <div className="bg-amber-50 rounded-[2rem] p-4 border border-amber-100 flex gap-4">
                                 <AlertCircle className="text-amber-500 shrink-0" size={18} />
                                 <p className="text-[10px] text-amber-800 font-bold uppercase leading-relaxed">
                                     Once approved, your attendance for these dates will be automatically marked as 'On Leave'.
@@ -1263,11 +1213,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-300 flex gap-3 bg-slate-50/30">
-                            <button onClick={() => setShowApplyLeaveModal(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
+                            <button onClick={() => setShowApplyLeaveModal(false)} className="flex-1 bg-white border border-slate-300 py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Cancel</button>
                             <button 
                                 onClick={handleApplyLeave}
                                 disabled={!leaveForm.reason.trim()}
-                                className="flex-[2] bg-rose-600 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-700 disabled:opacity-50 transition-all"
+                                className="flex-[2] bg-rose-600 text-white py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-700 disabled:opacity-50 transition-all"
                             >
                                 Submit Request
                             </button>
@@ -1282,7 +1232,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-300 animate-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h2 className="font-black text-xl text-slate-800 uppercase tracking-tight">{isAdmin ? 'Personnel Leave Registry' : 'My Leave Requests'}</h2>
+                                <h2 className="font-playfair font-bold text-xl tracking-tight tracking-tight text-slate-800 uppercase tracking-tight">{isAdmin ? 'Personnel Leave Registry' : 'My Leave Requests'}</h2>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isAdmin ? 'Review and manage organization-wide requests' : 'Track your applied leaves'}</p>
                             </div>
                             <button onClick={() => setShowManageLeavesModal(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={20} /></button>
@@ -1295,7 +1245,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     <div key={req.id} className="p-5 rounded-3xl bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all group">
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-sm font-black text-indigo-500 shadow-sm">
+                                                <div className="w-10 h-10 rounded-[2rem] bg-white border border-slate-200 flex items-center justify-center text-sm font-black text-indigo-500 shadow-sm">
                                                     {req.userName.charAt(0)}
                                                 </div>
                                                 <div>
@@ -1303,7 +1253,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{req.id}</p>
                                                 </div>
                                             </div>
-                                            <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border ${
+                                            <span className={`px-3 py-1 rounded-[2rem] text-[9px] font-black uppercase tracking-widest border ${
                                                 req.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                                 req.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                                 'bg-amber-50 text-amber-600 border-amber-100'
@@ -1313,17 +1263,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         </div>
                                         
                                         <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div className="p-3 bg-white rounded-2xl border border-slate-100">
+                                            <div className="p-3 bg-white rounded-[2rem] border border-slate-100">
                                                 <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Duration</p>
                                                 <p className="text-[10px] font-bold text-slate-700">{req.startDate === req.endDate ? req.startDate : `${req.startDate} to ${req.endDate}`}</p>
                                             </div>
-                                            <div className="p-3 bg-white rounded-2xl border border-slate-100">
+                                            <div className="p-3 bg-white rounded-[2rem] border border-slate-100">
                                                 <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Applied On</p>
                                                 <p className="text-[10px] font-bold text-slate-700">{new Date(req.appliedOn).toLocaleDateString()}</p>
                                             </div>
                                         </div>
 
-                                        <div className="p-4 bg-white rounded-2xl border border-slate-100 mb-4">
+                                        <div className="p-4 bg-white rounded-[2rem] border border-slate-100 mb-4">
                                             <p className="text-[8px] font-black text-slate-300 uppercase mb-1">Reason</p>
                                             <p className="text-[10px] font-bold text-slate-600 leading-relaxed italic">"{req.reason}"</p>
                                         </div>
@@ -1332,13 +1282,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             <div className="flex gap-3 pt-2">
                                                 <button 
                                                     onClick={() => updateLeaveRequest(req.id, { status: 'Rejected' })}
-                                                    className="flex-1 py-3 bg-white border border-rose-200 text-rose-600 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all"
+                                                    className="flex-1 py-3 bg-white border border-rose-200 text-rose-600 rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 transition-all"
                                                 >
                                                     Reject
                                                 </button>
                                                 <button 
                                                     onClick={() => updateLeaveRequest(req.id, { status: 'Approved' })}
-                                                    className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all"
+                                                    className="flex-1 py-3 bg-emerald-600 text-white rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-all"
                                                 >
                                                     Approve Leave
                                                 </button>
@@ -1363,7 +1313,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-200">
                         <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h3 className="text-lg md:text-xl font-black text-slate-800 uppercase tracking-tight leading-none">
+                                <h3 className="text-lg md:text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight leading-none">
                                     Attendance Calendar: {calendarSelectedUser.name}
                                 </h3>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">
@@ -1377,13 +1327,13 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         d.setMonth(d.getMonth() - 1);
                                         setCalendarViewDate(d);
                                     }}
-                                    className="p-2 hover:bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
+                                    className="p-2 hover:bg-white rounded-[2rem] border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
                                 >
                                     <ChevronRight size={18} className="rotate-180" />
                                 </button>
                                 <button 
                                     onClick={() => setCalendarViewDate(new Date())}
-                                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-white border border-slate-200 rounded-[2rem] hover:bg-slate-50 transition-all"
                                 >
                                     Today
                                 </button>
@@ -1393,7 +1343,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         d.setMonth(d.getMonth() + 1);
                                         setCalendarViewDate(d);
                                     }}
-                                    className="p-2 hover:bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
+                                    className="p-2 hover:bg-white rounded-[2rem] border border-slate-200 text-slate-400 hover:text-slate-800 transition-all"
                                 >
                                     <ChevronRight size={18} />
                                 </button>
@@ -1507,7 +1457,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                 className={`aspect-square p-2 md:p-4 rounded-[1.5rem] md:rounded-[2rem] border-2 flex flex-col justify-between transition-all group ${borderColor} ${bgColor} ${isAdmin && !isFuture ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : ''}`}
                                             >
                                                 <div className="flex justify-between items-start">
-                                                    <span className={`text-xs md:text-lg font-black ${ds === todayDateStr ? 'text-indigo-600 scale-125' : textColor}`}>{d}</span>
+ <span className={`text-xs md:text-lg font-bold tracking-tight ${ds === todayDateStr ? 'text-indigo-600 scale-125' : textColor}`}>{d}</span>
                                                     {ds === todayDateStr && <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></div>}
                                                 </div>
                                                 <div className="flex flex-col gap-0.5">
@@ -1581,7 +1531,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         <button
                                             key={opt.id}
                                             onClick={() => setQuickStatus(opt.id as any)}
-                                            className={`flex flex-col items-center gap-2 p-2 rounded-xl border-2 transition-all ${
+                                            className={`flex flex-col items-center gap-2 p-2 rounded-[2rem] border-2 transition-all ${
                                                 isActive 
                                                     ? `bg-${opt.color}-50 border-${opt.color}-500 text-${opt.color}-600 scale-105 shadow-lg shadow-${opt.color}-500/10` 
                                                     : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
@@ -1600,7 +1550,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     <textarea
                                         value={quickReason}
                                         onChange={(e) => setQuickReason(e.target.value)}
-                                        className="w-full bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-400 min-h-[80px]"
+                                        className="w-full bg-indigo-50 border border-indigo-100 rounded-[2rem] p-3 text-xs font-bold text-indigo-900 outline-none focus:border-indigo-400 min-h-[80px]"
                                         placeholder="e.g. Personal Work..."
                                     />
                                 </div>
@@ -1632,7 +1582,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     addNotification('Attendance Updated', `Record for ${calendarSelectedUser.name} on ${quickSelectedDate} saved.`, 'success');
                                     setShowQuickAttendanceModal(false);
                                 }}
-                                className="w-full bg-slate-900 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]"
+                                className="w-full bg-slate-900 text-white py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-[0.98]"
                             >
                                 Apply Changes
                             </button>

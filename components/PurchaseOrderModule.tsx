@@ -1,3 +1,4 @@
+import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
@@ -225,7 +226,7 @@ Sree Meditec`;
     const renderPOTemplate = (data: Partial<Invoice>, totals: any) => (
         <div className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col mx-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
             <div className="text-center mb-6">
-                <h1 className="text-4xl font-black uppercase mb-1 tracking-tight">SREE MEDITEC</h1>
+                <h1 className="text-4xl font-playfair font-bold tracking-tight uppercase mb-1 tracking-tight">SREE MEDITEC</h1>
                 <p className="text-[11px] font-bold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
                 <p className="text-[11px] font-bold">Mob: 9884818398</p>
             </div>
@@ -233,7 +234,7 @@ Sree Meditec`;
             <div className="border border-black text-center py-2 bg-slate-50 font-black text-sm uppercase tracking-widest mb-0">CUSTOMER PURCHASE ORDER</div>
 
             <div className="grid grid-cols-2 border-x border-b border-black text-[10px] font-bold">
-                <div className="border-r border-black p-2 flex gap-2"><span>SMCPO NO:</span><span className="text-medical-600 font-black">{data.invoiceNumber}</span></div>
+                <div className="border-r border-black p-2 flex gap-2"><span>SMCPO NO:</span><span className="text-medical-600 font-black"><span className="font-inter font-bold tracking-widest">{data.invoiceNumber}</span></span></div>
                 <div className="p-2 flex gap-2"><span>DATE:</span><span className="font-black">{formatDateDDMMYYYY(data.date)}</span></div>
             </div>
 
@@ -375,9 +376,9 @@ Sree Meditec`;
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate', isRoundOff: false, freightAmount: 0, freightTaxRate: 18 }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Order</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> History</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'PO', bankDetails: '33APGPS4675G2ZL', bankAndBranch: 'ICICI Bank, Br: Selaiyur', accountNo: '603705016939', advanceDate: new Date().toISOString().split('T')[0], deliveryTime: 'Immediate', isRoundOff: false, freightAmount: 0, freightTaxRate: 18 }); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New Order</button>
             </div>
 
             {viewState === 'history' ? (
@@ -388,19 +389,19 @@ Sree Meditec`;
                             <select 
                                 value={filingFilter}
                                 onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-1.5 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-1.5 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
                             >
                                 <option value="All">All Filing</option>
                                 <option value="Filed">Filed</option>
                                 <option value="Not Filed">Not Filed</option>
                                 <option value="Not Updated">Not Updated</option>
                             </select>
-                            <div className="relative w-64">
+                            <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                 <input 
                                     type="text" 
                                     placeholder="Search orders..." 
-                                    className="w-full pl-9 pr-10 py-1.5 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
+                                    className="w-full pl-9 pr-10 py-1.5 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
                                     value={poSearch}
                                     onChange={(e) => setPoSearch(e.target.value.toUpperCase())}
                                 />
@@ -419,13 +420,13 @@ Sree Meditec`;
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-6 py-4">PO #</th>
-                                    <th className="px-6 py-4">Consignee</th>
-                                    <th className="px-6 py-4">Author</th>
-                                    <th className="px-6 py-4 text-right">Value</th>
-                                    <th className="px-6 py-4 text-center">Filed Status</th>
-                                    <th className="px-6 py-4 text-center">Status</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
+                                    <th className="px-4 py-2 font-inter">PO #</th>
+                                    <th className="px-4 py-2">Consignee</th>
+                                    <th className="px-4 py-2">Author</th>
+                                    <th className="px-4 py-2 text-right">Value</th>
+                                    <th className="px-4 py-2 text-center">Filed Status</th>
+                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -447,15 +448,15 @@ Sree Meditec`;
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                                        <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
+                                        <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
+                                        <td className="px-4 py-2">
                                             <div title={inv.createdBy} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-medical-600">₹{inv.grandTotal.toLocaleString('en-IN')}</td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-medical-600">₹{inv.grandTotal.toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
                                                 filedStatus={inv.filedStatus} 
@@ -466,14 +467,14 @@ Sree Meditec`;
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
-                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
+                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 {activeMenuId === inv.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button title="Raise Supplier PO" onClick={(e) => { 
                                                              e.stopPropagation(); 
                                                              setPendingSupplierPOData({
@@ -487,11 +488,11 @@ Sree Meditec`;
                                                              });
                                                              setActiveTab(TabView.SUPPLIER_PO);
                                                              setActiveMenuId(null); 
-                                                         }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all flex-1 flex justify-center"><ArrowUpRight size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex-1 flex justify-center" title="Send via Email"><Mail size={18} /></button>
+                                                         }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-[2rem] transition-all flex-1 flex justify-center"><ArrowUpRight size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send via Email"><Mail size={18} /></button>
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
@@ -503,7 +504,7 @@ Sree Meditec`;
                                                                     }
                                                                     setActiveMenuId(null);
                                                                 }} 
-                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"
                                                             >
                                                                 <Trash2 size={18} />
                                                             </button>
@@ -520,9 +521,9 @@ Sree Meditec`;
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
+                    <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner flex gap-1 shrink-0 m-6">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Eye size={18}/> Print Layout</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
@@ -535,16 +536,16 @@ Sree Meditec`;
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="PO Number *">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.invoiceNumber || ''} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMCPO-001" />
+                                                <input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-inter font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={order.invoiceNumber || ''} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMCPO-001" />
                                             </FormRow>
                                             <FormRow label="Document Date">
-                                                <input type="date" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.date || ''} onChange={e => setOrder({...order, date: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.date || ''} onChange={e => setOrder({...order, date: e.target.value})} />
                                             </FormRow>
                                             <FormRow label="Customer PO Ref">
-                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.cpoNumber || ''} onChange={e => setOrder({...order, cpoNumber: e.target.value})} placeholder="CPO-12345" />
+                                                <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none" value={order.cpoNumber || ''} onChange={e => setOrder({...order, cpoNumber: e.target.value})} placeholder="CPO-12345" />
                                             </FormRow>
                                             <FormRow label="Customer PO Date">
-                                                <input type="date" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.cpoDate || ''} onChange={e => setOrder({...order, cpoDate: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.cpoDate || ''} onChange={e => setOrder({...order, cpoDate: e.target.value})} />
                                             </FormRow>
                                         </div>
                                     </section>
@@ -555,7 +556,7 @@ Sree Meditec`;
                                             2. Consignee Profile
                                         </h3>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Customer Name *">
                                                     <AutoSuggest
                                                         value={order.customerName || ''}
@@ -573,19 +574,19 @@ Sree Meditec`;
                                                         suggestions={clients}
                                                         filterKey="name"
                                                         placeholder="Search client registry..."
-                                                        className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5"
+                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5"
                                                     />
                                                 </FormRow>
                                                 <FormRow label="Billing Address">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-medium outline-none h-[80px] resize-none uppercase" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Official address..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[80px] resize-none uppercase" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Official address..." />
                                                 </FormRow>
                                             </div>
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="GSTIN Identity">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.customerGstin || ''} onChange={e => setOrder({...order, customerGstin: e.target.value})} placeholder="00AAAAA0000A0A0" />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none" value={order.customerGstin || ''} onChange={e => setOrder({...order, customerGstin: e.target.value})} placeholder="00AAAAA0000A0A0" />
                                                 </FormRow>
                                                 <FormRow label="Delivery Site">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-medium outline-none h-[80px] resize-none uppercase" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Destination address..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[80px] resize-none uppercase" value={order.deliveryAddress || ''} onChange={e => setOrder({...order, deliveryAddress: e.target.value})} placeholder="Destination address..." />
                                                 </FormRow>
                                             </div>
                                         </div>
@@ -601,7 +602,7 @@ Sree Meditec`;
                                         <div className="space-y-3 pb-4">
                                             {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
-                                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
+                                                    <div className="p-4 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
                                                         <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="absolute -top-2 -right-2 bg-white text-rose-400 hover:text-rose-600 p-2 rounded-full shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"><Trash2 size={14}/></button>
                                                         <div className="sm:col-span-4">
                                                             <FormRow label={`Item #${idx + 1}`}>
@@ -617,23 +618,23 @@ Sree Meditec`;
                                                                     suggestions={products}
                                                                     filterKey="name"
                                                                     placeholder="Search product..."
-                                                                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-black uppercase outline-none"
+                                                                    className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black uppercase outline-none"
                                                                 />
                                                             </FormRow>
                                                         </div>
                                                         <div className="sm:col-span-2">
                                                             <FormRow label="Qty">
-                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-center font-black text-sm outline-none" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
+                                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-4 text-center font-black text-sm outline-none" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} />
                                                             </FormRow>
                                                         </div>
                                                         <div className="sm:col-span-2">
                                                             <FormRow label="Unit Rate">
-                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-right font-black text-sm outline-none" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
+                                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-4 text-right font-black text-sm outline-none" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} />
                                                             </FormRow>
                                                         </div>
                                                         <div className="sm:col-span-2">
                                                             <FormRow label="GST %">
-                                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 text-center font-black text-sm outline-none" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
+                                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-4 text-center font-black text-sm outline-none" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} />
                                                             </FormRow>
                                                         </div>
                                                         <div className="sm:col-span-2">
@@ -644,15 +645,15 @@ Sree Meditec`;
                                                     </div>
                                                     <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
                                                         <div className="flex gap-2">
-                                                            <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100 shadow-sm">+ Catalog</button>
-                                                            <button onClick={() => handleAddItem(undefined, idx + 1)} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100 shadow-sm">+ Row</button>
+                                                            <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100 shadow-sm">+ Catalog</button>
+                                                            <button onClick={() => handleAddItem(undefined, idx + 1)} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100 shadow-sm">+ Row</button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             )) : (
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Catalog</button>
-                                                    <button onClick={() => handleAddItem()} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
+                                                    <button onClick={() => setBuilderTab('catalog')} className="px-4 py-2 bg-teal-50 text-teal-600 rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all border border-teal-100">+ Catalog</button>
+                                                    <button onClick={() => handleAddItem()} className="px-4 py-2 bg-medical-50 text-medical-600 rounded-[2rem] text-[9px] font-black uppercase tracking-widest hover:bg-medical-100 transition-all border border-medical-100">+ Row</button>
                                                 </div>
                                             )}
                                         </div>
@@ -663,32 +664,32 @@ Sree Meditec`;
                                             <CreditCard size={14} className="text-medical-500" />
                                             4. Commercial Terms
                                         </h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5 bg-slate-50 rounded-[2rem] border border-slate-200">
                                             <FormRow label="Advance Received (₹)">
-                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-emerald-600" value={order.advanceAmount || ''} onChange={e => setOrder({...order, advanceAmount: Number(e.target.value)})} />
+                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none text-emerald-600" value={order.advanceAmount || ''} onChange={e => setOrder({...order, advanceAmount: Number(e.target.value)})} />
                                             </FormRow>
                                             <FormRow label="Value Date">
-                                                <input type="date" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.advanceDate || ''} onChange={e => setOrder({...order, advanceDate: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.advanceDate || ''} onChange={e => setOrder({...order, advanceDate: e.target.value})} />
                                             </FormRow>
                                             <FormRow label="Payment Instrument">
-                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-[11px] font-black uppercase outline-none" value={order.paymentMethod || 'Bank Transfer'} onChange={e => setOrder({...order, paymentMethod: e.target.value as any})}><option>Bank Transfer</option><option>Cheque</option><option>Cash</option><option>UPI</option></select>
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-[11px] font-black uppercase outline-none" value={order.paymentMethod || 'Bank Transfer'} onChange={e => setOrder({...order, paymentMethod: e.target.value as any})}><option>Bank Transfer</option><option>Cheque</option><option>Cash</option><option>UPI</option></select>
                                             </FormRow>
                                             <FormRow label="Expected Delivery">
-                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.deliveryTime || ''} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. 2 weeks" />
+                                                <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none" value={order.deliveryTime || ''} onChange={e => setOrder({...order, deliveryTime: e.target.value})} placeholder="e.g. 2 weeks" />
                                             </FormRow>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="Statutory Discount (₹)">
-                                                <input type="number" className="w-full h-[42px] bg-white border border-rose-200 rounded-xl px-4 py-2 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} />
+                                                <input type="number" className="w-full h-[36px] bg-white border border-rose-200 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none text-rose-600" value={order.discount || ''} onChange={e => setOrder({...order, discount: Number(e.target.value)})} />
                                             </FormRow>
                                             <FormRow label="Freight (₹)">
-                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightAmount || ''} onChange={e => setOrder({...order, freightAmount: Number(e.target.value)})} placeholder="0.00" />
+                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none text-teal-600" value={order.freightAmount || ''} onChange={e => setOrder({...order, freightAmount: Number(e.target.value)})} placeholder="0.00" />
                                             </FormRow>
                                             <FormRow label="Freight GST %">
-                                                <input type="number" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none text-teal-600" value={order.freightTaxRate || ''} onChange={e => setOrder({...order, freightTaxRate: Number(e.target.value)})} placeholder="18" />
+                                                <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none text-teal-600" value={order.freightTaxRate || ''} onChange={e => setOrder({...order, freightTaxRate: Number(e.target.value)})} placeholder="18" />
                                             </FormRow>
                                             <FormRow label="Sreemeditec Representative">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-black text-slate-500" value={order.createdBy || currentUser?.name || ''} readOnly />
+                                                <input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-[2rem] px-3 py-1.5 text-sm font-black text-slate-500" value={order.createdBy || currentUser?.name || ''} readOnly />
                                             </FormRow>
                                         </div>
                                     </section>
@@ -699,7 +700,7 @@ Sree Meditec`;
                                             5. Special Stipulations
                                         </h3>
                                         <FormRow label="Additional Supply & Service Terms">
-                                            <textarea className="w-full bg-white border border-slate-300 rounded-xl px-5 py-4 text-xs font-bold outline-none h-[100px] resize-none uppercase" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Payment milestones, warranty extensions etc..." />
+                                            <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-4 text-xs font-bold outline-none h-[100px] resize-none uppercase" value={order.specialNote || ''} onChange={e => setOrder({...order, specialNote: e.target.value})} placeholder="Payment milestones, warranty extensions etc..." />
                                         </FormRow>
                                     </section>
                                 </div>
@@ -709,7 +710,7 @@ Sree Meditec`;
                                         <div className="flex items-center gap-6">
                                             <div className="flex flex-col">
                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
-                                                <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
+                                                <span className="text-2xl font-playfair font-bold tracking-tight text-medical-600 tracking-tight flex items-baseline gap-2">
                                                     ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                     {order.isRoundOff && totals.roundOff !== 0 && (
                                                         <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -718,18 +719,16 @@ Sree Meditec`;
                                                     )}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
-                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
-                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
-                                                </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-[2rem] border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none">
+                                                <ToggleSwitch checked={!!order.isRoundOff} onChange={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))} />
                                                 <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
+                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
                                     </div>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
-                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
-                                        <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="flex-1 px-8 py-3.5 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-2xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Save size={16}/> Finalize & Print</button>
+                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
+                                        <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }} className="flex-1 px-8 py-3.5 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-2xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Save size={16}/> Finalize & Print</button>
                                     </div>
                                 </div>
                             </div>
@@ -745,13 +744,13 @@ Sree Meditec`;
                             <div className="h-full bg-white flex flex-col p-6 sm:p-10 overflow-hidden animate-in fade-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
                                     <div><h3 className="font-black text-slate-800 uppercase tracking-tight text-2xl">Medical Equipment Catalog</h3><p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">Select products to include in the purchase order</p></div>
-                                    <div className="relative w-full sm:w-80"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filter inventory..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all shadow-sm" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} /></div>
+                                    <div className="relative w-full sm:w-80"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filter inventory..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-[2rem] text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all shadow-sm" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} /></div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                     {products.filter(p => p.name.toLowerCase().includes(catalogSearch.toLowerCase())).map(prod => (
                                         <div key={prod.id} className="p-6 bg-white border border-slate-200 rounded-[2rem] hover:border-medical-400 hover:shadow-2xl transition-all cursor-pointer flex flex-col justify-between group shadow-sm" onClick={() => handleAddItem(prod)}>
                                             <div><div className="flex items-center gap-2 mb-3"><span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-100 text-slate-500 rounded-lg">{prod.category || 'N/A'}</span></div><h4 className="font-black text-slate-800 text-sm leading-tight group-hover:text-medical-700 transition-colors uppercase line-clamp-2">{prod.name}</h4><p className="text-[9px] font-bold text-slate-400 mt-2 uppercase">SKU: {prod.sku || '---'}</p></div>
-                                            <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase">List Price</p><p className="text-base font-black text-slate-900 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p></div><div className="p-2.5 bg-slate-50 text-slate-400 rounded-2xl group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm"><Plus size={18} /></div></div>
+                                            <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase">List Price</p><p className="text-base font-black text-slate-900 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p></div><div className="p-2.5 bg-slate-50 text-slate-400 rounded-[2rem] group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm"><Plus size={18} /></div></div>
                                         </div>
                                     ))}
                                 </div>

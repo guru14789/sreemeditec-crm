@@ -54,11 +54,11 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
   const completedToday = myTasksToday.length - pendingTasks.length;
 
   return (
-    <div className="h-full overflow-y-auto space-y-8 pb-8 pr-1 custom-scrollbar">
+    <div className="h-full overflow-y-auto space-y-5 pb-8 pr-1 custom-scrollbar">
       {/* Welcome Section - Aligned for Hierarchy */}
       <div className="flex flex-col items-start gap-4 mt-4 pl-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-none">
+          <h1 className="text-3xl md:text-4xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-none">
             HELLO, {currentUser.split(' ')[0]}!
           </h1>
           <p className="text-xs md:text-sm font-black text-slate-400 uppercase tracking-[0.2em] mt-2">
@@ -73,46 +73,46 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
 
       {/* Personal KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-medical-50 dark:bg-medical-900/30 text-medical-600 dark:text-medical-400 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-emerald-900/50 text-emerald-100 rounded-[2rem] group-hover:scale-110 transition-transform">
               <Zap size={22} fill="currentColor" />
             </div>
-            <TrendingUp size={18} className="text-emerald-500" />
+            <TrendingUp size={18} className="text-emerald-400" />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Total Points</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{totalPoints}</h3>
+          <p className="text-[10px] font-black text-emerald-100/80 uppercase tracking-[0.15em]">Total Points</p>
+ <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{totalPoints}</h3>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-emerald-700/50 text-emerald-50 rounded-[2rem] group-hover:scale-110 transition-transform">
               <CheckCircle2 size={22} />
             </div>
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-lg">Best</span>
+            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest bg-emerald-100/80 px-2 py-0.5 rounded-lg">Best</span>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Tasks Completed</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
+          <p className="text-[10px] font-black text-emerald-100/80 uppercase tracking-[0.15em]">Tasks Completed</p>
+ <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-7 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm group hover:shadow-xl hover:-translate-y-1 transition-all">
+        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-amber-900/10 text-amber-950 rounded-[2rem] group-hover:scale-110 transition-transform">
               <TrendingUp size={22} />
             </div>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Sales Impact</p>
-          <h3 className="text-4xl font-black text-slate-800 dark:text-slate-100 mt-1 tracking-tighter">
+          <p className="text-[10px] font-black text-amber-950/80 uppercase tracking-[0.15em]">Sales Impact</p>
+          <h3 className="text-4xl font-playfair font-bold tracking-tight text-amber-950 mt-1 tracking-tighter">
             ₹{(salesImpact / 100000).toFixed(1)}L
           </h3>
         </div>
 
-        <div className="bg-[#022c22] p-7 rounded-[2.5rem] text-white shadow-2xl shadow-emerald-950/20 relative overflow-hidden group">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-7 rounded-[2.5rem] text-white shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] relative overflow-hidden group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <Timer size={100} />
           </div>
           <p className="text-emerald-300 text-[10px] font-black uppercase tracking-[0.2em] mb-1 relative z-10">Today's Progress</p>
-          <h3 className="text-4xl font-black relative z-10 tracking-tighter">{completedToday}/{myTasksToday.length}</h3>
+ <h3 className="text-4xl font-bold tracking-tight relative z-10 tracking-tighter">{completedToday}/{myTasksToday.length}</h3>
           <div className="mt-5 h-2 bg-white/10 rounded-full overflow-hidden relative z-10 shadow-inner">
             <div 
               className="h-full bg-emerald-400 transition-all duration-1000 shadow-[0_0_8px_rgba(52,211,153,0.6)]" 
@@ -138,7 +138,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
               myTasksToday.map(task => (
                 <div key={task.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.2rem] border border-slate-300 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-medical-400 hover:shadow-lg transition-all cursor-pointer">
                   <div className="flex items-start gap-5">
-                    <div className={`p-3.5 rounded-2xl shrink-0 transition-colors ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-300'}`}>
+                    <div className={`p-3.5 rounded-[2rem] shrink-0 transition-colors ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-300'}`}>
                       {task.status === 'Done' ? <CheckCircle2 size={22} /> : <Clock size={22} />}
                     </div>
                     <div>
@@ -157,7 +157,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
                       </div>
                     </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:bg-medical-50 group-hover:text-medical-600 transition-all">
+                  <div className="p-2.5 rounded-[2rem] bg-slate-50 dark:bg-slate-800 group-hover:bg-medical-50 group-hover:text-medical-600 transition-all">
                     <ArrowRight size={20} />
                   </div>
                 </div>
@@ -175,7 +175,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
         </div>
 
         {/* Sidebar: Performance & Points */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
             <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50">
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-[0.3em] flex items-center gap-2">
@@ -184,7 +184,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             </div>
             <div className="p-5 space-y-3">
               {myPointHistory.slice(0, 5).map(log => (
-                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-medical-200 transition-colors">
+                <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-300 dark:border-slate-800/50 flex items-center justify-between hover:border-medical-200 transition-colors">
                   <div className="min-w-0 pr-4">
                     <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase truncate leading-tight tracking-tight">{log.description}</p>
                     <p className="text-[8px] font-bold text-slate-300 uppercase mt-1.5 tracking-widest">{log.date}</p>
@@ -202,12 +202,12 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
               <Target size={150} />
             </div>
             <div className="relative z-10">
-              <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md">
+              <div className="w-10 h-10 bg-white/10 rounded-[2rem] flex items-center justify-center mb-4 backdrop-blur-md">
                 <Zap size={20} className="text-amber-300" fill="currentColor" />
               </div>
               <h4 className="font-black text-xs uppercase tracking-[0.2em] mb-3">Tactical Insight</h4>
               <p className="text-sm font-medium text-medical-100 leading-relaxed italic">
-                "Speed determines success. High-priority tasks resolved before 12:00 PM trigger a 1.5x Multiplier."
+              "Speed determines success. High-priority tasks resolved before 12:00 PM trigger a 1.5x Multiplier."
               </p>
             </div>
           </div>

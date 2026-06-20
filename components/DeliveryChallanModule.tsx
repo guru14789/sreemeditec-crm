@@ -196,9 +196,9 @@ export const DeliveryChallanModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Challan</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> Registry</button>
+                <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New Challan</button>
             </div>
 
             {viewState === 'history' ? (
@@ -209,21 +209,21 @@ export const DeliveryChallanModule: React.FC = () => {
                             <select 
                                 value={filingFilter}
                                 onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
                             >
                                 <option value="All">All Filing</option>
                                 <option value="Filed">Filed</option>
                                 <option value="Not Filed">Not Filed</option>
                                 <option value="Not Updated">Not Updated</option>
                             </select>
-                            <div className="relative w-64">
+                            <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                 <input 
                                     type="text" 
                                     placeholder="Search challans..." 
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
                                 />
                             </div>
                         </div>
@@ -232,12 +232,12 @@ export const DeliveryChallanModule: React.FC = () => {
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-6 py-4">Challan #</th>
-                                    <th className="px-6 py-4">Consignee</th>
-                                    <th className="px-6 py-4">Author</th>
-                                    <th className="px-6 py-4 text-center">Filed Status</th>
-                                    <th className="px-6 py-4 text-center">Status</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
+                                    <th className="px-4 py-2 font-inter">Challan #</th>
+                                    <th className="px-4 py-2">Consignee</th>
+                                    <th className="px-4 py-2">Author</th>
+                                    <th className="px-4 py-2 text-center">Filed Status</th>
+                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -259,14 +259,14 @@ export const DeliveryChallanModule: React.FC = () => {
                                     .sort((a, b) => (b.challanNumber || '').localeCompare(a.challanNumber || '', undefined, { numeric: true }))
                                     .map((c: any) => (
                                     <tr key={c.id} onClick={() => { setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
-                                        <td className="px-6 py-4 font-black">{c.challanNumber}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{c.customerName}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{c.challanNumber}</span></td>
+                                        <td className="px-4 py-2 font-bold text-slate-700 uppercase">{c.customerName}</td>
+                                        <td className="px-4 py-2">
                                             <div title={c.createdBy || 'System'} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {c.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={c.id}
                                                 filedStatus={c.filedStatus}
@@ -277,20 +277,20 @@ export const DeliveryChallanModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{c.status}</span></td>
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{c.status}</span></td>
+                                        <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === c.id ? 'z-50' : 'z-0'}`}>
-                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === c.id ? null : c.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === c.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
+                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === c.id ? null : c.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === c.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 {activeMenuId === c.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
-                                                        <button onClick={(e) => { e.stopPropagation(); setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(c); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button onClick={(e) => { e.stopPropagation(); setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(c); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(c.id, c.challanNumber || 'Challan'); setActiveMenuId(null); }} 
-                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"
                                                                 title="Delete Challan"
                                                             >
                                                                 <Trash2 size={18} />
@@ -308,14 +308,14 @@ export const DeliveryChallanModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
+                    <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner flex gap-1 shrink-0 m-6">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Eye size={18}/> Print Layout</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
                             <div className="h-full flex flex-col bg-white">
-                                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-8 custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-5 custom-scrollbar">
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
                                             <FileText size={14} className="text-medical-500" />
@@ -325,7 +325,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                             <div className="sm:col-span-2 lg:col-span-1">
                                                 <FormRow label="Issuing Entity (Seller)">
                                                     <select 
-                                                        className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                                        className="w-full h-[36px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
                                                         value={challan.sellerProfile?.id || ''}
                                                         onChange={e => {
                                                             const selected = companyProfiles.find(p => p.id === e.target.value);
@@ -340,14 +340,14 @@ export const DeliveryChallanModule: React.FC = () => {
                                                 </FormRow>
                                             </div>
                                             <FormRow label="Challan No. *">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={challan.challanNumber || ''} onChange={e => setChallan({...challan, challanNumber: e.target.value})} placeholder="SM/DC-001" />
+                                                <input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-inter font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={challan.challanNumber || ''} onChange={e => setChallan({...challan, challanNumber: e.target.value})} placeholder="SM/DC-001" />
                                             </FormRow>
                                             <FormRow label="Date">
-                                                <input type="date" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={challan.date || ''} onChange={e => setChallan({...challan, date: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={challan.date || ''} onChange={e => setChallan({...challan, date: e.target.value})} />
                                             </FormRow>
                                             <div className="sm:col-span-2">
                                                 <FormRow label="Subject / Purpose">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={challan.subject || ''} onChange={e => setChallan({...challan, subject: e.target.value})} placeholder="e.g. Service Exchange / Installation" />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={challan.subject || ''} onChange={e => setChallan({...challan, subject: e.target.value})} placeholder="e.g. Service Exchange / Installation" />
                                                 </FormRow>
                                             </div>
                                         </div>
@@ -359,7 +359,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                             2. Consignee Identity
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Customer Name *">
                                                     <AutoSuggest
                                                         value={challan.customerName || ''}
@@ -374,16 +374,16 @@ export const DeliveryChallanModule: React.FC = () => {
                                                         suggestions={clients}
                                                         filterKey="hospital"
                                                         placeholder="Search client registry..."
-                                                        className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
                                                     />
                                                 </FormRow>
                                                 <FormRow label="Delivery Address">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none h-[100px] resize-none" value={challan.customerAddress || ''} onChange={e => setChallan({...challan, customerAddress: e.target.value})} placeholder="Detailed shipping address..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none h-[100px] resize-none" value={challan.customerAddress || ''} onChange={e => setChallan({...challan, customerAddress: e.target.value})} placeholder="Detailed shipping address..." />
                                                 </FormRow>
                                             </div>
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Terms & Conditions">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-medium text-slate-500 outline-none h-[180px] resize-none" value={challan.terms || ''} onChange={e => setChallan({...challan, terms: e.target.value})} placeholder="Legal terms..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium text-slate-500 outline-none h-[180px] resize-none" value={challan.terms || ''} onChange={e => setChallan({...challan, terms: e.target.value})} placeholder="Legal terms..." />
                                                 </FormRow>
                                             </div>
                                         </div>
@@ -399,7 +399,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                         <div className="space-y-3 pb-24">
                                             {(challan.items?.length ?? 0) > 0 ? challan.items.map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
-                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-[2rem] border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                                         <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">
                                                             {idx + 1}
                                                         </div>
@@ -466,7 +466,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                             4. Additional Remarks
                                         </h3>
                                         <FormRow label="Internal Execution Remarks">
-                                            <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none h-[80px] resize-none" value={challan.remarks || ''} onChange={e => setChallan({...challan, remarks: e.target.value})} placeholder="Internal notes (not visible on PDF)..." />
+                                            <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none h-[80px] resize-none" value={challan.remarks || ''} onChange={e => setChallan({...challan, remarks: e.target.value})} placeholder="Internal notes (not visible on PDF)..." />
                                         </FormRow>
                                     </section>
                                 </div>
@@ -474,20 +474,20 @@ export const DeliveryChallanModule: React.FC = () => {
                                 <div className="sticky bottom-0 left-0 right-0 p-3 sm:p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
                                     <button 
                                         onClick={() => { setViewState('history'); setEditingId(null); }}
-                                        className="w-full sm:w-auto px-6 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors order-2 sm:order-1"
+                                        className="w-full sm:w-auto px-6 py-3 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors order-2 sm:order-1"
                                     >
                                         Discard
                                     </button>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
                                         <button 
                                             onClick={() => handleSave('Draft')}
-                                            className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95 flex items-center justify-center gap-2"
+                                            className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             <Save size={16} /> Save Draft
                                         </button>
                                         <button 
                                             onClick={() => handleSave('Dispatched')}
-                                            className="flex-1 px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"
+                                            className="flex-1 px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             <Truck size={16} /> Confirm & Dispatch
                                         </button>
@@ -497,9 +497,9 @@ export const DeliveryChallanModule: React.FC = () => {
                         )}
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50">
-                                <div className="bg-white w-[800px] shadow-2xl p-12 space-y-8 font-sans leading-relaxed text-slate-800 border border-slate-200">
+                                <div className="bg-white w-full max-w-[800px] shadow-2xl p-4 md:p-12 space-y-5 font-sans leading-relaxed text-slate-800 border border-slate-200 overflow-x-auto">
                                     <div className="text-center space-y-1">
-                                        <h2 className="text-4xl font-black tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
+                                        <h2 className="text-4xl font-playfair font-bold tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>
                                         {challan.sellerProfile && (
                                             <p className="text-[10px] font-bold text-slate-500 uppercase">{challan.sellerProfile.address}</p>
@@ -508,13 +508,13 @@ export const DeliveryChallanModule: React.FC = () => {
                                     <div className="flex justify-between items-start border-y-2 border-slate-100 py-6">
                                         <div className="max-w-[60%]">
                                             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Consignee Identity</h4>
-                                            <p className="font-black text-xl leading-tight uppercase text-slate-800">{challan.customerName || '---'}</p>
+                                            <p className="font-playfair font-bold text-xl tracking-tight tracking-tight leading-tight uppercase text-slate-800">{challan.customerName || '---'}</p>
                                             <p className="text-xs font-bold text-slate-500 mt-2 uppercase whitespace-pre-wrap">{challan.customerAddress || '---'}</p>
                                         </div>
                                         <div className="text-right space-y-4">
                                             <div>
                                                 <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Challan Ref</h4>
-                                                <p className="font-black text-medical-600 text-lg">{challan.challanNumber || 'SM/DC/---'}</p>
+                                                <p className="font-black text-medical-600 text-lg"><span className="font-inter font-bold tracking-widest">{challan.challanNumber || 'SM/DC/---'}</span></p>
                                             </div>
                                             <div>
                                                 <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Execution Date</h4>
@@ -549,7 +549,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                         </table>
                                     </div>
                                     <div className="pt-20 flex justify-between items-end">
-                                        <div className="max-w-[50%] p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <div className="max-w-[50%] p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
                                             <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Terms & Conditions</h5>
                                             <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase whitespace-pre-wrap">{challan.terms}</p>
                                         </div>
@@ -570,7 +570,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                     </div>
                                     <div className="relative w-full sm:w-80">
                                         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                                        <input type="text" placeholder="Filter Catalog..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
+                                        <input type="text" placeholder="Filter Catalog..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-[2rem] text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} />
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -585,7 +585,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                             </div>
                                             <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-4">
                                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">SKU: {p.sku || '---'}</p>
-                                                <div className="p-2 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-medical-600 group-hover:text-white transition-all">
+                                                <div className="p-2 bg-slate-50 text-slate-400 rounded-[2rem] group-hover:bg-medical-600 group-hover:text-white transition-all">
                                                     <Plus size={16} />
                                                 </div>
                                             </div>

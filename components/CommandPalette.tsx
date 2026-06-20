@@ -290,7 +290,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
-                    <span className="hidden md:flex text-[10px] font-black text-slate-500 bg-slate-800 border border-slate-700 px-2 py-1 rounded-xl tracking-tighter uppercase shrink-0">ESC</span>
+                    <span className="hidden md:flex text-[10px] font-black text-slate-500 bg-slate-800 border border-slate-700 px-2 py-1 rounded-[2rem] tracking-tighter uppercase shrink-0">ESC</span>
                 </div>
 
                 {/* Filter Pills Tab bar */}
@@ -299,7 +299,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                         <button
                             key={tab}
                             onClick={() => setSelectedTab(tab)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                            className={`px-3 py-1.5 rounded-[2rem] text-[10px] font-black uppercase tracking-wider transition-all border ${
                                 selectedTab === tab 
                                     ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/10' 
                                     : 'bg-slate-800/40 border-slate-700/30 text-slate-400 hover:text-slate-200'
@@ -329,14 +329,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                                     key={item.id}
                                     data-index={idx}
                                     onClick={item.action}
-                                    className={`group flex items-center justify-between px-4 py-3.5 rounded-2xl cursor-pointer transition-all border mb-1.5 ${
+                                    className={`group flex items-center justify-between px-4 py-3.5 rounded-[2rem] cursor-pointer transition-all border mb-1.5 ${
                                         isSelected 
                                             ? 'bg-gradient-to-r from-slate-800/80 to-slate-800/40 border-slate-700 shadow-md translate-x-1' 
                                             : 'bg-transparent border-transparent hover:bg-slate-800/20'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3.5 min-w-0">
-                                        <div className={`p-2.5 rounded-xl shrink-0 ${
+                                        <div className={`p-2.5 rounded-[2rem] shrink-0 ${
                                             isSelected 
                                                 ? 'bg-emerald-500 text-white' 
                                                 : 'bg-slate-800/60 text-slate-400'

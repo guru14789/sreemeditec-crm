@@ -773,7 +773,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           <div className="tally-voucher-field">
             <span className="field-label">Party Ledger</span>
             <span className="field-value">
-              <select className="field-input" style={{ width: 300 }} value={vf.accountId} onChange={e => {
+              <select className="field-input" style={{ width: '100%', maxWidth: 300 }} value={vf.accountId} onChange={e => {
                 const l = ledgers.find(x => x.id === e.target.value);
                 setVf(p => ({ ...p, accountId: e.target.value, accountName: l?.name || '' }));
               }}>
@@ -785,6 +785,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           </div>
           {/* Entries Table */}
           <div className="tally-voucher-field"><span className="field-label">Particulars</span></div>
+          <div style={{ overflowX: 'auto' }}>
           <table className="tally-vt">
             <thead>
               <tr>
@@ -823,6 +824,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
               ))}
             </tbody>
           </table>
+          </div>
           <div className="tally-voucher-total">
             Dr: <span style={{ color: '#64B5F6' }}>₹{fmt(td)}</span> &nbsp;|&nbsp; Cr: <span style={{ color: '#64B5F6' }}>₹{fmt(tc)}</span> &nbsp;|&nbsp;
             {diff !== 0 ? <span className="tally-red">⚠ Diff: ₹{fmt(diff)}</span> : <span style={{ color: '#00C853' }}>✓ Balanced</span>}
@@ -833,7 +835,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           <div className="tally-voucher-field">
             <span className="field-label">Narration</span>
             <span className="field-value">
-              <input className="field-input" style={{ width: 400 }} value={vf.narration} onChange={e => setVf(p => ({ ...p, narration: e.target.value }))} placeholder="Enter description..." />
+              <input className="field-input" style={{ width: '100%', maxWidth: 400 }} value={vf.narration} onChange={e => setVf(p => ({ ...p, narration: e.target.value }))} placeholder="Enter description..." />
             </span>
           </div>
 
@@ -841,7 +843,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           <div className="tally-voucher-field">
             <span className="field-label">Ref / Bill No.</span>
             <span className="field-value">
-              <input className="field-input" style={{ width: 200 }} value={vf.refNo} onChange={e => setVf(p => ({ ...p, refNo: e.target.value }))} placeholder="e.g. INV-001" />
+              <input className="field-input font-inter" style={{ width: '100%', maxWidth: 200 }} value={vf.refNo} onChange={e => setVf(p => ({ ...p, refNo: e.target.value }))} placeholder="e.g. INV-001" />
             </span>
           </div>
 
@@ -895,8 +897,9 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
               {partyPendingInvoices.length === 0 ? (
                 <div style={{ color: '#3A6A90', fontSize: 11 }}>No pending invoices for this party.</div>
               ) : (
+                <div style={{ overflowX: 'auto' }}>
                 <table className="tally-rpt" style={{ width: '100%' }}>
-                  <thead><tr><th style={{ width: 30 }}></th><th>Invoice</th><th>Date</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ width: 100 }}>Settle Amt</th></tr></thead>
+                  <thead><tr><th style={{ width: 30 }}></th><th style={{ fontFamily: 'Inter, sans-serif' }}>Invoice</th><th>Date</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ width: 100 }}>Settle Amt</th></tr></thead>
                   <tbody>
                     {partyPendingInvoices.map(inv => {
                       const existing = vf.settlements.find(s => s.invoiceId === inv.id);
@@ -912,7 +915,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                                 }
                               }} />
                           </td>
-                          <td style={{ color: '#42A5F5' }}>{inv.invoiceNumber}</td>
+                          <td style={{ color: '#42A5F5' }}><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
                           <td style={{ fontSize: 10 }}>{inv.date}</td>
                           <td className="amt">₹{fmt(inv.balanceDue ?? inv.grandTotal ?? 0)}</td>
                           <td>
@@ -926,6 +929,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           )}
@@ -1355,7 +1359,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
         {/* Ledger Edit Form Modal */}
         {showLedgerForm && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#0A1929', border: '1px solid #1E4976', borderRadius: 8, padding: 24, width: 500 }}>
+            <div style={{ background: '#0A1929', border: '1px solid #1E4976', borderRadius: 8, padding: 24, width: 500, maxWidth: '95vw' }}>
               <div style={{ color: '#90CAF9', fontSize: 13, fontWeight: 'bold', marginBottom: 16 }}>{editLedger ? 'Edit Ledger' : 'New Ledger'}</div>
               {[
                 { label: 'Ledger Name *', key: 'name', type: 'text' },
@@ -1522,7 +1526,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
         </div>
         <div style={{ color: '#90CAF9', fontSize: 11, fontWeight: 'bold', marginBottom: 6 }}>Unmatched Bank Entries ({unmatched.length})</div>
         <table className="tally-rpt" style={{ width: '100%', marginBottom: 12 }}>
-          <thead><tr><th>Date</th><th>Description</th><th>Type</th><th style={{ textAlign: 'right' }}>Amount</th><th>Reference</th><th>Action</th></tr></thead>
+          <thead><tr><th>Date</th><th>Description</th><th>Type</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ fontFamily: 'Inter, sans-serif' }}>Reference</th><th>Action</th></tr></thead>
           <tbody>
             {unmatched.length === 0 ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', padding: 16, color: '#3A6A90' }}>No unmatched entries. Great!</td></tr>
@@ -1532,7 +1536,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                 <td style={{ fontSize: 11 }}>{s.description}</td>
                 <td><span style={{ color: s.type === 'Credit' ? '#00C853' : '#FF5252', fontSize: 10 }}>{s.type}</span></td>
                 <td className="amt">₹{fmt(s.amount)}</td>
-                <td style={{ fontSize: 10, color: '#5A8AB0' }}>{s.reference || '—'}</td>
+                <td style={{ fontSize: 10, color: '#5A8AB0' }}><span className="font-inter font-bold tracking-widest">{s.reference || '—'}</span></td>
                 <td>
                   <button className="tally-fkey" style={{ fontSize: 9 }}
                     onClick={() => { resetVf(s.type === 'Credit' ? 'Receipt' : 'Payment'); setVf(p => ({ ...p, narration: s.description, refNo: s.reference || '' })); }}>

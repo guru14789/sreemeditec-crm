@@ -7,7 +7,7 @@ import {
   FileText, Download, Calendar, TrendingUp, TrendingDown,
   DollarSign, PieChart as PieChartIcon, ArrowDownRight,
   MoreHorizontal, Users, ArrowLeft, Search, Package,
-  ShoppingCart, Award, ChevronRight, X,
+  ShoppingCart, Award, ChevronRight, X, Truck,
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -30,7 +30,7 @@ const GRADIENT_COLORS = [
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-3 rounded-xl shadow-2xl text-white min-w-[150px] z-[999]">
+      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-3 rounded-[2rem] shadow-2xl text-white min-w-[150px] z-[999]">
         <p className="text-[9px] font-black text-indigo-400 uppercase tracking-wider mb-2 pb-1 border-b border-slate-800">{label}</p>
         <div className="space-y-1.5">
           {payload.map((entry: any, index: number) => {
@@ -144,6 +144,7 @@ export const ReportsModule: React.FC = () => {
 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
+  const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; transactions: any[] } | null>(null);
 
   const filingStats = useMemo(() => {
     let filed = 0;
@@ -175,12 +176,12 @@ export const ReportsModule: React.FC = () => {
     const hasExpanded = expandedSection !== null;
 
     if (isExpanded) {
-      return `col-span-full md:col-span-6 bg-white p-5 rounded-2xl border-2 border-medical-500 shadow-lg ring-4 ring-medical-500/5 flex flex-col min-h-[420px] transition-all duration-300 transform scale-[1.005] cursor-pointer`;
+      return `col-span-full md:col-span-6 bg-white p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] border-2 border-medical-500 shadow-lg ring-4 ring-medical-500/5 flex flex-col min-h-[300px] md:min-h-[420px] transition-all duration-300 transform scale-[1.005] cursor-pointer`;
     }
     if (hasExpanded) {
-      return `col-span-full md:col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[180px] overflow-hidden opacity-50 hover:opacity-95 transition-all duration-300 cursor-pointer`;
+      return `col-span-full md:col-span-2 bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-200 shadow-sm flex flex-col h-[140px] md:h-[180px] overflow-hidden opacity-50 hover:opacity-95 transition-all duration-300 cursor-pointer`;
     }
-    return `col-span-full ${defaultSpan} bg-white p-4 rounded-xl border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md`;
+    return `col-span-full ${defaultSpan} bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md`;
   };
 
   const filterByDateRange = (dateStr: string) => {
@@ -267,16 +268,11 @@ export const ReportsModule: React.FC = () => {
       expenseMap[cat] = (expenseMap[cat] || 0) + (exp.amount || 0);
     });
 
-    // Add purchase records and Supplier POs as "Procurement" expense
+    // Add purchase records as "Procurement" expense
     let procurementTotal = 0;
     (purchaseRecords || []).forEach((rec: any) => {
       if (!filterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return;
       procurementTotal += rec.total || 0;
-    });
-    invoices.forEach((inv) => {
-      if ((inv as any).documentType !== 'SupplierPO' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!filterByDateRange(inv.date)) return;
-      procurementTotal += inv.grandTotal || 0;
     });
     if (procurementTotal > 0) {
       expenseMap['Procurement'] = (expenseMap['Procurement'] || 0) + procurementTotal;
@@ -297,21 +293,7 @@ export const ReportsModule: React.FC = () => {
       supplierMap[name].total += rec.total || 0;
       supplierMap[name].transactions += 1;
     });
-    // Also include SupplierPOs
-    invoices.forEach((inv) => {
-      if ((inv as any).documentType !== 'SupplierPO' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!filterByDateRange(inv.date)) return;
-      const name = (inv as any).vendorName || 'Unknown Supplier';
-      if (!supplierMap[name]) {
-        supplierMap[name] = { total: 0, transactions: 0, osAmount: 0 };
-      }
-      supplierMap[name].total += inv.grandTotal || 0;
-      supplierMap[name].transactions += 1;
-      const os = inv.grandTotal - (inv.paidAmount || 0);
-      if (os > 0) {
-        supplierMap[name].osAmount += os;
-      }
-    });
+    // Supplier volume (only from purchase records)
 
     const topSuppliers = Object.entries(supplierMap)
       .map(([name, data]) => ({ name, ...data }))
@@ -321,7 +303,7 @@ export const ReportsModule: React.FC = () => {
     // 4. Product Line Analysis
     const productMap: Record<string, { qty: number; total: number }> = {};
     invoices.forEach((inv) => {
-      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation') return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'PO') return;
       if (!filterByDateRange(inv.date)) return;
       (inv.items || []).forEach((item: any) => {
         const name = item.description || 'Unknown Product';
@@ -364,6 +346,31 @@ export const ReportsModule: React.FC = () => {
       bucket.count += 1;
     });
 
+    // 6. Freight Charges Analysis
+    const freightByCustomer: Record<string, { freight: number; gst: number; invoices: number }> = {};
+    let totalFreightAmount = 0;
+    let totalFreightGst = 0;
+    invoices.forEach((inv) => {
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!filterByDateRange(inv.date)) return;
+      const amt = Number(inv.freightAmount) || 0;
+      const rate = Number(inv.freightTaxRate) || 0;
+      const gst = (amt * rate) / 100;
+      if (amt > 0) {
+        const name = inv.customerName || 'Unknown Customer';
+        if (!freightByCustomer[name]) freightByCustomer[name] = { freight: 0, gst: 0, invoices: 0 };
+        freightByCustomer[name].freight += amt;
+        freightByCustomer[name].gst += gst;
+        freightByCustomer[name].invoices += 1;
+        totalFreightAmount += amt;
+        totalFreightGst += gst;
+      }
+    });
+    const topFreightCustomers = Object.entries(freightByCustomer)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.freight - a.freight)
+      .slice(0, 10);
+
     return {
       topCustomers,
       topEmployees,
@@ -371,9 +378,70 @@ export const ReportsModule: React.FC = () => {
       topSuppliers,
       topProducts,
       agingBuckets,
-      totalSales
+      totalSales,
+      totalFreightAmount,
+      totalFreightGst,
+      topFreightCustomers,
     };
   }, [invoices, expenses, purchaseRecords, dateRange]);
+
+  const supplierTransactions = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!filterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      const name = rec.supplier || 'Unknown Supplier';
+      if (!map[name]) map[name] = [];
+      map[name].push({ type: 'Purchase Entry', date: rec.dateSupply || rec.materialReceivedDate, ref: rec.invoiceNo || rec.id, amount: rec.total || 0, items: rec.items, status: rec.status, id: rec.id });
+    });
+    Object.keys(map).forEach(k => map[k].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    return map;
+  }, [purchaseRecords, dateRange]);
+
+  const procurementMonthly = useMemo(() => {
+    const monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const now = new Date();
+    const data = Array.from({ length: 12 }, (_, i) => {
+      const m = now.getMonth() - 11 + i;
+      const date = new Date(now.getFullYear(), m, 1);
+      return { label: monthsShort[date.getMonth()], month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, total: 0, count: 0 };
+    });
+    (purchaseRecords || []).forEach((rec: any) => {
+      const d = rec.dateSupply || rec.materialReceivedDate;
+      if (!d) return;
+      const monthKey = d.substring(0, 7);
+      const entry = data.find(e => e.month === monthKey);
+      if (entry) {
+        entry.total += rec.total || 0;
+        entry.count += 1;
+      }
+    });
+    return data;
+  }, [purchaseRecords]);
+
+  const freightMonthly = useMemo(() => {
+    const monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const now = new Date();
+    const data = Array.from({ length: 12 }, (_, i) => {
+      const m = now.getMonth() - 11 + i;
+      const date = new Date(now.getFullYear(), m, 1);
+      return { label: monthsShort[date.getMonth()], month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, freight: 0, gst: 0, invoices: 0 };
+    });
+    invoices.forEach((inv) => {
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      const d = inv.date;
+      if (!d) return;
+      const monthKey = d.substring(0, 7);
+      const entry = data.find(e => e.month === monthKey);
+      if (entry) {
+        const amt = Number(inv.freightAmount) || 0;
+        const rate = Number(inv.freightTaxRate) || 0;
+        entry.freight += amt;
+        entry.gst += (amt * rate) / 100;
+        if (amt > 0) entry.invoices += 1;
+      }
+    });
+    return data;
+  }, [invoices]);
 
   useEffect(() => {
     const q = query(collection(db, 'summaries'), orderBy('month', 'desc'), limit(60));
@@ -398,8 +466,7 @@ export const ReportsModule: React.FC = () => {
         if (inv.status === 'Draft' || !inv.date.startsWith(currentMonthStr)) return;
         const day = parseInt(inv.date.split('-')[2]);
         if (day && dailyData[day - 1]) {
-          if ((inv as any).documentType === 'SupplierPO') dailyData[day - 1].expenses += inv.grandTotal || 0;
-          else if ((inv as any).documentType !== 'Quotation') dailyData[day - 1].revenue += inv.grandTotal || 0;
+          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') dailyData[day - 1].revenue += inv.grandTotal || 0;
         }
       });
       expenses.forEach((exp) => {
@@ -425,8 +492,7 @@ export const ReportsModule: React.FC = () => {
         if (inv.status === 'Draft' || !inv.date.startsWith(`${currentYear}-`)) return;
         const month = parseInt(inv.date.split('-')[1]);
         if (month && monthlyData[month - 1]) {
-          if ((inv as any).documentType === 'SupplierPO') monthlyData[month - 1].expenses += inv.grandTotal || 0;
-          else if ((inv as any).documentType !== 'Quotation') monthlyData[month - 1].revenue += inv.grandTotal || 0;
+          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') monthlyData[month - 1].revenue += inv.grandTotal || 0;
         }
       });
       expenses.forEach((exp) => {
@@ -455,8 +521,7 @@ export const ReportsModule: React.FC = () => {
     };
     invoices.forEach((inv) => {
       if (inv.status === 'Draft') return;
-      if ((inv as any).documentType === 'SupplierPO') addYearData(inv.date, 0, inv.grandTotal || 0);
-      else if ((inv as any).documentType !== 'Quotation') addYearData(inv.date, inv.grandTotal || 0, 0);
+      if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') addYearData(inv.date, inv.grandTotal || 0, 0);
     });
     expenses.forEach((exp) => {
       if (exp.status === 'Approved') addYearData(exp.date, 0, exp.amount || 0);
@@ -472,17 +537,24 @@ export const ReportsModule: React.FC = () => {
 
   const CATEGORY_DATA = useMemo(() => {
     const catMap: Record<string, number> = {};
-    invoices.forEach((inv) => {
-      if (inv.status === 'Draft') return;
-      inv.items.forEach((item) => {
-        const product = products.find((p) => p.name === item.description);
-        const category = product?.category || 'Miscellaneous';
-        catMap[category] = (catMap[category] || 0) + (item.amount || 0);
-      });
+    const normalize = (cat: string) => {
+      const c = cat.toLowerCase().trim();
+      if (c === 'consumable') return 'Consumable';
+      if (c === 'pipe line') return 'Pipe Line';
+      if (c === 'equipment') return 'Equipment';
+      if (c === 'spare part') return 'Spare Part';
+      if (c === 'furniture') return 'Furniture';
+      return cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
+    };
+    (products || []).forEach((p) => {
+      const category = p.category ? normalize(p.category) : 'Miscellaneous';
+      catMap[category] = (catMap[category] || 0) + 1;
     });
-    const result = Object.entries(catMap).map(([name, value]) => ({ name, value }));
+    const result = Object.entries(catMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
     return result.length > 0 ? result : [{ name: 'No Data', value: 1 }];
-  }, [invoices, products]);
+  }, [products]);
 
   // ── All Products Detail (expanded from TOP_PRODUCTS) ─────────────────────
   const ALL_PRODUCTS_DETAIL = useMemo((): ProductDetail[] => {
@@ -543,16 +615,12 @@ export const ReportsModule: React.FC = () => {
   const filteredPurchaseRecords = (purchaseRecords || []).filter((rec: any) => filterByDateRange(rec.dateSupply || rec.materialReceivedDate));
 
   const totalRevenue = filteredInvoices.reduce((sum, inv) => {
-    if (inv.status === 'Draft' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'SupplierPO') return sum;
+    if (inv.status === 'Draft' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'PO' || (inv as any).documentType === 'SupplierPO') return sum;
     return sum + (inv.grandTotal || 0);
   }, 0);
-  const totalPurchases = filteredInvoices.reduce((sum, inv) => {
-    if (inv.status !== 'Draft' && (inv as any).documentType === 'SupplierPO') return sum + (inv.grandTotal || 0);
-    return sum;
-  }, 0);
   const totalPurchaseRecords = filteredPurchaseRecords.reduce((sum: number, rec: any) => sum + (rec.total || 0), 0);
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0) + totalPurchases + totalPurchaseRecords;
-  const totalProfit = totalRevenue - totalExpenses;
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0);
+  const totalProfit = totalRevenue - (totalExpenses + totalPurchaseRecords);
   const growthRate = 24.5;
 
   // ── Filtered & Sorted Products for Detail Page ──────────────────────────
@@ -635,11 +703,11 @@ export const ReportsModule: React.FC = () => {
         <GlobalChartDefs />
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-xl border border-slate-300 shadow-sm">
+        <div className="flex items-center justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-[2rem] border border-slate-300 shadow-sm">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { setView('main'); setSelectedProduct(null); setProductSearch(''); }}
-              className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-medical-600 hover:bg-medical-50 hover:border-medical-200 transition-all active:scale-95"
+              className="p-2 rounded-[2rem] bg-slate-50 border border-slate-200 text-slate-500 hover:text-medical-600 hover:bg-medical-50 hover:border-medical-200 transition-all active:scale-95"
             >
               <ArrowLeft size={16} />
             </button>
@@ -666,24 +734,56 @@ export const ReportsModule: React.FC = () => {
             { label: 'Total Units Sold', value: totalUnits.toLocaleString('en-IN'), sub: 'Across all invoices', icon: ShoppingCart, color: 'emerald' },
             { label: 'Product Revenue', value: `₹${formatIndianNumber(totalProductRevenue)}`, sub: 'From invoiced items', icon: DollarSign, color: 'medical' },
             { label: 'Top Product Share', value: `${ALL_PRODUCTS_DETAIL[0] ? ((ALL_PRODUCTS_DETAIL[0].totalRevenue / totalProductRevenue) * 100).toFixed(1) : 0}%`, sub: ALL_PRODUCTS_DETAIL[0]?.name?.substring(0, 16) || '—', icon: Award, color: 'amber' },
-          ].map(({ label, value, sub, icon: Icon, color }) => (
-            <div key={label} className={`bg-white p-3 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between group hover:shadow-lg hover:border-${color}-100 transition-all`}>
+          ].map(({ label, value, sub, icon: Icon, color }, index) => {
+            const gradients = [
+              'bg-gradient-to-br from-emerald-950 to-green-900 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)]',
+              'bg-gradient-to-br from-emerald-800 to-emerald-600 shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)]',
+              'bg-gradient-to-br from-[#c5a059] to-[#e5c185] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)]',
+              'bg-gradient-to-br from-slate-900 to-slate-800 shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)]'
+            ];
+            const iconBgs = [
+              'bg-emerald-900/50 text-emerald-100',
+              'bg-emerald-700/50 text-emerald-50',
+              'bg-amber-900/10 text-amber-950',
+              'bg-slate-800/50 text-slate-100'
+            ];
+            const textColsPrimary = [
+              'text-emerald-100/80',
+              'text-emerald-100/80',
+              'text-amber-950/80',
+              'text-slate-400'
+            ];
+            const textColsSecondary = [
+              'text-white',
+              'text-white',
+              'text-amber-950',
+              'text-white'
+            ];
+            const subCols = [
+              'text-emerald-200/60',
+              'text-emerald-200/60',
+              'text-amber-950/60',
+              'text-slate-500'
+            ];
+
+            return (
+            <div key={label} className={`${gradients[index % 4]} p-3 rounded-[2rem] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300`}>
               <div className="flex justify-between items-start mb-1">
-                <div className={`p-1.5 bg-${color}-50 text-${color}-600 rounded-lg group-hover:scale-110 transition-transform`}>
+                <div className={`p-1.5 ${iconBgs[index % 4]} rounded-lg group-hover:scale-110 transition-transform`}>
                   <Icon size={14} />
                 </div>
               </div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-                <h3 className="text-sm font-black text-slate-800 mt-0.5">{value}</h3>
-                <p className="text-[8px] text-slate-400 font-bold truncate mt-0.5">{sub}</p>
+                <p className={`text-[9px] font-black ${textColsPrimary[index % 4]} uppercase tracking-widest`}>{label}</p>
+                <h3 className={`text-sm font-black ${textColsSecondary[index % 4]} mt-0.5`}>{value}</h3>
+                <p className={`text-[8px] ${subCols[index % 4]} font-bold truncate mt-0.5`}>{sub}</p>
               </div>
             </div>
-          ))}
+          )})}
         </div>
 
         {/* Bar Chart: Top 10 by Revenue */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm shrink-0 min-h-[240px]">
+        <div className="bg-white p-4 rounded-[2rem] border border-slate-200 shadow-sm shrink-0 min-h-[240px]">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-tight">Revenue by Product — Top 10</h3>
@@ -709,7 +809,7 @@ export const ReportsModule: React.FC = () => {
 
         {/* Product Detail Drawer (when a product is selected) */}
         {selectedProduct && (
-          <div className="bg-gradient-to-br from-violet-50 to-medical-50 border border-violet-200 rounded-2xl p-4 shrink-0 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="bg-gradient-to-br from-violet-50 to-medical-50 border border-violet-200 rounded-[2rem] p-4 shrink-0 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <p className="text-[8px] font-black text-violet-500 uppercase tracking-widest mb-1">Product Detail</p>
@@ -721,13 +821,13 @@ export const ReportsModule: React.FC = () => {
                   <span className="text-[8px] font-black text-slate-600 bg-white px-2 py-0.5 rounded-full border border-slate-200 uppercase">{selectedProduct.invoiceCount} invoices</span>
                 </div>
               </div>
-              <button onClick={() => setSelectedProduct(null)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-200">
+              <button onClick={() => setSelectedProduct(null)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-[2rem] transition-all border border-transparent hover:border-slate-200">
                 <X size={16} />
               </button>
             </div>
 
             {/* Invoice History Table */}
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden">
               <div className="grid grid-cols-4 bg-slate-50 border-b border-slate-200 px-4 py-2 text-[8px] font-black text-slate-400 uppercase tracking-widest">
                 <span>Invoice</span>
                 <span>Date</span>
@@ -752,7 +852,7 @@ export const ReportsModule: React.FC = () => {
         )}
 
         {/* Full Product Table */}
-        <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden flex flex-col shrink-0">
+        <div className="bg-white rounded-[2rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col shrink-0">
           {/* Table Header & Search */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border-b border-slate-200 bg-slate-50/40">
             <div>
@@ -861,7 +961,7 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
 
-        <div className="h-4 shrink-0" />
+      <div className="h-4 shrink-0" />
       </div>
     );
   }
@@ -874,7 +974,7 @@ export const ReportsModule: React.FC = () => {
       <GlobalChartDefs />
 
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-xl border border-slate-300 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-[2rem] border border-slate-300 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-gradient-to-br from-medical-600 to-violet-600 rounded-lg text-white shadow-lg shadow-medical-500/20">
             <FileText size={18} />
@@ -887,18 +987,18 @@ export const ReportsModule: React.FC = () => {
 
         <div className="flex items-center gap-2">
           {/* Tab Selection */}
-          <div className="flex bg-slate-100 p-0.5 rounded-lg shadow-inner mr-1">
+          <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1 mr-1">
             <button
               onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
-              className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md transition-all ${reportsTab === 'overview' ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${reportsTab === 'overview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
             >
               Overview
             </button>
             <button
               onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
-              className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md transition-all ${reportsTab === 'analytics' ? 'bg-white text-medical-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${reportsTab === 'analytics' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
             >
-              Analytics
+              Analytics <span className={`${reportsTab === 'analytics' ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-200 text-slate-500'} px-1 rounded-sm text-[7px]`}>BETA</span>
             </button>
           </div>
 
@@ -927,7 +1027,7 @@ export const ReportsModule: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 shrink-0">
         {/* Card 1: Total Sales */}
         <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
           <div className="flex justify-between items-start mb-2">
@@ -976,7 +1076,23 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 4: Growth */}
+        {/* Card 4: Procurement */}
+        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(109,40,217,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(109,40,217,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)' }}>
+          <div className="flex justify-between items-start mb-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-violet-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-violet-200 group-hover:scale-110 transition-transform">
+              <ShoppingCart size={15} />
+            </div>
+            <span className="flex items-center gap-1 text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <Package size={8} /> {filteredPurchaseRecords.length} entries
+            </span>
+          </div>
+          <div>
+            <p className="text-[8px] font-extrabold text-violet-200/80 uppercase tracking-widest leading-none">Procurement</p>
+            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalPurchaseRecords)}</h3>
+          </div>
+        </div>
+
+        {/* Card 5: Growth */}
         <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
           <div className="flex justify-between items-start mb-2">
             <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
@@ -998,7 +1114,7 @@ export const ReportsModule: React.FC = () => {
           {/* Charts Section */}
           <div className="flex flex-col lg:flex-row gap-4 mb-4 lg:min-h-[500px]">
             {/* Main Financial Chart */}
-            <div className="flex-1 bg-white p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px] relative overflow-hidden">
+            <div className="flex-1 bg-white p-4 md:p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[250px] md:min-h-[350px] relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32" />
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 relative z-10">
                 <div>
@@ -1021,7 +1137,7 @@ export const ReportsModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-1 w-full min-h-[220px] relative z-10">
+              <div className="flex-1 w-full min-h-[180px] md:min-h-[220px] relative z-10">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={PERFORMANCE_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1059,25 +1175,33 @@ export const ReportsModule: React.FC = () => {
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-4">
                     <div className="text-center">
-                      <span className="text-lg font-black text-slate-800">100%</span>
-                      <p className="text-[7px] text-slate-400 font-black uppercase">Split</p>
+ <span className="text-lg font-bold tracking-tight text-slate-800">{CATEGORY_DATA.length}</span>
+                      <p className="text-[7px] text-slate-400 font-black uppercase">Categories</p>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] mt-1 font-black uppercase tracking-tight">
-                  {CATEGORY_DATA.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-1">
-                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="text-slate-500">{entry.name}</span>
-                    </div>
-                  ))}
+                <div className="space-y-1 mt-1">
+                  {CATEGORY_DATA.slice(0, 5).map((entry, index) => {
+                    const total = CATEGORY_DATA.reduce((s, e) => s + e.value, 0);
+                    const pct = total > 0 ? (entry.value / total) * 100 : 0;
+                    return (
+                      <div key={index} className="flex items-center gap-2 text-[7px] font-black uppercase tracking-tight">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="text-slate-500 w-16 truncate">{entry.name}</span>
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[index % COLORS.length] }} />
+                        </div>
+                        <span className="text-slate-700 w-10 text-right">{pct.toFixed(0)}%</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Top Products (Clickable) */}
               <button
                 onClick={() => setView('topProducts')}
-                className="bg-white p-4 rounded-[28px] border border-emerald-950/5 shadow-[0_20px_40px_-10px_rgba(15,32,23,0.12)] min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-emerald-700/35 hover:shadow-[0_25px_50px_-12px_rgba(6,78,59,0.18)] transition-all duration-300 group active:scale-[0.99]"
+                className="bg-white p-3 md:p-4 rounded-[28px] border border-emerald-950/5 shadow-[0_20px_40px_-10px_rgba(15,32,23,0.12)] min-h-[180px] md:min-h-[220px] flex flex-col flex-1 text-left cursor-pointer hover:border-emerald-700/35 hover:shadow-[0_25px_50px_-12px_rgba(6,78,59,0.18)] transition-all duration-300 group active:scale-[0.99]"
               >
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest group-hover:text-emerald-800 transition-colors">Top Products</h3>
@@ -1118,7 +1242,7 @@ export const ReportsModule: React.FC = () => {
           </div>
 
           {/* Lead Source & Conversion */}
-          <div className="bg-white p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[280px] shrink-0">
+          <div className="bg-white p-4 md:p-6 rounded-[32px] border border-emerald-950/5 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[200px] md:min-h-[280px] shrink-0">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
               <div>
                 <h3 className="font-black text-[10px] text-slate-800 flex items-center gap-3 uppercase tracking-tight">
@@ -1167,7 +1291,7 @@ export const ReportsModule: React.FC = () => {
                   {analyticsData.topCustomers.slice(0, 3).map((cust, idx) => (
                     <div key={idx} className="flex flex-col gap-0.5">
                       <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
-                        <span className="truncate max-w-[120px]">{cust.name}</span>
+                        <span className="truncate max-w-[120px] md:max-w-[100px]">{cust.name}</span>
                         <span>{formatCurrency(cust.total)}</span>
                       </div>
                       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -1186,10 +1310,10 @@ export const ReportsModule: React.FC = () => {
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                       {analyticsData.topCustomers.map((cust, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[150px]">{cust.name}</span>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-black text-slate-800">{formatCurrency(cust.total)}</span>
@@ -1199,7 +1323,7 @@ export const ReportsModule: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ left: -10, right: 10 }}>
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
@@ -1231,7 +1355,7 @@ export const ReportsModule: React.FC = () => {
                   {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => (
                     <div key={idx} className="flex flex-col gap-0.5">
                       <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
-                        <span className="truncate max-w-[120px]">{emp.name}</span>
+                        <span className="truncate max-w-[120px] md:max-w-[100px]">{emp.name}</span>
                         <span>{formatCurrency(emp.total)}</span>
                       </div>
                       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -1250,10 +1374,10 @@ export const ReportsModule: React.FC = () => {
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                       {analyticsData.topEmployees.map((emp, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[150px]">{emp.name}</span>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px]">{emp.name}</span>
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
@@ -1263,7 +1387,7 @@ export const ReportsModule: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart layout="vertical" data={analyticsData.topEmployees} margin={{ left: -10, right: 10 }}>
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
@@ -1308,13 +1432,13 @@ export const ReportsModule: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.expenseCategories.map((exp, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
                         <span className="text-[10px] font-black text-slate-700 uppercase">{exp.name}</span>
                         <span className="text-[10px] font-black text-rose-600">{formatCurrency(exp.value)}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
                     <ResponsiveContainer width="100%" height="90%">
                       <PieChart>
                         <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
@@ -1338,7 +1462,98 @@ export const ReportsModule: React.FC = () => {
               )}
             </div>
 
-          {/* 3. Supplier Volume */}
+          {/* 3. Freight Charges */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'freight' ? null : 'freight')}
+            className={getCardClasses('freight', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Freight Charges</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Collected</p>
+                </div>
+                <Truck size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'freight' ? (
+                <div className="space-y-2 flex-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-amber-50 rounded-[2rem] p-2 text-center">
+                      <span className="text-[16px] font-black text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
+                      <span className="text-[7px] font-bold text-amber-500 uppercase">Freight Amount</span>
+                    </div>
+                    <div className="bg-amber-50 rounded-[2rem] p-2 text-center">
+                      <span className="text-[16px] font-black text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
+                      <span className="text-[7px] font-bold text-amber-500 uppercase">GST Collected</span>
+                    </div>
+                  </div>
+                  {analyticsData.topFreightCustomers.slice(0, 3).map((cust, idx) => (
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                      <span className="truncate max-w-[120px] md:max-w-[100px]">{cust.name}</span>
+                      <span className="text-amber-700">{formatCurrency(cust.freight)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.totalFreightAmount === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No freight data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
+                        <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
+                        <span className="text-[7px] font-bold text-amber-400 uppercase">Freight Amount</span>
+                      </div>
+                      <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
+                        <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
+                        <span className="text-[7px] font-bold text-amber-400 uppercase">GST Collected</span>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Customers by Freight</h4>
+                      {analyticsData.topFreightCustomers.map((cust, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-black text-amber-700">{formatCurrency(cust.freight)}</span>
+                            <span className="text-[7px] font-bold text-slate-400">{cust.invoices} inv</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3">
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Trend</h4>
+                      {freightMonthly.filter(m => m.freight > 0).map((m, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(m.freight / Math.max(...freightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
+                            </div>
+                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={freightMonthly} margin={{ left: -10, right: 10 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 7, fontWeight: 'bold' }} />
+                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="freight" fill="url(#colorExp)" radius={[6, 6, 0, 0]} barSize={15} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 4. Supplier Volume */}
           <div
             onClick={() => setExpandedSection(expandedSection === 'suppliers' ? null : 'suppliers')}
             className={getCardClasses('suppliers', 'md:col-span-2 min-h-[350px]')}
@@ -1354,7 +1569,7 @@ export const ReportsModule: React.FC = () => {
               {expandedSection !== 'suppliers' ? (
                 <div className="space-y-2 flex-1 overflow-hidden">
                   {analyticsData.topSuppliers.slice(0, 3).map((sup, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50 cursor-pointer hover:text-violet-700" onClick={(e) => { e.stopPropagation(); setSelectedSupplier({ name: sup.name, transactions: supplierTransactions[sup.name] || [] }); }}>
                       <span className="truncate max-w-[100px]">{sup.name}</span>
                       <span className="text-violet-600">{formatCurrency(sup.total)}</span>
                     </div>
@@ -1369,7 +1584,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.topSuppliers.map((sup, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100 cursor-pointer hover:bg-violet-50 hover:border-violet-200 transition-colors" onClick={(e) => { e.stopPropagation(); setSelectedSupplier({ name: sup.name, transactions: supplierTransactions[sup.name] || [] }); }}>
                         <div>
                           <span className="text-[10px] font-black text-slate-700 uppercase block">{sup.name}</span>
                           <span className="text-[7px] font-bold text-slate-400 uppercase">{sup.transactions} transactions</span>
@@ -1383,7 +1598,7 @@ export const ReportsModule: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
@@ -1397,7 +1612,87 @@ export const ReportsModule: React.FC = () => {
               )}
             </div>
 
-          {/* 4. Product Line Analysis */}
+          {/* 5. Procurement Overview */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'procurement' ? null : 'procurement')}
+            className={getCardClasses('procurement', 'md:col-span-2 min-h-[350px]')}
+          >
+              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+                <div>
+                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Procurement</h3>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Purchase Overview</p>
+                </div>
+                <Package size={12} className="text-slate-400" />
+              </div>
+
+              {expandedSection !== 'procurement' ? (
+                <div className="space-y-2 flex-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-slate-50 rounded-[2rem] p-2 text-center">
+                      <span className="text-[16px] font-black text-slate-800 block">{formatCurrency(totalPurchaseRecords)}</span>
+                      <span className="text-[7px] font-bold text-slate-400 uppercase">Total Procurement</span>
+                    </div>
+                    <div className="bg-slate-50 rounded-[2rem] p-2 text-center">
+                      <span className="text-[16px] font-black text-slate-800 block">{filteredPurchaseRecords.length}</span>
+                      <span className="text-[7px] font-bold text-slate-400 uppercase">Transactions</span>
+                    </div>
+                  </div>
+                  {procurementMonthly.filter(m => m.total > 0).slice(0, 3).map((m, idx) => (
+                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
+                      <span>{m.label}</span>
+                      <span className="text-indigo-600">{formatCurrency(m.total)}</span>
+                    </div>
+                  ))}
+                  {filteredPurchaseRecords.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-[8px] text-slate-300 font-black uppercase">No procurement data</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(totalPurchaseRecords)}</span>
+                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Total Procurement</span>
+                      </div>
+                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+ <span className="text-lg font-bold tracking-tight text-indigo-700 block">{filteredPurchaseRecords.length}</span>
+                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Transactions</span>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Trend</h4>
+                      {procurementMonthly.filter(m => m.total > 0).map((m, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.total / Math.max(...procurementMonthly.filter(x => x.total > 0).map(x => x.total))) * 100}%` }} />
+                            </div>
+                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.total)}</span>
+                            <span className="text-[7px] font-bold text-slate-400 w-8 text-right">{m.count}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={procurementMonthly} margin={{ left: -10, right: 10 }}>
+                        <XAxis dataKey="label" tick={{ fontSize: 7, fontWeight: 'bold' }} />
+                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          {/* 6. Product Line Analysis */}
           <div
             onClick={() => setExpandedSection(expandedSection === 'products' ? null : 'products')}
             className={getCardClasses('products', 'md:col-span-3 min-h-[250px]')}
@@ -1414,7 +1709,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="space-y-2 flex-1 overflow-hidden">
                   {analyticsData.topProducts.slice(0, 2).map((prod, idx) => (
                     <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
-                      <span className="truncate max-w-[150px]">{prod.name}</span>
+                      <span className="truncate max-w-[140px] md:max-w-[130px]">{prod.name}</span>
                       <span>{formatCurrency(prod.total)} ({prod.qty} units)</span>
                     </div>
                   ))}
@@ -1428,7 +1723,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.topProducts.map((prod, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
                         <div>
                           <span className="text-[10px] font-black text-slate-700 uppercase block truncate max-w-[200px]">{prod.name}</span>
                           <span className="text-[7px] font-bold text-slate-400 uppercase">{prod.qty} units sold</span>
@@ -1437,7 +1732,7 @@ export const ReportsModule: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
                         <XAxis dataKey="name" tick={{ fontSize: 7 }} />
@@ -1451,7 +1746,7 @@ export const ReportsModule: React.FC = () => {
               )}
             </div>
 
-          {/* 5. Receivables Aging */}
+          {/* 7. Receivables Aging */}
           <div
             onClick={() => setExpandedSection(expandedSection === 'aging' ? null : 'aging')}
             className={getCardClasses('aging', 'md:col-span-3 min-h-[250px]')}
@@ -1477,7 +1772,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.agingBuckets.map((bucket, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100">
                         <div>
                           <span className="text-[10px] font-black text-slate-700 uppercase block">{bucket.name}</span>
                           <span className="text-[7px] font-bold text-slate-400 uppercase">{bucket.count} outstanding invoices</span>
@@ -1486,7 +1781,7 @@ export const ReportsModule: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
                     <ResponsiveContainer width="100%" height="90%">
                       <PieChart>
                         <Pie data={analyticsData.agingBuckets} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
@@ -1510,7 +1805,7 @@ export const ReportsModule: React.FC = () => {
               )}
             </div>
 
-          {/* 7. Filing Status Tracker */}
+          {/* 8. Filing Status Tracker */}
           <div
             onClick={() => setExpandedSection(expandedSection === 'filing' ? null : 'filing')}
             className={getCardClasses('filing', 'md:col-span-2 min-h-[350px]')}
@@ -1526,7 +1821,7 @@ export const ReportsModule: React.FC = () => {
             {expandedSection !== 'filing' ? (
               <div className="space-y-4 my-auto">
                 <div className="flex justify-between items-baseline">
-                  <span className="text-2xl font-black text-slate-800">{filingStats.filed}</span>
+ <span className="text-2xl font-bold tracking-tight text-slate-800">{filingStats.filed}</span>
                   <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                     {filingStats.filedRatio.toFixed(1)}% Filed
                   </span>
@@ -1569,7 +1864,7 @@ export const ReportsModule: React.FC = () => {
                     { label: 'Pending Filing', count: filingStats.notFiled, ratio: filingStats.notFiledRatio, color: 'text-slate-600 bg-slate-50 border-slate-200' },
                     { label: 'Not Yet Updated', count: filingStats.notUpdated, ratio: filingStats.notUpdatedRatio, color: 'text-slate-400 bg-transparent border-slate-100 border-dashed animate-pulse' }
                   ].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100">
                       <div>
                         <span className="text-[10px] font-black text-slate-700 uppercase block">{item.label}</span>
                         <span className="text-[7px] font-bold text-slate-400 uppercase">{item.count} total records</span>
@@ -1580,7 +1875,7 @@ export const ReportsModule: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                <div className="h-[250px] bg-slate-50/50 rounded-xl p-2 flex flex-col justify-center">
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
                   <ResponsiveContainer width="100%" height="90%">
                     <PieChart>
                       <Pie 
@@ -1620,6 +1915,44 @@ export const ReportsModule: React.FC = () => {
             )}
           </div>
 
+        </div>
+      )}
+
+      {selectedSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSupplier(null)}>
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest">{selectedSupplier.name}</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">{selectedSupplier.transactions.length} transactions</p>
+              </div>
+              <button onClick={() => setSelectedSupplier(null)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {selectedSupplier.transactions.length === 0 ? (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-xs text-slate-300 font-black uppercase">No transactions found</p>
+                </div>
+              ) : (
+                selectedSupplier.transactions.map((txn, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-black uppercase bg-indigo-50 text-indigo-600">
+                        PR
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-black text-slate-700 uppercase block">{txn.ref}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">{txn.date}{txn.status ? ` · ${txn.status}` : ''}</span>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black text-slate-800">{formatCurrency(txn.amount)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 

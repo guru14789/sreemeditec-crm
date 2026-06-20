@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskLog } from '../types';
 import {
     CheckSquare, Plus, User, Calendar,
-    X, AlignLeft, History, Zap, Trash2, Edit, Search, RefreshCw, XCircle, Clock
+    X, AlignLeft, History, Zap, Trash2, Edit, Search, RefreshCw, XCircle, Clock, Activity, TrendingUp
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -477,7 +477,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                 <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${color}`}></div>
-                        <h4 className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{title}</h4>
+                        <h4 className="font-black text-[9px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{title}</h4>
                     </div>
                     <span className="bg-slate-200/50 dark:bg-slate-800 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-500 dark:text-slate-400">{columnTasks.length}</span>
                 </div>
@@ -507,7 +507,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                     </span>
                                 )}
                             </div>
-                            <h5 className="font-black text-slate-800 dark:text-slate-100 text-[12px] md:text-[13px] uppercase tracking-tight mb-2 leading-tight">{task.title}</h5>
+                            <h5 className="font-black text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-tight mb-2 leading-tight">{task.title}</h5>
                             <div className="pt-4 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
                                 <div className="flex items-center gap-2"><User size={12} /> {task.assignedTo.split(' ')[0]}</div>
                                 <div className={`flex items-center gap-1 ${task.dueDate < new Date().toLocaleDateString('en-CA') && task.status !== 'Done' ? 'text-rose-500 font-black' : ''}`}>
@@ -520,7 +520,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                     {isCompleted && columnTasks.length > completedLimit && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); setCompletedLimit(prev => prev + 20); }}
-                            className="w-full py-4 rounded-[1.5rem] border-2 border-dashed border-slate-300 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-medical-600 hover:border-medical-300 transition-all flex flex-col items-center gap-1 group"
+                            className="w-full py-4 rounded-[1.5rem] border-2 border-dashed border-slate-300 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-700 scale-95 hover:border-medical-300 transition-all flex flex-col items-center gap-1 group"
                         >
                             <Plus size={14} className="group-hover:rotate-90 transition-transform" />
                             Load More Completed ({columnTasks.length - completedLimit} remaining)
@@ -537,34 +537,41 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
 
     return (
         <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm shrink-0">
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-gradient-to-br from-indigo-600 to-medical-600 rounded-[1.5rem] text-white shadow-xl flex items-center justify-center"><CheckSquare size={24} /></div>
+            {/* Top Header Card */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                <div className="flex items-center gap-5 relative z-10">
+                    <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
+                        <CheckSquare size={24} />
+                    </div>
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-none">Fleet Operations</h2>
-                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-lg">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                                <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Live Syncing</span>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Fleet Operations</h2>
+                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Live Syncing</span>
                             </div>
                         </div>
-                        <p className="text-[10px] font-black text-indigo-600 uppercase mt-2 tracking-[0.2em]">{isAdmin ? 'ADMIN COMMAND CENTER' : 'FIELD AGENT TERMINAL'}</p>
+                        <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em]">{isAdmin ? 'ADMIN COMMAND CENTER' : 'FIELD AGENT TERMINAL'}</p>
                     </div>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto relative z-10">
                     <div className="relative group/search flex-1 lg:w-64">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-medical-500 transition-colors" size={16} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50 group-focus-within/search:text-white transition-colors" size={16} />
                         <input 
                             type="text"
                             placeholder="Search tasks..."
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-medical-500 focus:ring-4 focus:ring-medical-500/5 transition-all"
+                            className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-3 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all shadow-inner"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                     {isAdmin && (
-                        <button onClick={() => setShowAddTaskModal(true)} className="bg-[#022c22] text-white px-7 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-2">
-                            <Plus size={16} /> Dispatch Job
+                        <button 
+                            onClick={() => setShowAddTaskModal(true)} 
+                            className="bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <Zap size={16} /> Dispatch Job
                         </button>
                     )}
                 </div>
@@ -582,7 +589,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                 <button 
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
-                    className="group bg-white dark:bg-slate-900 px-6 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-3"
+                    className="group bg-white dark:bg-slate-900 px-6 py-2.5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-3"
                 >
                     <RefreshCw size={14} className={`text-medical-500 ${isLoadingMore ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
@@ -601,13 +608,13 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                 {isEditing ? (
                                     <input
                                         type="text"
-                                        className="w-full mt-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2 text-xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100"
+                                        className="w-full mt-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-1.5 text-xl font-playfair font-bold tracking-tight uppercase tracking-tight text-slate-800 dark:text-slate-100"
                                         value={editTitle}
                                         onChange={(e) => setEditTitle(e.target.value)}
                                         placeholder="Task Title"
                                     />
                                 ) : (
-                                    <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">{selectedTask.title}</h3>
+ <h3 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1">{selectedTask.title}</h3>
                                 )}
                             </div>
                             <div className="flex items-center gap-2 ml-4">
@@ -639,7 +646,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Zap size={14} className="text-medical-600" /> Command Actions</h4>
                                 
                                 {selectedTask.handoffNotes && (
-                                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800 rounded-2xl">
+                                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800 rounded-[2rem]">
                                         <h5 className="text-[8px] font-black text-amber-600 uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5"><AlignLeft size={10} /> Previous Phase Notes</h5>
                                         <p className="text-xs font-bold text-amber-800 dark:text-amber-200 indent-2">{selectedTask.handoffNotes}</p>
                                     </div>
@@ -647,12 +654,12 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
 
                                 <div className="flex flex-col gap-3">
                                     {isEditing ? (
-                                        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
+                                        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-300 dark:border-slate-700">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Agent</label>
                                                     <select
-                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none"
                                                         value={editAssignedTo}
                                                         onChange={(e) => setEditAssignedTo(e.target.value)}
                                                     >
@@ -664,7 +671,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                 <div className="space-y-1">
                                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
                                                     <select
-                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold appearance-none"
+                                                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none"
                                                         value={editPriority}
                                                         onChange={(e) => setEditPriority(e.target.value as any)}
                                                     >
@@ -680,7 +687,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Modify Flow Chain</label>
                                                 <div className="flex gap-2 mt-1">
                                                     <select 
-                                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl px-3 py-1.5 text-[10px] font-bold dark:text-white outline-none"
+                                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-[10px] font-bold dark:text-white outline-none"
                                                         id="edit-handoff-select"
                                                     >
                                                         <option value="">Add to chain...</option>
@@ -752,7 +759,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                             </p>
                                                             
                                                             {selectedTask.rescheduleRequest ? (
-                                                                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-sm">
+                                                                <div className="p-4 bg-white dark:bg-slate-900 rounded-[2rem] border border-rose-200 dark:border-rose-800 shadow-sm">
                                                                     <div className="flex justify-between items-center mb-2">
                                                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Status</span>
                                                                         <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${
@@ -773,7 +780,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                                         setReqNewDate(new Date().toISOString().split('T')[0]);
                                                                         setShowRescheduleRequest(true);
                                                                     }}
-                                                                    className="w-full bg-rose-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all"
+                                                                    className="w-full bg-rose-600 text-white py-3 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all"
                                                                 >
                                                                     Raise Reschedule Request
                                                                 </button>
@@ -782,25 +789,25 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                     ) : (
                                                         <>
                                                             {selectedTask.status === 'To Do' && (
-                                                                <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
+                                                                <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-indigo-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl">Start Mission</button>
                                                             )}
                                                             {selectedTask.status === 'In Progress' && (
                                                                 <div className="space-y-3">
                                                                     <div className="space-y-1">
                                                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Handoff Instructions / Completion Notes</label>
                                                                         <textarea 
-                                                                            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
+                                                                            className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-[2rem] p-3 text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
                                                                             placeholder="Describe what you've done for the next stage..."
                                                                             value={staffHandoffNote}
                                                                             onChange={(e) => setStaffHandoffNote(e.target.value)}
                                                                             rows={3}
                                                                         />
                                                                     </div>
-                                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review', staffHandoffNote)} className="w-full bg-medical-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl ring-4 ring-medical-500/10">Submit for Approval</button>
+                                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'Review', staffHandoffNote)} className="w-full bg-medical-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl ring-4 ring-medical-500/10">Submit for Approval</button>
                                                                 </div>
                                                             )}
                                                             {selectedTask.status === 'Review' && (
-                                                                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-center">
+                                                                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-[2rem] text-center">
                                                                     <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center justify-center gap-2"><RefreshCw size={12} className="animate-spin" /> Awaiting Admin Review</p>
                                                                 </div>
                                                             )}
@@ -808,7 +815,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-300 dark:border-slate-700">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">Currently under Operation by: {selectedTask.assignedTo}</p>
                                                 </div>
                                             )}
@@ -816,7 +823,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                     )}
 
                                     {isAdmin && (
-                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700">
+                                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-300 dark:border-slate-700">
                                             <div className="flex justify-between items-center mb-3">
                                                 <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <Calendar size={12} /> Mission Timeline
@@ -846,13 +853,13 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="date"
-                                                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold"
+                                                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-xs font-bold"
                                                         value={rescheduleDate}
                                                         onChange={(e) => setRescheduleDate(e.target.value)}
                                                     />
                                                     <button
                                                         onClick={handleReschedule}
-                                                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
+                                                        className="bg-indigo-600 text-white px-4 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
                                                     >
                                                         Commit
                                                     </button>
@@ -873,17 +880,17 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                     </div>
                                                     <div className="space-y-2">
                                                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Requested by {selectedTask.rescheduleRequest.requestedBy}</p>
-                                                        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800">
+                                                        <div className="p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-amber-200 dark:border-amber-800">
                                                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2 leading-relaxed">Reason: "{selectedTask.rescheduleRequest.reason}"</p>
                                                             <p className="text-[10px] font-black text-indigo-600 uppercase">Proposed Date: {selectedTask.rescheduleRequest.newDate}</p>
                                                         </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3">
-                                                        <button onClick={() => handleProcessReschedule(true)} className="bg-emerald-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Approve</button>
+                                                        <button onClick={() => handleProcessReschedule(true)} className="bg-emerald-600 text-white py-3 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">Approve</button>
                                                         <button onClick={() => {
                                                             const note = prompt("Reason for rejection:");
                                                             if (note !== null) handleProcessReschedule(false, note);
-                                                        }} className="bg-rose-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all">Reject</button>
+                                                        }} className="bg-rose-600 text-white py-3 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 active:scale-95 transition-all">Reject</button>
                                                     </div>
                                                 </div>
                                             )}
@@ -892,14 +899,14 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                                 <div className="flex flex-col gap-2">
                                                     <button 
                                                         onClick={() => handleUpdateStatus(selectedTask.id, 'Done')} 
-                                                        className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                                                        className="w-full bg-emerald-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 flex items-center justify-center gap-2"
                                                     >
                                                         <CheckSquare size={16} />
                                                         {(selectedTask.handoffChain && selectedTask.handoffChain.length > 0) 
                                                             ? 'Verify & Hand off to Next Agent' 
                                                             : 'Verify & Finalize Mission'}
                                                     </button>
-                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
+                                                    <button onClick={() => handleUpdateStatus(selectedTask.id, 'In Progress')} className="w-full bg-white dark:bg-slate-800 text-rose-600 border border-rose-100 dark:border-rose-900 py-4 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-rose-50 transition-colors">Send Back for Revision</button>
                                                 </div>
                                             )}
                                         </div>
@@ -943,7 +950,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><History size={14} /> Mission Logs</h4>
                                 <div className="space-y-4">
                                     {selectedTask.logs?.map(log => (
-                                        <div key={log.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-sm">
+                                        <div key={log.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] shadow-sm">
                                             <div className="flex justify-between items-start mb-1 text-[10px] font-black uppercase">
                                                 <span className="text-slate-800 dark:text-slate-200">{log.user}</span>
                                                 <span className="text-slate-300">{log.timestamp}</span>
@@ -959,21 +966,21 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
             )}
 
             {showAddTaskModal && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden scale-100 animate-in zoom-in-95">
                         <div className="p-6 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
-                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Dispatch Job</h3>
+                            <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Dispatch Job</h3>
                             <button onClick={() => setShowAddTaskModal(false)}><X size={24} className="text-slate-400" /></button>
                         </div>
                         <div className="p-6 space-y-5 overflow-y-auto flex-1 custom-scrollbar">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Job Title *</label>
-                                <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white" placeholder="e.g. Philips MRI Calibration" value={newTask.title || ''} onChange={e => setNewTask({ ...newTask, title: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Assignee *</label>
-                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })}>
+                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white appearance-none" value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })}>
                                         <option value="">Select Staff...</option>
                                         {employees.map(emp => (
                                             <option key={emp.id} value={emp.name}>{emp.name} ({emp.department})</option>
@@ -982,7 +989,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
-                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white appearance-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
+                                    <select className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white appearance-none" value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value as any })}>
                                         <option value="Low">Low</option>
                                         <option value="Medium">Medium</option>
                                         <option value="High">High</option>
@@ -992,24 +999,24 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Due Date</label>
-                                    <input type="date" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
+                                    <input type="date" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white" value={newTask.dueDate} onChange={e => setNewTask({ ...newTask, dueDate: e.target.value })} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Location</label>
-                                    <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({ ...newTask, locationName: e.target.value })} />
+                                    <input type="text" className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white" placeholder="Client Site / Office" value={newTask.locationName || ''} onChange={e => setNewTask({ ...newTask, locationName: e.target.value })} />
                                 </div>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Briefing Notes</label>
-                                <textarea className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the first agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
+                                <textarea className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white resize-none" rows={4} placeholder="Specific instructions for the first agent..." value={newTask.description || ''} onChange={e => setNewTask({ ...newTask, description: e.target.value })} />
                             </div>
 
                             {/* Handoff Chain Builder */}
-                            <div className="space-y-3 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-2xl">
+                            <div className="space-y-3 p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 rounded-[2rem]">
                                 <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Strategic Handoff Chain (Next Steps)</label>
                                 <div className="flex gap-2">
                                     <select 
-                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none focus:border-indigo-500"
+                                        className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-[2rem] px-3 py-2 text-xs font-bold dark:text-white outline-none focus:border-indigo-500"
                                         id="handoff-select"
                                     >
                                         <option value="">Add next person...</option>
@@ -1018,7 +1025,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                                         ))}
                                     </select>
                                     <button 
-                                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm"
+                                        className="bg-indigo-600 text-white px-4 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-sm"
                                         onClick={() => {
                                             const sel = document.getElementById('handoff-select') as HTMLSelectElement;
                                             if (sel.value) {
@@ -1051,7 +1058,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                         </div>
                         <div className="p-6 border-t border-slate-300 dark:border-slate-800 flex gap-4 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
                             <button onClick={() => setShowAddTaskModal(false)} className="flex-1 py-3 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
-                            <button onClick={handleCreateTask} className="flex-1 bg-[#022c22] text-white py-3 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Engage Fleet</button>
+                            <button onClick={handleCreateTask} className="flex-1 bg-[#022c22] text-white py-3 rounded-[2rem] text-[11px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Engage Fleet</button>
                         </div>
                     </div>
                 </div>
@@ -1060,15 +1067,15 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Request Reschedule</h3>
+                            <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Request Reschedule</h3>
                             <button onClick={() => setShowRescheduleRequest(false)}><X size={24} /></button>
                         </div>
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Proposed Mission Date</label>
                                 <input 
                                     type="date" 
-                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white"
+                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white"
                                     value={reqNewDate}
                                     onChange={(e) => setReqNewDate(e.target.value)}
                                     min={new Date().toISOString().split('T')[0]}
@@ -1077,7 +1084,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reason for Adjustment</label>
                                 <textarea 
-                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-3 text-sm font-bold dark:text-white resize-none"
+                                    className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-[2rem] px-3 py-1.5 text-sm font-bold dark:text-white resize-none"
                                     rows={4}
                                     placeholder="Explain why the deadline was missed..."
                                     value={reqReason}
@@ -1086,7 +1093,7 @@ export const TaskModule: React.FC<TaskModuleProps> = ({ userRole, readOnly }) =>
                             </div>
                             <button 
                                 onClick={handleRequestReschedule}
-                                className="w-full bg-rose-600 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95 transition-all"
+                                className="w-full bg-rose-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95 transition-all"
                             >
                                 Dispatch Request
                             </button>

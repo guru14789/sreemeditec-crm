@@ -6,7 +6,7 @@ import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet, Search,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, ChevronRight, Calendar, Database, QrCode
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, QrCode
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -37,12 +37,11 @@ import { PayrollModule } from './components/PayrollModule';
 import { ArchiveModule } from './components/ArchiveModule';
 import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
-import { CompanyModule } from './components/CompanyModule';
 import { ServiceTaskModule } from './components/ServiceTaskModule';
 import { PublicServiceForm } from './components/PublicServiceForm';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
-import { BankDetailsForm } from './components/BankDetailsForm';
+import { SystemConfigModule } from './components/SystemConfigModule';
 import { TabView, Invoice, ServiceReport, DeliveryChallan, Lead, ExpenseRecord, PurchaseRecord } from './types';
 import { useData } from './components/DataContext';
 
@@ -58,13 +57,14 @@ const NavItem: React.FC<{
   return (
     <button
       onClick={() => onSelect(tab)}
+      title={!isSidebarOpen ? label : undefined}
       className={`group w-full flex items-center transition-all relative mb-1 ${isActive
         ? 'bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-950/20'
         : 'text-emerald-50/50 hover:text-white hover:bg-white/5'
         } ${isSidebarOpen ? 'px-3 py-2 md:py-2.5 rounded-xl md:rounded-2xl gap-2.5 md:gap-3' : 'justify-center p-2 rounded-xl w-12 h-12 mx-auto'}`}
     >
       <Icon size={isSidebarOpen ? 16 : 20} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-      {isSidebarOpen && <span className="truncate flex-1 text-left font-['Playfair_Display'] font-semibold tracking-wide text-xs md:text-sm">{label}</span>}
+      {isSidebarOpen && <span className="truncate flex-1 text-left font-playfair font-bold tracking-wide text-xs md:text-sm">{label}</span>}
     </button>
   );
 };
@@ -72,7 +72,7 @@ const NavItem: React.FC<{
 const SectionHeading = ({ children, isSidebarOpen }: { children?: React.ReactNode; isSidebarOpen: boolean }) => {
   if (!isSidebarOpen) return <div className="h-px bg-white/5 my-4 mx-4" />;
   return (
-    <div className="px-4 mb-2 mt-4 text-[9px] font-['Playfair_Display'] font-bold text-emerald-100/20 uppercase tracking-[0.15em] flex items-center gap-2">
+    <div className="px-4 mb-2 mt-4 text-[9px] font-playfair font-bold text-emerald-100/20 uppercase tracking-[0.15em] flex items-center gap-2">
       <span className="shrink-0">{children}</span>
       <div className="h-[1px] bg-white/5 flex-1"></div>
     </div>
@@ -113,7 +113,8 @@ export const App: React.FC = () => {
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
         userStats, attendanceRecords, invoices, financialYear, updateFinancialYear,
         clients, vendors, leads, serviceReports, deliveryChallans, purchaseRecords, holidays, installationReports,
-        addNotification, expenseStats, updateEmployee, activeTab, setActiveTab
+        addNotification, expenseStats, updateEmployee, activeTab, setActiveTab,
+        showAlert, showConfirm, showPrompt
     } = useData();
 
     const [isEditingPrize, setIsEditingPrize] = useState(false);
@@ -152,8 +153,6 @@ export const App: React.FC = () => {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
-
-    const [configSubTab, setConfigSubTab] = useState<'General' | 'Bank' | 'Companies'>('General');
 
     const isSuperAdmin = currentUser?.email?.toLowerCase() === 'sreekumar.career@gmail.com';
 
@@ -454,7 +453,7 @@ export const App: React.FC = () => {
         <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-full flex items-center justify-center text-rose-500 mb-4">
           <ShieldCheck size={40} />
         </div>
-        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">Module Locked</h3>
+        <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100">Module Locked</h3>
         <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[280px] text-center">Contact HR for access.</p>
         <button onClick={() => setActiveTab(TabView.DASHBOARD)} className="mt-6 px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl text-sm font-bold">Go to Dashboard</button>
       </div>
@@ -469,7 +468,7 @@ export const App: React.FC = () => {
                 <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse border-4 border-amber-200">
                     <Lock size={48} />
                 </div>
-                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Day Not Started</h3>
+                <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Day Not Started</h3>
                 <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm max-w-[320px] text-center font-medium">Tasks are synchronized only after a successful check-in. Please log your attendance to continue.</p>
                 <div className="flex gap-4 mt-8">
                     <button onClick={() => setActiveTab(TabView.ATTENDANCE)} className="px-8 py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all active:scale-95">Go to Check-In</button>
@@ -512,129 +511,19 @@ export const App: React.FC = () => {
       case TabView.ACCOUNTING: return <AccountingModule userRole={tabRole} />;
       case TabView.COMPLIANCE: return <ComplianceModule userRole={tabRole} />;
       case TabView.CONFIG: return (
-        <div className="h-full flex flex-col p-4 md:p-8 bg-slate-50/30 dark:bg-slate-900/30 overflow-hidden">
-            {/* Tab Navigation */}
-            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 w-fit mb-8 shadow-sm">
-                <button 
-                  onClick={() => setConfigSubTab('General')}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${configSubTab === 'General' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                >
-                  System Terminal
-                </button>
-                <button 
-                  onClick={() => setConfigSubTab('Bank')}
-                  className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${configSubTab === 'Bank' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                >
-                  Bank Details
-                </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                {configSubTab === 'General' ? (
-                    <div className="flex flex-col items-center justify-center min-h-full py-12">
-                        <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl flex items-center justify-center text-indigo-600 mb-6 shadow-indigo-100/50 shadow-xl">
-                            <Settings size={40} className="animate-[spin_4s_linear_infinite]" />
-                        </div>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Configuration</h3>
-                        <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[320px] text-center font-medium">Core system parameters and business rules can be managed from this terminal.</p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12 w-full max-w-lg">
-                            <div 
-                                onClick={() => setActiveTab(TabView.LOGS)}
-                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/card shadow-sm"
-                            >
-                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/card:text-indigo-500 transition-colors"><Activity size={16}/></div>
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Audit Mode</p>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Standard</p>
-                                    <ChevronRight size={14} className="text-slate-300 group-hover/card:text-indigo-400 transition-colors" />
-                                </div>
-                            </div>
-                            <div 
-                                onClick={async () => {
-                                    if (userRole !== 'Admin') {
-                                        await showAlert("Administrative privileges required for System Backup.", "Access Denied");
-                                        return;
-                                    }
-                                    handleFullBackup();
-                                }}
-                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-emerald-500/5 hover:-translate-y-1 transition-all group/backup shadow-sm"
-                            >
-                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/backup:text-emerald-500 transition-colors"><Database size={16}/></div>
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Data Vault</p>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Full Sync</p>
-                                    <ChevronRight size={14} className="text-slate-300 group-hover/backup:text-emerald-400 transition-colors" />
-                                </div>
-                            </div>
-                            {isSuperAdmin && (
-                            <div 
-                                onClick={handleMigratePermissions}
-                                className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all group/migrate md:col-span-2"
-                            >
-                                <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 mb-4 shadow-sm group-hover/migrate:bg-indigo-600 group-hover/migrate:text-white transition-all"><ShieldAlert size={16}/></div>
-                                <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest mb-1">Security Maintenance</p>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Migrate Legacy Permissions</p>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 rounded-full uppercase tracking-tighter">Super Admin Only</span>
-                                        <ChevronRight size={14} className="text-indigo-300 group-hover/migrate:text-indigo-400 transition-colors" />
-                                    </div>
-                                </div>
-                            </div>
-                            )}
-                            <div 
-                                onClick={async () => {
-                                    if (userRole !== 'Admin') {
-                                        await showAlert("Access Denied: Administrative privileges required.", "Access Denied");
-                                        return;
-                                    }
-                                    const pass = await showPrompt("Enter Admin Password to modify Fiscal Period:");
-                                    if (pass !== (currentUser?.password || 'sree')) {
-                                        await showAlert("Invalid Password.", "Error");
-                                        return;
-                                    }
-                                    const nextFY = await showPrompt("Enter New Financial Year (e.g. 26-27):", financialYear);
-                                    if (nextFY && nextFY !== financialYear) {
-                                        const confirmed = await showConfirm(`Are you sure? This will reset the document numbering sequence for the new year ${nextFY}.`);
-                                        if (confirmed) {
-                                            await updateFinancialYear(nextFY);
-                                        }
-                                    }
-                                }}
-                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-amber-500/5 hover:-translate-y-1 transition-all group/fy shadow-sm"
-                            >
-                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/fy:text-amber-500 transition-colors"><Calendar size={16}/></div>
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Fiscal Period</p>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{financialYear}</p>
-                                    <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-sm">Active</span>
-                                </div>
-                            </div>
-                            <div 
-                                onClick={() => setConfigSubTab('Companies')}
-                                className="p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all group/bank shadow-sm"
-                            >
-                                <div className="w-8 h-8 bg-slate-50 dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400 mb-4 shadow-sm group-hover/bank:text-indigo-500 transition-colors"><Building2 size={16}/></div>
-                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Company Profile</p>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">Manage Business Entities</p>
-                                    <ChevronRight size={14} className="text-slate-300 group-hover/bank:text-indigo-400 transition-colors" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : configSubTab === 'Bank' ? (
-                    <div className="flex flex-col items-center justify-center min-h-full py-12">
-                        <BankDetailsForm />
-                    </div>
-                ) : (
-                    <div className="h-full">
-                        <CompanyModule userRole={tabRole} />
-                    </div>
-                )}
-            </div>
-        </div>
+        <SystemConfigModule
+          financialYear={financialYear}
+          updateFinancialYear={updateFinancialYear}
+          handleFullBackup={handleFullBackup}
+          handleMigratePermissions={handleMigratePermissions}
+          isSuperAdmin={isSuperAdmin}
+          userRole={tabRole}
+          currentUser={currentUser}
+          showAlert={showAlert}
+          showConfirm={showConfirm}
+          showPrompt={showPrompt}
+          setActiveTab={setActiveTab}
+        />
       );
       default: return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
     }
@@ -659,7 +548,7 @@ export const App: React.FC = () => {
         ${isSidebarOpen
           ? 'w-64 translate-x-0'
           : 'w-20 -translate-x-full lg:translate-x-0'} 
-        fixed lg:relative h-full shadow-2xl overflow-hidden`}>
+        fixed lg:relative h-full shadow-2xl`}>
 
         {/* Branding Header */}
         <div className={`p-4 md:p-5 flex items-center shrink-0 bg-black/10 pt-[max(env(safe-area-inset-top,24px),24px)] md:pt-[max(env(safe-area-inset-top,20px),20px)] min-h-[4.5rem] ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
@@ -667,7 +556,7 @@ export const App: React.FC = () => {
             <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
               <span className="flex items-center gap-2">
                 <img src="/logo.png" alt="Logo" className="h-6 md:h-7 w-auto" />
-                <span className="font-['Playfair_Display'] font-black text-white text-xl md:text-2xl tracking-tight leading-none">Sreemeditec</span>
+                <span className="font-playfair font-black text-white text-xl md:text-2xl tracking-tight leading-none">Sreemeditec</span>
               </span>
               <span className="text-[8px] font-bold text-emerald-400/60 uppercase tracking-[0.3em] ml-0.5 mt-1">Enterprise</span>
             </div>
@@ -725,13 +614,15 @@ export const App: React.FC = () => {
           <button
             onClick={handleSignOut}
             type="button"
-            className={`group w-full flex items-center transition-all text-rose-300 hover:text-white hover:bg-rose-500/10 cursor-pointer pointer-events-auto relative active:scale-95 ${isSidebarOpen ? 'px-4 py-3 rounded-2xl gap-4' : 'justify-center p-3 rounded-2xl w-14 h-14'}`}
+            className={`group w-full flex items-center transition-all cursor-pointer pointer-events-auto relative active:scale-95 ${isSidebarOpen ? 'px-4 py-3 rounded-[1.25rem] gap-4 bg-rose-500/10 hover:bg-gradient-to-r hover:from-rose-500/20 hover:to-rose-600/10 border border-rose-500/20 hover:border-rose-500/40 shadow-[0_0_20px_-10px_rgba(244,63,94,0.2)] hover:shadow-[0_0_30px_-5px_rgba(244,63,94,0.4)]' : 'justify-center p-3 rounded-[1.25rem] w-14 h-14 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20'}`}
           >
-            <LogOut size={isSidebarOpen ? 20 : 26} className="shrink-0 transition-transform group-hover:scale-110" />
+            <div className={`flex items-center justify-center bg-rose-500/20 text-rose-400 group-hover:text-rose-200 group-hover:bg-rose-500/40 transition-colors shadow-inner shadow-rose-950/50 ${isSidebarOpen ? 'w-10 h-10 rounded-xl' : 'w-full h-full rounded-[1rem]'}`}>
+              <LogOut size={isSidebarOpen ? 16 : 20} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />
+            </div>
             {isSidebarOpen && (
-              <div className="flex-1 min-w-0 pointer-events-none">
-                <span className="block truncate text-left font-black tracking-widest text-[10px] uppercase opacity-40 leading-none mb-1">Session Control</span>
-                <span className="block truncate text-left font-bold tracking-tight text-sm">Sign Out</span>
+              <div className="flex-1 min-w-0 pointer-events-none text-left">
+                <span className="block truncate font-black tracking-[0.2em] text-[8px] uppercase text-rose-300/60 leading-none mb-1">Session Control</span>
+                <span className="block truncate font-playfair font-bold tracking-tight text-rose-100 group-hover:text-white text-sm">Secure Sign Out</span>
               </div>
             )}
           </button>
@@ -744,7 +635,7 @@ export const App: React.FC = () => {
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
           </div>
           <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left min-w-0 px-2">
-            <h2 className="text-base md:text-[20px] font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
+            <h2 className="text-base md:text-[20px] font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
               {activeTab.replace(/_/g, ' ')}
             </h2>
             <div className="flex items-center gap-1.5 md:mt-1">
@@ -754,7 +645,7 @@ export const App: React.FC = () => {
           </div>
           
           {activeTab === TabView.BILLING && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none">
                {(() => {
                  const outstanding = invoices
                     .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status !== 'Cancelled')
@@ -769,11 +660,11 @@ export const App: React.FC = () => {
                       subText="Outstanding"
                    />
                  );
-               })()}
+                })()}
             </div>
           )}
           {activeTab === TabView.INVENTORY && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none">
                {/* Valuation Calculations */}
                {(() => {
                  const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
@@ -810,7 +701,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.ATTENDANCE && currentUser && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
                {(() => {
                  const workMode = (currentUser.department === 'Service' || currentUser.department === 'Sales' || currentUser.department === 'Support') ? 'Field' : (currentUser.department === 'Remote' ? 'Remote' : 'Office');
                  const goal = workMode === 'Field' ? 'Complete Tasks' : '7 Hours Work';
@@ -845,7 +736,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.EXPENSES && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
                {(() => {
                  return (
                    <>
@@ -877,7 +768,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.PERFORMANCE && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">
+            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
                <HeaderStatCard 
                   label="My Points" 
                   value={userStats.points.toString()} 

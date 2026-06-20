@@ -1,4 +1,5 @@
 
+import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, Employee } from '../types';
 import { 
@@ -29,9 +30,9 @@ interface ActiveSession {
 const NavItem = ({ id, icon: Icon, label, activeTab, onClick }: { id: string, icon: any, label: string, activeTab: string, onClick: (id: any) => void }) => (
     <button 
         onClick={() => onClick(id)}
-        className={`flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest rounded-2xl transition-all whitespace-nowrap lg:whitespace-normal shrink-0 lg:shrink-1 ${
+        className={`flex items-center gap-3 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest rounded-[2rem] transition-all whitespace-nowrap lg:whitespace-normal shrink-0 lg:shrink-1 ${
             activeTab === id 
-            ? 'bg-[#01261d] text-white shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30' 
+            ? 'bg-gradient-to-r from-emerald-900 to-emerald-800 text-white shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30' 
             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
         }`}
     >
@@ -227,16 +228,17 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden">
-            <div className="bg-[#01261d] rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center gap-6 relative overflow-hidden shrink-0">
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-6 rounded-[36px] text-white shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] flex flex-col md:flex-row items-center gap-6 relative overflow-hidden shrink-0 group">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                 <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none"><Building2 size={120} /></div>
                 <div className="relative shrink-0">
-                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/10 backdrop-blur-md border-2 border-white/20 flex items-center justify-center text-3xl font-black text-white shadow-2xl overflow-hidden uppercase">
+                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/10 backdrop-blur-md border-2 border-white/20 flex items-center justify-center text-3xl font-playfair font-bold tracking-tight text-white shadow-2xl overflow-hidden uppercase">
                         {profile.name.charAt(0)}
                     </div>
-                    <button disabled={!isEditing} className={`absolute -bottom-2 -right-2 bg-medical-500 p-2 rounded-xl shadow-xl border-2 border-[#01261d] transition-opacity ${!isEditing ? 'opacity-30' : 'hover:bg-medical-400'}`}><Camera size={14} /></button>
+                    <button disabled={!isEditing} className={`absolute -bottom-2 -right-2 bg-medical-500 p-2 rounded-[2rem] shadow-xl border-2 border-emerald-950 transition-opacity ${!isEditing ? 'opacity-30' : 'hover:bg-medical-400'}`}><Camera size={14} /></button>
                 </div>
                 <div className="flex-1 text-center md:text-left min-w-0">
-                    <h2 className="text-xl md:text-2xl font-black tracking-tight uppercase truncate">{profile.name}</h2>
+ <h2 className="text-2xl md:text-3xl font-playfair font-bold tracking-tight uppercase truncate">{profile.name}</h2>
                     <div className="flex wrap justify-center md:justify-start items-center gap-2 mt-1">
                         <span className="px-2 py-0.5 bg-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-500/30">{userRole} Access</span>
                         <span className="text-[10px] font-bold text-emerald-100/50 uppercase tracking-wider">• {profile.department}</span>
@@ -244,7 +246,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                 </div>
                 <button 
                     onClick={() => { if (isEditing && hasUnsavedChanges) { if (confirm("Discard unsaved registry changes?")) handleDiscard(); } else setIsEditing(!isEditing); }}
-                    className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${isEditing ? 'bg-rose-500 text-white' : 'bg-white text-[#01261d] hover:bg-emerald-50'}`}
+                    className={`px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${isEditing ? 'bg-rose-500 text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50 hover:shadow-lg transition-all'}`}
                 >
                     {isEditing ? <X size={14} /> : <Edit size={14} />}
                     <span>{isEditing ? 'Stop Editing' : 'Edit Account'}</span>
@@ -265,35 +267,38 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                             {activeTab === 'general' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     <div className="mb-6 flex justify-between items-center">
-                                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Registry Information</h3>
+                                        <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Registry Information</h3>
                                         <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase tracking-widest">ID: {authUser?.id}</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                        <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
-                                        <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
-                                        <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
-                                        <FormRow label="Contact Phone"><input type="tel" disabled={!isEditing} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
-                                        <FormRow label="Department" fullWidth><input type="text" disabled={true} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.department} /></FormRow>
+                                        <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
+                                        <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
+                                        <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>
+                                        <FormRow label="Contact Phone"><input type="tel" disabled={!isEditing} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} /></FormRow>
+                                        <FormRow label="Department" fullWidth><input type="text" disabled={true} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.department} /></FormRow>
                                     </div>
                                 </div>
                             )}
 
                             {activeTab === 'security' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-10">
-                                    <div className="mb-6"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Access & Security</h3></div>
+                                    <div className="mb-6"><h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Access & Security</h3></div>
                                     <div className={`p-6 rounded-3xl border transition-all flex flex-col md:flex-row items-center justify-between gap-6 ${mfaEnabled ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700'} ${!isEditing ? 'opacity-60' : ''}`}>
                                         <div className="flex items-center gap-5">
-                                            <div className="p-4 rounded-2xl bg-white dark:bg-slate-700 shadow-sm"><Smartphone size={28}/></div>
+                                            <div className="p-4 rounded-[2rem] bg-white dark:bg-slate-700 shadow-sm"><Smartphone size={28}/></div>
                                             <div><p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">Two-Factor Authentication</p><p className="text-[10px] text-slate-500 font-bold uppercase mt-1">{mfaEnabled ? 'OTP active' : 'Registry protection inactive'}</p></div>
                                         </div>
-                                        <button disabled={!isEditing} onClick={handleToggleMFA} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${mfaEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-white'}`}>{mfaEnabled ? 'Deactivate' : 'Activate'}</button>
+                                        <div className="flex items-center gap-4">
+                                            <ToggleSwitch checked={mfaEnabled} onChange={handleToggleMFA} disabled={!isEditing} />
+                                            <span className={`text-[10px] font-black uppercase tracking-widest select-none ${mfaEnabled ? 'text-emerald-700' : 'text-slate-400'}`}>{mfaEnabled ? 'OTP Active' : 'Disabled'}</span>
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-slate-300 dark:border-slate-800">
                                         <div className="space-y-4">
                                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Lock size={14}/> Active Connections</h4>
                                             <div className="space-y-3">
                                                 {sessions.map(s => (
-                                                    <div key={s.id} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-between">
+                                                    <div key={s.id} className="p-4 rounded-[2rem] bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700">{getDeviceIcon(s.type)}</div>
                                                             <div><p className="text-[11px] font-black text-slate-800 dark:text-slate-200">{s.device}</p><p className="text-[9px] font-bold text-slate-400 uppercase">{s.ip}</p></div>
@@ -309,15 +314,26 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
 
                             {activeTab === 'preferences' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-12">
-                                    <div className="mb-8"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Preferences</h3></div>
+                                    <div className="mb-8"><h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Preferences</h3></div>
                                     <div className={!isEditing ? 'opacity-60' : ''}>
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Monitor size={14}/> UI Theme</h4>
                                         <div className="grid grid-cols-3 gap-4">
                                             {['light', 'dark', 'system'].map(t => (
                                                 <button key={t} onClick={() => isEditing && setAppPrefs({...appPrefs, theme: t as any})} className={`p-5 rounded-[2.5rem] border-2 flex flex-col items-center gap-3 transition-all ${appPrefs.theme === t ? 'border-medical-500 bg-medical-50 dark:bg-medical-900/10' : 'border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50'}`}>
-                                                    <div className={`p-3 rounded-2xl ${appPrefs.theme === t ? 'bg-medical-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{t === 'light' ? <Sun size={20}/> : t === 'dark' ? <Moon size={20}/> : <Monitor size={20}/>}</div>
+                                                    <div className={`p-3 rounded-[2rem] ${appPrefs.theme === t ? 'bg-medical-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>{t === 'light' ? <Sun size={20}/> : t === 'dark' ? <Moon size={20}/> : <Monitor size={20}/>}</div>
                                                     <p className="text-[9px] font-black uppercase tracking-widest">{t}</p>
                                                 </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className={!isEditing ? 'opacity-60' : ''}>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Bell size={14}/> Notification Preferences</h4>
+                                        <div className="space-y-3">
+                                            {(['email', 'sms', 'push'] as const).map(ch => (
+                                                <div key={ch} className="flex items-center justify-between p-4 rounded-[2rem] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                                    <span className="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">{ch === 'email' ? 'Email Notifications' : ch === 'sms' ? 'SMS Alerts' : 'Push Notifications'}</span>
+                                                    <ToggleSwitch checked={!!profile.notifications[ch]} onChange={() => setProfile({ ...profile, notifications: { ...profile.notifications, [ch]: !profile.notifications[ch] } })} disabled={!isEditing} />
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
@@ -325,14 +341,14 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                             )}
 
                             {activeTab === 'data' && (
-                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-8">
-                                    <div className="mb-6"><h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Data Management</h3></div>
+                                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-5">
+                                    <div className="mb-6"><h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Data Management</h3></div>
                                     <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${!isEditing ? 'opacity-60' : ''}`}>
                                         <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800 rounded-[2rem]">
                                             <Download className="text-emerald-600 mb-4" size={24} />
                                             <h4 className="text-sm font-black text-emerald-900 dark:text-emerald-100 uppercase">Export Snapshot</h4>
                                             <p className="text-[10px] text-emerald-700/60 dark:text-emerald-400 font-bold mt-1">Download sanitized registry backup</p>
-                                            <button disabled={!isEditing || isExporting} onClick={handleExportData} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all">
+                                            <button disabled={!isEditing || isExporting} onClick={handleExportData} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all">
                                                 {isExporting ? <RefreshCw className="animate-spin mx-auto" size={14}/> : 'Generate Backup'}
                                             </button>
                                         </div>
@@ -340,7 +356,7 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                                             <AlertTriangle className="text-rose-600 mb-4" size={24} />
                                             <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 uppercase">Wipe Cache</h4>
                                             <p className="text-[10px] text-rose-700/60 dark:text-rose-400 font-bold mt-1">Purge all local session records</p>
-                                            <button disabled={!isEditing} onClick={handleFactoryReset} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 rounded-xl text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Purge Locally</button>
+                                            <button disabled={!isEditing} onClick={handleFactoryReset} className="mt-6 w-full py-3 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 rounded-[2rem] text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Purge Locally</button>
                                         </div>
                                     </div>
                                 </div>
@@ -349,18 +365,18 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                     </div>
 
                     {isEditing && (
-                        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-300 dark:border-slate-800 flex justify-between items-center gap-3">
+                        <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-300 dark:border-slate-800 flex justify-between items-center gap-3">
                             <div className="flex items-center gap-2">
                                 <p className={`text-[10px] font-black uppercase tracking-widest ${hasUnsavedChanges ? 'text-amber-600 animate-pulse' : 'text-slate-400'}`}>
                                     {hasUnsavedChanges ? 'Registry mismatch detected' : 'In sync with registry'}
                                 </p>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={handleDiscard} className="px-6 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-500 rounded-2xl text-[10px] font-black uppercase">Discard</button>
-                                <button onClick={handleSave} className="px-10 py-3 bg-medical-600 text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-medical-500/20">Commit to Registry</button>
+                                <button onClick={handleDiscard} className="px-6 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-500 rounded-[2rem] text-[10px] font-black uppercase">Discard</button>
+                                <button onClick={handleSave} className="px-10 py-3 bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-emerald-950 rounded-[2rem] text-[10px] font-black uppercase shadow-xl hover:shadow-2xl transition-all font-bold">Commit to Registry</button>
                             </div>
                         </div>
-                    )}
+                            )}
                 </div>
             </div>
         </div>

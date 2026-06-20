@@ -1,3 +1,4 @@
+import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem, TabView } from '../types';
 import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
@@ -393,9 +394,9 @@ export const PurchaseRecordModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2 bg-slate-50/50">
             {/* Header */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="p-4 bg-white rounded-[2rem] border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-medical-50 text-medical-600 rounded-xl border border-medical-100">
+                    <div className="p-2.5 bg-medical-50 text-medical-600 rounded-[2rem] border border-medical-100">
                         <ShoppingCart size={20} />
                     </div>
                     <div>
@@ -404,13 +405,13 @@ export const PurchaseRecordModule: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-rose-50 border border-rose-200 rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 animate-in fade-in slide-in-from-right-4 shadow-sm">
-                    <div className="p-2 bg-rose-500 text-white rounded-xl shadow-md shadow-rose-500/20">
+                <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] animate-in fade-in slide-in-from-right-4 hover:scale-[1.02] transition-all duration-300 group">
+                    <div className="p-2 bg-amber-900/10 text-amber-950 rounded-[2rem] group-hover:scale-110 transition-transform">
                         <Wallet size={16} />
                     </div>
                     <div>
-                        <p className="text-[8px] font-black text-rose-600 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
-                        <p className="text-lg font-black text-rose-900 leading-none tabular-nums">
+                        <p className="text-[8px] font-black text-amber-950/80 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
+                        <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
                             ₹{purchaseRecords
                                 .reduce((sum, r) => sum + ((r.total || 0) - (r.paidAmount || 0)), 0)
                                 .toLocaleString('en-IN')}
@@ -449,19 +450,19 @@ export const PurchaseRecordModule: React.FC = () => {
             </div>
 
             {/* Table */}
-            <div className="flex-1 bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left text-[11px]">
                         <thead className="bg-slate-50 border-b text-[9px] uppercase font-bold text-slate-400 sticky top-0 z-10">
                             <tr>
-                                <th className="px-4 py-3">Date / Invoice</th>
-                                <th className="px-4 py-3">Supplier</th>
-                                <th className="px-4 py-3 text-right">Grand Total</th>
-                                <th className="px-4 py-3 text-center">Paid Amt</th>
-                                <th className="px-4 py-3 text-right">Balance</th>
-                                <th className="px-4 py-3 text-center">Filed Status</th>
-                                <th className="px-4 py-3 text-center">Status</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
+                                <th className="px-3 py-1.5 font-inter">Date / Invoice</th>
+                                <th className="px-3 py-1.5">Supplier</th>
+                                <th className="px-3 py-1.5 text-right">Grand Total</th>
+                                <th className="px-3 py-1.5 text-center">Paid Amt</th>
+                                <th className="px-3 py-1.5 text-right">Balance</th>
+                                <th className="px-3 py-1.5 text-center">Filed Status</th>
+                                <th className="px-3 py-1.5 text-center">Status</th>
+                                <th className="px-3 py-1.5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -473,18 +474,18 @@ export const PurchaseRecordModule: React.FC = () => {
 
                                 return (
                                     <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
-                                        <td className="px-4 py-3">
+                                        <td className="px-3 py-1.5">
                                             <div className="font-bold text-slate-700 leading-tight">{record.dateSupply}</div>
-                                            <div className="text-[9px] font-medium text-slate-400 mt-0.5">#{record.invoiceNo}</div>
+                                            <div className="text-[9px] font-inter font-medium text-slate-400 mt-0.5">#{record.invoiceNo}</div>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-3 py-1.5">
                                             <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
                                             <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
                                         </td>
-                                        <td className="px-4 py-3 text-right">
+                                        <td className="px-3 py-1.5 text-right">
                                             <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(total)}</div>
                                         </td>
-                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-center gap-1.5">
                                                 <input 
                                                     type="number"
@@ -510,16 +511,16 @@ export const PurchaseRecordModule: React.FC = () => {
                                                         }
                                                     }}
                                                     title="Copy Grand Total"
-                                                    className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+                                                    className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-emerald-50 text-slate-400 hover:text-emerald-700 scale-95 rounded-lg transition-all"
                                                 >
                                                     <CheckCheck size={12} />
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 text-right font-black text-rose-600">
+                                        <td className="px-3 py-1.5 text-right font-black text-rose-600">
                                             ₹{formatIndianNumber(balance)}
                                         </td>
-                                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={record.id}
                                                 filedStatus={record.filedStatus}
@@ -530,7 +531,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-3 py-1.5 text-center">
                                             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                                                 displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'
                                             }`}>
@@ -578,8 +579,9 @@ export const PurchaseRecordModule: React.FC = () => {
                                                         });
                                                         setPendingSupplierPOData({
                                                             customerName: record.supplier,
-                                                            date: new Date().toISOString().split('T')[0],
+                                                            date: record.dateSupply || new Date().toISOString().split('T')[0],
                                                             cpoNumber: record.invoiceNo,
+                                                            cpoDate: record.materialReceivedDate || '',
                                                             remarks: `Converted from Purchase Entry ${record.invoiceNo}`,
                                                             items: mappedItems,
                                                             isRoundOff: record.isRoundOff,
@@ -669,7 +671,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                     <div className="flex justify-between items-center border-b pb-0.5">
                                         <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-[0.2em]">2. Equipment Details</h4>
                                     </div>
-                                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                                    <div className="bg-slate-50 p-3 rounded-[2rem] border border-slate-200 space-y-3">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                             <div className="lg:col-span-2">
                                                 <FormRow label="Equipment Name *">
@@ -748,7 +750,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                     
                                     {newRecord.items && newRecord.items.length > 0 && (
-                                        <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                                        <div className="mt-4 border border-slate-200 rounded-[2rem] overflow-hidden">
                                             <table className="w-full text-left text-xs">
                                                 <thead className="bg-slate-100 text-[9px] uppercase font-black text-slate-500">
                                                     <tr>
@@ -822,15 +824,13 @@ export const PurchaseRecordModule: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
-                                    <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-xl border border-white/10 hover:bg-white/10 transition-colors cursor-pointer" onClick={() => handleInputChange('isRoundOff', !newRecord.isRoundOff)}>
-                                        <div className={`w-8 h-4 rounded-full relative transition-colors ${newRecord.isRoundOff ? 'bg-medical-500' : 'bg-slate-700'}`}>
-                                            <div className={`absolute top-1 left-1 w-2 h-2 bg-white rounded-full transition-transform ${newRecord.isRoundOff ? 'translate-x-4' : 'translate-x-0'}`} />
-                                        </div>
+                                    <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-[2rem] border border-white/10 hover:bg-white/10 transition-colors cursor-pointer">
+                                        <ToggleSwitch checked={!!newRecord.isRoundOff} onChange={(v) => handleInputChange('isRoundOff', v)} />
                                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Round Off</span>
                                     </div>
                                     <div className="text-center sm:text-right border-t border-slate-800 sm:border-t-0 pt-3 sm:pt-0">
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-0.5 leading-none">Total Payable</p>
-                                        <p className="text-2xl sm:text-3xl font-black text-white tracking-tighter flex items-baseline justify-center sm:justify-end gap-1">
+                                        <p className="text-2xl sm:text-3xl font-playfair font-bold tracking-tight text-white tracking-tighter flex items-baseline justify-center sm:justify-end gap-1">
                                             ₹{formatIndianNumber(newRecord.total || 0)}
                                             {newRecord.isRoundOff && newRecord.roundOff !== 0 && (
                                                 <span className={`text-[10px] font-bold ${newRecord.roundOff! > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -863,11 +863,11 @@ export const PurchaseRecordModule: React.FC = () => {
                         {/* Simple Clean Header */}
                         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-medical-50 text-medical-600 rounded-xl border border-medical-100">
+                                <div className="p-2.5 bg-medical-50 text-medical-600 rounded-[2rem] border border-medical-100">
                                     <FileText size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-800 tracking-tight">Entry Details</h3>
+                                    <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 tracking-tight">Entry Details</h3>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID: {selectedRecord.id}</p>
                                 </div>
                             </div>
@@ -876,13 +876,13 @@ export const PurchaseRecordModule: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar bg-white">
+                        <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh] custom-scrollbar bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-6">
+                                <div className="space-y-4">
                                     {/* Supplier Identity */}
                                     <div>
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Supplier Name</label>
-                                        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                                        <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-4">
                                             <p className="font-bold text-slate-800 uppercase leading-tight text-sm">{selectedRecord.supplier}</p>
                                         </div>
                                     </div>
@@ -891,13 +891,13 @@ export const PurchaseRecordModule: React.FC = () => {
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Invoice No.</label>
-                                            <div className="bg-white border border-slate-200 rounded-xl p-3">
+                                            <div className="bg-white border border-slate-200 rounded-[2rem] p-3">
                                                 <p className="font-bold text-slate-700 text-[11px]">{selectedRecord.invoiceNo}</p>
                                             </div>
                                         </div>
                                         <div>
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Date</label>
-                                            <div className="bg-white border border-slate-200 rounded-xl p-3">
+                                            <div className="bg-white border border-slate-200 rounded-[2rem] p-3">
                                                 <p className="font-bold text-slate-700 text-[11px]">{selectedRecord.dateSupply}</p>
                                             </div>
                                         </div>
@@ -909,7 +909,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                         <div className="space-y-2">
                                             {(selectedRecord.items && selectedRecord.items.length > 0) ? (
                                                 selectedRecord.items.map((i, idx) => (
-                                                    <div key={i.id} className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm flex justify-between items-center">
+                                                    <div key={i.id} className="bg-white rounded-[2rem] p-3 border border-slate-100 shadow-sm flex justify-between items-center">
                                                         <div>
                                                             <p className="font-bold text-slate-800 uppercase text-[10px]">{i.equipmentName}</p>
                                                             <p className="text-[9px] font-medium text-slate-400 mt-0.5">₹{formatIndianNumber(i.rate)} per {i.unit || 'NOS'}</p>
@@ -920,7 +920,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm flex justify-between items-center">
+                                                <div className="bg-white rounded-[2rem] p-3 border border-slate-100 shadow-sm flex justify-between items-center">
                                                     <p className="font-bold text-slate-800 uppercase text-[10px]">{selectedRecord.equipmentName}</p>
                                                     <span className="text-[9px] font-bold text-medical-600 bg-medical-50 px-2 py-0.5 rounded border border-medical-100">{selectedRecord.qty} {selectedRecord.unit || 'NOS'}</span>
                                                 </div>
@@ -956,7 +956,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                         
                                         <div className="pt-2 text-center">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Grand Total</p>
-                                            <p className="text-3xl font-black text-slate-900 tracking-tighter">₹{formatIndianNumber(selectedRecord.total || 0)}</p>
+ <p className="text-3xl font-bold tracking-tight text-slate-900 tracking-tighter">₹{formatIndianNumber(selectedRecord.total || 0)}</p>
                                         </div>
 
                                         <div className="pt-4 mt-4 border-t border-slate-200 text-center">
@@ -971,13 +971,13 @@ export const PurchaseRecordModule: React.FC = () => {
                         <div className="p-5 border-t border-slate-100 bg-slate-50 flex gap-3 shrink-0">
                             <button 
                                 onClick={() => { handleEdit(selectedRecord); setSelectedRecord(null); }}
-                                className="flex-[2] h-12 bg-medical-600 text-white font-bold rounded-xl hover:bg-medical-700 active:scale-95 transition-all text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm"
+                                className="flex-[2] h-12 bg-medical-600 text-white font-bold rounded-[2rem] hover:bg-medical-700 active:scale-95 transition-all text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm"
                             >
                                 <Edit size={14} /> Edit Transaction
                             </button>
                             <button 
                                 onClick={() => setSelectedRecord(null)} 
-                                className="flex-1 h-12 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 active:scale-95 transition-all text-[11px] uppercase tracking-widest"
+                                className="flex-1 h-12 bg-white border border-slate-200 text-slate-600 font-bold rounded-[2rem] hover:bg-slate-50 active:scale-95 transition-all text-[11px] uppercase tracking-widest"
                             >
                                 Close
                             </button>
@@ -988,17 +988,17 @@ export const PurchaseRecordModule: React.FC = () => {
 
             {/* Deletion Confirmation */}
             {pendingDelete && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 text-center animate-in zoom-in-95">
-                        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-[2rem] flex items-center justify-center mx-auto mb-4 border border-rose-100">
                             <AlertTriangle size={32} />
                         </div>
-                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Purge Record?</h3>
+                        <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Purge Record?</h3>
                         <p className="text-slate-500 text-sm mt-2 leading-relaxed">
                             Are you sure you want to delete the purchase entry from <b>{pendingDelete.name}</b>? This action is permanent.
                         </p>
                         <div className="flex gap-3 mt-8">
-                            <button onClick={() => setPendingDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest">Cancel</button>
+                            <button onClick={() => setPendingDelete(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest">Cancel</button>
                             <button
                                 onClick={async () => {
                                     setIsDeleting(true);
@@ -1007,7 +1007,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                     setIsDeleting(false);
                                     addNotification('Record Deleted', 'Entry removed from registry.', 'warning');
                                 }}
-                                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
+                                className="flex-1 py-3 bg-rose-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
                             >
                                 {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Delete Entry"}
                             </button>

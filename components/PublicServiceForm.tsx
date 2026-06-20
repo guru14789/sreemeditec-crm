@@ -165,15 +165,15 @@ export const PublicServiceForm: React.FC = () => {
           <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-200/50 dark:shadow-emerald-900/30">
             <CheckCircle size={40} className="text-white" />
           </div>
-          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight mb-2">Request Submitted!</h2>
+          <h2 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tight mb-2">Request Submitted!</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
             Thank you, <strong className="text-slate-700 dark:text-slate-300">{form.customerName}</strong>. Your service request for <strong className="text-slate-700 dark:text-slate-300">{form.equipment}</strong> has been received. Our team will review and contact you shortly.
           </p>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 mb-6 border border-slate-100 dark:border-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] p-5 mb-6 border border-slate-100 dark:border-slate-800">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5">Reference Number</p>
-            <p className="text-xl font-black text-teal-600 dark:text-teal-400 tracking-tight font-mono">{submittedTask?.taskNumber}</p>
+            <p className="text-xl font-playfair font-bold tracking-tight text-teal-600 dark:text-teal-400 tracking-tight font-mono">{submittedTask?.taskNumber}</p>
           </div>
-          <button onClick={generatePDF} className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl px-6 py-3.5 text-sm transition-all inline-flex items-center justify-center gap-2 shadow-lg shadow-teal-200/50 dark:shadow-teal-900/30 active:scale-[0.98]">
+          <button onClick={generatePDF} className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-[2rem] px-6 py-3.5 text-sm transition-all inline-flex items-center justify-center gap-2 shadow-lg shadow-teal-200/50 dark:shadow-teal-900/30 active:scale-[0.98]">
             <Download size={16} />
             Download PDF
           </button>
@@ -183,7 +183,7 @@ export const PublicServiceForm: React.FC = () => {
     );
   }
 
-  const inputClass = "w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500";
+  const inputClass = "w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-4 py-3 text-sm text-slate-800 dark:text-slate-200 font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500";
   const inputIconClass = "absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
   const labelClass = "text-[11px] font-semibold text-slate-500 dark:text-slate-400 ml-0.5 mb-1.5 block";
 
@@ -197,10 +197,10 @@ export const PublicServiceForm: React.FC = () => {
             <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
             <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-emerald-400/10 rounded-full blur-xl" />
             <div className="relative">
-              <div className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-black/5 ring-1 ring-white/20">
+              <div className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-[2rem] flex items-center justify-center mb-4 shadow-lg shadow-black/5 ring-1 ring-white/20">
                 <Wrench size={24} />
               </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">Service Request</h1>
+              <h1 className="text-xl sm:text-2xl font-playfair font-bold tracking-tight">Service Request</h1>
               <p className="text-sm text-white/75 mt-2 leading-relaxed max-w-md font-medium">Submit a service request. Our team will review and assign an engineer.</p>
             </div>
           </div>
@@ -303,8 +303,8 @@ export const PublicServiceForm: React.FC = () => {
                 <div className="p-2 bg-teal-50 dark:bg-teal-900/20 rounded-lg"><Paperclip size={15} className="text-teal-600 dark:text-teal-400" /></div>
                 <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Attachments</span>
               </div>
-              <div onClick={() => fileInputRef.current?.click()} className="relative border-2 border-dashed border-slate-200 dark:border-slate-700/50 rounded-2xl p-7 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-900/10 dark:hover:border-teal-600/50 transition-all group">
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl inline-flex mb-3 group-hover:bg-teal-50 dark:group-hover:bg-teal-900/20 transition-all">
+              <div onClick={() => fileInputRef.current?.click()} className="relative border-2 border-dashed border-slate-200 dark:border-slate-700/50 rounded-[2rem] p-7 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-900/10 dark:hover:border-teal-600/50 transition-all group">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] inline-flex mb-3 group-hover:bg-teal-50 dark:group-hover:bg-teal-900/20 transition-all">
                   <Upload size={22} className="text-slate-400 group-hover:text-teal-500 transition-colors" />
                 </div>
                 <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Upload Images, Documents, or Videos</p>
@@ -314,7 +314,7 @@ export const PublicServiceForm: React.FC = () => {
               {files.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                   {files.map((f, i) => (
-                    <div key={i} className="group relative bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
+                    <div key={i} className="group relative bg-slate-50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-200 dark:border-slate-700/50 overflow-hidden">
                       {f.type?.startsWith('image/') ? (
                         <img src={f.data} alt={f.name} className="w-full h-20 object-cover" />
                       ) : (
@@ -332,14 +332,14 @@ export const PublicServiceForm: React.FC = () => {
             </div>
 
             {errorMsg && (
-              <div className="flex items-start gap-3 p-4 bg-rose-50 dark:bg-rose-900/15 border border-rose-200 dark:border-rose-800/30 rounded-2xl">
+              <div className="flex items-start gap-3 p-4 bg-rose-50 dark:bg-rose-900/15 border border-rose-200 dark:border-rose-800/30 rounded-[2rem]">
                 <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5" />
                 <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 leading-relaxed">{errorMsg}</p>
               </div>
             )}
 
             <button type="submit" disabled={step === 'submitting'}
-              className="w-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-200/50 dark:shadow-teal-900/30 hover:from-teal-700 hover:to-emerald-700 hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
+              className="w-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-teal-200/50 dark:shadow-teal-900/30 hover:from-teal-700 hover:to-emerald-700 hover:shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3"
             >
               {step === 'submitting' ? (
                 <><Loader size={16} className="animate-spin" /> Submitting...</>

@@ -1,3 +1,4 @@
+import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, Client, Product, TabView } from '../types';
 import { 
@@ -204,7 +205,7 @@ export const ServiceOrderModule: React.FC = () => {
     const renderServiceTemplate = (data: Partial<Invoice>, totals: any) => (
         <div className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col mx-auto" style={{ fontFamily: '"Arial", sans-serif', fontSize: '11px' }}>
             <div className="text-center mb-4">
-                <h1 className="text-4xl font-black uppercase mb-1">SREE MEDITEC</h1>
+                <h1 className="text-4xl font-playfair font-bold tracking-tight uppercase mb-1">SREE MEDITEC</h1>
                 <p className="text-[10px] font-bold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
                 <p className="text-[10px] font-bold">Mob: 9884818398 / 7200025642 | Email: sreemeditec@gmail.com</p>
             </div>
@@ -332,9 +333,9 @@ export const ServiceOrderModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ invoiceNumber: '', date: new Date().toISOString().split('T')[0], items: [], discount: 0, status: 'Pending', customerName: '', customerHospital: '', customerAddress: '', customerGstin: '', phone: '', equipmentName: '', model: '', serialNumber: '', machineStatus: 'Warranty', department: '', machineLocation: '', engineerName: '', problemReported: '', visitType: 'Breakdown', priority: 'Medium', expectedResolutionDate: new Date().toISOString().split('T')[0], documentType: 'ServiceOrder', isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New Job Card</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> Registry</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setOrder({ invoiceNumber: '', date: new Date().toISOString().split('T')[0], items: [], discount: 0, status: 'Pending', customerName: '', customerHospital: '', customerAddress: '', customerGstin: '', phone: '', equipmentName: '', model: '', serialNumber: '', machineStatus: 'Warranty', department: '', machineLocation: '', engineerName: '', problemReported: '', visitType: 'Breakdown', priority: 'Medium', expectedResolutionDate: new Date().toISOString().split('T')[0], documentType: 'ServiceOrder', isRoundOff: false }); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New Job Card</button>
             </div>
 
             {viewState === 'history' ? (
@@ -345,7 +346,7 @@ export const ServiceOrderModule: React.FC = () => {
                             <select 
                                 value={filingFilter}
                                 onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
                             >
                                 <option value="All">All Filing</option>
                                 <option value="Filed">Filed</option>
@@ -359,7 +360,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     placeholder="Search service orders..." 
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
                                 />
                             </div>
                         </div>
@@ -368,13 +369,13 @@ export const ServiceOrderModule: React.FC = () => {
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-6 py-4">Order #</th>
-                                    <th className="px-6 py-4">Institution</th>
-                                    <th className="px-6 py-4">Machine</th>
-                                    <th className="px-6 py-4 text-right">Value</th>
-                                    <th className="px-6 py-4 text-center">Filed Status</th>
-                                    <th className="px-6 py-4 text-center">Priority</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
+                                    <th className="px-4 py-2 font-inter">Order #</th>
+                                    <th className="px-4 py-2">Institution</th>
+                                    <th className="px-4 py-2">Machine</th>
+                                    <th className="px-4 py-2 text-right">Value</th>
+                                    <th className="px-4 py-2 text-center">Filed Status</th>
+                                    <th className="px-4 py-2 text-center">Priority</th>
+                                    <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -398,11 +399,11 @@ export const ServiceOrderModule: React.FC = () => {
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                                        <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerHospital}</td>
-                                        <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{inv.equipmentName} ({inv.model})</td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
+                                        <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerHospital}</td>
+                                        <td className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{inv.equipmentName} ({inv.model})</td>
+                                        <td className="px-4 py-2 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id}
                                                 filedStatus={inv.filedStatus}
@@ -413,14 +414,14 @@ export const ServiceOrderModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
+                                        <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
-                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
+                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 {activeMenuId === inv.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button title="Generate Service Report" onClick={(e) => {
                                                             e.stopPropagation();
                                                             setPendingServiceReportData({
@@ -440,11 +441,11 @@ export const ServiceOrderModule: React.FC = () => {
                                                             });
                                                             setActiveTab(TabView.SERVICE_REPORTS);
                                                             setActiveMenuId(null);
-                                                        }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all flex-1 flex justify-center"><Wrench size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                        }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Wrench size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         {isSystemAdmin && (
-                                                            <button onClick={async (e) => { e.stopPropagation(); const confirmed = await showConfirm('Are you sure you want to delete this record?'); if (confirmed) { await removeInvoice(inv.id); addNotification('Record Deleted', 'The service record has been removed.', 'success'); } setActiveMenuId(null); }} className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"><Trash2 size={18} /></button>
+                                                            <button onClick={async (e) => { e.stopPropagation(); const confirmed = await showConfirm('Are you sure you want to delete this record?'); if (confirmed) { await removeInvoice(inv.id); addNotification('Record Deleted', 'The service record has been removed.', 'success'); } setActiveMenuId(null); }} className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Trash2 size={18} /></button>
                                                         )}
                                                     </div>
                                                 )}
@@ -458,28 +459,28 @@ export const ServiceOrderModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Print Layout</button>
+                    <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner flex gap-1 shrink-0 m-6">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={18}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Eye size={18}/> Print Layout</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
                             <div className="h-full flex flex-col bg-white">
-                                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-8 custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-5 custom-scrollbar">
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">1. Registry Metrics</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="SMCSO No. *">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={order.invoiceNumber || ''} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMCSO-001" />
+                                                <input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none" value={order.invoiceNumber || ''} onChange={e => setOrder({...order, invoiceNumber: e.target.value})} placeholder="SMCSO-001" />
                                             </FormRow>
                                             <FormRow label="Date">
-                                                <input type="date" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.date || ''} onChange={e => setOrder({...order, date: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.date || ''} onChange={e => setOrder({...order, date: e.target.value})} />
                                             </FormRow>
                                             <FormRow label="Visit Type">
-                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.visitType} onChange={e => setOrder({...order, visitType: e.target.value})}><option value="Breakdown">Breakdown</option><option value="AMC / PM">AMC / PM</option><option value="Installation">Installation</option><option value="Demo">Demo</option></select>
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none appearance-none" value={order.visitType} onChange={e => setOrder({...order, visitType: e.target.value})}><option value="Breakdown">Breakdown</option><option value="AMC / PM">AMC / PM</option><option value="Installation">Installation</option><option value="Demo">Demo</option></select>
                                             </FormRow>
                                             <FormRow label="Priority">
-                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.priority} onChange={e => setOrder({...order, priority: e.target.value as 'Urgent' | 'High' | 'Medium' | 'Low'})}><option value="Urgent">Urgent</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none appearance-none" value={order.priority} onChange={e => setOrder({...order, priority: e.target.value as 'Urgent' | 'High' | 'Medium' | 'Low'})}><option value="Urgent">Urgent</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
                                             </FormRow>
                                         </div>
                                     </section>
@@ -487,7 +488,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">2. Client Index</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            <div className="md:col-span-1 p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="md:col-span-1 p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Search Client *">
                                                     <AutoSuggest
                                                         value={order.customerHospital || ''}
@@ -496,19 +497,19 @@ export const ServiceOrderModule: React.FC = () => {
                                                         suggestions={clients}
                                                         filterKey="hospital"
                                                         placeholder="Search Hospital registry..."
-                                                        className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
                                                     />
                                                 </FormRow>
                                                 <FormRow label="Contact Person">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none" value={order.customerName || ''} onChange={e => setOrder({...order, customerName: e.target.value})} />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none" value={order.customerName || ''} onChange={e => setOrder({...order, customerName: e.target.value})} />
                                                 </FormRow>
                                                 <FormRow label="Phone Index">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold outline-none" value={order.phone || ''} onChange={e => setOrder({...order, phone: e.target.value})} />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none" value={order.phone || ''} onChange={e => setOrder({...order, phone: e.target.value})} />
                                                 </FormRow>
                                             </div>
-                                            <div className="md:col-span-2 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                                            <div className="md:col-span-2 p-5 bg-slate-50 rounded-[2rem] border border-slate-200">
                                                 <FormRow label="Institution Address">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-medium outline-none h-[180px] resize-none" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Location details..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[180px] resize-none" value={order.customerAddress || ''} onChange={e => setOrder({...order, customerAddress: e.target.value})} placeholder="Location details..." />
                                                 </FormRow>
                                             </div>
                                         </div>
@@ -517,18 +518,18 @@ export const ServiceOrderModule: React.FC = () => {
                                     <section className="space-y-4">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">3. Machine Engineering Blueprint</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            <FormRow label="Instrument Name *"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.equipmentName} onChange={e => setOrder({...order, equipmentName: e.target.value})} /></FormRow>
-                                            <FormRow label="Model Identifier"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.model} onChange={e => setOrder({...order, model: e.target.value})} /></FormRow>
-                                            <FormRow label="Serial Number (S/N)"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.serialNumber} onChange={e => setOrder({...order, serialNumber: e.target.value})} /></FormRow>
+                                            <FormRow label="Instrument Name *"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.equipmentName} onChange={e => setOrder({...order, equipmentName: e.target.value})} /></FormRow>
+                                            <FormRow label="Model Identifier"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.model} onChange={e => setOrder({...order, model: e.target.value})} /></FormRow>
+                                            <FormRow label="Serial Number (S/N)"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.serialNumber} onChange={e => setOrder({...order, serialNumber: e.target.value})} /></FormRow>
                                             <FormRow label="Machine Status">
-                                                <select className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none appearance-none" value={order.machineStatus} onChange={e => setOrder({...order, machineStatus: e.target.value})}><option value="Warranty">Warranty</option><option value="AMC / PM">AMC / PM</option><option value="Out of Warranty">Out of Warranty</option></select>
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none appearance-none" value={order.machineStatus} onChange={e => setOrder({...order, machineStatus: e.target.value})}><option value="Warranty">Warranty</option><option value="AMC / PM">AMC / PM</option><option value="Out of Warranty">Out of Warranty</option></select>
                                             </FormRow>
-                                            <FormRow label="Department"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.department} onChange={e => setOrder({...order, department: e.target.value})} /></FormRow>
-                                            <FormRow label="Internal Location"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.machineLocation} onChange={e => setOrder({...order, machineLocation: e.target.value})} /></FormRow>
+                                            <FormRow label="Department"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.department} onChange={e => setOrder({...order, department: e.target.value})} /></FormRow>
+                                            <FormRow label="Internal Location"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.machineLocation} onChange={e => setOrder({...order, machineLocation: e.target.value})} /></FormRow>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                            <FormRow label="Problem Reported"><textarea className="w-full bg-rose-50/20 border border-rose-100 rounded-xl px-4 py-2 text-xs font-bold outline-none h-[80px] resize-none text-rose-700" value={order.problemReported} onChange={e => setOrder({...order, problemReported: e.target.value})} /></FormRow>
-                                            <FormRow label="Assigned Engineer"><input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={order.engineerName} onChange={e => setOrder({...order, engineerName: e.target.value})} /></FormRow>
+                                            <FormRow label="Problem Reported"><textarea className="w-full bg-rose-50/20 border border-rose-100 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none h-[80px] resize-none text-rose-700" value={order.problemReported} onChange={e => setOrder({...order, problemReported: e.target.value})} /></FormRow>
+                                            <FormRow label="Assigned Engineer"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={order.engineerName} onChange={e => setOrder({...order, engineerName: e.target.value})} /></FormRow>
                                         </div>
                                     </section>
 
@@ -539,7 +540,7 @@ export const ServiceOrderModule: React.FC = () => {
                                         <div className="space-y-3 pb-24">
                                             {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
-                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-xl border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                    <div className="relative bg-slate-50 hover:bg-medical-50/20 p-4 rounded-[2rem] border border-slate-200 hover:border-medical-300 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                                         <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 shadow-sm">{idx + 1}</div>
                                                         <div className="flex-1 min-w-0 w-full">
                                                             <AutoSuggest
@@ -608,21 +609,19 @@ export const ServiceOrderModule: React.FC = () => {
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-xl font-black text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+ <span className="text-xl font-bold tracking-tight text-teal-600">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
-                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${order.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
-                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${order.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
-                                                </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-[2rem] border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none">
+                                                <ToggleSwitch checked={!!order.isRoundOff} onChange={() => setOrder(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))} />
                                                 <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
                                             </div>
-                                            <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Abort</button>
+                                            <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors">Abort</button>
                                         </div>
                                     </div>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
-                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95">Save Draft</button>
-                                        <button onClick={async () => { const finalized = await handleSave('Finalized'); if (finalized) handleDownloadPDF(finalized); }} className="flex-1 px-6 py-3 bg-medical-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Download size={18} /> Finalize & PDF</button>
+                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-6 py-3 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95">Save Draft</button>
+                                        <button onClick={async () => { const finalized = await handleSave('Finalized'); if (finalized) handleDownloadPDF(finalized); }} className="flex-1 px-6 py-3 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"><Download size={18} /> Finalize & PDF</button>
                                     </div>
                                 </div>
                             </div>
@@ -638,13 +637,13 @@ export const ServiceOrderModule: React.FC = () => {
                             <div className="h-full bg-white flex flex-col p-4 sm:p-8 overflow-hidden animate-in fade-in">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
                                     <div><h3 className="font-black text-slate-800 uppercase tracking-tight text-lg sm:text-xl">Spares Registry</h3><p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Select items for service job</p></div>
-                                    <div className="relative w-full sm:w-80"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filter Spares..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} /></div>
+                                    <div className="relative w-full sm:w-80"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Filter Spares..." className="w-full pl-11 pr-6 py-3 bg-slate-50 border border-slate-300 rounded-[2rem] text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value)} /></div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                                     {filteredSpares.map(prod => (
                                         <div key={prod.id} className="p-5 rounded-[1.5rem] border bg-white border-slate-300 hover:border-medical-400 shadow-sm transition-all cursor-pointer flex flex-col justify-between group" onClick={() => handleAddItem(prod)}>
                                             <div className="flex-1"><div className="flex items-center gap-2 mb-2"><span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border bg-slate-100 text-slate-500 border-slate-300">{prod.category || 'N/A'}</span></div><h4 className="font-black text-slate-800 text-sm leading-tight group-hover:text-medical-700 transition-colors">{prod.name}</h4></div>
-                                            <div className="mt-4 flex items-center justify-between border-t border-slate-300 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Rate</p><p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p></div><div className="p-2 rounded-xl bg-white text-medical-600 border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all"><Plus size={20} /></div></div>
+                                            <div className="mt-4 flex items-center justify-between border-t border-slate-300 pt-4"><div><p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Rate</p><p className="text-sm font-black text-slate-800 tracking-tight">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')}</p></div><div className="p-2 rounded-[2rem] bg-white text-medical-600 border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all"><Plus size={20} /></div></div>
                                         </div>
                                     ))}
                                 </div>

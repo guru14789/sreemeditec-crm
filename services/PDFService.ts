@@ -554,6 +554,76 @@ export const PDFService = {
             columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
         });
 
+        // Advance Payment details
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - 20,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [`Advance Payment details: ${data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')} via ${data.paymentMethod || ''} on ${formatDateDDMMYYYY(data.advanceDate)}` : 'nil'}`]
+            ]
+        });
+
+        // PAYMENT DETAILS Banner
+        doc.rect(margin, (doc as any).lastAutoTable.finalY, pageWidth - 20, 6);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text('PAYMENT DETAILS', pageWidth / 2, (doc as any).lastAutoTable.finalY + 4.5, { align: 'center' });
+
+        // Payment Details table (Settlement Matrix)
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY + 6,
+            margin: { left: margin },
+            tableWidth: pageWidth - 20,
+            theme: 'grid',
+            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+            head: [['Bank and Branch', 'Mode of payment', 'Date', 'Amount']],
+            body: [
+                [data.bankAndBranch || '---', data.paymentMethod || '---', formatDateDDMMYYYY(data.advanceDate), data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')}` : '']
+            ],
+            columnStyles: { 0: { cellWidth: colWidth * 0.9 }, 1: { cellWidth: colWidth * 0.4, halign: 'center' }, 2: { cellWidth: colWidth * 0.3, halign: 'center' }, 3: { cellWidth: colWidth * 0.4, halign: 'right' } }
+        });
+
+        // Delivery time
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - 20,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [`Delivery time: ${data.deliveryTime || ''}`]
+            ]
+        });
+
+        // Special notes
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - 20,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 15, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [`Any special note regarding supply, payment terms(to be filled by company personal):\n${data.specialNote || 'Payment will be done on delivery of material.'}`]
+            ]
+        });
+
+        // Signatures boxes
+        autoTable(doc, {
+            startY: (doc as any).lastAutoTable.finalY,
+            margin: { left: margin },
+            tableWidth: pageWidth - 20,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            body: [
+                [`Customer seal and signature:\n\n\n`, `Sreemeditec representative signature:\n\n\nFor SREE MEDITEC\nAuthorised Signatory`]
+            ],
+            columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
+        });
+
         return doc.output('blob');
     },
 

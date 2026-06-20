@@ -85,7 +85,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto space-y-6 md:space-y-7 pr-1 pb-4 custom-scrollbar bg-[#F3F0E8]">
+    <div className="h-full overflow-y-auto space-y-4 md:space-y-7 px-3 sm:px-4 md:px-6 pb-4 custom-scrollbar bg-[#F3F0E8]">
       
       {/* Revenue Section */}
       <div className="space-y-3">
@@ -96,39 +96,48 @@ export const Dashboard: React.FC = () => {
           <span className="text-[7px] font-bold text-slate-400 uppercase">This Period</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
-            <div className="flex items-center justify-between">
-              <div className="bg-white/10 p-2 rounded-xl text-emerald-300 backdrop-blur-sm group-hover:scale-110 transition-transform"><Activity size={20} /></div>
-              <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> Today</span>
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                <Activity size={15} />
+              </div>
+              <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <TrendingUp size={8} /> Today
+              </span>
             </div>
             <div>
-              <p className="text-[9px] font-black text-emerald-200/80 uppercase tracking-widest">Today's Sales</p>
-              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.todayRevenue)}</h3>
-              <p className="text-[9px] font-bold text-emerald-200/50 mt-1">Synced with Registry</p>
+              <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Sales</p>
+ <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.todayRevenue)}</h3>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-900 to-indigo-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(30,58,138,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(30,58,138,0.6)] transition-all duration-300 min-h-[120px]">
-            <div className="flex items-center justify-between">
-              <div className="bg-white/10 p-2 rounded-xl text-blue-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Calendar size={20} /></div>
-              <span className="flex items-center gap-1 text-[9px] font-bold text-blue-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%</span>
+          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                <Calendar size={15} />
+              </div>
+              <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <TrendingUp size={8} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%
+              </span>
             </div>
             <div>
-              <p className="text-[9px] font-black text-blue-200/80 uppercase tracking-widest">Weekly Goal</p>
-              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.weekRevenue)}</h3>
-              <p className="text-[9px] font-bold text-blue-200/50 mt-1">Current Week Cycle</p>
+              <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Weekly Goal</p>
+ <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.weekRevenue)}</h3>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-violet-900 to-purple-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(107,33,168,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(107,33,168,0.6)] transition-all duration-300 min-h-[120px]">
-            <div className="flex items-center justify-between">
-              <div className="bg-white/10 p-2 rounded-xl text-purple-200 backdrop-blur-sm group-hover:scale-110 transition-transform"><Wallet size={20} /></div>
-              <span className="flex items-center gap-1 text-[9px] font-bold text-purple-100 bg-white/10 px-2 py-1 rounded-lg backdrop-blur-sm"><TrendingUp size={10} /> Monthly</span>
+          <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+                <Wallet size={15} />
+              </div>
+              <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Monthly
+              </span>
             </div>
             <div>
-              <p className="text-[9px] font-black text-purple-200/80 uppercase tracking-widest">Monthly Intake</p>
-              <h3 className="text-2xl md:text-3xl font-black text-white mt-1 tracking-tight">{formatCurrency(stats.monthRevenue)}</h3>
-              <p className="text-[9px] font-bold text-purple-200/50 mt-1">MoM Growth Engine</p>
+              <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Monthly Intake</p>
+ <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(stats.monthRevenue)}</h3>
             </div>
           </div>
         </div>
@@ -140,27 +149,48 @@ export const Dashboard: React.FC = () => {
           <Wallet size={13} className="text-emerald-600" /> Live Workspace Summary
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-emerald-400 transition-all duration-300">
-            <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><CheckCircle2 size={20} /></div>
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[100px]">
+            <div className="flex justify-between items-start mb-1">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                <CheckCircle2 size={12} />
+              </div>
+              <span className="flex items-center gap-1 text-[6.5px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <CheckCircle2 size={8} /> CLEARED
+              </span>
+            </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Approved / Cleared</p>
-              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.approved || 0)}</h3>
+              <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Approved</p>
+ <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.approved || 0)}</h3>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-amber-400 transition-all duration-300">
-            <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><Clock size={20} /></div>
+          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[100px]">
+            <div className="flex justify-between items-start mb-1">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                <Clock size={12} />
+              </div>
+              <span className="flex items-center gap-1 text-[6.5px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <Clock size={8} /> AWAITING
+              </span>
+            </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pending / Awaiting</p>
-              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.pending || 0)}</h3>
+              <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Pending</p>
+ <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.pending || 0)}</h3>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-300 dark:border-slate-800 shadow-sm flex items-center gap-5 group hover:shadow-md hover:border-rose-400 transition-all duration-300">
-            <div className="bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 p-3 rounded-xl group-hover:scale-110 transition-transform"><XCircle size={20} /></div>
+          <div className="p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[100px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+            <div className="flex justify-between items-start mb-1">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+                <XCircle size={12} />
+              </div>
+              <span className="flex items-center gap-1 text-[6.5px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <XCircle size={8} /> DECLINED
+              </span>
+            </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rejected / Declined</p>
-              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight mt-1">{formatCurrency(expenseStats?.rejected || 0)}</h3>
+              <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Rejected</p>
+ <h3 className="text-base font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(expenseStats?.rejected || 0)}</h3>
             </div>
           </div>
         </div>
@@ -168,7 +198,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Operations & Feeds */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col h-[380px] md:h-[400px]">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[280px] md:min-h-[400px]">
           <div className="flex justify-between items-center mb-4 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
@@ -179,9 +209,9 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
             {visibleTasks.slice(0, 8).map(task => (
-              <div key={task.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between group hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
+              <div key={task.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-200 dark:border-slate-800 flex items-center justify-between group hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
                 <div className="flex items-center gap-3.5">
-                  <div className={`p-2 rounded-xl text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm border border-slate-200'}`}><Clock size={14} /></div>
+                  <div className={`p-2 rounded-[2rem] text-[10px] ${task.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-white text-slate-400 shadow-sm border border-slate-200'}`}><Clock size={14} /></div>
                   <div>
                     <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{task.title}</p>
                     <div className="flex items-center gap-2 mt-1">
@@ -197,7 +227,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col h-[380px] md:h-[400px]">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[280px] md:min-h-[400px]">
           <div className="flex justify-between items-center mb-4 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
@@ -208,9 +238,9 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
             {pointHistory.slice(0, 8).map(log => (
-              <div key={log.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
+              <div key={log.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:bg-white dark:hover:bg-slate-800/70 hover:shadow-sm transition-all duration-200">
                 <div className="flex items-center gap-3.5">
-                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl"><Zap size={14} fill="currentColor" /></div>
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-[2rem]"><Zap size={14} fill="currentColor" /></div>
                   <div>
                     <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight leading-tight">{log.description}</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Asset ID: {log.userId}</p>
@@ -231,7 +261,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px]">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[250px] md:min-h-[350px]">
           <div className="flex justify-between items-center mb-5 shrink-0 border-b border-slate-200 dark:border-slate-800 pb-3">
             <div>
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Internal Forecast</h3>
@@ -258,7 +288,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[350px]">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-emerald-950/5 dark:border-slate-800 shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)] flex flex-col min-h-[250px] md:min-h-[350px]">
           <div className="border-b border-slate-200 dark:border-slate-800 pb-3 mb-5 shrink-0">
             <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Field Service Status</h3>
             <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Ticket Distribution</p>
@@ -276,7 +306,7 @@ export const Dashboard: React.FC = () => {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center">
-                <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{serviceTickets.length}</span>
+ <span className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">{serviceTickets.length}</span>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Total Jobs</p>
               </div>
             </div>

@@ -121,17 +121,17 @@ export const InstallationReportModule: React.FC = () => {
     const renderReportTemplate = (data: SimpleInstallationReport) => (
         <div className="bg-white p-[15mm] text-black w-full min-h-[297mm] flex flex-col mx-auto overflow-hidden border border-slate-200" style={{ fontFamily: 'Arial, sans-serif' }}>
             <div className="text-center mb-8">
-                <h1 className="text-4xl font-black uppercase mb-1">SREE MEDITEC</h1>
+                <h1 className="text-4xl font-playfair font-bold tracking-tight uppercase mb-1">SREE MEDITEC</h1>
                 <p className="text-[11px] font-bold">New No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.</p>
                 <p className="text-[11px] font-bold">Mob: 9884818398</p>
             </div>
 
-            <div className="text-center mb-8 py-2 bg-slate-50 border border-black font-black text-lg tracking-widest uppercase">
+            <div className="text-center mb-8 py-2 bg-slate-50 border border-black font-playfair font-bold text-lg tracking-tight tracking-tight tracking-widest uppercase">
                 INSTALLATION REPORT
             </div>
 
             <div className="flex justify-between font-black text-xs mb-4 px-1 uppercase">
-                <div className="flex gap-2"><span>SMIR No:</span><span className="text-medical-600">{data.smirNo}</span></div>
+                <div className="flex gap-2"><span>SMIR No:</span><span className="text-medical-600"><span className="font-inter font-bold tracking-widest">{data.smirNo}</span></span></div>
                 <div className="flex gap-2"><span>DATE:</span><span className="font-bold">{formatDateDDMMYYYY(data.date)}</span></div>
             </div>
 
@@ -187,9 +187,9 @@ export const InstallationReportModule: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed' }); setBuilderTab('form'); }} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><PenTool size={16} /> New SMIR</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> Registry</button>
+                <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed' }); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New SMIR</button>
             </div>
 
             {viewState === 'history' ? (
@@ -200,7 +200,7 @@ export const InstallationReportModule: React.FC = () => {
                             <select 
                                 value={filingFilter}
                                 onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
                             >
                                 <option value="All">All Filing</option>
                                 <option value="Filed">Filed</option>
@@ -214,7 +214,7 @@ export const InstallationReportModule: React.FC = () => {
                                     placeholder="Search reports..." 
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
                                 />
                             </div>
                         </div>
@@ -223,13 +223,13 @@ export const InstallationReportModule: React.FC = () => {
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-6 py-4">SMIR #</th>
-                                    <th className="px-6 py-4">Consignee</th>
-                                    <th className="px-6 py-4">Engineer</th>
-                                    <th className="px-6 py-4">Equipment</th>
-                                    <th className="px-6 py-4 text-center">Execution</th>
-                                    <th className="px-6 py-4 text-center">Filed Status</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
+                                    <th className="px-4 py-2 font-inter">SMIR #</th>
+                                    <th className="px-4 py-2">Consignee</th>
+                                    <th className="px-4 py-2">Engineer</th>
+                                    <th className="px-4 py-2">Equipment</th>
+                                    <th className="px-4 py-2 text-center">Execution</th>
+                                    <th className="px-4 py-2 text-center">Filed Status</th>
+                                    <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -251,16 +251,16 @@ export const InstallationReportModule: React.FC = () => {
                                     })
                                     .map((r: any) => (
                                     <tr key={r.id} onClick={() => { setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                                        <td className="px-6 py-4 font-black">{r.smirNo}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{r.customerName}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{r.smirNo}</span></td>
+                                        <td className="px-4 py-2 font-bold text-slate-700 uppercase">{r.customerName}</td>
+                                        <td className="px-4 py-2">
                                             <div title={r.engineerName} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {r.engineerName?.charAt(0) || 'E'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-slate-500 font-bold uppercase text-[10px] truncate max-w-[150px]">{r.installationOf}</td>
-                                        <td className="px-6 py-4 text-center font-bold text-slate-400">{formatDateDDMMYYYY(r.date)}</td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-slate-500 font-bold uppercase text-[10px] truncate max-w-[150px]">{r.installationOf}</td>
+                                        <td className="px-4 py-2 text-center font-bold text-slate-400">{formatDateDDMMYYYY(r.date)}</td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={r.id!}
                                                 filedStatus={r.filedStatus}
@@ -271,15 +271,15 @@ export const InstallationReportModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === r.id! ? 'z-50' : 'z-0'}`}>
-                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === r.id! ? null : r.id!); }} className={`p-2 rounded-xl transition-all ${activeMenuId === r.id! ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
+                                                <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === r.id! ? null : r.id!); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === r.id! ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 {activeMenuId === r.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
-                                                        <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all flex-1 flex justify-center"><Edit size={18} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all flex-1 flex justify-center"><Download size={18} /></button>
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                        <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
@@ -291,7 +291,7 @@ export const InstallationReportModule: React.FC = () => {
                                                                         setActiveMenuId(null);
                                                                     }
                                                                 }} 
-                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all flex-1 flex justify-center"
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"
                                                             >
                                                                 <Trash2 size={18} />
                                                             </button>
@@ -308,9 +308,9 @@ export const InstallationReportModule: React.FC = () => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><PenTool size={18}/> Form</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400'}`}><Eye size={18}/> Preview</button>
+                    <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner flex gap-1 shrink-0 m-6">
+                        <button onClick={() => setBuilderTab('form')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'form' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={18}/> Form</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${builderTab === 'preview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Eye size={18}/> Preview</button>
                     </div>
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
@@ -323,10 +323,10 @@ export const InstallationReportModule: React.FC = () => {
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="SMIR No. *">
-                                                <input type="text" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.smirNo || ''} onChange={e => setReport({...report, smirNo: e.target.value})} placeholder="SMIR-001" />
+                                                <input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-inter font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={report.smirNo || ''} onChange={e => setReport({...report, smirNo: e.target.value})} placeholder="SMIR-001" />
                                             </FormRow>
                                             <FormRow label="Installation Date">
-                                                <input type="date" className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.date || ''} onChange={e => setReport({...report, date: e.target.value})} />
+                                                <input type="date" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.date || ''} onChange={e => setReport({...report, date: e.target.value})} />
                                             </FormRow>
                                             <div className="lg:col-span-2">
                                                 <FormRow label="Equipment Model *">
@@ -337,7 +337,7 @@ export const InstallationReportModule: React.FC = () => {
                                                         suggestions={products}
                                                         filterKey="name"
                                                         placeholder="Select machine model..."
-                                                        className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none uppercase"
+                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none uppercase"
                                                     />
                                                 </FormRow>
                                             </div>
@@ -350,7 +350,7 @@ export const InstallationReportModule: React.FC = () => {
                                             2. Consignee / Site Details
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Customer (As Per Invoice) *">
                                                     <AutoSuggest
                                                         value={report.customerName || ''}
@@ -359,16 +359,16 @@ export const InstallationReportModule: React.FC = () => {
                                                         suggestions={clients}
                                                         filterKey="name"
                                                         placeholder="Billing entity..."
-                                                        className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
                                                     />
                                                 </FormRow>
                                                 <FormRow label="Facility / Site Name">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.customerHospital || ''} onChange={e => setReport({...report, customerHospital: e.target.value})} placeholder="Hospital name..." />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.customerHospital || ''} onChange={e => setReport({...report, customerHospital: e.target.value})} placeholder="Hospital name..." />
                                                 </FormRow>
                                             </div>
-                                            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                                            <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200">
                                                 <FormRow label="Full Site Address">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-medium outline-none h-[115px] resize-none uppercase" value={report.customerAddress || ''} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Complete delivery location..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[115px] resize-none uppercase" value={report.customerAddress || ''} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Complete delivery location..." />
                                                 </FormRow>
                                             </div>
                                         </div>
@@ -381,21 +381,21 @@ export const InstallationReportModule: React.FC = () => {
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <FormRow label="Machine Serial #">
-                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black outline-none" value={report.serialNumber || ''} onChange={e => setReport({...report, serialNumber: e.target.value})} placeholder="SN-123456" />
+                                                <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black outline-none" value={report.serialNumber || ''} onChange={e => setReport({...report, serialNumber: e.target.value})} placeholder="SN-123456" />
                                             </FormRow>
                                             <FormRow label="Software Version">
-                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.softwareVersion || ''} onChange={e => setReport({...report, softwareVersion: e.target.value})} placeholder="V1.0.0" />
+                                                <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.softwareVersion || ''} onChange={e => setReport({...report, softwareVersion: e.target.value})} placeholder="V1.0.0" />
                                             </FormRow>
                                             <FormRow label="Assigned Engineer">
-                                                <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-black text-slate-800 outline-none" value={report.engineerName || ''} onChange={e => setReport({...report, engineerName: e.target.value})} placeholder="Engineer Name" />
+                                                <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-black text-slate-800 outline-none" value={report.engineerName || ''} onChange={e => setReport({...report, engineerName: e.target.value})} placeholder="Engineer Name" />
                                             </FormRow>
                                             <div className="sm:col-span-2">
                                                 <FormRow label="Trained Personnel (Site Doctors/Staff)">
-                                                    <input type="text" className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm font-bold outline-none" value={report.trainedPersons || ''} onChange={e => setReport({...report, trainedPersons: e.target.value})} placeholder="Name of persons trained..." />
+                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.trainedPersons || ''} onChange={e => setReport({...report, trainedPersons: e.target.value})} placeholder="Name of persons trained..." />
                                                 </FormRow>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-4 items-start">
+                                        <div className="p-4 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex gap-4 items-start">
                                             <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm shrink-0"><CheckCircle2 size={16}/></div>
                                             <div className="text-[10px] font-bold text-emerald-800 leading-relaxed uppercase tracking-tight">
                                                 The above referred unit has been supplied in good condition and installed successfully. 
@@ -408,20 +408,20 @@ export const InstallationReportModule: React.FC = () => {
                                 <div className="sticky bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-20 shrink-0">
                                     <button 
                                         onClick={() => { setViewState('history'); setEditingId(null); }}
-                                        className="w-full sm:w-auto px-8 py-3.5 bg-white border border-slate-300 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-colors order-2 sm:order-1"
+                                        className="w-full sm:w-auto px-8 py-3.5 bg-white border border-slate-300 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-colors order-2 sm:order-1"
                                     >
                                         Discard
                                     </button>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
                                         <button 
                                             onClick={() => handleSave('Draft')}
-                                            className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95"
+                                            className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 active:scale-95"
                                         >
                                             Save Draft
                                         </button>
                                         <button 
                                             onClick={() => { handleSave('Finalized'); handleDownloadPDF(report); }}
-                                            className="flex-1 px-8 py-3.5 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"
+                                            className="flex-1 px-8 py-3.5 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             Finalize & Download
                                         </button>

@@ -42,12 +42,42 @@ export default {
           'row-alt': '#162535',
           'input-bg': '#0A1929',
           'input-border': '#2196F3',
-        }
+        },
+        luxe: {
+          emerald: {
+            deepest: '#013D24',
+            deep: '#04542E',
+            mid: '#0A734A',
+            bright: '#0F9964',
+          },
+          gold: {
+            dark: '#C8A15A',
+            mid: '#D8B470',
+            light: '#E6C98A',
+          },
+          purple: {
+            dark: '#5A29D6',
+            mid: '#6F38E8',
+            bright: '#8652FF',
+          },
+          brown: {
+            dark: '#5B3B24',
+            mid: '#6E4B31',
+            light: '#826046',
+          },
+          danger: {
+            dark: '#B24852',
+            bright: '#D05B68',
+          },
+          surface: '#F5F4F1',
+        },
       },
       fontFamily: {
-        'playfair': ['Playfair Display', 'Georgia', 'serif'],
+        'playfair': ['BodoniNumbers', 'Playfair Display', 'Georgia', 'serif'],
         'tally': ['JetBrains Mono', 'Courier New', 'monospace'],
         'ui': ['Inter', 'Segoe UI', 'sans-serif'],
+        'lato': ['Lato', 'sans-serif'],
+        'inter': ['Inter', 'sans-serif'],
       },
       fontSize: {
         'tally-xs': '11px',
@@ -57,7 +87,26 @@ export default {
         'tally-lg': '16px',
         'tally-xl': '18px',
         'tally-2xl': '22px',
-      }
+      },
+      borderRadius: {
+        'card': '24px',
+        'button': '20px',
+        'input': '18px',
+        'modal': '28px',
+        'pill': '999px',
+      },
+      boxShadow: {
+        'card': '0 12px 30px rgba(0,0,0,0.10)',
+        'card-hover': '0 20px 45px rgba(0,0,0,0.12)',
+        'button': '0 8px 20px rgba(1,61,36,0.25)',
+        'button-hover': '0 12px 28px rgba(1,61,36,0.35)',
+        'premium': '0 20px 50px -12px rgba(0,0,0,0.15)',
+        'emerald-glow': '0 20px 40px -10px rgba(1,61,36,0.5)',
+        'gold-glow': '0 20px 40px -10px rgba(200,161,90,0.5)',
+        'inner-soft': 'inset 0 1px 1px rgba(255,255,255,0.08)',
+        'inner-glow': 'inset 0 1px 2px rgba(255,255,255,0.12)',
+        'toggle': '0 10px 28px rgba(0,80,45,0.35)',
+      },
     },
   },
   plugins: [],

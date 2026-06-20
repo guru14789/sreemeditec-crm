@@ -62,7 +62,7 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
         placeholder={placeholder}
       />
       {showSuggestions && filtered.length > 0 && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-[2rem] shadow-xl max-h-60 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-1 duration-200">
           {filtered.map((item, index) => (
             <div
               key={index}

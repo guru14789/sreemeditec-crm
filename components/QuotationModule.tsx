@@ -1,3 +1,4 @@
+import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
@@ -428,8 +429,8 @@ Sree Meditec`;
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'history' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><History size={16} /> History</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('history')} className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={14} /> History</button>
                 <button 
                     onClick={() => { 
                         setEditingId(null); 
@@ -437,9 +438,9 @@ Sree Meditec`;
                         setBuilderTab('form'); 
                         setQuote({ ...INITIAL_QUOTE_STATE, invoiceNumber: '' }); 
                     }} 
-                    className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${viewState === 'builder' ? 'bg-medical-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
                 >
-                    <Plus size={16} /> New Quote
+                    <Plus size={14} /> New Quote
                 </button>
             </div>
 
@@ -451,19 +452,19 @@ Sree Meditec`;
                             <select 
                                 value={filingFilter}
                                 onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-xl text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
                             >
                                 <option value="All">All Filing</option>
                                 <option value="Filed">Filed</option>
                                 <option value="Not Filed">Not Filed</option>
                                 <option value="Not Updated">Not Updated</option>
                             </select>
-                            <div className="relative w-64">
+                            <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                 <input 
                                     type="text" 
                                     placeholder="Search quotes..." 
-                                    className="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
+                                    className="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
                                     value={quoteSearch}
                                     onChange={(e) => setQuoteSearch(e.target.value.toUpperCase())}
                                 />
@@ -481,7 +482,7 @@ Sree Meditec`;
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
-                                <tr><th className="px-6 py-4">Reference</th><th className="px-6 py-4">Consignee</th><th className="px-6 py-4">Author</th><th className="px-6 py-4 text-right">Grand Total</th><th className="px-6 py-4 text-center">Filed Status</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Action</th></tr>
+                                <tr><th className="px-4 py-2 font-inter">Reference</th><th className="px-4 py-2">Consignee</th><th className="px-4 py-2">Author</th><th className="px-4 py-2 text-right">Grand Total</th><th className="px-4 py-2 text-center">Filed Status</th><th className="px-4 py-2 text-center">Status</th><th className="px-4 py-2 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {sortedQuotes.length === 0 ? (
@@ -495,9 +496,9 @@ Sree Meditec`;
                                     </tr>
                                 ) : sortedQuotes.map(inv => (
                                     <tr key={inv.id} onClick={() => { setQuote(inv); setEditingId(inv.id); setViewState('builder'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                                        <td className="px-6 py-4 font-black">{inv.invoiceNumber}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
+                                        <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
+                                        <td className="px-4 py-2">
                                             <div 
                                                 title={inv.createdBy || 'System'}
                                                 className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
@@ -505,8 +506,8 @@ Sree Meditec`;
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
                                                 filedStatus={inv.filedStatus} 
@@ -517,21 +518,21 @@ Sree Meditec`;
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
-                                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button 
                                                     onClick={(e) => { 
                                                         e.stopPropagation(); 
                                                         setActiveMenuId(activeMenuId === inv.id ? null : inv.id); 
                                                     }} 
-                                                    className={`p-2 rounded-xl transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                    className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
                                                 >
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 
                                                 {activeMenuId === inv.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-2xl rounded-2xl p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 border-slate-300">
+                                                    <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 border-slate-300">
                                                         <button 
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
@@ -553,42 +554,42 @@ Sree Meditec`;
                                                                 setActiveTab(TabView.BILLING);
                                                                 setActiveMenuId(null); 
                                                             }} 
-                                                            className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-blue-500 hover:bg-blue-50 rounded-[2rem] transition-all"
                                                             title="Convert to Invoice"
                                                         >
                                                             <ArrowUpRight size={18} />
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleRevise(inv); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-[2rem] transition-all"
                                                             title="Revise Quote"
                                                         >
                                                             <RefreshCw size={18} />
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setQuote(inv); setEditingId(inv.id); setViewState('builder'); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all"
                                                             title="Edit Quote"
                                                         >
                                                             <Edit size={18} />
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all"
                                                             title="Download PDF"
                                                         >
                                                             <Download size={18} />
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-[2rem] transition-all"
                                                             title="Send on WhatsApp"
                                                         >
                                                             <MessageSquare size={18} />
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} 
-                                                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-[2rem] transition-all"
                                                             title="Send via Email"
                                                         >
                                                             <Mail size={18} />
@@ -597,7 +598,7 @@ Sree Meditec`;
                                                         {isSystemAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber); setActiveMenuId(null); }} 
-                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                                                className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all"
                                                                 title="Delete Quotation"
                                                             >
                                                                 <Trash2 size={18} />
@@ -615,40 +616,40 @@ Sree Meditec`;
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-3xl shadow-xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="flex bg-slate-50 border-b border-slate-300 shrink-0 overflow-x-auto no-scrollbar">
-                        <button onClick={() => setBuilderTab('form')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><PenTool size={18}/> Editor</button>
-                        <button onClick={() => setBuilderTab('preview')} className={`flex-1 min-w-[100px] py-4 text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-white text-medical-700 border-b-4 border-medical-500' : 'text-slate-400 hover:text-slate-700'}`}><Eye size={18}/> Print Layout</button>
+                    <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner shrink-0 flex gap-1 overflow-x-auto no-scrollbar">
+                        <button onClick={() => setBuilderTab('form')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'form' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={14}/> Editor</button>
+                        <button onClick={() => setBuilderTab('preview')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 whitespace-nowrap ${builderTab === 'preview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Eye size={14}/> Print Layout</button>
                     </div>
 
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
                             <div className="h-full overflow-y-auto p-4 md:p-8 space-y-12 custom-scrollbar bg-white">
-                                <section className="space-y-6">
+                                <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><FileText size={14}/> Quotation Details</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Reference No. *</label>
-                                            <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" value={quote.invoiceNumber || ''} onChange={e => setQuote({...quote, invoiceNumber: e.target.value.toUpperCase()})} placeholder="SMQ/25-26/1" />
+                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1 font-inter">Reference No. *</label>
+                                            <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-inter font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" value={quote.invoiceNumber || ''} onChange={e => setQuote({...quote, invoiceNumber: e.target.value.toUpperCase()})} placeholder="SMQ/25-26/1" />
                                         </div>
                                         <div className="space-y-1.5">
                                             <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Quotation Date</label>
-                                            <input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.date || ''} onChange={e => setQuote({...quote, date: e.target.value})} />
+                                            <input type="date" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={quote.date || ''} onChange={e => setQuote({...quote, date: e.target.value})} />
                                         </div>
                                     </div>
                                 </section>
-                                <section className="space-y-6">
+                                <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><User size={14}/> Client Details</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-4">
-                                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Name *</label><input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 uppercase" value={quote.customerName || ''} onChange={e => handleClientSelect(e.target.value)} placeholder="Search or Enter Client Name" /></div>
-                                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client GST Number</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none uppercase" value={quote.customerGstin || ''} onChange={e => setQuote({...quote, customerGstin: e.target.value.toUpperCase()})} placeholder="GSTIN" /></div>
+                                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Name *</label><input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none focus:ring-4 focus:ring-medical-500/5 uppercase" value={quote.customerName || ''} onChange={e => handleClientSelect(e.target.value)} placeholder="Search or Enter Client Name" /></div>
+                                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client GST Number</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none uppercase" value={quote.customerGstin || ''} onChange={e => setQuote({...quote, customerGstin: e.target.value.toUpperCase()})} placeholder="GSTIN" /></div>
                                         </div>
-                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Address</label><textarea rows={4} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none resize-none" value={quote.customerAddress || ''} onChange={e => setQuote({...quote, customerAddress: e.target.value})} placeholder="Full site or billing address..." /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Client Address</label><textarea rows={4} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none resize-none" value={quote.customerAddress || ''} onChange={e => setQuote({...quote, customerAddress: e.target.value})} placeholder="Full site or billing address..." /></div>
                                     </div>
                                 </section>
                                 <section className="space-y-4">
                                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2">Subject</h3>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Subject Line</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold outline-none" value={quote.subject || ''} onChange={e => setQuote({...quote, subject: e.target.value})} placeholder="e.g. Ultrasound Gel (5L)" /></div>
+                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Subject Line</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={quote.subject || ''} onChange={e => setQuote({...quote, subject: e.target.value})} placeholder="e.g. Ultrasound Gel (5L)" /></div>
                                 </section>
                                 <section className="space-y-2">
                                     <div className="border-b pb-2">
@@ -660,16 +661,16 @@ Sree Meditec`;
                                                 <div className="p-4 sm:p-5 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] relative hover:bg-white hover:border-medical-200 transition-all">
                                                     <button onClick={() => setQuote({...quote, items: (quote.items || []).filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-                                                        <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Product Name</label><input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value.toUpperCase())} /></div>
-                                                        <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold uppercase" value={item.model || ''} onChange={e => updateItem(item.id, 'model', e.target.value.toUpperCase())} /></div>
+                                                        <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Product Name</label><input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold uppercase" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value.toUpperCase())} /></div>
+                                                        <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold uppercase" value={item.model || ''} onChange={e => updateItem(item.id, 'model', e.target.value.toUpperCase())} /></div>
                                                         <div className="grid grid-cols-2 md:col-span-4 gap-4">
-                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
-                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option></select></div>
+                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
+                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option></select></div>
                                                         </div>
-                                                        <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
-                                                        <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
-                                                        <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString('en-IN')}</div></div>
-                                                        <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
+                                                        <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
+                                                        <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
+                                                        <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString('en-IN')}</div></div>
+                                                        <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
                                                     </div>
                                                 </div>
                                                 <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
@@ -687,15 +688,15 @@ Sree Meditec`;
                                         )}
                                     </div>
                                 </section>
-                                <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" /></div></div></section>
-                                <section className="space-y-6"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Payment Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.paymentTerms} onChange={e => setQuote({...quote, paymentTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Delivery Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.deliveryTerms} onChange={e => setQuote({...quote, deliveryTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warranty Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-xs font-bold outline-none resize-none" value={quote.warrantyTerms} onChange={e => setQuote({...quote, warrantyTerms: e.target.value})} /></div></div></section>
-                                <section className="space-y-6 pb-24"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Seller Profile</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.sellerProfile?.id || ''} onChange={e => { const selected = companyProfiles.find(p => p.id === e.target.value); setQuote(prev => ({ ...prev, sellerProfile: selected })); }}><option value="">Default (Sree Meditec)</option>{companyProfiles.map(profile => (<option key={profile.id} value={profile.id}>{profile.companyName}</option>))}</select></div></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Select Bank</label><select className="w-full h-[42px] bg-white border border-medical-200 rounded-xl px-4 py-2 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.selectedBank?.id || ''} onChange={e => { const selected = bankDetailsList.find(b => b.id === e.target.value); setQuote(prev => ({ ...prev, selectedBank: selected })); }}><option value="">Default Bank</option>{bankDetailsList.map(bank => (<option key={bank.id} value={bank.id}>{bank.bankName} ({bank.accountNo})</option>))}</select></div></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-xl" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-xl" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-xl" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
+                                <section className="space-y-4"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><Percent size={14}/> Charges & Discounts</h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Discount (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={quote.discount} onChange={e => setQuote({...quote, discount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight (₹)</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={quote.freightAmount} onChange={e => setQuote({...quote, freightAmount: Number(e.target.value)})} placeholder="0.00" /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Freight GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={quote.freightTaxRate} onChange={e => setQuote({...quote, freightTaxRate: Number(e.target.value)})} placeholder="18" /></div></div></section>
+                                <section className="space-y-4"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><CreditCard size={14}/> Terms & Conditions</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Payment Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-xs font-bold outline-none resize-none" value={quote.paymentTerms} onChange={e => setQuote({...quote, paymentTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Delivery Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-xs font-bold outline-none resize-none" value={quote.deliveryTerms} onChange={e => setQuote({...quote, deliveryTerms: e.target.value})} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Warranty Terms</label><textarea rows={3} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-xs font-bold outline-none resize-none" value={quote.warrantyTerms} onChange={e => setQuote({...quote, warrantyTerms: e.target.value})} /></div></div></section>
+                                <section className="space-y-4 pb-24"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] border-b pb-2 flex items-center gap-2"><ImageIcon size={14}/> Brand Assets</h3><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Name *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={repName} onChange={e => setRepName(e.target.value)} /></div><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase ml-1">Rep Phone *</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none" value={repPhone} onChange={e => setRepPhone(e.target.value)} /></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Seller Profile</label><select className="w-full h-[36px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.sellerProfile?.id || ''} onChange={e => { const selected = companyProfiles.find(p => p.id === e.target.value); setQuote(prev => ({ ...prev, sellerProfile: selected })); }}><option value="">Default (Sree Meditec)</option>{companyProfiles.map(profile => (<option key={profile.id} value={profile.id}>{profile.companyName}</option>))}</select></div></div><div className="space-y-1.5"><div className="flex flex-col gap-1.5 w-full"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Select Bank</label><select className="w-full h-[36px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700" value={quote.selectedBank?.id || ''} onChange={e => { const selected = bankDetailsList.find(b => b.id === e.target.value); setQuote(prev => ({ ...prev, selectedBank: selected })); }}><option value="">Default Bank</option>{bankDetailsList.map(bank => (<option key={bank.id} value={bank.id}>{bank.bankName} ({bank.accountNo})</option>))}</select></div></div></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-6"><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setLogo)} /><div className="w-10 h-10 rounded-[2rem] bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{logo ? <img src={logo} className="w-full h-full object-contain rounded-[2rem]" /> : <ImageIcon size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Logo</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSignature)} /><div className="w-10 h-10 rounded-[2rem] bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{signature ? <img src={signature} className="w-full h-full object-contain rounded-[2rem]" /> : <PenTool size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Signature</p></div><div className="p-4 sm:p-6 border-2 border-dashed border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer relative group"><input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => handleImageUpload(e, setSeal)} /><div className="w-10 h-10 rounded-[2rem] bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-medical-600 transition-colors">{seal ? <img src={seal} className="w-full h-full object-contain rounded-[2rem]" /> : <ShieldCheck size={20}/>}</div><p className="text-[9px] font-black uppercase text-slate-400">Stamp</p></div></div></section>
                                 <div className="sticky bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-30 shrink-0">
                                     <div className="flex-1 flex items-center justify-between px-2 order-2 sm:order-1 gap-4">
                                         <div className="flex items-center gap-6">
                                             <div className="flex flex-col">
                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Net Value</span>
-                                                <span className="text-2xl font-black text-medical-600 tracking-tight flex items-baseline gap-2">
+                                                <span className="text-2xl font-playfair font-bold tracking-tight text-medical-600 tracking-tight flex items-baseline gap-2">
                                                     ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                     {quote.isRoundOff && totals.roundOff !== 0 && (
                                                         <span className={`text-xs font-bold ${totals.roundOff > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -704,18 +705,16 @@ Sree Meditec`;
                                                     )}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setQuote(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
-                                                <div className={`w-7 h-3.5 rounded-full relative transition-all ${quote.isRoundOff ? 'bg-medical-600' : 'bg-slate-300'}`}>
-                                                    <div className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform ${quote.isRoundOff ? 'translate-x-3' : 'translate-x-0'}`} />
-                                                </div>
+                                            <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-[2rem] border border-slate-200 hover:bg-slate-200/60 transition-all cursor-pointer group h-[32px] select-none" onClick={() => setQuote(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))}>
+                                                <ToggleSwitch checked={!!quote.isRoundOff} onChange={() => setQuote(prev => ({ ...prev, isRoundOff: !prev.isRoundOff }))} />
                                                 <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 group-hover:text-slate-700 transition-colors">Round Off</span>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
+                                        <button onClick={() => { setViewState('history'); setEditingId(null); }} className="px-8 py-3.5 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-sm">Discard</button>
                                     </div>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
-                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
-                                        <button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="flex-1 px-8 py-3.5 bg-medical-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">Finalize & PDF</button>
+                                        <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
+                                        <button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="flex-1 px-8 py-3.5 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">Finalize & PDF</button>
                                     </div>
                                 </div>
                             </div>
@@ -726,13 +725,13 @@ Sree Meditec`;
                                     <div className="bg-white p-[15mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 shadow-2xl mx-auto" style={{ fontFamily: 'Calibri, sans-serif' }}>
                                         <div className="text-center mb-4">
                                             {logo && <img src={logo} className="h-16 object-contain mb-2 mx-auto" />}
-                                            <h1 className="text-4xl font-bold uppercase mb-1">{quote.sellerProfile?.companyName || 'SREE MEDITEC'}</h1>
+                                            <h1 className="text-4xl font-playfair font-bold tracking-tight uppercase mb-1">{quote.sellerProfile?.companyName || 'SREE MEDITEC'}</h1>
                                             <p className="text-[10px] font-semibold">{quote.sellerProfile?.address || 'New No: 18, Old No: 2, Bajanai Koil Street, Rajajipakkam, Chennai 600 073.'}</p>
                                             <p className="text-[10px] font-semibold">Mob: {quote.sellerProfile?.phone || '9884818398'}.</p>
                                             <p className="text-[10px] font-bold mt-1">GST NO: {quote.sellerProfile?.gstin || '33APGPS4675G2ZL'}</p>
                                         </div>
                                         <div className="text-center mb-8">
-                                            <h2 className="text-xl font-bold underline uppercase tracking-widest">Quotation</h2>
+                                            <h2 className="text-xl font-playfair font-bold tracking-tight underline uppercase tracking-widest">Quotation</h2>
                                         </div>
                                         <div className="flex justify-between font-bold mb-6 text-sm">
                                             <div>Ref: {quote.invoiceNumber}</div>
@@ -828,7 +827,7 @@ Sree Meditec`;
                             </div>
                         )}
                         {builderTab === 'catalog' && (
-                            <div className="h-full bg-white flex flex-col p-4 sm:p-8 overflow-hidden animate-in fade-in"><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4"><div><h3 className="font-black text-slate-800 uppercase tracking-widest text-lg">Product Registry</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select items to populate quote lines</p></div><div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Filter index..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value.toUpperCase())} /></div></div><div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{filteredCatalog.map(prod => (<div key={prod.id} className="p-5 sm:p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}><div className="flex-1"><h4 className="font-black text-slate-800 text-base group-hover:text-medical-700 transition-colors leading-tight">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')} • {prod.sku}</p></div><div className="mt-4 flex justify-end"><div className="p-2 bg-white rounded-xl border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm"><Plus size={18} /></div></div></div>))}{filteredCatalog.length === 0 && (<div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400"><Search size={32} className="mb-2 opacity-20" /><p className="text-xs font-black uppercase">No matching products</p></div>)}</div></div>
+                            <div className="h-full bg-white flex flex-col p-4 sm:p-8 overflow-hidden animate-in fade-in"><div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4"><div><h3 className="font-black text-slate-800 uppercase tracking-widest text-lg">Product Registry</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Select items to populate quote lines</p></div><div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Filter index..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-[2rem] text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" value={catalogSearch} onChange={e => setCatalogSearch(e.target.value.toUpperCase())} /></div></div><div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">{filteredCatalog.map(prod => (<div key={prod.id} className="p-5 sm:p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] hover:border-medical-400 hover:bg-white transition-all cursor-pointer flex flex-col justify-between group" onClick={() => { handleAddItem(prod); setBuilderTab('form'); }}><div className="flex-1"><h4 className="font-black text-slate-800 text-base group-hover:text-medical-700 transition-colors leading-tight">{prod.name}</h4><p className="text-[10px] text-slate-400 font-bold uppercase mt-1">₹{(prod.sellingPrice || 0).toLocaleString('en-IN')} • {prod.sku}</p></div><div className="mt-4 flex justify-end"><div className="p-2 bg-white rounded-[2rem] border border-slate-300 group-hover:bg-medical-600 group-hover:text-white transition-all shadow-sm"><Plus size={18} /></div></div></div>))}{filteredCatalog.length === 0 && (<div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400"><Search size={32} className="mb-2 opacity-20" /><p className="text-xs font-black uppercase">No matching products</p></div>)}</div></div>
                         )}
                     </div>
                 </div>

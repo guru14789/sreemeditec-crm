@@ -53,7 +53,7 @@ export const WinnerPopup: React.FC = () => {
                         {/* Header Titles */}
                         <div className="text-center mb-8">
                             <p className="text-emerald-50 font-black text-[9px] uppercase tracking-[0.4em] mb-3">Sree Meditec Registry</p>
-                            <h2 className="text-white font-black text-2xl uppercase tracking-tighter mb-0.5">Best Employee</h2>
+                            <h2 className="text-white font-playfair font-bold text-2xl tracking-tight tracking-tight uppercase tracking-tighter mb-0.5">Best Employee</h2>
                             <h1 className="text-white font-serif text-4xl italic tracking-tight">Of The Month</h1>
                         </div>
 
@@ -82,7 +82,7 @@ export const WinnerPopup: React.FC = () => {
                             {/* Winner Name Banner (Overlapping) */}
                             <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-[130%]">
                                 <div className="relative">
-                                    <div className="h-12 bg-emerald-600 rounded-xl shadow-xl flex items-center justify-center px-8 border-2 border-white/20">
+                                    <div className="h-12 bg-emerald-600 rounded-[2rem] shadow-xl flex items-center justify-center px-8 border-2 border-white/20">
                                         <h3 className="text-white font-black text-sm uppercase tracking-[0.15em] text-center truncate">
                                             {latestWinner.userId === 'NONE' ? 'Honorable Mention' : latestWinner.userName}
                                         </h3>
@@ -100,11 +100,11 @@ export const WinnerPopup: React.FC = () => {
                             </p>
                             
                             <div className="flex items-center justify-center gap-4 py-4">
-                                <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
+                                <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-[2rem] border border-emerald-100 dark:border-emerald-800/50">
                                     <p className="text-[8px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest mb-0.5">Month</p>
                                     <p className="text-slate-800 dark:text-white font-black text-[10px] uppercase">{new Date(latestWinner.monthId + "-01").toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
                                 </div>
-                                <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
+                                <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-[2rem] border border-emerald-100 dark:border-emerald-800/50">
                                     <p className="text-[8px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest mb-0.5">Points</p>
                                     <p className="text-slate-800 dark:text-white font-black text-[10px] uppercase">{latestWinner.points} XP</p>
                                 </div>
@@ -115,7 +115,7 @@ export const WinnerPopup: React.FC = () => {
                         <div className="mt-8 w-full">
                             <button
                                 onClick={handleClose}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-[10px] group"
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-[2rem] shadow-xl shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-[10px] group"
                             >
                                 Continue Excellence
                                 <CheckCircle2 size={18} className="group-hover:scale-110 transition-transform" />

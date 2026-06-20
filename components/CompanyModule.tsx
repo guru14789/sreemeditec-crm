@@ -95,8 +95,8 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex bg-white p-1 rounded-2xl border border-slate-300 w-fit shrink-0 shadow-sm">
-                <button onClick={() => setViewState('stock')} className={`px-8 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'stock' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600'}`}><List size={16} /> Registry</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                <button onClick={() => setViewState('stock')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={16} /> Registry</button>
                 <button 
                     onClick={() => { 
                         if (userRole !== 'Admin') return addNotification('Access Denied', 'Admin only.', 'alert');
@@ -105,7 +105,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                         setBuilderMode('add'); 
                         setProfile(DEFAULT_PROFILE); 
                     }} 
-                    className={`px-8 py-2 rounded-xl text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' && builderMode === 'add' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
                 >
                     <Plus size={16} /> Add Entity
                 </button>
@@ -115,7 +115,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                 <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                     <div className="p-5 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 shadow-inner border border-indigo-50"><Building2 size={20} /></div>
+                            <div className="w-10 h-10 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 shadow-inner border border-indigo-50"><Building2 size={20} /></div>
                             <div>
                                 <h3 className="font-black text-slate-800 uppercase tracking-tight">Our Companies</h3>
                                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{companyProfiles.length} Business Entities</p>
@@ -126,7 +126,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                             <input 
                                 type="text" 
                                 placeholder="Search companies..." 
-                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-[11px] font-bold outline-none focus:border-indigo-500 transition-all shadow-inner uppercase" 
+                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-[2rem] text-[11px] font-bold outline-none focus:border-indigo-500 transition-all shadow-inner uppercase" 
                                 value={searchQuery} 
                                 onChange={(e) => setSearchQuery(e.target.value)} 
                             />
@@ -137,10 +137,10 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-8 py-5">Company Identity</th>
-                                    <th className="px-8 py-5">Banking Node</th>
-                                    <th className="px-8 py-5">Statutory IDs</th>
-                                    <th className="px-8 py-5 text-right">Management</th>
+                                    <th className="px-4 py-2.5">Company Identity</th>
+                                    <th className="px-4 py-2.5">Banking Node</th>
+                                    <th className="px-4 py-2.5">Statutory IDs</th>
+                                    <th className="px-4 py-2.5 text-right">Management</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -157,7 +157,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                     >
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-indigo-600 uppercase text-[14px]">
+                                                <div className="w-10 h-10 rounded-[2rem] bg-indigo-50 border border-indigo-100 flex items-center justify-center font-black text-indigo-600 uppercase text-[14px]">
                                                     {p.companyName.charAt(0)}
                                                 </div>
                                                 <div>
@@ -195,12 +195,12 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                                 {userRole === 'Admin' && (
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: p.id, name: p.companyName }); }} 
-                                                        className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                                                        className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all border border-transparent hover:border-rose-100"
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
                                                 )}
-                                                <div className="p-2.5 text-indigo-600 bg-indigo-50 rounded-xl border border-indigo-100">
+                                                <div className="p-2.5 text-indigo-600 bg-indigo-50 rounded-[2rem] border border-indigo-100">
                                                     <Edit2 size={16} />
                                                 </div>
                                             </div>
@@ -222,29 +222,29 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                 <div className="flex-1 flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
                     <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-10 py-6 justify-between items-center">
                         <div className="flex flex-col">
-                            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">
+                            <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">
                                 {builderMode === 'add' ? 'Entity Intake Form' : 'Update Company Record'}
                             </h3>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                                 {builderMode === 'add' ? 'Registering new business node' : `Modifying ${profile.companyName}`}
                             </p>
                         </div>
-                        <button onClick={() => setViewState('stock')} className="p-3 bg-white text-slate-400 rounded-2xl hover:text-slate-600 transition-all border border-slate-200 shadow-sm">
+                        <button onClick={() => setViewState('stock')} className="p-3 bg-white text-slate-400 rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm">
                             <X size={24}/>
                         </button>
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar pb-32">
-                        <section className="space-y-6">
+                        <section className="space-y-4">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2">
                                 <Building2 size={14} className="text-indigo-500" />1. Legal Entity Profiling
                             </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="sm:col-span-2">
                                     <FormRow label="Entity Name *">
                                         <input 
                                             type="text" 
-                                            className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-2xl px-5 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase" 
+                                            className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none focus:ring-4 focus:ring-indigo-500/5 uppercase" 
                                             placeholder="FULL LEGAL NAME" 
                                             value={profile.companyName || ''} 
                                             onChange={e => setProfile({...profile, companyName: e.target.value.toUpperCase()})} 
@@ -254,7 +254,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                 <div className="sm:col-span-4">
                                     <FormRow label="Registered Address *">
                                         <textarea 
-                                            className="w-full min-h-[100px] bg-white border border-slate-300 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-indigo-500" 
+                                            className="w-full min-h-[100px] bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500" 
                                             placeholder="FULL REGISTERED OFFICE ADDRESS" 
                                             value={profile.address || ''} 
                                             onChange={e => setProfile({...profile, address: e.target.value})} 
@@ -265,7 +265,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                     <FormRow label="Email Node">
                                         <input 
                                             type="email" 
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-bold" 
+                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-bold" 
                                             placeholder="OFFICIAL@COMPANY.COM" 
                                             value={profile.email || ''} 
                                             onChange={e => setProfile({...profile, email: e.target.value})} 
@@ -276,7 +276,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                     <FormRow label="Support Hotline">
                                         <input 
                                             type="text" 
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono" 
+                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono" 
                                             placeholder="+91" 
                                             value={profile.phone || ''} 
                                             onChange={e => setProfile({...profile, phone: e.target.value})} 
@@ -286,16 +286,16 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                             </div>
                         </section>
 
-                        <section className="space-y-6">
+                        <section className="space-y-4">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2">
                                 <Landmark size={14} className="text-indigo-500" />2. Financial & Banking
                             </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="sm:col-span-2">
                                     <FormRow label="Bank Name *">
                                         <input 
                                             type="text" 
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black uppercase" 
+                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black uppercase" 
                                             placeholder="BANK NAME" 
                                             value={profile.bankName || ''} 
                                             onChange={e => setProfile({...profile, bankName: e.target.value.toUpperCase()})} 
@@ -306,7 +306,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                     <FormRow label="Account Number *">
                                         <input 
                                             type="text" 
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono" 
+                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono" 
                                             placeholder="AC/NO" 
                                             value={profile.accountNo || ''} 
                                             onChange={e => setProfile({...profile, accountNo: e.target.value})} 
@@ -317,7 +317,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                     <FormRow label="IFSC Code *">
                                         <input 
                                             type="text" 
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono uppercase" 
+                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono uppercase" 
                                             placeholder="IFSC" 
                                             value={profile.branchIfsc || ''} 
                                             onChange={e => setProfile({...profile, branchIfsc: e.target.value.toUpperCase()})} 
@@ -327,15 +327,15 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                             </div>
                         </section>
 
-                        <section className="space-y-6">
+                        <section className="space-y-4">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2">
                                 <ShieldCheck size={14} className="text-indigo-500" />3. Statutory Compliance
                             </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <FormRow label="GSTIN Identification">
                                     <input 
                                         type="text" 
-                                        className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono uppercase" 
+                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono uppercase" 
                                         placeholder="GST NUMBER" 
                                         value={profile.gstin || ''} 
                                         onChange={e => setProfile({...profile, gstin: e.target.value.toUpperCase()})} 
@@ -344,7 +344,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                 <FormRow label="PAN Number">
                                     <input 
                                         type="text" 
-                                        className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono uppercase" 
+                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono uppercase" 
                                         placeholder="PAN NUMBER" 
                                         value={profile.panNo || ''} 
                                         onChange={e => setProfile({...profile, panNo: e.target.value.toUpperCase()})} 
@@ -353,7 +353,7 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                                 <FormRow label="CIN / Registration No.">
                                     <input 
                                         type="text" 
-                                        className="w-full h-[48px] bg-white border border-slate-300 rounded-2xl px-5 text-sm font-black font-mono uppercase" 
+                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black font-mono uppercase" 
                                         placeholder="CIN NUMBER" 
                                         value={profile.cinNo || ''} 
                                         onChange={e => setProfile({...profile, cinNo: e.target.value.toUpperCase()})} 
@@ -364,21 +364,21 @@ export const CompanyModule: React.FC<{ userRole?: 'Admin' | 'Employee' }> = ({ u
                     </div>
 
                     <div className="sticky bottom-0 left-0 right-0 p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-end gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-10">
-                        <button onClick={() => { setViewState('stock'); setEditingId(null); }} className="px-10 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 shadow-inner">Abort</button>
-                        <button onClick={handleSave} className="px-16 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all hover:brightness-110">Update Registry</button>
+                        <button onClick={() => { setViewState('stock'); setEditingId(null); }} className="px-10 py-4 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 shadow-inner">Abort</button>
+                        <button onClick={handleSave} className="px-16 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all hover:brightness-110">Update Registry</button>
                     </div>
                 </div>
             )}
 
             {pendingDelete && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full p-10 text-center scale-100 animate-in zoom-in-95">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] max-w-sm w-full p-6 text-center scale-100 animate-in zoom-in-95 border border-slate-200/50">
                         <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 shadow-xl shadow-rose-500/10"><AlertTriangle size={40} /></div>
-                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Purge Node?</h3>
+                        <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Purge Node?</h3>
                         <p className="text-slate-500 text-[13px] font-bold uppercase tracking-widest mt-3 leading-relaxed">Permanently remove <b className="text-slate-800">{pendingDelete.name}</b> from global registry? This action is irreversible.</p>
                         <div className="flex gap-4 mt-10">
-                            <button onClick={() => setPendingDelete(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200">Cancel</button>
-                            <button onClick={performDelete} disabled={isDeleting} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95 transition-all">{isDeleting ? <RefreshCw className="animate-spin mx-auto" size={18} /> : "Purge Now"}</button>
+                            <button onClick={() => setPendingDelete(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest border border-slate-200">Cancel</button>
+                            <button onClick={performDelete} disabled={isDeleting} className="flex-1 py-4 bg-rose-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-rose-500/20 active:scale-95 transition-all">{isDeleting ? <RefreshCw className="animate-spin mx-auto" size={18} /> : "Purge Now"}</button>
                         </div>
                     </div>
                 </div>

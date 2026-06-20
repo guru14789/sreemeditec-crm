@@ -296,22 +296,23 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
   return (
     <div className="h-full flex flex-col gap-6 overflow-hidden p-2">
       {/* Header & Month Picker */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-medical-600 text-white rounded-2xl shadow-lg">
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
             <ShieldCheck size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Compliance Terminal</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Statutory Tax & Regulatory Reporting</p>
+            <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Compliance Terminal</h2>
+            <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em] mt-1">Statutory Tax & Regulatory Reporting</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 p-2 rounded-2xl">
-          <Calendar size={16} className="text-slate-400 ml-2" />
+        <div className="flex items-center gap-3 bg-emerald-900/40 p-2.5 rounded-[2rem] border border-emerald-700/50 relative z-10 shadow-inner">
+          <Calendar size={16} className="text-emerald-400 ml-2" />
           <input 
             type="month" 
-            className="bg-transparent border-none text-xs font-black uppercase outline-none text-slate-700 dark:text-slate-200"
+            className="bg-transparent border-none text-xs font-black uppercase outline-none text-white focus:ring-0 cursor-pointer"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           />
@@ -336,7 +337,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-500'
               }`}
             >
-              <div className={`p-2 rounded-xl transition-colors ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600'}`}>
+              <div className={`p-2 rounded-[2rem] transition-colors ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600'}`}>
                 <tab.icon size={18} />
               </div>
               <div>
@@ -359,13 +360,13 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                 <div className="flex gap-3">
                   <button 
                     onClick={handleExportGSTR1}
-                    className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
+                    className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
                   >
                     <Download size={14} /> CSV
                   </button>
                   <button 
                     onClick={handleExportGSTR1JSON}
-                    className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                    className="bg-emerald-600 text-white px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
                   >
                     <Download size={14} /> Portal JSON
                   </button>
@@ -375,13 +376,13 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                 <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 dark:bg-slate-800/50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b border-slate-100 dark:border-slate-700">
                     <tr>
-                      <th className="px-6 py-4">GSTIN / Recipient</th>
-                      <th className="px-6 py-4">Invoice Details</th>
-                      <th className="px-6 py-4 text-right">Taxable (₹)</th>
-                      <th className="px-6 py-4 text-right">CGST (₹)</th>
-                      <th className="px-6 py-4 text-right">SGST (₹)</th>
-                      <th className="px-6 py-4 text-right">IGST (₹)</th>
-                      <th className="px-6 py-4 text-right">Total (₹)</th>
+                      <th className="px-4 py-2">GSTIN / Recipient</th>
+                      <th className="px-4 py-2">Invoice Details</th>
+                      <th className="px-4 py-2 text-right">Taxable (₹)</th>
+                      <th className="px-4 py-2 text-right">CGST (₹)</th>
+                      <th className="px-4 py-2 text-right">SGST (₹)</th>
+                      <th className="px-4 py-2 text-right">IGST (₹)</th>
+                      <th className="px-4 py-2 text-right">Total (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -400,19 +401,19 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
 
                       return (
                         <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-2">
                             <p className="font-black text-slate-800 dark:text-white uppercase truncate max-w-[200px]">{i.customerName}</p>
                             <p className="text-[9px] font-bold text-indigo-500 uppercase">{i.customerGstin || 'Unregistered'}</p>
                           </td>
-                          <td className="px-6 py-4">
-                            <p className="font-black text-slate-400">{i.invoiceNumber}</p>
+                          <td className="px-4 py-2">
+                            <p className="font-black text-slate-400"><span className="font-inter font-bold tracking-widest">{i.invoiceNumber}</span></p>
                             <p className="text-[9px] font-bold">{i.date}</p>
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-600 dark:text-slate-300">₹{invTaxable.toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-bold text-emerald-600">₹{invCGST.toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-bold text-emerald-600">₹{invSGST.toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-bold text-indigo-600">₹{invIGST.toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white">₹{i.grandTotal.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-bold text-slate-600 dark:text-slate-300">₹{invTaxable.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-bold text-emerald-600">₹{invCGST.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-bold text-emerald-600">₹{invSGST.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-bold text-indigo-600">₹{invIGST.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-black text-slate-900 dark:text-white">₹{i.grandTotal.toLocaleString('en-IN')}</td>
                         </tr>
                       );
                     })}
@@ -430,10 +431,10 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
           )}
 
           {activeTab === 'gstr3b' && (
-            <div className="flex-1 overflow-auto p-8 space-y-8">
-              <div className="max-w-4xl mx-auto space-y-8">
+            <div className="flex-1 overflow-auto p-8 space-y-5">
+              <div className="max-w-4xl mx-auto space-y-5">
                 <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">GSTR-3B Self-Assessment</h3>
+                  <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">GSTR-3B Self-Assessment</h3>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Consolidated Tax Summary for {selectedMonth}</p>
                 </div>
 
@@ -442,7 +443,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-xl"><ArrowRight size={18} /></div>
+                        <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-[2rem]"><ArrowRight size={18} /></div>
                         <h4 className="font-black text-xs uppercase tracking-widest text-slate-700 dark:text-slate-300">Outward Supplies (Liability)</h4>
                       </div>
                       <div className="space-y-4">
@@ -468,7 +469,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                     </div>
                     <div className="flex justify-between items-center pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Total Output Tax</span>
-                      <span className="text-xl font-black text-rose-600">₹{gstr3bSummary.sales.tax.toLocaleString('en-IN')}</span>
+ <span className="text-xl font-bold tracking-tight text-rose-600">₹{gstr3bSummary.sales.tax.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
 
@@ -476,7 +477,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-xl"><IndianRupee size={18} /></div>
+                        <div className="p-2 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-[2rem]"><IndianRupee size={18} /></div>
                         <h4 className="font-black text-xs uppercase tracking-widest text-slate-700 dark:text-slate-300">Input Tax Credit (ITC)</h4>
                       </div>
                       <div className="space-y-4">
@@ -502,7 +503,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                     </div>
                     <div className="flex justify-between items-center pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Total ITC Claimable</span>
-                      <span className="text-xl font-black text-emerald-600">₹{gstr3bSummary.itc.tax.toLocaleString('en-IN')}</span>
+ <span className="text-xl font-bold tracking-tight text-emerald-600">₹{gstr3bSummary.itc.tax.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -513,18 +514,18 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
                      <div className="space-y-2 text-center md:text-left">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Net Tax Payable (Self-Assessment)</h4>
-                        <p className="text-4xl font-black tracking-tighter">₹{Math.max(0, gstr3bSummary.sales.tax - gstr3bSummary.itc.tax).toLocaleString('en-IN')}</p>
+ <p className="text-4xl font-bold tracking-tighter">₹{Math.max(0, gstr3bSummary.sales.tax - gstr3bSummary.itc.tax).toLocaleString('en-IN')}</p>
                         {gstr3bSummary.itc.tax > gstr3bSummary.sales.tax && (
                           <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mt-1">Excess ITC of ₹{(gstr3bSummary.itc.tax - gstr3bSummary.sales.tax).toLocaleString('en-IN')} to carry forward</p>
                         )}
                      </div>
-                     <button className="bg-white text-indigo-600 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all">
+                     <button className="bg-white text-indigo-600 px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all">
                        Submit Data to Portal
                      </button>
                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-amber-500 bg-amber-50 dark:bg-amber-900/10 p-4 rounded-2xl border border-amber-100 dark:border-amber-800/50">
+                <div className="flex items-center gap-2 text-amber-500 bg-amber-50 dark:bg-amber-900/10 p-4 rounded-[2rem] border border-amber-100 dark:border-amber-800/50">
                    <AlertCircle size={14} className="shrink-0" />
                    <p className="text-[9px] font-bold uppercase leading-tight">Note: This is a generated summary for review. Please cross-verify with actual invoices before filing.</p>
                 </div>
@@ -541,7 +542,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                 </div>
                 <button 
                   onClick={handleExportHSN}
-                  className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
+                  className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
                 >
                   <Download size={14} /> Export CSV
                 </button>
@@ -550,27 +551,27 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                 <table className="w-full text-left text-[11px]">
                   <thead className="bg-slate-50 dark:bg-slate-800/50 text-[9px] uppercase font-black tracking-widest text-slate-400 sticky top-0 border-b border-slate-100 dark:border-slate-700">
                     <tr>
-                      <th className="px-6 py-4">HSN/SAC</th>
-                      <th className="px-6 py-4">Description</th>
-                      <th className="px-6 py-4 text-right">Qty</th>
-                      <th className="px-6 py-4 text-right">Taxable Value (₹)</th>
-                      <th className="px-6 py-4 text-right">CGST (₹)</th>
-                      <th className="px-6 py-4 text-right">SGST (₹)</th>
-                      <th className="px-6 py-4 text-right">IGST (₹)</th>
-                      <th className="px-6 py-4 text-right">Total Tax (₹)</th>
+                      <th className="px-4 py-2">HSN/SAC</th>
+                      <th className="px-4 py-2">Description</th>
+                      <th className="px-4 py-2 text-right">Qty</th>
+                      <th className="px-4 py-2 text-right">Taxable Value (₹)</th>
+                      <th className="px-4 py-2 text-right">CGST (₹)</th>
+                      <th className="px-4 py-2 text-right">SGST (₹)</th>
+                      <th className="px-4 py-2 text-right">IGST (₹)</th>
+                      <th className="px-4 py-2 text-right">Total Tax (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                     {Object.entries(hsnSummary).map(([hsn, data]) => (
                       <tr key={hsn} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="px-6 py-4 font-black text-slate-800 dark:text-white uppercase">{hsn}</td>
-                        <td className="px-6 py-4 font-bold text-slate-400 uppercase">{data.desc}</td>
-                        <td className="px-6 py-4 text-right font-bold text-slate-700 dark:text-slate-300">{data.qty}</td>
-                        <td className="px-6 py-4 text-right font-black text-slate-600 dark:text-slate-300">₹{data.taxable.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-right font-black text-emerald-600">₹{data.cgst.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-right font-black text-emerald-600">₹{data.sgst.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-right font-black text-indigo-600">₹{data.igst.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white">₹{(data.cgst + data.sgst + data.igst).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-2 font-black text-slate-800 dark:text-white uppercase">{hsn}</td>
+                        <td className="px-4 py-2 font-bold text-slate-400 uppercase">{data.desc}</td>
+                        <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-slate-300">{data.qty}</td>
+                        <td className="px-4 py-2 text-right font-black text-slate-600 dark:text-slate-300">₹{data.taxable.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-2 text-right font-black text-emerald-600">₹{data.cgst.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-2 text-right font-black text-emerald-600">₹{data.sgst.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-2 text-right font-black text-indigo-600">₹{data.igst.toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-2 text-right font-black text-slate-900 dark:text-white">₹{(data.cgst + data.sgst + data.igst).toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                     {Object.keys(hsnSummary).length === 0 && (
@@ -587,16 +588,16 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
           )}
 
           {activeTab === 'tds' && (
-             <div className="flex-1 overflow-auto p-8 space-y-6">
+             <div className="flex-1 overflow-auto p-8 space-y-4">
                 <div className="flex justify-between items-center mb-8">
                   <div>
-                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Withholding Tax (TDS/TCS) Log</h3>
+                    <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Withholding Tax (TDS/TCS) Log</h3>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Summary of tax deducted at source for {selectedMonth}</p>
                   </div>
-                  <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-2xl flex items-center gap-4">
+                  <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-[2rem] flex items-center gap-4">
                      <div className="text-right">
                         <p className="text-[8px] font-black text-amber-600 uppercase">Total TDS Liability</p>
-                        <p className="text-xl font-black text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString('en-IN')}</p>
+ <p className="text-xl font-bold tracking-tight text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString('en-IN')}</p>
                      </div>
                   </div>
                 </div>
@@ -605,11 +606,11 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   <table className="w-full text-left text-[11px]">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[9px] uppercase font-black tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-700">
                       <tr>
-                        <th className="px-6 py-4">Date</th>
-                        <th className="px-6 py-4">Particulars</th>
-                        <th className="px-6 py-4">Section</th>
-                        <th className="px-6 py-4 text-right">Taxable Amount (₹)</th>
-                        <th className="px-6 py-4 text-right">Tax Amount (₹)</th>
+                        <th className="px-4 py-2">Date</th>
+                        <th className="px-4 py-2">Particulars</th>
+                        <th className="px-4 py-2">Section</th>
+                        <th className="px-4 py-2 text-right">Taxable Amount (₹)</th>
+                        <th className="px-4 py-2 text-right">Tax Amount (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -617,16 +618,16 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                         .filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds'))
                         .map(v => (
                         <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-400">{v.date}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-2 font-bold text-slate-400">{v.date}</td>
+                          <td className="px-4 py-2">
                             <p className="font-black text-slate-800 dark:text-white uppercase">{v.entries[0]?.ledgerName}</p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 italic">{v.narration}</p>
                           </td>
-                          <td className="px-6 py-4 uppercase font-black text-amber-600">
+                          <td className="px-4 py-2 uppercase font-black text-amber-600">
                              {v.narration.match(/194[CIJ]/)?.[0] || '194C'}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-slate-600">₹{((v.totalAmount * 100) / (v.narration.includes('10%') ? 10 : 1)).toLocaleString('en-IN')}</td>
-                          <td className="px-6 py-4 text-right font-black text-rose-600">₹{v.totalAmount.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-bold text-slate-600">₹{((v.totalAmount * 100) / (v.narration.includes('10%') ? 10 : 1)).toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-2 text-right font-black text-rose-600">₹{v.totalAmount.toLocaleString('en-IN')}</td>
                         </tr>
                       ))}
                       {vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).length === 0 && (

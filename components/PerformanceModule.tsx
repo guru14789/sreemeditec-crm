@@ -149,7 +149,7 @@ export const PerformanceModule: React.FC = () => {
                           {/* 2nd Place */}
                           <div className="flex flex-col items-center flex-1">
                               <div className="relative mb-2">
-                                  <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-lg text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
+                                  <div className="w-12 h-12 rounded-[2rem] bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-playfair font-bold text-lg tracking-tight tracking-tight text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
                                       {top3[1]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-1 -right-1 bg-slate-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-sm">2</div>
@@ -164,7 +164,7 @@ export const PerformanceModule: React.FC = () => {
                                   <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-amber-500">
                                       <Crown size={24} fill="currentColor" className="drop-shadow-[0_2px_4px_rgba(245,158,11,0.4)] animate-pulse" />
                                   </div>
-                                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-black text-xl text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
+                                  <div className="w-14 h-14 rounded-[2rem] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-playfair font-bold text-xl tracking-tight tracking-tight text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
                                       {top3[0]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-2 -right-2 bg-amber-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-white shadow-sm z-20">1</div>
@@ -176,7 +176,7 @@ export const PerformanceModule: React.FC = () => {
                           {/* 3rd Place */}
                           <div className="flex flex-col items-center flex-1">
                               <div className="relative mb-2">
-                                  <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-black text-lg text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
+                                  <div className="w-12 h-12 rounded-[2rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-playfair font-bold text-lg tracking-tight tracking-tight text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
                                       {top3[2]?.name.charAt(0) || '?'}
                                   </div>
                                   <div className="absolute -top-1 -right-1 bg-orange-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-sm">3</div>
@@ -190,7 +190,7 @@ export const PerformanceModule: React.FC = () => {
                           {dynamicLeaderboard.map((user) => {
                               const isCurrentUser = user.id === activeUser?.id;
                               return (
-                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 shadow-sm'}`}>
+                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-[2rem] border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 shadow-sm'}`}>
                                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
                                           user.isHidden ? 'bg-slate-50 text-slate-400' :
                                           user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
@@ -200,7 +200,7 @@ export const PerformanceModule: React.FC = () => {
                                       }`}>
                                           {user.isHidden ? '—' : user.rank}
                                       </div>
-                                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0 uppercase">
+                                      <div className="w-10 h-10 rounded-[2rem] bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0 uppercase">
                                           {user.name.charAt(0)}
                                       </div>
                                       <div className="flex-1 min-w-0">
@@ -216,7 +216,7 @@ export const PerformanceModule: React.FC = () => {
                                           </div>
                                       </div>
                                       <div className="text-right">
-                                          <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none">{user.points}</p>
+ <p className="text-lg font-bold tracking-tight text-indigo-600 dark:text-indigo-400 leading-none">{user.points}</p>
                                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">Points</p>
                                       </div>
                                   </div>
@@ -244,7 +244,7 @@ export const PerformanceModule: React.FC = () => {
                               return (
                                   <tr key={user.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors ${isCurrentUser ? 'bg-indigo-50/10 dark:bg-indigo-900/5' : ''} cursor-default`}>
                                       <td className="px-5 py-3 text-center">
-                                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm mx-auto border ${
+                                          <div className={`w-8 h-8 rounded-[2rem] flex items-center justify-center font-black text-sm mx-auto border ${
                                               user.isHidden ? 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700' :
                                               user.rank === 1 ? 'bg-amber-500 text-white border-white shadow-lg shadow-amber-500/10' : 
                                               user.rank === 2 ? 'bg-slate-300 text-white border-white shadow-lg shadow-slate-300/10' :
@@ -256,7 +256,7 @@ export const PerformanceModule: React.FC = () => {
                                       </td>
                                       <td className="px-5 py-3">
                                           <div className="flex items-center gap-3">
-                                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-inner uppercase ${
+                                              <div className={`w-10 h-10 rounded-[2rem] flex items-center justify-center font-playfair font-bold text-lg tracking-tight tracking-tight text-white shadow-inner uppercase ${
                                                   !user.isHidden && user.rank === 1 ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                                               }`}>
                                                   {user.name.charAt(0)}
@@ -283,7 +283,7 @@ export const PerformanceModule: React.FC = () => {
                                           </span>
                                       </td>
                                       <td className="px-5 py-3 text-right pr-10">
-                                          <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">{user.points}</span>
+ <span className="text-xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">{user.points}</span>
                                           <span className="text-[9px] text-slate-400 font-black uppercase ml-1.5 tracking-tighter">Pts</span>
                                       </td>
                                   </tr>
@@ -308,7 +308,7 @@ export const PerformanceModule: React.FC = () => {
                               const emp = employees.find(e => e.id === item.userId);
                               const empName = emp ? emp.name.split(' ')[0] : 'Unknown';
                               return (
-                                  <div key={item.id} className="p-3 bg-slate-50/30 dark:bg-slate-800/20 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-all">
+                                  <div key={item.id} className="p-3 bg-slate-50/30 dark:bg-slate-800/20 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/80 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition-all">
                                       <div className="flex gap-2.5">
                                           <div className={`mt-1 w-1 h-8 rounded-full shrink-0 ${item.points > 0 ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.4)]'}`}></div>
                                           <div className="flex-1 min-w-0">
@@ -365,7 +365,7 @@ export const PerformanceModule: React.FC = () => {
                    
                    <div className="space-y-5 relative z-10">
                         <div className="flex items-start gap-4 group/item">
-                            <div className="w-9 h-9 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-500 border border-slate-100 group-hover/item:border-indigo-500/30 transition-colors shrink-0">
+                            <div className="w-9 h-9 bg-slate-50 rounded-[2rem] flex items-center justify-center text-indigo-500 border border-slate-100 group-hover/item:border-indigo-500/30 transition-colors shrink-0">
                                 <Target size={18}/>
                             </div>
                             <div className="flex-1 min-w-0">
@@ -386,7 +386,7 @@ export const PerformanceModule: React.FC = () => {
                         </div>
 
                         <div className="flex items-start gap-4 group/item">
-                            <div className="w-9 h-9 bg-slate-50 rounded-2xl flex items-center justify-center text-emerald-500 border border-slate-100 group-hover/item:border-emerald-500/30 transition-colors shrink-0">
+                            <div className="w-9 h-9 bg-slate-50 rounded-[2rem] flex items-center justify-center text-emerald-500 border border-slate-100 group-hover/item:border-emerald-500/30 transition-colors shrink-0">
                                 <CheckCircle size={18}/>
                             </div>
                             <div className="flex-1 min-w-0">
@@ -424,15 +424,15 @@ export const PerformanceModule: React.FC = () => {
                                <Target size={14} className="text-indigo-500" /> Task Performance
                            </h5>
                            <div className="space-y-3">
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Base Completion</span>
                                    <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">+10 Points</span>
                                </div>
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">High Priority Bonus</span>
                                    <span className="text-[11px] font-black text-amber-500">+10 Points</span>
                                </div>
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm opacity-60">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm opacity-60">
                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Overdue Penalty</span>
                                    <span className="text-[11px] font-black text-rose-500">-5 Points</span>
                                </div>
@@ -442,11 +442,11 @@ export const PerformanceModule: React.FC = () => {
                                <Clock size={14} className="text-emerald-500" /> Attendance Rewards
                            </h5>
                            <div className="space-y-3">
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Early Check-in</span>
                                    <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">+10 Points</span>
                                </div>
-                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                               <div className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Daily Shift Completed</span>
                                    <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">+50 Points</span>
                                </div>

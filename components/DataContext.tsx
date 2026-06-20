@@ -613,28 +613,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(500)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(500)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
-        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => handleSnap('serviceTickets', s, setServiceTickets), (err) => console.warn("serviceTickets listener:", err));
-        const unsubAttendance = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)), (err) => console.warn("attendance listener:", err));
-        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(200)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
-        const unsubChallans = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(500)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)), (err) => console.warn("deliveryChallans listener:", err));
-        const unsubServiceReports = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(500)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("serviceReports listener:", err));
-        const unsubInstallReports = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(500)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("installationReports listener:", err));
-        const unsubLeave = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(500)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)), (err) => console.warn("leave_requests listener:", err));
         const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(500)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
-        const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)), (err) => console.warn("stockBatches listener:", err));
-        const unsubServiceTasks = onSnapshot(query(collection(db, "serviceTasks"), orderBy('createdAt', 'desc'), limit(200)), (s) => setServiceTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTask)), (err) => console.warn("serviceTasks listener:", err));
-        
-        // Accounting Listeners
-        const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)), (err) => console.warn("ledgers listener:", err));
-        const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)), (err) => console.warn("accountGroups listener:", err));
         const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
-        const unsubTransfers = onSnapshot(query(collection(db, "stockTransfers"), orderBy('date', 'desc'), limit(500)), (s) => setStockTransfers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockTransfer)), (err) => console.warn("stockTransfers listener:", err));
-
-        // Phase 3 Listeners
-        const unsubCostCentres = onSnapshot(collection(db, "costCentres"), (s) => setCostCentres(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as CostCentre)), (err) => console.warn("costCentres listener:", err));
-        const unsubFixedAssets = onSnapshot(collection(db, "fixedAssets"), (s) => setFixedAssets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as FixedAsset)), (err) => console.warn("fixedAssets listener:", err));
-        const unsubDepreciation = onSnapshot(query(collection(db, "depreciationSchedule"), orderBy('date', 'desc'), limit(1000)), (s) => setDepreciationSchedule(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DepreciationScheduleEntry)), (err) => console.warn("depreciationSchedule listener:", err));
-        const unsubBankStatements = onSnapshot(collection(db, "bankStatements"), (s) => setBankStatements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankStatementEntry)), (err) => console.warn("bankStatements listener:", err));
+        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
+        const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
 
         const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
             if (s.exists()) {
@@ -669,28 +651,77 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }, (err) => console.warn("stats listener:", err));
 
         return () => {
-            unsubLeads(); unsubTickets();
-            unsubInvoices(); unsubAttendance(); unsubExpenses(); unsubTasks(); unsubStock();
-            unsubChallans(); unsubServiceReports(); unsubInstallReports();
-            unsubLeave(); unsubSettings(); unsubPurchases(); unsubBatches(); unsubServiceTasks();
-            unsubLedgers(); unsubGroups(); unsubVouchers(); unsubTransfers();
-            unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements();
+            unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
+            unsubSettings(); unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
             unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 
+    // ─── TAB-GATED LISTENERS ──────────────────────────────────────────────────
+    // Only subscribe when their corresponding tab is active to reduce Firestore reads.
+
     useEffect(() => {
-        if (!firebaseUser || !currentUser) return;
-        
-        // Scope optimization: Only listen to user's point history if not admin (though currently fetching all for ledger)
-        // Tightening limit from infinite to most recent 200
-        const qPoints = query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500));
-        const unsubPoints = onSnapshot(qPoints, (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
+        if (!firebaseUser || !currentUser || activeTab !== TabView.ATTENDANCE) return;
+        const unsub = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)), (err) => console.warn("attendance listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.INVENTORY) return;
+        const unsubStock = onSnapshot(query(collection(db, "stockMovements"), orderBy('timestamp', 'desc'), limit(200)), (s) => setStockMovements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockMovement)));
+        const unsubBatches = onSnapshot(collection(db, "stockBatches"), (s) => setStockBatches(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockBatch)), (err) => console.warn("stockBatches listener:", err));
+        const unsubTransfers = onSnapshot(query(collection(db, "stockTransfers"), orderBy('date', 'desc'), limit(500)), (s) => setStockTransfers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as StockTransfer)), (err) => console.warn("stockTransfers listener:", err));
+        return () => { unsubStock(); unsubBatches(); unsubTransfers(); };
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.DELIVERY) return;
+        const unsub = onSnapshot(query(collection(db, "deliveryChallans"), orderBy('date', 'desc'), limit(500)), (s) => setDeliveryChallans(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DeliveryChallan)), (err) => console.warn("deliveryChallans listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.SERVICE_REPORTS) return;
+        const unsub = onSnapshot(query(collection(db, "serviceReports"), orderBy('date', 'desc'), limit(500)), (s) => setServiceReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("serviceReports listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.INSTALLATION_REPORTS) return;
+        const unsub = onSnapshot(query(collection(db, "installationReports"), orderBy('date', 'desc'), limit(500)), (s) => setInstallationReports(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceReport)), (err) => console.warn("installationReports listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.HR) return;
+        const unsub = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(500)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)), (err) => console.warn("leave_requests listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.SERVICE_TASK) return;
+        const unsub = onSnapshot(query(collection(db, "serviceTasks"), orderBy('createdAt', 'desc'), limit(200)), (s) => setServiceTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTask)), (err) => console.warn("serviceTasks listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.ACCOUNTING) return;
+        const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)), (err) => console.warn("ledgers listener:", err));
+        const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)), (err) => console.warn("accountGroups listener:", err));
+        const unsubCostCentres = onSnapshot(collection(db, "costCentres"), (s) => setCostCentres(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as CostCentre)), (err) => console.warn("costCentres listener:", err));
+        const unsubFixedAssets = onSnapshot(collection(db, "fixedAssets"), (s) => setFixedAssets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as FixedAsset)), (err) => console.warn("fixedAssets listener:", err));
+        const unsubDepreciation = onSnapshot(query(collection(db, "depreciationSchedule"), orderBy('date', 'desc'), limit(1000)), (s) => setDepreciationSchedule(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DepreciationScheduleEntry)), (err) => console.warn("depreciationSchedule listener:", err));
+        const unsubBankStatements = onSnapshot(collection(db, "bankStatements"), (s) => setBankStatements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankStatementEntry)), (err) => console.warn("bankStatements listener:", err));
+        return () => { unsubLedgers(); unsubGroups(); unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements(); };
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.PERFORMANCE) return;
         
         const unsubWinners = onSnapshot(collection(db, "monthlyWinners"), (s) => setMonthlyWinners(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as MonthlyWinner)), (err) => console.warn("monthlyWinners listener:", err));
         
-        return () => { unsubPoints(); unsubWinners(); };
-    }, [firebaseUser?.uid, currentUser?.id]);
+        return () => { unsubWinners(); };
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
         if (bankDetailsList.length === 0 || ledgers.length === 0) return;
@@ -3009,8 +3040,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             {/* Custom Dialog Overlay */}
             {dialogConfig && dialogConfig.isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 text-slate-100">
-                        <h3 className="text-xl font-bold text-teal-400 mb-2">{dialogConfig.title}</h3>
+                    <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl p-6 text-slate-100">
+ <h3 className="text-xl font-bold tracking-tight text-teal-400 mb-2">{dialogConfig.title}</h3>
                         <p className="text-slate-300 text-sm mb-6 whitespace-pre-wrap">{dialogConfig.message}</p>
                         
                         {dialogConfig.type === 'prompt' && (
@@ -3019,7 +3050,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 id="custom-dialog-input"
                                 type="text"
                                 defaultValue={dialogConfig.defaultValue}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-teal-500 mb-6 text-sm"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] px-4 py-3 text-slate-100 focus:outline-none focus:border-teal-500 mb-6 text-sm"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
@@ -3033,7 +3064,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             {dialogConfig.type !== 'alert' && (
                                 <button
                                     onClick={() => dialogConfig.resolve(null)}
-                                    className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+                                    className="px-5 py-2.5 rounded-[2rem] text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
                                 >
                                     Cancel
                                 </button>
@@ -3047,7 +3078,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                         dialogConfig.resolve(true);
                                     }
                                 }}
-                                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-sm font-semibold shadow-lg shadow-teal-500/20 transition-all active:scale-95"
+                                className="px-5 py-2.5 rounded-[2rem] bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 text-sm font-semibold shadow-lg shadow-teal-500/20 transition-all active:scale-95"
                             >
                                 {dialogConfig.type === 'alert' ? 'OK' : 'Confirm'}
                             </button>
@@ -3060,12 +3091,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             {pdfPreviewUrl && (
                 <div className="fixed inset-0 z-[9999] flex flex-col bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
                     <div className="flex justify-between items-center bg-slate-900 border border-slate-800 px-6 py-4 rounded-t-2xl w-full max-w-5xl mx-auto mt-4">
-                        <h3 className="text-lg font-bold text-teal-400 truncate">{pdfPreviewUrl.filename}</h3>
+ <h3 className="text-lg font-bold tracking-tight text-teal-400 truncate">{pdfPreviewUrl.filename}</h3>
                         <div className="flex gap-3">
                             <a
                                 href={pdfPreviewUrl.url}
                                 download={pdfPreviewUrl.filename}
-                                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 text-sm font-medium transition-all"
+                                className="px-4 py-2 rounded-[2rem] bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 text-sm font-medium transition-all"
                             >
                                 Download PDF
                             </a>
@@ -3074,7 +3105,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                     URL.revokeObjectURL(pdfPreviewUrl.url);
                                     setPdfPreviewUrl(null);
                                 }}
-                                className="px-4 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 text-sm font-medium transition-all border border-rose-900/30"
+                                className="px-4 py-2 rounded-[2rem] bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 text-sm font-medium transition-all border border-rose-900/30"
                             >
                                 Close
                             </button>
@@ -3083,7 +3114,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     <div className="flex-1 bg-slate-900 rounded-b-2xl overflow-hidden w-full max-w-5xl mx-auto mb-4 p-2">
                         <iframe
                             src={pdfPreviewUrl.url}
-                            className="w-full h-full border-none rounded-xl bg-white"
+                            className="w-full h-full border-none rounded-[2rem] bg-white"
                             title="PDF Preview"
                         />
                     </div>

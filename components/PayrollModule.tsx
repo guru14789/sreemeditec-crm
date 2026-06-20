@@ -329,32 +329,32 @@ export const PayrollModule: React.FC = () => {
 
     return (
         <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-6 md:gap-8 items-center relative py-6 px-2">
-            <div className="w-full max-w-4xl space-y-6">
+            <div className="w-full max-w-4xl space-y-4">
                 {/* Hero / Selection Panel */}
-                <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[2rem] p-6 md:p-10 text-white shadow-2xl relative overflow-hidden">
+                <div className="bg-gradient-to-br from-emerald-950 to-green-900 rounded-[2rem] p-6 md:p-10 text-white shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] relative overflow-hidden">
                     <div className="absolute -right-20 -bottom-20 opacity-10 pointer-events-none">
                         <CreditCard size={320} />
                     </div>
 
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
                         <div className="max-w-md text-center md:text-left">
-                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-md mx-auto md:mx-0">
+                            <div className="w-12 h-12 bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 rounded-[2rem] flex items-center justify-center mb-4 backdrop-blur-md mx-auto md:mx-0">
                                 <ShieldCheck size={24} />
                             </div>
-                            <h1 className="text-xl md:text-3xl font-black uppercase tracking-tighter mb-2">Payroll Portal</h1>
-                            <p className="text-emerald-50/70 text-[11px] md:text-xs font-semibold leading-relaxed">
+                            <h1 className="text-xl md:text-3xl font-playfair font-bold tracking-tight uppercase tracking-tighter mb-2">Payroll Portal</h1>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">
                                 Review monthly attendance records, sales commissions, and generate official slip drafts for Sree Meditec team members.
                             </p>
                         </div>
 
-                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-5 w-full md:w-80 shadow-2xl flex flex-col gap-4">
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-5 w-full md:w-80 shadow-2xl flex flex-col gap-4">
                             {isAdmin && (
                                 <div className="space-y-1.5">
                                     <label className="text-[9px] font-black uppercase tracking-wider text-emerald-100/60 flex items-center gap-1"><Users size={10}/> Choose Employee</label>
                                     <select 
                                         value={selectedEmployeeId}
                                         onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-white focus:bg-slate-900 transition-all cursor-pointer"
+                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-1.5.5 text-xs font-bold outline-none text-white focus:bg-slate-900 transition-all cursor-pointer"
                                     >
                                         <option value="" className="text-slate-900">-- Select --</option>
                                         {employees.map(emp => (
@@ -370,7 +370,7 @@ export const PayrollModule: React.FC = () => {
                                     <select 
                                         value={selectedSalaryMonth}
                                         onChange={(e) => setSelectedSalaryMonth(parseInt(e.target.value))}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-xl px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
+                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
                                     >
                                         {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
                                             <option key={m} value={i} className="text-slate-900">{m}</option>
@@ -382,7 +382,7 @@ export const PayrollModule: React.FC = () => {
                                     <select 
                                         value={selectedSalaryYear}
                                         onChange={(e) => setSelectedSalaryYear(parseInt(e.target.value))}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-xl px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
+                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
                                     >
                                         {[2024, 2025, 2026].map(y => (
                                             <option key={y} value={y} className="text-slate-900">{y}</option>
@@ -394,7 +394,7 @@ export const PayrollModule: React.FC = () => {
                             <button 
                                 onClick={handleDownloadSalarySlip}
                                 disabled={isGeneratingSlip || !targetEmployee}
-                                className="w-full py-3 bg-white text-emerald-700 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-3 transform active:scale-95 disabled:opacity-40"
+                                className="w-full py-3 bg-white text-emerald-700 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-3 transform active:scale-95 disabled:opacity-40"
                             >
                                 {isGeneratingSlip ? <Timer size={14} className="animate-spin" /> : <Download size={14} />}
                                 Download PDF Slip
@@ -442,7 +442,7 @@ export const PayrollModule: React.FC = () => {
                                                 <div className="font-bold text-slate-800 dark:text-slate-200">{row.name}</div>
                                                 <div className="text-[9px] text-slate-400 font-semibold uppercase">{row.department} · {row.role}</div>
                                             </td>
-                                            <td className="py-3 px-4 font-black text-[10px] md:text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                            <td className="py-3 px-4 font-black text-[9px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
                                                  <span className="text-emerald-600 dark:text-emerald-400">{row.presentDays} Pres</span>
                                                  <span className="mx-1.5 text-slate-300 dark:text-slate-700">|</span>
                                                  <span className="text-rose-500">{row.absentDays} Abs</span>
@@ -482,7 +482,7 @@ export const PayrollModule: React.FC = () => {
 
                 {/* Live Payslip Summary Panel (Visible if targetEmployee selected) */}
                 {targetEmployee && salaryDetails && (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                         {/* Title Section */}
                         <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-4">
                             <div>
@@ -495,7 +495,7 @@ export const PayrollModule: React.FC = () => {
                                 </p>
                             </div>
                             <div className="text-right">
-                                <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest">
+                                <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900 px-3 py-1.5 rounded-[2rem] text-xs font-black uppercase tracking-widest">
                                     {monthName} {selectedSalaryYear}
                                 </span>
                             </div>
@@ -504,49 +504,49 @@ export const PayrollModule: React.FC = () => {
                         {/* Breakdown Metrics Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Attendance Card */}
-                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Shift Performance</p>
+                            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
+                                <p className="text-[9px] font-black uppercase text-emerald-100/80 tracking-wider">Shift Performance</p>
                                 <div className="my-3 space-y-1">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-2xl font-black text-slate-800 dark:text-white">{salaryDetails.presentDays}</span>
-                                        <span className="text-xs font-bold text-slate-400">/ {salaryDetails.daysInMonth} Days Present</span>
+ <span className="text-2xl font-bold tracking-tight text-white">{salaryDetails.presentDays}</span>
+                                        <span className="text-xs font-bold text-emerald-300">/ {salaryDetails.daysInMonth} Days Present</span>
                                     </div>
                                     {salaryDetails.outstationDays > 0 && (
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{salaryDetails.outstationDays}</span>
-                                            <span className="text-[10px] font-bold text-slate-400">Days Outstation</span>
+ <span className="text-lg font-bold tracking-tight text-emerald-300">{salaryDetails.outstationDays}</span>
+                                            <span className="text-[10px] font-bold text-emerald-100/80">Days Outstation</span>
                                         </div>
                                     )}
                                 </div>
-                                <p className="text-[10px] font-semibold text-rose-500 uppercase tracking-tighter">
+                                <p className="text-[10px] font-semibold text-rose-300 uppercase tracking-tighter">
                                     {salaryDetails.absentDays} days absence deduction (-₹{salaryDetails.absenceDeduction.toLocaleString('en-IN')})
                                 </p>
                             </div>
 
                             {/* Sales Incentives Card */}
-                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col justify-between">
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
-                                    <TrendingUp size={12} className="text-emerald-500" /> Realized Sales Incentives
+                            <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
+                                <p className="text-[9px] font-black uppercase text-emerald-100/80 tracking-wider flex items-center gap-1">
+                                    <TrendingUp size={12} className="text-emerald-100" /> Realized Sales Incentives
                                 </p>
                                 <div className="my-3 flex items-baseline gap-1">
-                                    <span className="text-xs font-bold text-emerald-500">₹</span>
-                                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{salaryDetails.salesIncentive.toLocaleString('en-IN')}</span>
+                                    <span className="text-xs font-bold text-emerald-100">₹</span>
+                                    <span className="text-2xl font-playfair font-bold tracking-tight text-white">{salaryDetails.salesIncentive.toLocaleString('en-IN')}</span>
                                 </div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">
+                                <p className="text-[10px] font-bold text-emerald-100/80 uppercase">
                                     Calculated from point history ledger
                                 </p>
                             </div>
 
                             {/* Net Payout Card */}
-                            <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl border border-slate-700/50 dark:border-slate-700 flex flex-col justify-between shadow-lg">
-                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
-                                    <Landmark size={12} className="text-emerald-400" /> Final Net Payable
+                            <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300">
+                                <p className="text-[9px] font-black uppercase text-amber-950/80 tracking-wider flex items-center gap-1">
+                                    <Landmark size={12} className="text-amber-950" /> Final Net Payable
                                 </p>
                                 <div className="my-3 flex items-baseline gap-1">
-                                    <span className="text-xs font-bold text-emerald-400">₹</span>
-                                    <span className="text-2xl font-black text-white">{salaryDetails.netPay.toLocaleString('en-IN')}</span>
+                                    <span className="text-xs font-bold text-amber-950">₹</span>
+                                    <span className="text-2xl font-playfair font-bold tracking-tight text-amber-950">{salaryDetails.netPay.toLocaleString('en-IN')}</span>
                                 </div>
-                                <div className="text-[9px] font-semibold text-slate-400 flex justify-between uppercase">
+                                <div className="text-[9px] font-black text-amber-950/80 flex justify-between uppercase">
                                     <span>Earnings: ₹{salaryDetails.totalEarnings.toLocaleString('en-IN')}</span>
                                     <span>Deds: ₹{salaryDetails.totalDeductions.toLocaleString('en-IN')}</span>
                                 </div>
@@ -558,7 +558,7 @@ export const PayrollModule: React.FC = () => {
                             {/* Earnings List */}
                             <div className="space-y-3">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earnings Breakup</h4>
-                                <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
+                                <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-[2rem] p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Basic Pay</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.basic.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Sales Incentive</span><span className="text-emerald-600 dark:text-emerald-400 font-black">₹{salaryDetails.salesIncentive.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Daily Allowance (₹{salaryDetails.dailyAllowanceRate}/day)</span><span className="text-slate-800 dark:text-slate-200 font-black">₹{salaryDetails.totalDailyAllowance.toLocaleString('en-IN')}</span></div>
@@ -570,7 +570,7 @@ export const PayrollModule: React.FC = () => {
                             {/* Deductions List */}
                             <div className="space-y-3">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deductions Breakup</h4>
-                                <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
+                                <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-[2rem] p-4 border border-slate-200/50 dark:border-slate-800 space-y-2.5">
                                     <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Salary Advance Deductions</span><span className="text-rose-500 font-black">₹{salaryDetails.salaryAdvance.toLocaleString('en-IN')}</span></div>
                                     <div className="flex justify-between text-xs pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800"><span className="text-slate-850 dark:text-slate-200 font-black uppercase">Total Deductions</span><span className="text-slate-850 dark:text-slate-200 font-black text-sm">₹{salaryDetails.totalDeductions.toLocaleString('en-IN')}</span></div>
                                 </div>

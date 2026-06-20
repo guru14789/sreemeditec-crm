@@ -99,7 +99,7 @@ export const Login: React.FC = () => {
                 <div className="relative z-10 flex flex-col justify-between w-full m-8 p-10 rounded-[2.5rem] bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl">
                     <div>
                         <span className="text-[10px] font-black text-emerald-300/60 uppercase tracking-[0.25em]">A wise quote</span>
-                        <p className="mt-4 text-sm text-white/70 leading-relaxed font-light italic border-l-2 border-emerald-400/30 pl-4 font-playfair">
+                        <p className="mt-4 text-sm text-white/70 leading-relaxed font-light italic border-l-2 border-emerald-400/30 pl-4">
                             {[
                                 "The only way to do great work is to love what you do.",
                                 "Success is not final, failure is not fatal: it is the courage to continue that counts.",
@@ -120,7 +120,7 @@ export const Login: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-auto">
-                        <h1 className="text-[2.8rem] leading-[1.15] font-bold text-white tracking-tight font-playfair">
+                        <h1 className="text-[2.8rem] leading-[1.15] font-bold text-white tracking-tight">
                             <span className="block">Get</span>
                             <span className="block">
                                 <Shuffle
@@ -142,7 +142,7 @@ export const Login: React.FC = () => {
                             </span>
                             <span className="block">You Want</span>
                         </h1>
-                        <p className="mt-6 text-sm text-white/60 leading-relaxed max-w-sm font-light font-playfair italic">
+                        <p className="mt-6 text-sm text-white/60 leading-relaxed max-w-sm font-light italic">
                             "You can get everything you want if you work hard. Trust the process, and stick to the plan."
                         </p>
                     </div>
@@ -155,32 +155,32 @@ export const Login: React.FC = () => {
                     {/* Logo */}
                     <div className="text-center mb-10">
                         <img src="/images/logo.png" alt="Sree Meditec" className="h-16 mx-auto mb-6" />
-                        <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight font-playfair">Welcome Back</h2>
+                        <h2 className="text-3xl font-playfair font-bold tracking-tight text-slate-900 dark:text-slate-100 tracking-tight">Welcome Back</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">Enter your email and password to access your account</p>
                     </div>
 
                     {dbError && (
-                        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3">
+                        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-[2rem] flex items-start gap-3">
                             <ShieldAlert size={18} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                             <p className="text-xs font-bold text-amber-800 dark:text-amber-200">Backend connection warning. Syncing in offline mode.</p>
                         </div>
                     )}
 
                     {(error || authError) && (
-                        <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl flex items-start gap-3">
+                        <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-[2rem] flex items-start gap-3">
                             <AlertCircle size={18} className="text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
                             <p className="text-xs font-bold text-rose-700 dark:text-rose-300 leading-relaxed">{error || authError}</p>
                         </div>
                     )}
 
                     {unauthorizedDomain && (
-                        <div className="mb-6 p-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl">
+                        <div className="mb-6 p-5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-[2rem]">
                             <h4 className="text-xs font-black text-blue-800 dark:text-blue-200 flex items-center gap-2"><ShieldAlert size={14} /> Whitelisting Required</h4>
-                            <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-blue-800 flex items-center justify-between">
+                            <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-[2rem] border border-blue-100 dark:border-blue-800 flex items-center justify-between">
                                 <code className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400">{unauthorizedDomain}</code>
                                 <button onClick={handleCopyDomain} type="button">{copied ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} className="text-blue-600" />}</button>
                             </div>
-                            <a href="https://console.firebase.google.com/project/sreemeditec-app/authentication/settings" target="_blank" rel="noopener noreferrer" className="mt-4 w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2"><ExternalLink size={14} /> Open Settings</a>
+                            <a href="https://console.firebase.google.com/project/sreemeditec-app/authentication/settings" target="_blank" rel="noopener noreferrer" className="mt-4 w-full bg-blue-600 text-white py-3 rounded-[2rem] text-xs font-black flex items-center justify-center gap-2"><ExternalLink size={14} /> Open Settings</a>
                         </div>
                     )}
 
@@ -189,15 +189,15 @@ export const Login: React.FC = () => {
                             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Email</label>
                             <div className="relative mt-1.5">
                                 <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400" />
-                                <input type="email" required placeholder="your.name@gmail.com" className="w-full pl-11 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 transition-all" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                <input type="email" required placeholder="your.name@gmail.com" className="w-full pl-11 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 transition-all" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                         </div>
                         <div>
                             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-1">Password</label>
                             <div className="relative mt-1.5">
                                 <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400" />
-                                <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" className="w-full pl-11 pr-11 py-3.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-2xl text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 transition-all" value={password} onChange={(e) => setPassword(e.target.value)} />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+                                <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" className="w-full pl-11 pr-11 py-3.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 transition-all" value={password} onChange={(e) => setPassword(e.target.value)} />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-700 scale-95 transition-colors">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
                             </div>
                         </div>
 
@@ -212,7 +212,7 @@ export const Login: React.FC = () => {
                             <button type="button" className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 hover:underline">Forgot Password?</button>
                         </div>
 
-                        <button type="submit" disabled={isAuthenticating} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold py-3.5 rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-[0.98] hover:from-emerald-500 hover:to-teal-500 flex items-center justify-center gap-3 disabled:opacity-70 text-sm">
+                        <button type="submit" disabled={isAuthenticating} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold py-3.5 rounded-[2rem] transition-all shadow-xl shadow-emerald-500/20 active:scale-[0.98] hover:from-emerald-500 hover:to-teal-500 flex items-center justify-center gap-3 disabled:opacity-70 text-sm">
                             {isAuthenticating ? <RefreshCw className="animate-spin" size={18} /> : <><LogIn size={18} /> Sign In</>}
                         </button>
 
@@ -220,7 +220,7 @@ export const Login: React.FC = () => {
 
                     {showIdleTip && (
                         <div className="mt-6 flex items-start gap-4 animate-in slide-in-from-bottom fade-in duration-500">
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 shadow-lg ring-2 ring-emerald-200 dark:ring-emerald-700/50 bg-white">
+                            <div className="w-14 h-14 rounded-[2rem] overflow-hidden shrink-0 shadow-lg ring-2 ring-emerald-200 dark:ring-emerald-700/50 bg-white">
                                 <img src="/images/character.png" alt="Character" className="w-full h-full object-cover" />
                             </div>
                             <div className="flex-1 pt-1">

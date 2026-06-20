@@ -34,7 +34,7 @@ export const AuditTrailViewer: React.FC<Props> = ({ history, title = "Audit Log 
               entry.action === 'Created' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.4)]'
             }`}></div>
             
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500">
@@ -55,7 +55,7 @@ export const AuditTrailViewer: React.FC<Props> = ({ history, title = "Audit Log 
               </div>
 
               {entry.reason && (
-                <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-xl border border-amber-100 dark:border-amber-800/50">
+                <div className="mb-4 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 p-3 rounded-[2rem] border border-amber-100 dark:border-amber-800/50">
                    <AlertCircle size={12} className="text-amber-500 mt-0.5 shrink-0" />
                    <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase italic">"{entry.reason}"</p>
                 </div>

@@ -260,7 +260,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   };
 
   const MetricCard = ({ label, value, icon, color }: { label: string; value: number; icon: any; color: string }) => (
-    <div className="bg-white dark:bg-slate-900 p-2.5 md:p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-2.5 min-w-0">
+    <div className="bg-white dark:bg-slate-900 p-2.5 md:p-3 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-2.5 min-w-0">
       <div className={`p-1.5 rounded-lg ${color} text-white shadow shrink-0`}>{icon}</div>
       <div className="min-w-0 flex items-baseline gap-1.5">
         <p className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{value}</p>
@@ -295,7 +295,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         </div>
         <div className="flex items-start gap-2 mb-1">
           <span className="text-[8px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 mt-0.5">{task.taskNumber}</span>
-          <h5 className="font-black text-slate-800 dark:text-slate-100 text-[12px] md:text-[13px] uppercase tracking-tight leading-tight">{task.customerName}</h5>
+          <h5 className="font-black text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-tight leading-tight">{task.customerName}</h5>
         </div>
         <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight mb-2">{task.equipment}</p>
         {task.subject && <p className="text-[10px] text-slate-500 font-medium mb-2 line-clamp-1">{task.subject}</p>}
@@ -336,7 +336,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         <div className="p-4 md:p-6 flex justify-between items-center border-b border-slate-300 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 shrink-0 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full ${cfg.dotColor}`}></div>
-            <h4 className="font-black text-[10px] md:text-[11px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{cfg.label}</h4>
+            <h4 className="font-black text-[9px] uppercase tracking-[0.25em] text-slate-800 dark:text-slate-200">{cfg.label}</h4>
           </div>
           <span className="bg-slate-200/50 dark:bg-slate-800 px-2 py-0.5 rounded-full text-[10px] font-black text-slate-500 dark:text-slate-400">{tasks.length}</span>
         </div>
@@ -345,7 +345,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             <div key={task.id}>
               <SectionCard task={task} />
               {status === 'New' && (
-                <button onClick={(e) => { e.stopPropagation(); handleClaim(task.id); }} className="mt-2 w-full bg-emerald-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <button onClick={(e) => { e.stopPropagation(); handleClaim(task.id); }} className="mt-2 w-full bg-emerald-600 text-white py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
                   <Play size={14} /> Claim Task
                 </button>
               )}
@@ -362,39 +362,45 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   return (
     <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm shrink-0">
-        <div className="flex items-center gap-5">
-          <div className="p-4 bg-gradient-to-br from-teal-600 to-emerald-600 rounded-[1.5rem] text-white shadow-xl flex items-center justify-center"><QrCode size={24} /></div>
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
+            <QrCode size={24} />
+          </div>
           <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-none">Service Task</h2>
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-lg">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Live</span>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Service Task</h2>
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Live</span>
               </div>
             </div>
-            <p className="text-[10px] font-black text-teal-600 uppercase mt-2 tracking-[0.2em]">SERVICE DESK</p>
+            <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em]">SERVICE DESK</p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto relative z-10">
           <div className="relative group/search flex-1 lg:w-64">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-teal-500 transition-colors" size={16} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50 group-focus-within/search:text-white transition-colors" size={16} />
             <input
               type="text"
               placeholder="Search requests..."
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/5 transition-all"
+              className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-3 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all shadow-inner"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <button
             onClick={() => setShowQR(!showQR)}
-            className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 ${showQR ? 'bg-slate-100 dark:bg-slate-800 text-slate-600' : 'bg-teal-600 text-white shadow-lg'}`}
+            className={`px-5 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 ${showQR ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-600 text-white shadow-lg'}`}
           >
             <QrCode size={16} /> {showQR ? 'Hide QR' : 'Show QR'}
           </button>
           {isAdmin && (
-            <button onClick={() => setShowCreateModal(true)} className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 bg-[#022c22] text-white shadow-lg hover:bg-black active:scale-95">
+            <button 
+              onClick={() => setShowCreateModal(true)} 
+              className="bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
               <Plus size={16} /> Create
             </button>
           )}
@@ -416,11 +422,11 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
       {showQR && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm shrink-0">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-200">
+            <div className="bg-white p-4 rounded-[2rem] shadow-lg border border-slate-200">
               <QRCodeSVG value={formUrl} size={160} level="M" />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2">Public QR Code</h3>
+              <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2">Public QR Code</h3>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
                 Share this QR code anywhere — print on brochures, invoices, or share via WhatsApp. Anyone can scan to submit a service request without login.
               </p>
@@ -428,12 +434,12 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 <input
                   readOnly
                   value={formUrl}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-[10px] font-bold text-slate-500 w-full max-w-md outline-none"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-1.5 text-[10px] font-bold text-slate-500 w-full max-w-md outline-none"
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
                 <button
                   onClick={() => { navigator.clipboard.writeText(formUrl); addNotification('Copied', 'URL copied to clipboard.', 'success'); }}
-                  className="bg-teal-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all shrink-0"
+                  className="bg-teal-600 text-white px-4 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all shrink-0"
                 >
                   Copy
                 </button>
@@ -468,7 +474,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <span className="text-[9px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded uppercase tracking-wider">{selectedTask.taskNumber}</span>
                   <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${STATUS_CONFIG[selectedTask.status].color} text-white`}>{STATUS_CONFIG[selectedTask.status].label}</span>
                 </div>
-                <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1 truncate">{selectedTask.customerName}</h3>
+ <h3 className="text-xl md:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1 truncate">{selectedTask.customerName}</h3>
                 {selectedTask.companyName && <p className="text-[11px] font-bold text-slate-500 mt-1">{selectedTask.companyName}</p>}
               </div>
               <button onClick={() => { setSelectedTaskId(null); setShowStatusMenu(false); }} className="p-2 text-slate-400 hover:text-slate-800 transition-all shrink-0"><X size={28} /></button>
@@ -476,7 +482,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
             {/* Panel Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="p-6 md:p-8 space-y-8">
+              <div className="p-6 md:p-8 space-y-5">
 
                 {/* Status Controls */}
                 <div className="relative">
@@ -490,7 +496,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                           <MoreHorizontal size={12} /> Change Status
                         </button>
                         {showStatusMenu && (
-                          <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl py-2 z-50 min-w-[200px]">
+                          <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] shadow-2xl py-2 z-50 min-w-[200px]">
                             {getNextStatuses(selectedTask.status).map(s => (
                               <button
                                 key={s}
@@ -530,7 +536,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
                 {/* Customer Info */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-2">
                       <User size={14} className="text-teal-500" />
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer</span>
@@ -538,7 +544,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{selectedTask.customerName}</p>
                     {selectedTask.companyName && <p className="text-[10px] text-slate-500 mt-0.5">{selectedTask.companyName}</p>}
                   </div>
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-2">
                       <Phone size={14} className="text-teal-500" />
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contact</span>
@@ -550,7 +556,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
                 {/* Service Details */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-2">
                       <Package size={14} className="text-teal-500" />
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Equipment</span>
@@ -558,7 +564,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{selectedTask.equipment}</p>
                     {selectedTask.serviceCategory && <p className="text-[10px] text-slate-500 mt-0.5">{selectedTask.serviceCategory}</p>}
                   </div>
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin size={14} className="text-teal-500" />
                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</span>
@@ -571,7 +577,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 {selectedTask.subject && (
                   <div>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Subject</h4>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200">{selectedTask.subject}</div>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] text-xs font-bold text-slate-800 dark:text-slate-200">{selectedTask.subject}</div>
                   </div>
                 )}
                 <div>
@@ -598,12 +604,12 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     <textarea
                       rows={3}
                       placeholder="Add visit notes, observations, or instructions..."
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-bold outline-none focus:border-teal-500 resize-none"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none focus:border-teal-500 resize-none"
                       value={visitNotes}
                       onChange={(e) => setVisitNotes(e.target.value)}
                     />
                     {visitNotes !== (selectedTask.visitNotes || '') && (
-                      <button onClick={handleSaveVisitNotes} className="mt-2 bg-teal-600 text-white px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all">
+                      <button onClick={handleSaveVisitNotes} className="mt-2 bg-teal-600 text-white px-5 py-2 rounded-[2rem] text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all">
                         Save Notes
                       </button>
                     )}
@@ -616,7 +622,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Image size={14} className="text-teal-600" /> Work Photos</h4>
                     <div className="flex items-center gap-3">
                       <select
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-[10px] font-bold outline-none"
+                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-[10px] font-bold outline-none"
                         value={uploadCategory}
                         onChange={(e) => setUploadCategory(e.target.value as any)}
                       >
@@ -634,7 +640,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="bg-teal-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                        className="bg-teal-600 text-white px-5 py-2.5 rounded-[2rem] text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-teal-700 transition-all disabled:opacity-50 flex items-center gap-2"
                       >
                         <Upload size={14} /> {isUploading ? 'Uploading...' : 'Upload Files'}
                       </button>
@@ -665,7 +671,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 {selectedTask.completionNotes && (
                   <div>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Completion Notes</h4>
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{selectedTask.completionNotes}</div>
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{selectedTask.completionNotes}</div>
                   </div>
                 )}
 
@@ -674,7 +680,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><MessageSquare size={14} className="text-teal-600" /> Comments ({selectedTask.comments?.length || 0})</h4>
                   <div className="space-y-3 max-h-60 overflow-y-auto mb-4 pr-1">
                     {(selectedTask.comments || []).slice().reverse().map(c => (
-                      <div key={c.id} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                      <div key={c.id} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-[9px] font-black text-slate-700 dark:text-slate-300 uppercase">{c.author}</span>
                           <span className="text-[8px] font-bold text-slate-400">{new Date(c.createdAt).toLocaleString()}</span>
@@ -695,12 +701,12 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                       <input
                         type="text"
                         placeholder="Add a comment..."
-                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-teal-500"
+                        className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none focus:border-teal-500"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddComment(); }}
                       />
-                      <button onClick={handleAddComment} className="bg-teal-600 text-white px-4 py-3 rounded-xl hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50" disabled={!newComment.trim()}>
+                      <button onClick={handleAddComment} className="bg-teal-600 text-white px-3 py-1.5 rounded-[2rem] hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50" disabled={!newComment.trim()}>
                         <Send size={16} />
                       </button>
                     </div>
@@ -712,7 +718,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Clock size={14} className="text-teal-600" /> Activity Log</h4>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {(selectedTask.activityLog || []).slice().reverse().map(a => (
-                      <div key={a.id} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                      <div key={a.id} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-[2rem]">
                         <div className="w-2 h-2 rounded-full bg-teal-500 mt-1.5 shrink-0"></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start gap-2">
@@ -732,11 +738,11 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
                 {/* Assigned & Timeline */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned To</span>
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-1">{selectedTask.assignedTo || 'Unassigned'}</p>
                   </div>
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Priority</span>
                     <p className={`text-xs font-bold mt-1 ${
                       selectedTask.priority === 'Urgent' ? 'text-rose-600' :
@@ -747,7 +753,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-[2rem]">
                     <div className="w-2 h-2 rounded-full bg-teal-500"></div>
                     <div className="flex-1">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Submitted</p>
@@ -755,7 +761,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     </div>
                   </div>
                   {selectedTask.claimedAt && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-[2rem]">
                       <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
                       <div className="flex-1">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Claimed by {selectedTask.assignedTo}</p>
@@ -764,7 +770,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     </div>
                   )}
                   {selectedTask.completedAt && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-[2rem]">
                       <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                       <div className="flex-1">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Completed</p>
@@ -779,21 +785,21 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             {/* Bottom Action Bar */}
             <div className="p-4 md:p-6 border-t border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
               {selectedTask.status === 'New' && (
-                <button onClick={() => { handleClaim(selectedTask.id); setSelectedTaskId(null); }} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <button onClick={() => { handleClaim(selectedTask.id); setSelectedTaskId(null); }} className="w-full bg-emerald-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
                   <Play size={16} /> Claim This Request
                 </button>
               )}
               {(selectedTask.assignedTo === currentUser?.name || isAdmin) && selectedTask.status !== 'Completed' && selectedTask.status !== 'Cancelled' && selectedTask.status !== 'New' && (
                 <div className="flex gap-3">
                   {getNextStatuses(selectedTask.status).filter(s => s === 'Completed').map(s => (
-                    <button key={s} onClick={async () => { await handleStatusChange(selectedTask.id, s); setSelectedTaskId(null); }} className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <button key={s} onClick={async () => { await handleStatusChange(selectedTask.id, s); setSelectedTaskId(null); }} className="flex-1 bg-emerald-600 text-white py-4 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
                       <CheckCircle size={16} /> Mark Completed
                     </button>
                   ))}
-                  <button onClick={() => setShowStatusMenu(!showStatusMenu)} className="px-6 py-4 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all relative">
+                  <button onClick={() => setShowStatusMenu(!showStatusMenu)} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-300 transition-all relative">
                     <MoreHorizontal size={18} />
                     {showStatusMenu && (
-                      <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl py-2 z-50 min-w-[180px]">
+                      <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] shadow-2xl py-2 z-50 min-w-[180px]">
                         {getNextStatuses(selectedTask.status).filter(s => s !== 'Completed').map(s => (
                           <button
                             key={s}
@@ -825,45 +831,45 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
           <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
           <div className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
             <div className="sticky top-0 bg-white dark:bg-slate-900 z-10 p-6 md:p-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Create Service Task</h3>
+              <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Create Service Task</h3>
               <button onClick={() => setShowCreateModal(false)} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={20} /></button>
             </div>
             <div className="p-6 md:p-8 space-y-5">
               <div className="grid sm:grid-cols-2 gap-5">
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Customer Name <span className="text-rose-400">*</span></label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Rajesh Kumar" value={newTaskForm.customerName} onChange={e => setNewTaskForm(p => ({ ...p, customerName: e.target.value }))} />
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Rajesh Kumar" value={newTaskForm.customerName} onChange={e => setNewTaskForm(p => ({ ...p, customerName: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Company</label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Sree Meditech" value={newTaskForm.companyName} onChange={e => setNewTaskForm(p => ({ ...p, companyName: e.target.value }))} />
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Sree Meditech" value={newTaskForm.companyName} onChange={e => setNewTaskForm(p => ({ ...p, companyName: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Phone <span className="text-rose-400">*</span></label>
-                  <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
+                  <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Email</label>
-                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
+                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Subject</label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Service request title" value={newTaskForm.subject} onChange={e => setNewTaskForm(p => ({ ...p, subject: e.target.value }))} />
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Service request title" value={newTaskForm.subject} onChange={e => setNewTaskForm(p => ({ ...p, subject: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment <span className="text-rose-400">*</span></label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="X-Ray Machine" value={newTaskForm.equipment} onChange={e => setNewTaskForm(p => ({ ...p, equipment: e.target.value }))} />
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="X-Ray Machine" value={newTaskForm.equipment} onChange={e => setNewTaskForm(p => ({ ...p, equipment: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Category</label>
-                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.serviceCategory} onChange={e => setNewTaskForm(p => ({ ...p, serviceCategory: e.target.value }))}>
+                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.serviceCategory} onChange={e => setNewTaskForm(p => ({ ...p, serviceCategory: e.target.value }))}>
                     <option value="">Select category</option>
                     {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Priority</label>
-                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.priority} onChange={e => setNewTaskForm(p => ({ ...p, priority: e.target.value as ServiceTask['priority'] }))}>
+                  <select className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none" value={newTaskForm.priority} onChange={e => setNewTaskForm(p => ({ ...p, priority: e.target.value as ServiceTask['priority'] }))}>
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
                     <option value="High">High</option>
@@ -873,16 +879,16 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
               </div>
               <div>
                 <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Location</label>
-                <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Full address or landmark" value={newTaskForm.location} onChange={e => setNewTaskForm(p => ({ ...p, location: e.target.value }))} />
+                <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Full address or landmark" value={newTaskForm.location} onChange={e => setNewTaskForm(p => ({ ...p, location: e.target.value }))} />
               </div>
               <div>
                 <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Issue Description <span className="text-rose-400">*</span></label>
-                <textarea rows={4} className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none" placeholder="Describe the problem in detail..." value={newTaskForm.issue} onChange={e => setNewTaskForm(p => ({ ...p, issue: e.target.value }))} />
+                <textarea rows={4} className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none" placeholder="Describe the problem in detail..." value={newTaskForm.issue} onChange={e => setNewTaskForm(p => ({ ...p, issue: e.target.value }))} />
               </div>
             </div>
             <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 md:p-8 flex justify-end gap-3">
-              <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
-              <button onClick={handleCreateTask} className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95">Create Task</button>
+              <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
+              <button onClick={handleCreateTask} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95">Create Task</button>
             </div>
           </div>
         </div>
@@ -900,7 +906,7 @@ const AttachmentPreview = ({ att }: { att: ServiceTaskAttachment }) => {
     <>
       <div
         onClick={() => isImage && setPreview(true)}
-        className={`relative group bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden ${isImage ? 'cursor-pointer' : ''}`}
+        className={`relative group bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 overflow-hidden ${isImage ? 'cursor-pointer' : ''}`}
       >
         {isImage ? (
           <img src={att.data} alt={att.name} className="w-full h-24 object-cover" />
@@ -923,7 +929,7 @@ const AttachmentPreview = ({ att }: { att: ServiceTaskAttachment }) => {
       </div>
       {preview && isImage && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-8" onClick={() => setPreview(false)}>
-          <img src={att.data} alt={att.name} className="max-w-full max-h-full object-contain rounded-2xl" />
+          <img src={att.data} alt={att.name} className="max-w-full max-h-full object-contain rounded-[2rem]" />
         </div>
       )}
     </>

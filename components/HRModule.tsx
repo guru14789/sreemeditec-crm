@@ -206,16 +206,16 @@ export const HRModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
-                <div className="flex bg-slate-100 p-1 rounded-2xl shrink-0 shadow-inner">
-                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-amber-50 text-amber-700 shadow-sm' : 'text-slate-500'}`}><Users size={14} /> Registry ({employees.length})</button>
-                    <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-white text-medical-700 shadow-sm' : 'text-slate-500'}`}><ShieldCheck size={14} /> Access Grid</button>
+                <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
+                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Users size={14} /> Registry ({employees.length})</button>
+                    <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><ShieldCheck size={14} /> Access Grid</button>
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
                     <div className="relative flex-1 sm:max-w-xs">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-300 rounded-xl text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-300 rounded-[2rem] text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     </div>
-                    <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
+                    <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
                 </div>
             </div>
 
@@ -224,21 +224,18 @@ export const HRModule: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
                         {filteredEmployees.map((emp, idx) => {
                             const gradients = [
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-amber-100 text-amber-700 border-amber-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-blue-100 text-blue-700 border-blue-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-indigo-100 text-indigo-700 border-indigo-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-rose-100 text-rose-700 border-rose-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-sky-100 text-sky-700 border-sky-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
-                                { bg: 'bg-gradient-to-br from-white to-slate-100', shadow: 'shadow-[0_25px_50px_-12px_rgba(15,32,23,0.12)]', avatar: 'bg-violet-100 text-violet-700 border-violet-200', text: 'text-slate-500', textLight: 'text-slate-700', label: 'text-slate-400', divider: 'border-slate-200', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', accent: 'text-medical-600', roseBadge: 'bg-rose-100 text-rose-700 border-rose-200' },
+                                { bg: 'bg-gradient-to-br from-emerald-950 to-green-900', shadow: 'shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)]', avatar: 'bg-emerald-900/60 text-emerald-300 border-emerald-500/20', text: 'text-emerald-300', textLight: 'text-white', label: 'text-emerald-100/80', divider: 'border-emerald-800/50', badge: 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20', accent: 'text-emerald-300', roseBadge: 'bg-rose-900/40 text-rose-300 border-rose-800/50' },
+                                { bg: 'bg-gradient-to-br from-emerald-800 to-emerald-600', shadow: 'shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)]', avatar: 'bg-emerald-700/60 text-emerald-100 border-emerald-400/20', text: 'text-emerald-100', textLight: 'text-white', label: 'text-emerald-100/80', divider: 'border-emerald-600/50', badge: 'bg-emerald-300/20 text-emerald-100 border-emerald-400/20', accent: 'text-emerald-100', roseBadge: 'bg-rose-900/40 text-rose-100 border-rose-800/50' },
+                                { bg: 'bg-gradient-to-br from-[#c5a059] to-[#e5c185]', shadow: 'shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)]', avatar: 'bg-amber-900/40 text-amber-950 border-amber-900/20', text: 'text-amber-950', textLight: 'text-amber-950', label: 'text-amber-950/80', divider: 'border-amber-900/20', badge: 'bg-amber-950/25 text-amber-950 border-amber-950/20', accent: 'text-amber-950', roseBadge: 'bg-rose-900/40 text-rose-950 border-rose-900/20' },
                             ];
                             const g = gradients[idx % gradients.length];
                             return (
-                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-5 rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99] hover:shadow-[0_25px_45px_-5px_rgba(0,0,0,0.25)]`}>
+                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-5 rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99]`}>
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
+                                        <div className={`w-14 h-14 rounded-[2rem] flex items-center justify-center font-playfair font-bold text-2xl tracking-tight tracking-tight border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
                                         <div>
-                                            <h4 className="font-black text-white truncate uppercase tracking-tight">{emp.name}</h4>
+                                            <h4 className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.name}</h4>
                                             <p className={`text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
                                         </div>
                                     </div>
@@ -267,7 +264,7 @@ export const HRModule: React.FC = () => {
                 ) : (
                     <React.Fragment>
                     {/* Access Grid Legend */}
-                    <div className="flex flex-wrap items-center gap-3 p-4 mb-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-3 p-4 mb-3 bg-white rounded-[2rem] border border-slate-200 shadow-sm">
                         <div className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded bg-medical-600"></div>
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Employee — Can access this module (standard view)</span>
@@ -280,7 +277,7 @@ export const HRModule: React.FC = () => {
                             <div className="w-3 h-3 rounded bg-white border border-slate-300"></div>
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">None — Module locked</span>
                         </div>
-                        <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+                        <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-[2rem] px-3 py-1.5">
                             <ShieldAlert size={12} className="text-amber-500" />
                             <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Admin access here ≠ System Admin. Change Enterprise Role for full admin.</span>
                         </div>
@@ -288,7 +285,7 @@ export const HRModule: React.FC = () => {
                     <div className="bg-white rounded-[2rem] border border-slate-300 overflow-hidden shadow-sm mb-6">
                         <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
-                                <tr><th className="px-8 py-5 w-64">Identity</th><th className="px-8 py-5">Permission Array Configuration</th></tr>
+                                <tr><th className="px-4 py-2.5 w-64">Identity</th><th className="px-4 py-2.5">Permission Array Configuration</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredEmployees.map(emp => {
@@ -297,7 +294,7 @@ export const HRModule: React.FC = () => {
                                         <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''}`}>
                                             <td className="px-8 py-6">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
+                                                    <div className={`w-10 h-10 rounded-[2rem] flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
                                                     <div>
                                                         <div className="font-black text-slate-800 uppercase tracking-tight">{emp.name}</div>
                                                         <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{emp.role.replace('_', ' ')}</div>
@@ -310,7 +307,7 @@ export const HRModule: React.FC = () => {
                                                     
                                                     if (isSuper) {
                                                         return (
-                                                            <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 w-fit">
+                                                            <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 px-4 py-2 rounded-[2rem] border border-indigo-100 w-fit">
                                                                 <ShieldAlert size={16} />
                                                                 <span className="text-[10px] font-black uppercase tracking-[0.15em]">Super Admin Override: Unrestricted</span>
                                                             </div>
@@ -319,7 +316,7 @@ export const HRModule: React.FC = () => {
 
                                                     if (isAdmin) {
                                                         return (
-                                                            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 w-fit">
+                                                            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-[2rem] border border-emerald-100 w-fit">
                                                                 <ShieldCheck size={16} />
                                                                 <span className="text-[10px] font-black uppercase tracking-[0.15em]">System Admin Override: Unrestricted</span>
                                                             </div>
@@ -363,16 +360,16 @@ export const HRModule: React.FC = () => {
             </div>
 
             {showEmployeeModal && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col scale-100 animate-in zoom-in-95 overflow-hidden">
                         <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50 shrink-0">
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
+                                <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">{isEditing ? 'Modify Personnel' : 'New Personnel'}</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registry Role: {employeeFormData.role?.replace('_', ' ')}</p>
                             </div>
                             <button onClick={() => setShowEmployeeModal(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={28} /></button>
                         </div>
-                        <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                        <div className="p-8 space-y-4 overflow-y-auto custom-scrollbar">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Enterprise Role</label>
                                 <div className="flex gap-2">
@@ -380,7 +377,7 @@ export const HRModule: React.FC = () => {
                                         <button
                                             key={opt.value}
                                             onClick={() => setEmployeeFormData({ ...employeeFormData, role: opt.value })}
-                                            className={`flex-1 py-3 rounded-xl border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-300'}`}
+                                            className={`flex-1 py-3 rounded-[2rem] border text-[10px] font-black uppercase tracking-tight transition-all ${employeeFormData.role === opt.value ? 'bg-slate-800 text-white border-slate-800 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-300'}`}
                                         >
                                             {opt.label}
                                         </button>
@@ -390,18 +387,18 @@ export const HRModule: React.FC = () => {
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Name *</label>
-                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} />
+                                <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all uppercase" value={employeeFormData.name || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, name: e.target.value })} />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID) *</label>
-                                    <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} />
+                                    <input type="email" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-bold outline-none focus:border-medical-500 transition-all" value={employeeFormData.email || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, email: e.target.value })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Password *</label>
                                     <div className="relative">
-                                        <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, password: e.target.value })} />
+                                        <input type="text" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all" value={employeeFormData.password || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, password: e.target.value })} />
                                         <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                                     </div>
                                 </div>
@@ -410,28 +407,28 @@ export const HRModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
-                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
+                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
                                         <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Daily Allowance (₹/Day)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.dailyAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, dailyAllowance: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none" value={employeeFormData.dailyAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, dailyAllowance: Number(e.target.value) })} />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Outstation Allowance (₹/Day)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-2xl px-5 py-3 text-sm font-black outline-none" value={employeeFormData.outstationAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, outstationAllowance: Number(e.target.value) })} />
+                                    <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none" value={employeeFormData.outstationAllowance ?? ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, outstationAllowance: Number(e.target.value) })} />
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200 rounded-2xl">
+                            <div className="flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200 rounded-[2rem]">
                                 <div>
                                     <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">Hide From Leaderboard</p>
                                     <p className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">Excludes member rank and points from visual board</p>
@@ -447,7 +444,7 @@ export const HRModule: React.FC = () => {
                         <div className="p-8 border-t border-slate-300 bg-slate-50/50 rounded-b-[2.5rem]">
                             {showDeleteConfirm ? (
                                 <div className="space-y-4 animate-in slide-in-from-bottom-2">
-                                    <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                                    <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-[2rem]">
                                         <ShieldAlert className="text-rose-600" size={20} />
                                         <p className="text-[10px] font-black text-rose-700 uppercase leading-tight">Security Protocol: Enter Registry Password to authorize permanent deletion.</p>
                                     </div>
@@ -455,27 +452,27 @@ export const HRModule: React.FC = () => {
                                         <input
                                             type="password"
                                             placeholder="Enter Password"
-                                            className="flex-1 px-4 py-3 border border-rose-200 rounded-xl text-xs font-black outline-none focus:border-rose-500"
+                                            className="flex-1 px-3 py-1.5 border border-rose-200 rounded-[2rem] text-xs font-black outline-none focus:border-rose-500"
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                         />
-                                        <button onClick={handleDeleteEmployee} className="bg-rose-600 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95">Confirm</button>
-                                        <button onClick={() => { setShowDeleteConfirm(false); setConfirmPassword(''); }} className="bg-slate-200 text-slate-600 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest">Abort</button>
+                                        <button onClick={handleDeleteEmployee} className="bg-rose-600 text-white px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95">Confirm</button>
+                                        <button onClick={() => { setShowDeleteConfirm(false); setConfirmPassword(''); }} className="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest">Abort</button>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="flex gap-4">
-                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                                     {isEditing && (
                                         <button
                                             onClick={() => setShowDeleteConfirm(true)}
-                                            className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all border border-rose-100"
+                                            className="p-4 bg-rose-50 text-rose-600 rounded-[2rem] hover:bg-rose-100 transition-all border border-rose-100"
                                             title="Delete Registry"
                                         >
                                             <Trash2 size={20} />
                                         </button>
                                     )}
-                                    <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">
+                                    <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">
                                         {isEditing ? <RefreshCw size={16} /> : <UserPlus size={16} />}
                                         <span>{isEditing ? 'COMMIT UPDATES' : 'INITIALIZE MEMBER'}</span>
                                     </button>

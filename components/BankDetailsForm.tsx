@@ -66,18 +66,18 @@ export const BankDetailsForm: React.FC = () => {
             {/* Header */}
             <div className="flex justify-between items-center mb-8 bg-white dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                    <div className="w-12 h-12 bg-indigo-500 rounded-[2rem] flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                         <Landmark size={24} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Bank Details Management</h2>
+                        <h2 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Bank Details Management</h2>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bankDetailsList.length} Registered Accounts</p>
                     </div>
                 </div>
                 {!isAdding && isSystemAdmin && (
                     <button 
                         onClick={() => { setFormData(EMPTY_BANK); setIsAdding(true); }}
-                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
+                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20"
                     >
                         <Plus size={16} /> Add Account
                     </button>
@@ -87,7 +87,7 @@ export const BankDetailsForm: React.FC = () => {
             {isAdding ? (
                 <div className="bg-white dark:bg-slate-900/50 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-10 shadow-xl animate-in zoom-in-95 duration-300">
                     <div className="flex justify-between items-center mb-10">
-                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                        <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-200 uppercase tracking-tight">
                             {editingId ? 'Edit Account' : 'New Account Entry'}
                         </h3>
                         <button onClick={() => { setIsAdding(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -102,7 +102,7 @@ export const BankDetailsForm: React.FC = () => {
                                 type="text"
                                 value={formData.bankName}
                                 onChange={e => setFormData({ ...formData, bankName: e.target.value.toUpperCase() })}
-                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
                                 placeholder="E.G. HDFC BANK"
                             />
                         </div>
@@ -113,7 +113,7 @@ export const BankDetailsForm: React.FC = () => {
                                 type="text"
                                 value={formData.accountNo}
                                 onChange={e => setFormData({ ...formData, accountNo: e.target.value })}
-                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 font-black text-slate-700 dark:text-slate-200 font-mono text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-6 font-black text-slate-700 dark:text-slate-200 font-mono text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
                                 placeholder="000000000000"
                             />
                         </div>
@@ -124,7 +124,7 @@ export const BankDetailsForm: React.FC = () => {
                                 type="text"
                                 value={formData.branchIfsc}
                                 onChange={e => setFormData({ ...formData, branchIfsc: e.target.value.toUpperCase() })}
-                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
                                 placeholder="BRANCH NAME & IFSC"
                             />
                         </div>
@@ -134,7 +134,7 @@ export const BankDetailsForm: React.FC = () => {
                             <select 
                                 value={formData.accountType}
                                 onChange={e => setFormData({ ...formData, accountType: e.target.value })}
-                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
+                                className="w-full h-14 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-6 font-black text-slate-700 dark:text-slate-200 uppercase text-sm outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all"
                             >
                                 <option value="Current">Current Account</option>
                                 <option value="Savings">Savings Account</option>
@@ -146,13 +146,13 @@ export const BankDetailsForm: React.FC = () => {
                     <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-4">
                         <button 
                             onClick={() => { setIsAdding(false); setEditingId(null); }}
-                            className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 dark:border-slate-700"
+                            className="px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 dark:border-slate-700"
                         >
                             Cancel
                         </button>
                         <button 
                             onClick={handleSave}
-                            className="px-12 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition-all"
+                            className="px-12 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition-all"
                         >
                             {editingId ? 'Update Account' : 'Commit Account'}
                         </button>
@@ -163,7 +163,7 @@ export const BankDetailsForm: React.FC = () => {
                     {bankDetailsList.map((bank, index) => (
                         <div key={bank.id || `bank-${index}`} className="group bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 hover:shadow-xl hover:shadow-indigo-500/5 transition-all border-b-4 border-b-transparent hover:border-b-indigo-500">
                             <div className="flex justify-between items-start mb-6">
-                                <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors">
+                                <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors">
                                     <CreditCard size={20} />
                                 </div>
                                 {isSystemAdmin && (

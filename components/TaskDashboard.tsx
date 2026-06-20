@@ -24,10 +24,10 @@ export const TaskDashboard: React.FC = () => {
     };
 
     return (
-        <div className="p-6 max-w-4xl mx-auto space-y-6 bg-gray-50 min-h-screen rounded-xl shadow-lg">
+        <div className="p-6 max-w-4xl mx-auto space-y-4 bg-gray-50 min-h-screen rounded-[2rem] shadow-lg">
             {/* Header with Connectivity Status */}
             <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">Operational Dashboard</h1>
+                <h1 className="text-3xl font-playfair font-bold tracking-tight text-gray-800">Operational Dashboard</h1>
                 <div className="flex items-center space-x-2">
                     <div className={`h-3 w-3 rounded-full animate-pulse ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
                     <span className="text-sm font-medium text-gray-600">
@@ -38,8 +38,8 @@ export const TaskDashboard: React.FC = () => {
 
             {/* Main Task List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Active Tasks ({tasks.length})</h2>
+                <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <h2 className="text-xl font-playfair font-bold tracking-tight mb-4 text-gray-700">Active Tasks ({tasks.length})</h2>
                     {loading ? (
                         <div className="flex justify-center p-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
@@ -69,12 +69,12 @@ export const TaskDashboard: React.FC = () => {
                 </section>
 
                 {/* Notifications Panel (Hook Demo) */}
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Recent Alerts</h2>
+                <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <h2 className="text-xl font-playfair font-bold tracking-tight mb-4 text-gray-700">Recent Alerts</h2>
                     <div className="space-y-3">
                         {recentNotifications?.map(note => (
                             <div key={note.id} className="p-3 bg-indigo-50/50 rounded-lg border-l-4 border-indigo-400">
-                                <p className="text-sm font-semibold text-indigo-900">{note.title}</p>
+                                <p className="text-xs font-bold text-indigo-900">{note.title}</p>
                                 <p className="text-xs text-indigo-700 mt-1">{note.message}</p>
                             </div>
                         ))}

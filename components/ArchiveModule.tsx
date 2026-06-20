@@ -47,20 +47,21 @@ export const ArchiveModule: React.FC = () => {
   return (
     <div className="h-full flex flex-col gap-6 p-2 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-300 shadow-sm shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-200">
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
             <FileBox size={24} />
           </div>
           <div>
-            <h2 className="font-black text-slate-800 uppercase tracking-tight text-xl leading-tight">Permanent Financial Archive</h2>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Immutable monthly & yearly CSV records</p>
+            <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Permanent Financial Archive</h2>
+            <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em] mt-1">Immutable monthly & yearly CSV records</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200">
-          <ShieldCheck size={18} className="text-emerald-600" />
-          <span className="text-[10px] font-black uppercase text-slate-500">Compliance Verified</span>
+        <div className="flex items-center gap-3 bg-emerald-900/40 px-4 py-2.5 rounded-[2rem] border border-emerald-700/50 relative z-10 shadow-inner">
+          <ShieldCheck size={18} className="text-emerald-400" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-100">Compliance Verified</span>
         </div>
       </div>
 
@@ -90,12 +91,12 @@ export const ArchiveModule: React.FC = () => {
               {reports.map(report => (
                 <div key={report.id} className="p-5 rounded-3xl border border-slate-200 bg-white hover:border-emerald-400 transition-all group shadow-sm hover:shadow-xl">
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-2 rounded-xl ${report.type === 'annual_expenses' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    <div className={`p-2 rounded-[2rem] ${report.type === 'annual_expenses' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
                       {report.type === 'annual_expenses' ? <ShieldCheck size={20} /> : <Calendar size={20} />}
                     </div>
                     <button 
                       onClick={() => downloadCSV(report)}
-                      className="p-2.5 bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm group-hover:scale-110 active:scale-95"
+                      className="p-2.5 bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-[2rem] transition-all shadow-sm group-hover:scale-110 active:scale-95"
                     >
                       <Download size={18} />
                     </button>
@@ -109,11 +110,11 @@ export const ArchiveModule: React.FC = () => {
                   </p>
                   
                   <div className="flex items-center gap-3 pt-4 border-t border-slate-50 mt-auto">
-                    <div className="flex-1 bg-slate-50 px-3 py-2 rounded-xl">
+                    <div className="flex-1 bg-slate-50 px-3 py-2 rounded-[2rem]">
                       <p className="text-[8px] font-black text-slate-300 uppercase leading-none mb-1">Snapshot Date</p>
                       <p className="text-[10px] font-black text-slate-600 leading-none">{new Date(report.timestamp).toLocaleDateString()}</p>
                     </div>
-                    <div className="flex-1 bg-slate-50 px-3 py-2 rounded-xl">
+                    <div className="flex-1 bg-slate-50 px-3 py-2 rounded-[2rem]">
                       <p className="text-[8px] font-black text-slate-300 uppercase leading-none mb-1">{report.type === 'annual_expenses' ? 'Months' : 'Records'}</p>
                       <p className="text-[10px] font-black text-slate-600 leading-none">{report.type === 'annual_expenses' ? report.monthsIncluded?.length : report.recordCount}</p>
                     </div>
