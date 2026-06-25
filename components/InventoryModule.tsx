@@ -832,7 +832,7 @@ export const InventoryModule: React.FC = () => {
                         <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-[2rem] flex items-center justify-center mx-auto mb-4 border border-rose-100">
                             <AlertTriangle size={32} />
                         </div>
-                        <h3 className="text-xl font-bold tracking-tight text-slate-800 uppercase tracking-tight">Purge Item?</h3>
+                        <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Purge Item?</h3>
                         <p className="text-slate-500 text-[16px] mt-2 leading-relaxed">
                             Permanently remove <b>{pendingDelete.name}</b> from master inventory? This will impact all stock reports.
                         </p>
@@ -852,7 +852,7 @@ export const InventoryModule: React.FC = () => {
                     <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
                         <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h3 className="text-xl font-bold tracking-tight text-slate-800 uppercase tracking-tight">Edit Registry Item</h3>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Edit Registry Item</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual Inventory Adjustment</p>
                             </div>
                             <button onClick={() => setShowEditProductModal(false)}><X size={28} className="text-slate-400 hover:text-slate-600 transition-colors" /></button>
@@ -1027,7 +1027,7 @@ export const InventoryModule: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
                         <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h3 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Register New Item</h3>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Register New Item</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Master Registry Entry</p>
                             </div>
                             <button onClick={() => setShowAddProductModal(false)}><X size={28} className="text-slate-400" /></button>
@@ -1180,7 +1180,7 @@ export const InventoryModule: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden scale-100 animate-in zoom-in-95">
                         <div className="p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
-                                <h3 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Barcode Scanner</h3>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Barcode Scanner</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual SKU Entry / Scan Simulation</p>
                             </div>
                             <button onClick={() => setShowScanModal(false)}><X size={28} className="text-slate-400" /></button>
@@ -1195,7 +1195,7 @@ export const InventoryModule: React.FC = () => {
                                     <input
                                         ref={scanInputRef}
                                         type="text"
-                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-4 text-center text-lg font-bold tracking-tight tracking-widest outline-none focus:border-medical-500"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-4 text-center text-lg font-playfair font-bold tracking-tight tracking-widest outline-none focus:border-medical-500"
                                         placeholder="ENTER SKU MANUALLY"
                                         value={scanQuery}
                                         onChange={e => setScanQuery(e.target.value)}
@@ -1257,7 +1257,7 @@ export const InventoryModule: React.FC = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
                         <div className="p-8 border-b border-slate-300 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
-                                <h3 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Demo Dispatch</h3>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Demo Dispatch</h3>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Temporary Equipment Assignment</p>
                             </div>
                             <button onClick={() => setShowDemoModal(false)}><X size={28} className="text-slate-400" /></button>

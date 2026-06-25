@@ -29,6 +29,8 @@
   input::-webkit-outer-spin-button,
   input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  /* Safe-area padding for iPhone home indicator bar */
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px); }
 }
 
 /* =============================================
@@ -389,3 +391,176 @@
   #service-report-print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   ::-webkit-scrollbar { display: none; }
 }
+
+/* =============================================
+   RESPONSIVE DESIGN — Mobile / Tablet / Desktop
+   ============================================= */
+
+/* ── Global: make every data table horizontally scrollable on any screen ── */
+.overflow-auto > table,
+.overflow-y-auto > table,
+[class*="overflow-auto"] > table,
+[class*="overflow-y-auto"] > table {
+  min-width: max-content;
+}
+/* Wrapper applied to all scrollable table containers */
+.table-responsive-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── MOBILE (max 767px) ── */
+@media (max-width: 767px) {
+
+  /* ── App shell: content padding ── */
+  .p-2\.5.lg\:p-5,
+  .p-2\.5 {
+    padding: 0.375rem !important;
+  }
+
+  /* ── Header: reduce height & safe-area top ── */
+  header.sticky {
+    min-height: 3.5rem !important;
+    padding-top: max(env(safe-area-inset-top, 16px), 16px) !important;
+  }
+
+  /* ── Sidebar metrics strip (metric cards in 7-col grid) ── */
+  .grid-cols-7 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.375rem !important;
+  }
+
+  /* ── Kanban board: horizontal scroll container ── */
+  .flex-1.flex.gap-4.overflow-x-auto,
+  .flex-1.flex.gap-4.md\:gap-6.overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 0.75rem;
+  }
+
+  /* Kanban columns: give them a fixed comfortable width so they snap-scroll */
+  .flex-1.min-w-\[280px\],
+  .flex-1.min-w-\[280px\].md\:min-w-\[320px\] {
+    flex: 0 0 82vw !important;
+    min-width: 82vw !important;
+    max-width: 82vw !important;
+    scroll-snap-align: start;
+  }
+
+  /* ── Tables: ensure horizontal scroll is visible inside overflow-auto parent ── */
+  div.overflow-auto,
+  div.overflow-y-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Modals: use dynamic viewport height so they sit above the iOS keyboard ── */
+  [class*="fixed"][class*="inset-0"][class*="flex"][class*="items-center"] > div,
+  [class*="fixed"][class*="inset-0"][class*="flex"][class*="justify-center"] > div {
+    max-height: 90dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Side panels (task detail / service detail): full-width on mobile ── */
+  [class*="fixed"][class*="inset-0"][class*="flex"][class*="justify-end"] > div:last-child {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* ── Header stat cards: constrain width so avatar is never pushed off ── */
+  header .flex.items-center.gap-2.mx-2 {
+    max-width: 44vw;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  header .flex.items-center.gap-2.mx-2::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── Two-column form grids: stack on mobile ── */
+  .grid.grid-cols-2:not(.no-stack) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Tally / Accounting: full-width shell ── */
+  .tally-gateway {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .tally-left-menu {
+    display: none;
+  }
+
+  /* ── Service task 7-col metric grid ── */
+  .grid.grid-cols-7 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── TABLET (768px – 1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+
+  /* Kanban: show 2 columns at a time with snap scroll */
+  .flex-1.min-w-\[280px\],
+  .flex-1.min-w-\[280px\].md\:min-w-\[320px\] {
+    flex: 0 0 46vw !important;
+    min-width: 46vw !important;
+    max-width: 46vw !important;
+    scroll-snap-align: start;
+  }
+
+  .flex-1.flex.gap-4.overflow-x-auto,
+  .flex-1.flex.gap-4.md\:gap-6.overflow-x-auto {
+    scroll-snap-type: x mandatory;
+  }
+
+  /* Header stat cards: allow 60% width with scroll */
+  header .flex.items-center.gap-2.mx-2 {
+    max-width: 55vw;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  header .flex.items-center.gap-2.mx-2::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Tables still scroll horizontally */
+  div.overflow-auto,
+  div.overflow-y-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Service task metric grid: show 4 per row */
+  .grid.grid-cols-7 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+}
+
+/* ── DESKTOP (1024px+): no changes — preserve exact existing layout ── */
+@media (min-width: 1024px) {
+  /* Kanban columns: restore natural flex sizing */
+  .flex-1.min-w-\[280px\],
+  .flex-1.min-w-\[280px\].md\:min-w-\[320px\] {
+    flex: 1 !important;
+    min-width: 280px !important;
+    max-width: none !important;
+    scroll-snap-align: unset;
+  }
+}
+
+/* ── iOS / Android: smooth momentum scrolling everywhere ── */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Prevent horizontal bleed from breaking the page on small screens ── */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
