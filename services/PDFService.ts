@@ -1088,7 +1088,7 @@ export const PDFService = {
                 it.remarks || ''
             ]),
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, textColor: [0, 0, 0] },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1 },
             styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             columnStyles: {
                 0: { cellWidth: 15, halign: 'center' },
