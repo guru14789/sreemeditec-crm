@@ -38,26 +38,59 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
   const isAdmin = userRole === 'Admin';
 
   return (
-    <div className="h-full flex flex-col p-6 md:p-8 bg-[#F5F4F1] dark:bg-slate-900/30 overflow-hidden">
-      <div className="bg-slate-100 p-1.5 rounded-button border border-slate-200 shadow-inner w-full sm:w-fit shrink-0 flex gap-1 mb-8 overflow-x-auto custom-scrollbar">
-        {(['General', 'Bank', 'Companies'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setSubTab(tab)}
-            className={`
-              px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2
-              ${subTab === tab
-                ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100'
-                : 'text-slate-400 hover:text-emerald-700 scale-95'
-              }
-            `}
-          >
-            {tab === 'General' && 'System Terminal'}
-            {tab === 'Bank' && 'Bank Details'}
-            {tab === 'Companies' && 'Company Profiles'}
-          </button>
-        ))}
-      </div>
+    <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-hidden p-0 md:p-2 bg-slate-50/50">
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 pt-6 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none rounded-b-[1.5rem] md:rounded-[2rem]">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none rounded-b-[1.5rem] md:rounded-[2rem]"></div>
+            
+            {/* Top Row: Title & Stats */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                <div className="flex items-center gap-3 md:gap-4 group">
+                    <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                        <Settings size={20} className="hidden xl:block" />
+                        <Settings size={16} className="xl:hidden" />
+                    </div>
+                    <div className="flex flex-col">
+                        <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">System Configuration</h2>
+                        <p className="text-emerald-100/80 text-[10px] md:text-xs font-semibold leading-relaxed">Admin Control Panel</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                    <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                        <Activity size={16} />
+                    </div>
+                    <div className="flex flex-col truncate">
+                        <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">System Status</p>
+                        <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                            Online
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Row: Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                    {(['General', 'Bank', 'Companies'] as const).map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setSubTab(tab)}
+                        className={`
+                        px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap
+                        ${subTab === tab
+                            ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100'
+                            : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'
+                        }
+                        `}
+                    >
+                        {tab === 'General' && 'System Terminal'}
+                        {tab === 'Bank' && 'Bank Details'}
+                        {tab === 'Companies' && 'Company Profiles'}
+                    </button>
+                    ))}
+                </div>
+            </div>
+        </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
         {subTab === 'General' && (
@@ -110,18 +143,8 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   setActiveTab, onNavigateCompanies,
 }) => {
   return (
-    <div className="flex flex-col items-center py-8 animate-in fade-in duration-[250ms]">
-      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#013D24] via-[#04542E] to-[#0A734A] flex items-center justify-center mb-6"
-        style={{ boxShadow: '0 20px 40px -6px rgba(1,61,36,0.4), inset 0 2px 2px rgba(255,255,255,0.12), inset 0 -2px 2px rgba(0,0,0,0.1)' }}
-      >
-        <Settings size={36} className="text-white/90 animate-[spin_6s_linear_infinite]" />
-      </div>
-      <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">System Configuration</h3>
-      <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-2 max-w-[340px] text-center leading-relaxed">
-        Core system parameters and business rules managed from this terminal.
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10 w-full max-w-2xl mx-auto">
+    <div className="flex flex-col items-center py-2 md:py-6 animate-in fade-in duration-[250ms]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mx-auto">
         <ConfigCard
           icon={<Activity size={16} />}
           label="Audit Mode"
@@ -227,8 +250,8 @@ const ConfigCard: React.FC<{
     style={{ boxShadow: `0 16px 32px -8px ${shadow}` }}
   >
     <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
-    <div className="relative p-6 flex items-start gap-4">
-      <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-white/80 shrink-0 group-hover:scale-110 transition-transform duration-[250ms]"
+    <div className="relative p-4 md:p-6 flex items-start gap-3 md:gap-4">
+      <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/15 flex items-center justify-center text-white/80 shrink-0 group-hover:scale-110 transition-transform duration-[250ms]"
         style={{ boxShadow: '0 8px 20px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.25), inset 0 -1px 1px rgba(0,0,0,0.08)' }}
       >
         {icon}

@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, ProductVendorInfo } from '../types';
 import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw } from 'lucide-react';
 import { useData } from './DataContext';
+import { AutoSuggest } from './AutoSuggest';
 
 
 const InlineInput: React.FC<{ 
@@ -31,7 +31,7 @@ const InlineInput: React.FC<{
 };
 
 export const InventoryModule: React.FC = () => {
-    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog, searchRecords, vendors } = useData();
+    const { products, addProduct, updateProduct, removeProduct, stockMovements, recordStockMovement, clients, addClient, addNotification, addLog, searchRecords, vendors, showPrompt } = useData();
     const [activeTab, setActiveTab] = useState<'stock' | 'history'>('stock');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -518,15 +518,15 @@ export const InventoryModule: React.FC = () => {
     // --- REVISED CALCULATION LOGIC REMOVED AND MOVED TO APP HEADER ---
 
     return (
-        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-y-auto lg:overflow-hidden p-1.5 md:p-2">
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-y-auto lg:overflow-hidden p-1.5 md:p-2 min-w-0 w-full">
 
 
             {/* Main Inventory Section */}
-            <div className="flex-1 bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-0">
+            <div className="flex-1 bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-0 min-w-0 w-full">
 
                 {/* Toolbar with Tabs */}
                 <div className="p-2.5 md:p-3 border-b border-slate-300 flex flex-col gap-2 md:gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 md:gap-6">
                         <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
                             <button
                                 onClick={() => setActiveTab('stock')}
@@ -615,7 +615,7 @@ export const InventoryModule: React.FC = () => {
                 {/* Table Content */}
                 <div className="flex-1 overflow-auto custom-scrollbar relative">
                     {activeTab === 'stock' ? (
-                        <table className="w-full text-left text-[13px] text-slate-600 min-w-[1200px] table-fixed">
+                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[1200px] table-fixed">
                              <thead className="bg-[#fcfdfd] text-[8px] sm:text-[9px] md:text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
                                     <th className="px-3 py-1.5 w-[18%] bg-[#fcfdfd]">Product Master</th>
@@ -684,9 +684,9 @@ export const InventoryModule: React.FC = () => {
                                                             </div>
                                                         ))
                                                     ) : (
-                                                        <div className="flex items-center gap-1 text-[12px] font-bold text-slate-400">
-                                                            <Building2 size={10} />
-                                                            <span>{product.supplier || 'Not set'}</span>
+                                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 w-full overflow-hidden">
+                                                            <Building2 size={10} className="shrink-0" />
+                                                            <span className="truncate">{product.supplier || 'Not set'}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -696,7 +696,7 @@ export const InventoryModule: React.FC = () => {
                                                     <InlineInput type="number" value={stock} onSave={(v) => handleQuickUpdate(product.id, 'stock', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
                                                 ) : (
                                                     <div className="flex flex-col items-end">
-                                                        <span className="text-[12px]">{stock}</span>
+                                                        <span className="text-[11px]">{stock}</span>
                                                         <span className="text-[9px] text-slate-400 uppercase leading-none">{product.unit || 'nos'}</span>
                                                     </div>
                                                 )}
@@ -781,7 +781,7 @@ export const InventoryModule: React.FC = () => {
                             </tbody>
                     </table>
                     ) : (
-                        <table className="w-full text-left text-[11px] md:text-[13px] text-slate-600 min-w-[800px]">
+                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[800px]">
                             <thead className="bg-[#fcfdfd] text-[8px] md:text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
                                     <th className="px-3 py-1.5 bg-[#fcfdfd]">Date</th>
@@ -875,7 +875,33 @@ export const InventoryModule: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Model *</label>
-                                    <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+                                    <div className="relative">
+                                        <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] pl-3 pr-10 py-2 text-[16px] font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (showPrompt) {
+                                                    const pwd = await showPrompt("Enter admin password to generate SKU", "Generate SKU", "password");
+                                                    if (pwd === "admin") {
+                                                        let newSku = "";
+                                                        let isDuplicate = true;
+                                                        while (isDuplicate) {
+                                                            newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                            isDuplicate = products.some(p => p.sku === newSku);
+                                                        }
+                                                        setEditingProduct({ ...editingProduct, sku: newSku });
+                                                        addNotification('SKU Generated', `New SKU ${newSku} generated successfully.`, 'success');
+                                                    } else if (pwd !== null) {
+                                                        addNotification('Error', 'Incorrect password.', 'error');
+                                                    }
+                                                }
+                                            }}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full p-1.5 transition-colors"
+                                            title="Auto Generate SKU"
+                                        >
+                                            <ScanBarcode size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type (nos/pkt)</label>
@@ -928,8 +954,7 @@ export const InventoryModule: React.FC = () => {
                                     <div className="space-y-2.5">
                                         {editProductVendors.map((pv, index) => (
                                             <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
-                                                <select 
-                                                    className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500"
+                                                <select className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 appearance-none"
                                                     value={pv.vendorId}
                                                     onChange={e => handleEditVendorChange(index, 'vendorId', e.target.value)}
                                                 >
@@ -1084,8 +1109,7 @@ export const InventoryModule: React.FC = () => {
                                     <div className="space-y-2.5">
                                         {newProductVendors.map((pv, index) => (
                                             <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
-                                                <select 
-                                                    className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500"
+                                                <select className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 appearance-none"
                                                     value={pv.vendorId}
                                                     onChange={e => handleNewVendorChange(index, 'vendorId', e.target.value)}
                                                 >
@@ -1286,8 +1310,15 @@ export const InventoryModule: React.FC = () => {
 
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Client / Hospital *</label>
-                                <input type="text" list="demo-clients" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" placeholder="Search customer index..." value={demoData.clientName} onChange={e => setDemoData({ ...demoData, clientName: e.target.value })} />
-                                <datalist id="demo-clients">{clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}</datalist>
+                                <AutoSuggest
+                                    value={demoData.clientName || ''}
+                                    onChange={val => setDemoData({ ...demoData, clientName: val })}
+                                    onSelect={client => setDemoData({ ...demoData, clientName: client.name })}
+                                    suggestions={clients}
+                                    filterKey="name"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none"
+                                    placeholder="Search customer index..."
+                                />
                             </div>
 
                             <div className="space-y-1.5">

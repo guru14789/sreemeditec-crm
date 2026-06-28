@@ -273,36 +273,37 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[10vh] px-4">
+        <div className="fixed inset-0 z-[9999] flex flex-col justify-end md:justify-start md:items-center md:pt-[10vh] md:px-4">
             {/* Backdrop Blur */}
-            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md" onClick={onClose} />
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
 
             {/* Panel Container */}
-            <div className="relative w-full max-w-2xl bg-slate-900/90 dark:bg-slate-900/95 border border-slate-700/50 shadow-2xl rounded-3xl overflow-hidden flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative w-full max-h-[85vh] md:h-auto md:max-h-[70vh] md:max-w-2xl bg-slate-900 dark:bg-slate-950 border-t md:border border-slate-700/50 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] md:shadow-2xl rounded-t-3xl md:rounded-3xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300">
                 {/* Search Bar Input */}
-                <div className="flex items-center px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-                    <Search className="text-slate-400 shrink-0 mr-4" size={20} />
+                <div className="flex items-center px-4 md:px-6 py-4 border-b border-slate-800 bg-slate-900/80 shrink-0">
+                    <Search className="text-emerald-500 shrink-0 mr-3" size={20} />
                     <input 
                         ref={inputRef}
                         type="text"
-                        placeholder="Search anything (modules, clients, products, actions)..."
-                        className="w-full bg-transparent border-none outline-none text-slate-100 placeholder-slate-500 text-[14px] md:text-base font-bold"
+                        placeholder="Search anything..."
+                        className="w-full bg-transparent border-none outline-none text-slate-100 placeholder-slate-500 text-base md:text-lg font-bold"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
                     <span className="hidden md:flex text-[10px] font-black text-slate-500 bg-slate-800 border border-slate-700 px-2 py-1 rounded-[2rem] tracking-tighter uppercase shrink-0">ESC</span>
+                    <button onClick={onClose} className="md:hidden text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-[2rem] shrink-0 ml-2">Cancel</button>
                 </div>
 
                 {/* Filter Pills Tab bar */}
-                <div className="flex items-center gap-1.5 px-6 py-3 bg-slate-900/30 overflow-x-auto scrollbar-none border-b border-slate-800/50">
+                <div className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-slate-900/50 overflow-x-auto scrollbar-none border-b border-slate-800/80 shrink-0">
                     {(['all', 'modules', 'clients', 'products', 'vendors', 'leads', 'actions'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setSelectedTab(tab)}
-                            className={`px-3 py-1.5 rounded-[2rem] text-[10px] font-black uppercase tracking-wider transition-all border ${
+                            className={`px-4 py-2 rounded-[2rem] text-[10px] md:text-xs font-black uppercase tracking-wider transition-all border shrink-0 ${
                                 selectedTab === tab 
-                                    ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/10' 
-                                    : 'bg-slate-800/40 border-slate-700/30 text-slate-400 hover:text-slate-200'
+                                    ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20' 
+                                    : 'bg-slate-800/60 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                             }`}
                         >
                             {tab}
@@ -313,12 +314,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 {/* Search Results Dropdown List */}
                 <div 
                     ref={listRef}
-                    className="flex-1 overflow-y-auto px-4 py-3 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800"
+                    className="flex-1 overflow-y-auto p-2 md:p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800"
                 >
                     {filteredItems.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                            <Compass size={36} className="text-slate-600 mb-3 animate-pulse" />
-                            <p className="text-xs font-black uppercase tracking-wider">No matching records found</p>
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                            <Compass size={48} className="text-slate-700 mb-4 animate-pulse" />
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-500">No matching records found</p>
                         </div>
                     ) : (
                         filteredItems.map((item, idx) => {
@@ -329,37 +330,37 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                                     key={item.id}
                                     data-index={idx}
                                     onClick={item.action}
-                                    className={`group flex items-center justify-between px-4 py-3.5 rounded-[2rem] cursor-pointer transition-all border mb-1.5 ${
+                                    className={`group flex items-center justify-between px-4 py-4 rounded-[2rem] cursor-pointer transition-all border mb-2 ${
                                         isSelected 
-                                            ? 'bg-gradient-to-r from-slate-800/80 to-slate-800/40 border-slate-700 shadow-md translate-x-1' 
-                                            : 'bg-transparent border-transparent hover:bg-slate-800/20'
+                                            ? 'bg-slate-800 border-slate-700 shadow-md md:translate-x-1' 
+                                            : 'bg-transparent border-transparent hover:bg-slate-800/40'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-3.5 min-w-0">
-                                        <div className={`p-2.5 rounded-[2rem] shrink-0 ${
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className={`p-3 rounded-[2rem] shrink-0 transition-colors ${
                                             isSelected 
-                                                ? 'bg-emerald-500 text-white' 
-                                                : 'bg-slate-800/60 text-slate-400'
+                                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                                                : 'bg-slate-800 text-slate-400'
                                         }`}>
-                                            <IconComp size={16} />
+                                            <IconComp size={18} />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className={`text-sm font-bold truncate ${
+                                            <p className={`text-sm md:text-base font-bold truncate ${
                                                 isSelected ? 'text-slate-100' : 'text-slate-300'
                                             }`}>{item.title}</p>
                                             {item.subtitle && (
-                                                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">{item.subtitle}</p>
+                                                <p className="text-[10px] md:text-[11px] font-semibold text-slate-500 truncate mt-1">{item.subtitle}</p>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div className="hidden md:flex items-center gap-2 shrink-0">
                                         {isSelected && (
                                             <div className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded-lg border border-emerald-900/30">
                                                 <span>Go</span>
                                                 <CornerDownLeft size={8} />
                                             </div>
                                         )}
-                                        <ArrowRight size={14} className={`text-slate-600 transition-all ${
+                                        <ArrowRight size={16} className={`text-slate-600 transition-all ${
                                             isSelected ? 'translate-x-1 text-slate-400' : 'opacity-0 group-hover:opacity-100'
                                         }`} />
                                     </div>
@@ -370,13 +371,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 </div>
 
                 {/* Command Footer */}
-                <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1"><span className="bg-slate-800 px-1 py-0.5 rounded border border-slate-700">↑↓</span> Move</span>
-                        <span className="flex items-center gap-1"><span className="bg-slate-800 px-1 py-0.5 rounded border border-slate-700">↵ Enter</span> Select</span>
+                <div className="px-6 py-4 pb-8 md:pb-4 border-t border-slate-800 bg-slate-900 flex items-center justify-center md:justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">
+                    <div className="hidden md:flex items-center gap-4">
+                        <span className="flex items-center gap-1.5"><span className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-[9px]">↑↓</span> Move</span>
+                        <span className="flex items-center gap-1.5"><span className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-[9px]">↵ Enter</span> Select</span>
                     </div>
                     <div>
-                        <span>Sree Meditec CRM</span>
+                        <span className="opacity-50 text-slate-400 tracking-[0.2em]">Sree Meditec CRM</span>
                     </div>
                 </div>
             </div>

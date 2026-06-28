@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Trophy, Star, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X, PartyPopper, Clock } from 'lucide-react';
+import { Trophy, Star, Target, Award, CheckCircle, Crown, Info, History, Medal, HelpCircle, X, PartyPopper, Clock, Edit2 } from 'lucide-react';
 import { useData } from './DataContext';
 import ReactConfetti from 'react-confetti';
 
@@ -11,11 +11,15 @@ export const PerformanceModule: React.FC = () => {
     tasks, 
     currentUser: activeUser,
     attendanceRecords,
-    holidays
+    holidays,
+    prizePool,
+    updatePrizePool
   } = useData();
   
   const [showRules, setShowRules] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isEditingPrize, setIsEditingPrize] = useState(false);
+  const [tempPrize, setTempPrize] = useState('');
   const isAdmin = activeUser?.role === 'SYSTEM_ADMIN' || activeUser?.email === 'sreekumar.career@gmail.com';
 
   // FIX: Dynamic Leaderboard Generation
@@ -106,35 +110,81 @@ export const PerformanceModule: React.FC = () => {
 
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-y-auto custom-scrollbar p-1 relative">
+    <div className="h-full flex flex-col gap-4 md:gap-6 overflow-y-auto custom-scrollbar p-0 md:p-1 relative">
       {showConfetti && <ReactConfetti numberOfPieces={200} recycle={false} style={{ position: 'fixed', zIndex: 1000 }} />}
       
+      {/* Header Section */}
+      <div className="hidden md:flex bg-gradient-to-br from-emerald-950 to-green-900 flex-col md:flex-row justify-between items-center gap-6 m-1 md:m-3 lg:m-4 p-6 lg:pr-24 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        <div className="hidden md:flex items-center gap-5 relative z-10 w-full md:w-auto">
+          <div className="w-14 h-14 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+            <Trophy size={24} />
+          </div>
+          <div>
+            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Leaderboard</h2>
+            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Employee Gamification Metrics</p>
+          </div>
+        </div>
+
+        <div className="hidden sm:flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto relative z-10">
+            <div className={`flex shrink-0 items-center gap-2.5 px-5 py-2.5 rounded-2xl border border-amber-200/50 bg-gradient-to-br from-amber-500 to-orange-500 shadow-[0_8px_20px_-6px_rgba(245,158,11,0.6)] transition-all group relative overflow-hidden`}>
+               <div className="absolute top-0 right-0 p-1 opacity-20"><Trophy size={32} /></div>
+               <div className="text-white relative z-10 flex items-center gap-3">
+                   <div>
+                     <p className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-100 leading-none mb-1.5">Prize Pool</p>
+                     {isEditingPrize ? (
+                       <div className="flex items-center gap-1">
+                          <span className="text-sm font-black">₹</span>
+                          <input 
+                             autoFocus
+                             type="number" 
+                             className="bg-white/20 border-b border-white/40 text-sm font-black outline-none w-20 text-white placeholder:text-white/50"
+                             value={tempPrize}
+                             onChange={(e) => setTempPrize(e.target.value)}
+                             onKeyDown={(e) => {
+                                 if (e.key === 'Enter') { updatePrizePool(Number(tempPrize)); setIsEditingPrize(false); }
+                                 if (e.key === 'Escape') setIsEditingPrize(false);
+                             }}
+                          />
+                       </div>
+                     ) : (
+                       <div className="flex items-baseline gap-1">
+                         <span className="text-lg font-black tracking-tight leading-none">₹{prizePool.toLocaleString('en-IN')}</span>
+                         {isAdmin && (
+                           <button type="button" onClick={() => { setTempPrize(prizePool.toString()); setIsEditingPrize(true); }} className="p-1 hover:bg-white/20 rounded ml-1 transition-colors"><Edit2 size={12} /></button>
+                         )}
+                       </div>
+                     )}
+                   </div>
+               </div>
+            </div>
+
+            <button onClick={() => setShowRules(true)} className="flex-1 sm:flex-none px-6 py-3.5 md:py-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 rounded-[2rem] font-black text-[10px] md:text-[11px] uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_-6px_rgba(197,160,89,0.6)] active:scale-95 border border-[#d4af37]/50">
+                <Info size={16} /> Scoring Rules
+            </button>
+            {isAdmin && (
+                <button 
+                  onClick={() => {
+                      setShowConfetti(true);
+                      setTimeout(() => setShowConfetti(false), 5000);
+                  }}
+                  className="flex-1 sm:flex-none px-6 py-3.5 md:py-4 bg-white text-emerald-700 rounded-[2rem] font-black text-[10px] md:text-[11px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 group"
+                >
+                    <PartyPopper size={16} className="group-hover:rotate-12 transition-transform" /> Test Celebration
+                </button>
+            )}
+        </div>
+      </div>
 
       {/* Main Leaderboard Content */}
       <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
-          <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
-              <div className="px-5 py-3 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
+          <div className="flex-1 bg-white dark:bg-slate-900 md:rounded-3xl shadow-sm md:border border-slate-300 dark:border-slate-800 flex flex-col overflow-hidden min-h-[450px]">
+              <div className="px-4 py-3 md:px-5 border-b border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
                   <div className="flex items-center gap-2">
                       <Award className="text-amber-500" size={16} />
                       <h2 className="font-black text-[11px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Team Rankings</h2>
                   </div>
                   <div className="flex items-center gap-2">
-                      <button onClick={() => setShowRules(true)} className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-sm">
-                          <Info size={12} /> Rules
-                      </button>
-                      {isAdmin && (
-                          <div className="flex gap-2">
-                              <button 
-                                onClick={() => {
-                                    setShowConfetti(true);
-                                    setTimeout(() => setShowConfetti(false), 5000);
-                                }}
-                                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-sm group"
-                              >
-                                  <PartyPopper size={12} className="group-hover:rotate-12 transition-transform" /> Test Celebration
-                              </button>
-                          </div>
-                      )}
                       <div className="flex items-center gap-1.5 ml-1">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                           <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Live Updates</span>
@@ -142,56 +192,56 @@ export const PerformanceModule: React.FC = () => {
                   </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-2">
                   {/* MOBILE VIEW */}
-                  <div className="lg:hidden space-y-3">
-                      <div className="flex items-end justify-center gap-2 px-2 pt-10 pb-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-300 dark:border-slate-800/50 mb-2 shadow-inner">
+                  <div className="lg:hidden space-y-2">
+                      <div className="flex items-end justify-center gap-1.5 px-2 pt-6 pb-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-300 dark:border-slate-800/50 mb-1 shadow-inner">
                           {/* 2nd Place */}
                           <div className="flex flex-col items-center flex-1">
-                              <div className="relative mb-2">
-                                  <div className="w-12 h-12 rounded-[2rem] bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-playfair font-bold text-lg tracking-tight tracking-tight text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
+                              <div className="relative mb-1.5">
+                                  <div className="w-10 h-10 rounded-[1.5rem] bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-playfair font-bold text-base tracking-tight text-slate-400 border-2 border-white dark:border-slate-600 shadow-sm uppercase">
                                       {top3[1]?.name.charAt(0) || '?'}
                                   </div>
-                                  <div className="absolute -top-1 -right-1 bg-slate-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-sm">2</div>
+                                  <div className="absolute -top-1 -right-1 bg-slate-400 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border border-white shadow-sm">2</div>
                               </div>
-                              <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[1]?.name.split(' ')[0] || '---'}</p>
-                              <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[1]?.points || 0}</p>
+                              <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[1]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[1]?.points || 0}</p>
                           </div>
                           
                           {/* 1st Place */}
                           <div className="flex flex-col items-center flex-1 transform scale-110 pb-1">
-                              <div className="relative mb-2">
-                                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-amber-500">
-                                      <Crown size={24} fill="currentColor" className="drop-shadow-[0_2px_4px_rgba(245,158,11,0.4)] animate-pulse" />
+                              <div className="relative mb-1.5">
+                                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-amber-500">
+                                      <Crown size={20} fill="currentColor" className="drop-shadow-[0_2px_4px_rgba(245,158,11,0.4)] animate-pulse" />
                                   </div>
-                                  <div className="w-14 h-14 rounded-[2rem] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-playfair font-bold text-xl tracking-tight tracking-tight text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
+                                  <div className="w-12 h-12 rounded-[1.5rem] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-playfair font-bold text-lg tracking-tight text-white border-2 border-white dark:border-slate-800 shadow-xl shadow-orange-500/20 uppercase relative z-10">
                                       {top3[0]?.name.charAt(0) || '?'}
                                   </div>
-                                  <div className="absolute -top-2 -right-2 bg-amber-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-white shadow-sm z-20">1</div>
+                                  <div className="absolute -top-1 -right-1 bg-amber-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border border-white shadow-sm z-20">1</div>
                               </div>
-                              <p className="text-[10px] font-black text-slate-900 dark:text-white truncate w-full text-center">{top3[0]?.name.split(' ')[0] || '---'}</p>
-                              <p className="text-[10px] font-black text-orange-600 dark:text-orange-400 mt-0.5">{top3[0]?.points || 0}</p>
+                              <p className="text-[9px] font-black text-slate-900 dark:text-white truncate w-full text-center">{top3[0]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[9px] font-black text-orange-600 dark:text-orange-400 mt-0.5">{top3[0]?.points || 0}</p>
                           </div>
 
                           {/* 3rd Place */}
                           <div className="flex flex-col items-center flex-1">
-                              <div className="relative mb-2">
-                                  <div className="w-12 h-12 rounded-[2rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-playfair font-bold text-lg tracking-tight tracking-tight text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
+                              <div className="relative mb-1.5">
+                                  <div className="w-10 h-10 rounded-[1.5rem] bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center font-playfair font-bold text-base tracking-tight text-orange-600 border-2 border-white dark:border-slate-700 shadow-sm uppercase">
                                       {top3[2]?.name.charAt(0) || '?'}
                                   </div>
-                                  <div className="absolute -top-1 -right-1 bg-orange-400 text-white w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-white shadow-sm">3</div>
+                                  <div className="absolute -top-1 -right-1 bg-orange-400 text-white w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border border-white shadow-sm">3</div>
                               </div>
-                              <p className="text-[9px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[2]?.name.split(' ')[0] || '---'}</p>
-                              <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[2]?.points || 0}</p>
+                              <p className="text-[8px] font-black text-slate-700 dark:text-slate-300 truncate w-full text-center">{top3[2]?.name.split(' ')[0] || '---'}</p>
+                              <p className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{top3[2]?.points || 0}</p>
                           </div>
                       </div>
 
-                      <div className="space-y-2.5 pb-4">
+                      <div className="space-y-1.5 pb-4">
                           {dynamicLeaderboard.map((user) => {
                               const isCurrentUser = user.id === activeUser?.id;
                               return (
-                                  <div key={user.id} className={`flex items-center gap-3 p-4 rounded-[2rem] border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/10 shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 shadow-sm'}`}>
-                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${
+                                  <div key={user.id} className={`flex items-center gap-2 p-2.5 rounded-[1.25rem] border transition-all ${isCurrentUser ? 'bg-indigo-50/50 border-indigo-100 dark:bg-indigo-900/10 dark:border-indigo-800 ring-1 ring-indigo-500/10 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'}`}>
+                                      <div className={`w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] shrink-0 ${
                                           user.isHidden ? 'bg-slate-50 text-slate-400' :
                                           user.rank === 1 ? 'bg-amber-100 text-amber-700' : 
                                           user.rank === 2 ? 'bg-slate-100 text-slate-600' :
@@ -200,24 +250,24 @@ export const PerformanceModule: React.FC = () => {
                                       }`}>
                                           {user.isHidden ? '—' : user.rank}
                                       </div>
-                                      <div className="w-10 h-10 rounded-[2rem] bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-sm shrink-0 uppercase">
+                                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-500 text-xs shrink-0 uppercase">
                                           {user.name.charAt(0)}
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                              <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate">{user.name}</p>
-                                              {isCurrentUser && <span className="text-[8px] bg-indigo-600 text-white px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">You</span>}
-                                              {user.isHidden && <span className="text-[8px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded uppercase font-black tracking-tighter">Hidden</span>}
+                                          <div className="flex items-center gap-1 flex-wrap">
+                                              <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 truncate leading-none">{user.name}</p>
+                                              {isCurrentUser && <span className="text-[7px] bg-indigo-600 text-white px-1 py-0.5 rounded uppercase font-black tracking-tighter">You</span>}
+                                              {user.isHidden && <span className="text-[7px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded uppercase font-black tracking-tighter">Hidden</span>}
                                           </div>
-                                          <div className="flex items-center gap-2 mt-0.5">
-                                              <span className="text-[9px] font-bold text-slate-400 uppercase">{user.tasks} Tasks</span>
-                                              <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                                              <span className="text-[9px] font-bold text-emerald-500 uppercase">{user.attendance} Attnd.</span>
+                                          <div className="flex items-center gap-1.5 mt-1">
+                                              <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">{user.tasks} Tasks</span>
+                                              <span className="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
+                                              <span className="text-[8px] font-bold text-emerald-500 uppercase leading-none">{user.attendance} Attnd.</span>
                                           </div>
                                       </div>
-                                      <div className="text-right">
- <p className="text-lg font-bold tracking-tight text-indigo-600 dark:text-indigo-400 leading-none">{user.points}</p>
-                                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">Points</p>
+                                      <div className="text-right shrink-0 pr-1">
+                                          <p className="text-[13px] font-black tracking-tight text-indigo-600 dark:text-indigo-400 leading-none">{user.points}</p>
+                                          <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Points</p>
                                       </div>
                                   </div>
                               );

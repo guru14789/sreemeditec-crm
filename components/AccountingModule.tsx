@@ -31,7 +31,7 @@ interface CreateLedgerForm {
   gstin: string; phone: string; email: string; address: string;
 }
 
-interface AccountingModuleProps { userRole?: 'Admin' | 'Employee'; }
+interface AccountingModuleProps { userRole?: 'Admin' | 'Employee'; onClose?: () => void; }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -45,7 +45,7 @@ const shortKeys: Record<VoucherMode, string> = {
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
-export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) => {
+export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole, onClose }) => {
   const isAdmin = userRole === 'Admin';
   const {
     ledgers = [], vouchers = [], accountGroups = [], invoices = [], purchaseRecords = [],
@@ -521,13 +521,42 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
 
   // ── Render: Top Bar ────────────────────────────────────────────────────
   const renderTopBar = () => (
-    <div className="tally-top-bar">
-      <div className="tally-top-bar-left">SREEMEDITEC &nbsp;|&nbsp; <span style={{ color: '#42A5F5' }}>Accounts with Inventory</span></div>
-      <div className="tally-top-bar-right">
-        <span>FY: 1-Apr-2025 to 31-Mar-2026</span>
-        <span>Date: <span className="tally-highlight">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span></span>
-        <span>User: {currentUser?.name || 'Admin'}</span>
-      </div>
+    <div className="bg-slate-50 border-b border-slate-200">
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 p-4 md:p-6 rounded-b-[1.5rem] md:rounded-b-[2.5rem] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] relative overflow-hidden group">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+            <div className="flex items-center gap-3 md:gap-5 relative z-10 w-full overflow-hidden">
+                <div className="w-10 h-10 md:w-14 md:h-14 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden md:block"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:hidden"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Accounts (TallyPrime)</h2>
+                    <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed truncate">Enterprise Financial Records</p>
+                </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 relative z-10 shrink-0 w-full md:w-auto">
+                <div className="flex items-center justify-center gap-2 md:gap-3 bg-gradient-to-r from-[#c5a059] to-[#e5c185] px-4 md:px-6 py-2 md:py-3 rounded-[1.5rem] md:rounded-[2rem] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] w-full sm:w-auto">
+                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-amber-950">Active FY: 25-26</span>
+                </div>
+                {(screen !== 'gateway' || showVf) && (
+                <button 
+                    className="w-full sm:w-auto bg-emerald-900/60 border border-emerald-500/30 text-emerald-100 hover:text-white hover:bg-emerald-800 px-4 py-2 md:py-3 rounded-[1.5rem] md:rounded-[2rem] transition-all text-[10px] font-black uppercase tracking-widest shadow-inner"
+                    onClick={() => { setShowVf(false); setScreen('gateway'); setStatusMsg('Gateway of Accounts'); }}
+                >
+                    ← Go Back
+                </button>
+                )}
+                {screen === 'gateway' && !showVf && onClose && (
+                <button 
+                    className="w-full sm:w-auto bg-rose-900/60 border border-rose-500/30 text-rose-200 hover:text-white hover:bg-rose-800 px-4 py-2 md:py-3 rounded-[1.5rem] md:rounded-[2rem] transition-all text-[10px] font-black uppercase tracking-widest shadow-inner"
+                    onClick={onClose}
+                >
+                    ✕ Exit Module
+                </button>
+                )}
+            </div>
+        </div>
     </div>
   );
 
@@ -773,7 +802,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
           <div className="tally-voucher-field">
             <span className="field-label">Party Ledger</span>
             <span className="field-value">
-              <select className="field-input" style={{ width: '100%', maxWidth: 300 }} value={vf.accountId} onChange={e => {
+              <select className="field-input appearance-none" style={{ width: '100%', maxWidth: 300 }} value={vf.accountId} onChange={e => {
                 const l = ledgers.find(x => x.id === e.target.value);
                 setVf(p => ({ ...p, accountId: e.target.value, accountName: l?.name || '' }));
               }}>
@@ -800,7 +829,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
               {vf.entries.map((e, idx) => (
                 <tr key={e.id} className={idx === vf.entries.length - 1 ? 'cursor-row' : ''}>
                   <td>
-                    <select className="field-input" style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #2196F3' }}
+                    <select className="field-input appearance-none" style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid #2196F3' }}
                       value={e.ledgerId}
                       onChange={ev => updateEntry(e.id, { ledgerId: ev.target.value, ledgerName: ledgers.find(x => x.id === ev.target.value)?.name || '' })}>
                       <option value="">-- Select Ledger --</option>
@@ -870,7 +899,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({ userRole }) 
                 </div>
                 <div>
                   <div style={{ color: '#5A8AB0', fontSize: 10 }}>Section</div>
-                  <select className="field-input" style={{ width: 120 }} value={vf.tdsSection}
+                  <select className="field-input appearance-none" style={{ width: 120 }} value={vf.tdsSection}
                     onChange={e => setVf(p => ({ ...p, tdsSection: e.target.value }))}>
                     <option value="">-- Select --</option>
                     <option value="194C">194C (Contractors)</option>

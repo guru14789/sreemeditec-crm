@@ -62,9 +62,9 @@ export const CatalogModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-6 overflow-hidden">
       {/* Header Section */}
-      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 p-4 md:p-6 rounded-[2rem] md:rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-        <div className="flex items-center gap-5 relative z-10 w-full md:w-auto">
+        <div className="hidden md:flex items-center gap-5 relative z-10 w-full md:w-auto">
           <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110 shrink-0">
             <ShoppingBag size={24} />
           </div>
@@ -112,21 +112,21 @@ export const CatalogModule: React.FC = () => {
                             <div 
                                 key={product.id} 
                                 onClick={() => setSelectedProduct(product)}
-                                className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-6 flex flex-col gap-6 hover:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/30 cursor-pointer overflow-hidden"
+                                className="group relative bg-white dark:bg-slate-900 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-4 md:p-6 flex flex-col gap-4 md:gap-6 hover:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/30 cursor-pointer overflow-hidden"
                             >
                                 <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#c5a059] to-[#e5c185] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-start">
-                                        <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-[2rem] text-[9px] font-black text-slate-500 uppercase tracking-widest">{product.category}</div>
-                                        <div className={`px-3 py-1 rounded-[2rem] text-[9px] font-black uppercase tracking-widest ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                        <div className="px-2 md:px-3 py-0.5 md:py-1 bg-slate-100 dark:bg-slate-800 rounded-[2rem] text-[9px] font-black text-slate-500 uppercase tracking-widest">{product.category}</div>
+                                        <div className={`px-2 md:px-3 py-0.5 md:py-1 rounded-[2rem] text-[9px] font-black uppercase tracking-widest ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                             {product.stock > 0 ? `${product.stock} IN STOCK` : 'OUT OF STOCK'}
                                         </div>
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-playfair font-bold text-slate-800 dark:text-white uppercase tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">{product.name}</h3>
+                                        <h3 className="text-base md:text-lg font-playfair font-bold text-slate-800 dark:text-white uppercase tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">{product.name}</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{product.model || 'Standard Model'}</p>
                                         {getProductSpecs(product).length > 0 && (
-                                            <div className="mt-3 space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                                            <div className="mt-2.5 md:mt-3 space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2 md:pt-2.5">
                                                 {getProductSpecs(product).slice(0, 3).map((spec, idx) => (
                                                     <div key={idx} className="flex justify-between text-[10px] leading-tight">
                                                         <span className="font-bold text-slate-400 uppercase tracking-wider truncate max-w-[45%]">{spec.key}</span>
@@ -138,26 +138,26 @@ export const CatalogModule: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                                <div className="mt-auto pt-4 md:pt-6 border-t border-slate-100 dark:border-slate-800 space-y-3 md:space-y-4">
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-1.5 flex items-center gap-1.5">
                                                 Net Price <Info size={10} />
                                             </p>
- <p className="text-lg font-bold tracking-tight text-slate-400 tracking-tighter line-through decoration-slate-300">₹{product.sellingPrice.toLocaleString('en-IN')}</p>
+ <p className="text-base md:text-lg font-bold tracking-tight text-slate-400 tracking-tighter line-through decoration-slate-300">₹{product.sellingPrice.toLocaleString('en-IN')}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center justify-end gap-1.5">
+                                            <p className="text-[9px] md:text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 md:mb-1.5 flex items-center justify-end gap-1.5">
                                                 Inclusive Price <Tag size={12} />
                                             </p>
- <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString('en-IN')}</p>
+ <p className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white tracking-tighter">₹{calculateGstPrice(product.sellingPrice, product.taxRate).toLocaleString('en-IN')}</p>
                                         </div>
                                     </div>
 
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 flex justify-between items-center group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/10 transition-colors group-hover:border-emerald-100 dark:group-hover:border-emerald-900/30">
+                                    <div className="p-3 md:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 dark:border-slate-800 flex justify-between items-center group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/10 transition-colors group-hover:border-emerald-100 dark:group-hover:border-emerald-900/30">
                                         <div className="flex items-center gap-2">
                                             <Percent size={14} className="text-emerald-600" />
-                                            <span className="text-[10px] font-black text-slate-500 uppercase">GST Rate</span>
+                                            <span className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase">GST Rate</span>
                                         </div>
                                         <span className="text-xs font-black text-emerald-600">{product.taxRate || 18}%</span>
                                     </div>
@@ -183,8 +183,8 @@ export const CatalogModule: React.FC = () => {
                                 className="relative bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 p-4 md:px-8 md:py-6 hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:shadow-[0_15px_30px_-10px_rgba(16,185,129,0.15)] hover:border-emerald-500/30 transition-all duration-300 flex flex-col md:flex-row md:items-center gap-4 group cursor-pointer overflow-hidden"
                             >
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#c5a059] to-[#e5c185] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="flex md:flex-[2] items-start gap-4">
-                                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-[2rem] group-hover:scale-110 transition-transform shrink-0"><Layers size={20} /></div>
+                                <div className="flex md:flex-[2] items-start gap-3 md:gap-4">
+                                    <div className="p-2 md:p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-[1.5rem] md:rounded-[2rem] group-hover:scale-110 transition-transform shrink-0"><Layers size={20} className="w-4 h-4 md:w-5 md:h-5" /></div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm md:text-base font-playfair font-bold text-slate-800 dark:text-white uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-emerald-600 transition-colors">{product.name}</p>
                                         <div className="flex items-center gap-2 mt-1.5 overflow-hidden">
@@ -362,23 +362,19 @@ export const CatalogModule: React.FC = () => {
                                     <Info size={12} /> Technical Specifications & Info
                                 </h3>
                                 {getProductSpecs(selectedProduct).length > 0 ? (
-                                    <div className="overflow-hidden rounded-[2rem] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                                                    <th className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Specification</th>
-                                                    <th className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Detail</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                                                {getProductSpecs(selectedProduct).map((spec, idx) => (
-                                                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
-                                                        <td className="p-3 text-xs font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap">{spec.key}</td>
-                                                        <td className="p-3 text-xs font-black text-slate-800 dark:text-slate-200">{spec.value}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                    <div className="overflow-hidden rounded-2xl md:rounded-[2rem] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900">
+                                        <div className="hidden md:grid grid-cols-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                            <div className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Specification</div>
+                                            <div className="p-3 text-[10px] font-black text-slate-405 dark:text-slate-550 uppercase tracking-wider">Detail</div>
+                                        </div>
+                                        <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                                            {getProductSpecs(selectedProduct).map((spec, idx) => (
+                                                <div key={idx} className="p-3 md:p-0 md:grid md:grid-cols-2 hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors flex flex-col gap-1 md:gap-0">
+                                                    <div className="md:p-3 text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase md:normal-case tracking-wider md:tracking-normal">{spec.key}</div>
+                                                    <div className="md:p-3 text-xs font-black text-slate-800 dark:text-slate-200 break-words">{spec.value}</div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : (
                                     <p className="text-xs font-medium text-slate-600 dark:text-slate-305 leading-relaxed">

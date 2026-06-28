@@ -18,8 +18,11 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
     </div>
 );
 
+import { AutoSuggest } from './AutoSuggest';
+
 export const PurchaseRecordModule: React.FC = () => {
-    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData } = useData();
+    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData, isSystemAdmin } = useData();
+    const isAdmin = currentUser?.permissions?.[TabView.PURCHASE_REGISTER] === 'Admin' || isSystemAdmin;
     const [searchQuery, setSearchQuery] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [showAddModal, setShowAddModal] = useState(false);
@@ -392,77 +395,101 @@ export const PurchaseRecordModule: React.FC = () => {
     }, [purchaseRecords, searchQuery, filingFilter]);
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden p-2 bg-slate-50/50">
-            {/* Header */}
-            <div className="p-4 bg-white rounded-[2rem] border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-medical-50 text-medical-600 rounded-[2rem] border border-medical-100">
-                        <ShoppingCart size={20} />
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-hidden p-0 md:p-2 bg-slate-50/50">
+            {/* Unified Green Gradient Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <ShoppingCart size={20} className="hidden xl:block" />
+                            <ShoppingCart size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Purchase Entry</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{purchaseRecords.length} Total Records</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-base font-bold text-slate-800 tracking-tight leading-none uppercase">Purchase Entry</h2>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{purchaseRecords.length} Total Records</p>
+
+                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Wallet size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Outstanding</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                ₹{(() => {
+                                    const total = purchaseRecords.reduce((sum, r) => sum + ((r.total || 0) - (r.paidAmount || 0)), 0);
+                                    if (total >= 10000000) return `${(total / 10000000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}Cr`;
+                                    if (total >= 100000) return `${(total / 100000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}L`;
+                                    if (total >= 1000) return `${(total / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 })}T`;
+                                    return total.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                                })()}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] animate-in fade-in slide-in-from-right-4 hover:scale-[1.02] transition-all duration-300 group">
-                    <div className="p-2 bg-amber-900/10 text-amber-950 rounded-[2rem] group-hover:scale-110 transition-transform">
-                        <Wallet size={16} />
+                {/* Bottom Row: Search & Actions */}
+                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto flex-1 group">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <select 
+                                value={filingFilter}
+                                onChange={(e) => setFilingFilter(e.target.value as any)}
+                                className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-4 py-2.5 sm:py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
+                            >
+                                <option value="All" className="bg-emerald-900">All Filing</option>
+                                <option value="Filed" className="bg-emerald-900">Filed</option>
+                                <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
+                                <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
+                            </select>
+                        </div>
+                        <div className="relative w-full sm:max-w-xs xl:max-w-md 2xl:max-w-lg flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50 transition-colors" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Search registry..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+                                className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2.5 sm:py-2 pl-11 pr-10 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase placeholder:normal-case shadow-inner"
+                            />
+                            {searchQuery && (
+                                <button 
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 hover:text-emerald-300 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[8px] font-black text-amber-950/80 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
-                        <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
-                            ₹{purchaseRecords
-                                .reduce((sum, r) => sum + ((r.total || 0) - (r.paidAmount || 0)), 0)
-                                .toLocaleString('en-IN')}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex flex-1 max-w-xl gap-2 w-full md:justify-end">
-                    <select 
-                        value={filingFilter}
-                        onChange={(e) => setFilingFilter(e.target.value as any)}
-                        className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase shrink-0"
-                    >
-                        <option value="All">All Filing</option>
-                        <option value="Filed">Filed</option>
-                        <option value="Not Filed">Not Filed</option>
-                        <option value="Not Updated">Not Updated</option>
-                    </select>
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Search registry..."
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium outline-none focus:border-medical-400 transition-all uppercase"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
-                        />
-                    </div>
+                    
                     <button
                         onClick={handleNewEntry}
-                        className="bg-medical-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:bg-medical-700 transition-all shadow-sm shrink-0"
+                        className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3 md:py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"
                     >
-                        <Plus size={14} /> New Entry
+                        <Plus size={16} /> New Entry
                     </button>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 overflow-hidden flex flex-col">
+            <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left text-[11px]">
                         <thead className="bg-slate-50 border-b text-[9px] uppercase font-bold text-slate-400 sticky top-0 z-10">
                             <tr>
-                                <th className="px-3 py-1.5 font-inter">Date / Invoice</th>
-                                <th className="px-3 py-1.5">Supplier</th>
-                                <th className="px-3 py-1.5 text-right">Grand Total</th>
-                                <th className="px-3 py-1.5 text-center">Paid Amt</th>
-                                <th className="px-3 py-1.5 text-right">Balance</th>
-                                <th className="px-3 py-1.5 text-center">Filed Status</th>
-                                <th className="px-3 py-1.5 text-center">Status</th>
-                                <th className="px-3 py-1.5 text-right">Actions</th>
+                                <th className="px-4 py-2 font-inter">Invoice / Date</th>
+                                <th className="px-4 py-2">Supplier</th>
+                                <th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th>
+                                <th className="px-4 py-2 text-center hidden sm:table-cell">Paid Amt</th>
+                                <th className="px-4 py-2 text-right hidden sm:table-cell">Balance</th>
+                                <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
+                                <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
+                                <th className="px-4 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -474,18 +501,18 @@ export const PurchaseRecordModule: React.FC = () => {
 
                                 return (
                                     <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
-                                        <td className="px-3 py-1.5">
-                                            <div className="font-bold text-slate-700 leading-tight">{record.dateSupply}</div>
-                                            <div className="text-[9px] font-inter font-medium text-slate-400 mt-0.5">#{record.invoiceNo}</div>
+                                        <td className="px-4 py-3">
+                                            <div className="font-black text-slate-800 font-inter tracking-widest">{record.invoiceNo}</div>
+                                            <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{record.dateSupply}</div>
                                         </td>
-                                        <td className="px-3 py-1.5">
+                                        <td className="px-4 py-2">
                                             <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
                                             <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
                                         </td>
-                                        <td className="px-3 py-1.5 text-right">
+                                        <td className="px-4 py-2 text-right hidden sm:table-cell">
                                             <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(total)}</div>
                                         </td>
-                                        <td className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-center gap-1.5">
                                                 <input 
                                                     type="number"
@@ -517,10 +544,10 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-3 py-1.5 text-right font-black text-rose-600">
+                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">
                                             ₹{formatIndianNumber(balance)}
                                         </td>
-                                        <td className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={record.id}
                                                 filedStatus={record.filedStatus}
@@ -531,14 +558,14 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-3 py-1.5 text-center">
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell">
                                             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                                                 displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'
                                             }`}>
                                                 {displayStatus}
                                             </span>
                                         </td>
-                                        <td className="px-3 py-1.5 text-right">
+                                        <td className="px-4 py-2 text-right">
                                             <div className="flex justify-end gap-1.5">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
@@ -593,13 +620,15 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 >
                                                     <ArrowUpRight size={14} />
                                                 </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
-                                                    className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
-                                                    title="Delete Entry"
-                                                >
-                                                    <Trash2 size={12} />
-                                                </button>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setPendingDelete({ id: record.id, name: record.supplier }); }}
+                                                        className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded transition-all"
+                                                        title="Delete Entry"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -640,7 +669,15 @@ export const PurchaseRecordModule: React.FC = () => {
                                 <h4 className="text-[9px] font-black text-medical-600 uppercase tracking-[0.2em] border-b pb-0.5">1. Transaction Identity</h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                                         <FormRow label="Supplier Name *">
-                                            <input type="text" list="vendor-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH SUPPLIER" value={newRecord.supplier || ''} onChange={e => handleInputChange('supplier', e.target.value)} />
+                                            <AutoSuggest
+                                                value={newRecord.supplier || ''}
+                                                onChange={val => handleInputChange('supplier', val.toUpperCase())}
+                                                onSelect={vendor => handleInputChange('supplier', vendor.name.toUpperCase())}
+                                                suggestions={vendors}
+                                                filterKey="name"
+                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
+                                                placeholder="SEARCH SUPPLIER"
+                                            />
                                         </FormRow>
                                         <FormRow label="Invoice Number *">
                                             <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="INV-001" value={newRecord.invoiceNo || ''} onChange={e => handleInputChange('invoiceNo', e.target.value)} />
@@ -676,7 +713,19 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <div className="lg:col-span-2">
                                                 <FormRow label="Equipment Name *">
                                                     <div className="relative">
-                                                        <input type="text" list="prod-list" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase" placeholder="SEARCH PRODUCT" value={currentItem.equipmentName || ''} onChange={e => handleItemChange('equipmentName', e.target.value)} />
+                                                        <AutoSuggest
+                                                            value={currentItem.equipmentName || ''}
+                                                            onChange={val => handleItemChange('equipmentName', val.toUpperCase())}
+                                                            onSelect={prod => {
+                                                                handleItemChange('equipmentName', prod.name.toUpperCase());
+                                                                if (prod.purchasePrice) handleItemChange('rate', prod.purchasePrice.toString());
+                                                                if (prod.taxRate) handleItemChange('gst', prod.taxRate.toString());
+                                                            }}
+                                                            suggestions={products}
+                                                            filterKey="name"
+                                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
+                                                            placeholder="SEARCH PRODUCT"
+                                                        />
                                                          {currentItem.equipmentName && products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase()) && (
                                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                                                 <div className="flex flex-col items-end">
@@ -701,7 +750,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                     <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.qty || ''} onChange={e => handleItemChange('qty', e.target.value)} />
                                                 </FormRow>
                                                 <FormRow label="Unit">
-                                                    <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={currentItem.unit || 'nos'} onChange={e => handleItemChange('unit', e.target.value)}>
+                                                    <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none" value={currentItem.unit || 'nos'} onChange={e => handleItemChange('unit', e.target.value)}>
                                                         <option value="nos">NOS</option>
                                                         <option value="pkt">PKT</option>
                                                         <option value="set">SET</option>
@@ -711,7 +760,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 </FormRow>
                                             </div>
                                             <FormRow label="Tax Type">
-                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={currentItem.taxType} onChange={e => handleItemChange('taxType', e.target.value)}>
+                                                <select className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none" value={currentItem.taxType} onChange={e => handleItemChange('taxType', e.target.value)}>
                                                     <option value="Local">Local (CGST+SGST)</option>
                                                     <option value="Interstate">Interstate (IGST)</option>
                                                 </select>
@@ -777,9 +826,11 @@ export const PurchaseRecordModule: React.FC = () => {
                                                                     <button onClick={() => handleEditItem(item)} className="text-medical-600 hover:bg-medical-50 p-1 rounded transition-colors" title="Edit Item">
                                                                         <Edit size={14} />
                                                                     </button>
+                                                                    {isAdmin && (
                                                                     <button onClick={() => handleRemoveItem(item.id)} className="text-rose-500 hover:bg-rose-50 p-1 rounded transition-colors" title="Remove Item">
                                                                         <Trash2 size={14} />
                                                                     </button>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1015,8 +1066,7 @@ export const PurchaseRecordModule: React.FC = () => {
                     </div>
                 </div>
             )}
-            <datalist id="vendor-list">{vendors.map(v => <option key={v.id} value={v.name.toUpperCase()} />)}</datalist>
-            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name.toUpperCase()}>{p.name.toUpperCase()} - ₹{formatIndianNumber(p.purchasePrice || p.price || 0)}</option>)}</datalist>
+
         </div>
     );
 };

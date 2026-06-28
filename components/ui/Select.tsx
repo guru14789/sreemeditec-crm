@@ -21,8 +21,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             className={`
-              w-full rounded-input transition-all duration-[250ms] ease-out appearance-none
-              bg-white/80 dark:bg-slate-800/80
+              w-full rounded-input transition-all duration-[250ms] ease-out bg-white/80 dark:bg-slate-800/80
               border border-slate-200/80 dark:border-slate-700/80
               text-slate-800 dark:text-slate-200
               px-4 pr-10 py-3.5 text-[13px] font-medium

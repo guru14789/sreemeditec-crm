@@ -55,25 +55,52 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
 
   return (
     <div className="h-full overflow-y-auto space-y-5 pb-8 pr-1 custom-scrollbar">
-      {/* Welcome Section - Aligned for Hierarchy */}
-      <div className="flex flex-col items-start gap-4 mt-4 pl-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-none">
-            HELLO, {currentUser.split(' ')[0]}!
-          </h1>
-          <p className="text-xs md:text-sm font-black text-slate-400 uppercase tracking-[0.2em] mt-2">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
+      {/* Header Toolbar */}
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-1 md:m-3 lg:m-4 rounded-[1.5rem] md:rounded-[2rem]">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-[1.5rem] md:rounded-[2rem]"></div>
+        
+        {/* Top Row: Title & Stats */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+            <div className="hidden lg:flex items-center gap-4 group">
+                <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                    <ClipboardList size={20} className="hidden xl:block" />
+                    <ClipboardList size={16} className="xl:hidden" />
+                </div>
+                <div className="flex flex-col">
+                    <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Task Manager</h2>
+                    <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Track Checklist And Project Items</p>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                    <Target size={16} />
+                </div>
+                <div className="flex flex-col truncate">
+                    <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Status</p>
+                    <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                        Active Shift
+                    </p>
+                </div>
+            </div>
         </div>
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-full">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
-          <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">Shift Active</span>
+
+        {/* Bottom Row: Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+            <div className="flex-1 min-w-0">
+                <h1 className="text-sm md:text-base font-playfair font-bold tracking-tight text-white uppercase leading-none truncate">
+                    HELLO, {currentUser.split(' ')[0]}!
+                </h1>
+                <p className="text-[9px] font-black text-emerald-100/80 uppercase tracking-widest mt-1">
+                    {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </p>
+            </div>
         </div>
       </div>
 
       {/* Personal KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-900/50 text-emerald-100 rounded-[2rem] group-hover:scale-110 transition-transform">
               <Zap size={22} fill="currentColor" />
@@ -84,7 +111,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
  <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{totalPoints}</h3>
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
+        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-700/50 text-emerald-50 rounded-[2rem] group-hover:scale-110 transition-transform">
               <CheckCircle2 size={22} />
@@ -95,7 +122,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
  <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
         </div>
 
-        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300">
+        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-amber-900/10 text-amber-950 rounded-[2rem] group-hover:scale-110 transition-transform">
               <TrendingUp size={22} />
@@ -107,7 +134,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
           </h3>
         </div>
 
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-7 rounded-[2.5rem] text-white shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] relative overflow-hidden group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] text-white shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] relative overflow-hidden group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <Timer size={100} />
           </div>

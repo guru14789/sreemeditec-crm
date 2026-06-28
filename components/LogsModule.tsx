@@ -117,8 +117,7 @@ export const LogsModule: React.FC = () => {
                                 <FileText size={12} /> <span className="hidden sm:inline">JSON</span>
                             </button>
 
-                            <select 
-                                className="flex-[2] md:flex-none px-3 py-2 bg-white border border-slate-300 rounded-lg md:rounded-[2rem] text-[9px] font-black uppercase tracking-widest outline-none focus:border-medical-500 appearance-none pr-7 relative cursor-pointer"
+                            <select className="flex-[2] md:flex-none px-3 py-2 bg-white border border-slate-300 rounded-lg md:rounded-[2rem] text-[9px] font-black uppercase tracking-widest outline-none focus:border-medical-500 pr-7 relative cursor-pointer appearance-none"
                                 value={categoryFilter}
                                 onChange={e => setCategoryFilter(e.target.value)}
                             >
@@ -142,6 +141,8 @@ export const LogsModule: React.FC = () => {
                                 <th className="px-3 md:px-6 py-2 md:py-4">Time & Actor</th>
                                 <th className="px-3 md:px-6 py-2 md:py-4">Category</th>
                                 <th className="px-3 md:px-6 py-2 md:py-4 hidden md:table-cell">Event</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4 hidden lg:table-cell">Changes</th>
+                                <th className="px-3 md:px-6 py-2 md:py-4 hidden sm:table-cell">Platform</th>
                                 <th className="px-3 md:px-6 py-2 md:py-4">Details</th>
                             </tr>
                         </thead>
@@ -169,6 +170,21 @@ export const LogsModule: React.FC = () => {
                                     </td>
                                     <td className="px-3 md:px-6 py-2 md:py-4 hidden md:table-cell">
                                         <div className="text-[11px] font-black text-slate-800 tracking-tight leading-snug">{log.action}</div>
+                                    </td>
+                                    <td className="px-3 md:px-6 py-2 md:py-4 hidden lg:table-cell">
+                                        {(log.beforeValues || log.afterValues) ? (
+                                            <div className="flex flex-col gap-1 max-w-[200px]">
+                                                {log.beforeValues && <div className="text-[8px] font-mono text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded truncate border border-rose-100">- {JSON.stringify(log.beforeValues).substring(0, 40)}...</div>}
+                                                {log.afterValues && <div className="text-[8px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded truncate border border-emerald-100">+ {JSON.stringify(log.afterValues).substring(0, 40)}...</div>}
+                                            </div>
+                                        ) : (
+                                            <span className="text-[10px] text-slate-300 italic">No delta</span>
+                                        )}
+                                    </td>
+                                    <td className="px-3 md:px-6 py-2 md:py-4 hidden sm:table-cell">
+                                        <div className={`px-2 py-1 rounded-[1rem] w-fit text-[9px] font-black uppercase tracking-widest border ${log.platform === 'App' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-sky-50 text-sky-600 border-sky-100'}`}>
+                                            {log.platform || 'Web'}
+                                        </div>
                                     </td>
                                     <td className="px-3 md:px-6 py-2 md:py-4">
                                         <div className="max-w-md">

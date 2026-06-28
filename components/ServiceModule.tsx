@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { ServiceTicket, AMCReminder, ServiceReport } from '../types';
-// Fix: Added missing 'Download' icon to imports
 import { Wrench, Calendar, MapPin, Clock, AlertTriangle, FileText, Plus, X, Search, CheckCircle, Download } from 'lucide-react';
 import { useData } from './DataContext';
+import { AutoSuggest } from './AutoSuggest';
 
 export const ServiceModule: React.FC = () => {
   const { serviceTickets, addServiceTicket, updateServiceTicket, clients, products, serviceReports, addServiceReport } = useData();
@@ -113,10 +113,24 @@ export const ServiceModule: React.FC = () => {
                       <button onClick={() => setShowReportModal(false)}><X size={24} className="text-slate-400"/></button>
                   </div>
                   <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        <input type="text" list="sr-clients" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold" value={newReport.customerName || ''} onChange={e => setNewReport({...newReport, customerName: e.target.value})} placeholder="Customer Search *" />
-                        <datalist id="sr-clients">{clients.map(c => <option key={c.id} value={c.name}>{c.hospital}</option>)}</datalist>
-                        <input type="text" list="sr-products" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold" value={newReport.equipmentName || ''} onChange={e => setNewReport({...newReport, equipmentName: e.target.value})} placeholder="Machine Name *" />
-                        <datalist id="sr-products">{products.map(p => <option key={p.id} value={p.name} />)}</datalist>
+                        <AutoSuggest
+                            value={newReport.customerName || ''}
+                            onChange={val => setNewReport({...newReport, customerName: val})}
+                            onSelect={client => setNewReport({...newReport, customerName: client.name})}
+                            suggestions={clients}
+                            filterKey="name"
+                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold"
+                            placeholder="Customer Search *"
+                        />
+                        <AutoSuggest
+                            value={newReport.equipmentName || ''}
+                            onChange={val => setNewReport({...newReport, equipmentName: val})}
+                            onSelect={prod => setNewReport({...newReport, equipmentName: prod.name})}
+                            suggestions={products}
+                            filterKey="name"
+                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold mt-2"
+                            placeholder="Machine Name *"
+                        />
                         <textarea className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold resize-none" rows={3} placeholder="Describe technical actions taken..." value={newReport.actionTaken || ''} onChange={e => setNewReport({...newReport, actionTaken: e.target.value})} />
                   </div>
                   <div className="p-6 border-t border-slate-300 flex gap-3">

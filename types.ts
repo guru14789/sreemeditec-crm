@@ -43,6 +43,7 @@ export enum TabView {
   PROFILE = 'PROFILE',
   REPORTS = 'REPORTS',
   CATALOG = 'CATALOG',
+  BARCODE_CREATOR = 'BARCODE_CREATOR',
   LOGS = 'LOGS',
   ARCHIVE = 'ARCHIVE',
   PAYROLL = 'PAYROLL',
@@ -864,6 +865,7 @@ export interface LogEntry {
   category: 'Attendance' | 'Inventory' | 'Leads' | 'Auth' | 'System' | 'Tasks' | 'Billing' | 'Accounting';
   beforeValues?: any;
   afterValues?: any;
+  platform?: 'App' | 'Web';
 }
 
 export interface LeaveRequest {

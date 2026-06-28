@@ -91,15 +91,26 @@ class AuditBatcher {
 
         console.log(`[AuditBatcher] Flushing ${logsToFlush.length} logs...`);
 
-        // Writing individual logs to 'logs' collection for real-time pagination
-        for (const log of logsToFlush) {
+        for (const date of Object.keys(groups)) {
             try {
-                await setDoc(doc(db, 'logs', log.id), log);
-            } catch (e) {
-                console.error(`Failed to write log ${log.id}`, e);
-                this.buffer.push(log); // Re-buffer on failure
+                const docRef = doc(db, 'system_audit', date);
+                // Attempt to update with arrayUnion first
+                try {
+                    await updateDoc(docRef, { entries: arrayUnion(...groups[date]) });
+                } catch (e: any) {
+                    // If document doesn't exist, set it
+                    if (e.code === 'not-found') {
+                        await setDoc(docRef, { entries: groups[date] });
+                    } else {
+                        throw e;
+                    }
+                }
+            } catch (err) {
+                console.error(`Failed to flush logs for date ${date}`, err);
+                this.buffer.push(...groups[date]); // Re-buffer on failure
             }
         }
+        
         this.saveToStorage();
     }
 }

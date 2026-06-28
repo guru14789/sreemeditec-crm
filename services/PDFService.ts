@@ -62,6 +62,7 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
 export const PDFService = {
     async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false, bankDetails?: BankDetails) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const docTotals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
@@ -86,35 +87,39 @@ export const PDFService = {
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text(seller.name || (seller as any).companyName || 'SREE MEDITEC', margin + 2, startY + 6);
+        doc.text(seller.name || (seller as any).companyName || 'SREE MEDITEC', margin + 3, startY + 6);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(seller.address || '', margin + 2, startY + 11);
-        doc.text(`Ph.${seller.phone || ''}`, margin + 2, startY + 19);
-        doc.text(`GSTIN/UIN: ${seller.gstin || ''}`, margin + 2, startY + 23);
-        doc.text(`E-Mail : ${seller.email || ''}`, margin + 2, startY + 27);
+        
+        const sellerAddr = doc.splitTextToSize(seller.address || '', midX - margin - 5);
+        doc.text(sellerAddr, margin + 3, startY + 11);
+        
+        const nextY = startY + 11 + (sellerAddr.length * 3.5);
+        doc.text(`Ph.${seller.phone || ''}`, margin + 3, nextY);
+        doc.text(`GSTIN/UIN: ${seller.gstin || ''}`, margin + 3, nextY + 4);
+        doc.text(`E-Mail : ${seller.email || ''}`, margin + 3, nextY + 8);
 
         doc.line(margin, startY + 35, midX, startY + 35);
         doc.setFontSize(7);
-        doc.text('Consignee (Ship to)', margin + 2, startY + 39);
+        doc.text('Consignee (Ship to)', margin + 3, startY + 39);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, startY + 43);
+        doc.text(data.customerName || '', margin + 3, startY + 43);
         doc.setFont('helvetica', 'normal');
         const cAddr = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(cAddr, margin + 2, startY + 47);
+        doc.text(cAddr, margin + 3, startY + 47);
         const cGstY = startY + 47 + (cAddr.length * 3) + 2;
-        doc.text(`GSTIN/UIN       : ${data.customerGstin || ''}`, margin + 2, cGstY);
+        doc.text(`GSTIN/UIN       : ${data.customerGstin || ''}`, margin + 3, cGstY);
 
         doc.line(margin, startY + 67, midX, startY + 67);
-        doc.text('Buyer (Bill to)', margin + 2, startY + 71);
+        doc.text('Buyer (Bill to)', margin + 3, startY + 71);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.buyerName || data.customerName || '', margin + 2, startY + 75);
+        doc.text(data.buyerName || data.customerName || '', margin + 3, startY + 75);
         doc.setFont('helvetica', 'normal');
         const bAddr = doc.splitTextToSize(data.buyerAddress || data.customerAddress || '', midX - margin - 5);
-        doc.text(bAddr, margin + 2, startY + 79);
+        doc.text(bAddr, margin + 3, startY + 79);
         const bGstY = startY + 79 + (bAddr.length * 3) + 2;
-        doc.text(`GSTIN/UIN       : ${data.buyerGstin || data.customerGstin || ''}`, margin + 2, bGstY);
-        doc.text('Place of Supply : Tamil Nadu', margin + 2, bGstY + 3);
+        doc.text(`GSTIN/UIN       : ${data.buyerGstin || data.customerGstin || ''}`, margin + 3, bGstY);
+        doc.text('Place of Supply : Tamil Nadu', margin + 3, bGstY + 3);
 
         const innerMid = midX + ((pageWidth - margin - midX) / 2);
         const metadataRows = [
@@ -132,11 +137,11 @@ export const PDFService = {
             if (i > 0) doc.line(midX, y, pageWidth - margin, y);
             doc.setFontSize(7);
             doc.setFont('helvetica', 'normal');
-            doc.text(row.l, midX + 1, y + 4);
-            doc.text(row.r, innerMid + 1, y + 4);
+            doc.text(row.l, midX + 2, y + 4);
+            doc.text(row.r, innerMid + 2, y + 4);
             doc.setFont('helvetica', 'bold');
-            doc.text(row.v || '', midX + 1, y + 9);
-            doc.text(row.rv || '', innerMid + 1, y + 9);
+            doc.text(row.v || '', midX + 2, y + 9);
+            doc.text(row.rv || '', innerMid + 2, y + 9);
             if (i < 6) doc.line(innerMid, y, innerMid, y + 14);
         });
 
@@ -147,7 +152,7 @@ export const PDFService = {
             const base = qty * price;
             return [
                 idx + 1, 
-                { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' } as any }, 
+                { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 it.hsn || '', 
                 `${tax}%`, 
                 `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, 
@@ -177,19 +182,19 @@ export const PDFService = {
             body: itemsBody,
             foot: [[
                 '', 
-                { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' } as any }, 
+                { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 '', 
                 '', 
-                { content: `${(Number(docTotals.totalQty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, styles: { halign: 'center', fontStyle: 'bold' } as any }, 
+                { content: `${(Number(docTotals.totalQty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, styles: { halign: 'center', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 '', 
                 '', 
                 '', 
-                { content: `Rs. ${(Number(docTotals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', fontStyle: 'bold' } as any }
+                { content: `Rs. ${(Number(docTotals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }
             ]],
             theme: 'grid',
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, halign: 'center', fontSize: 7, cellPadding: 1 },
             footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineWidth: 0.1, fontSize: 8, cellPadding: 1 },
-            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7, cellPadding: 1, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             columnStyles: { 
                 0: { cellWidth: col0W, halign: 'center' },
                 1: { cellWidth: col1W },
@@ -215,14 +220,14 @@ export const PDFService = {
         if (!isQuotation) {
             const taxBreakdownBody = [
                 ['9402', (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
-                [{ content: 'Total', styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, '', { content: (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }, { content: (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' } as any }]
+                [{ content: 'Total', styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, { content: (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, '', { content: (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, '', { content: (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, { content: (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }]
             ];
 
             autoTable(doc, {
                 startY: wordsY + 6,
                 margin: { left: margin, right: margin },
                 head: [
-                    [{ content: 'HSN/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any }, { content: 'Taxable\nValue', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any }, { content: 'Central Tax', colSpan: 2, styles: { halign: 'center' } as any }, { content: 'State Tax', colSpan: 2, styles: { halign: 'center' } as any }, { content: 'Total\nTax Amount', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } as any }],
+                    [{ content: 'HSN/SAC', rowSpan: 2, styles: { halign: 'center', valign: 'middle' , textColor: [0, 0, 0] } as any }, { content: 'Taxable\nValue', rowSpan: 2, styles: { halign: 'center', valign: 'middle' , textColor: [0, 0, 0] } as any }, { content: 'Central Tax', colSpan: 2, styles: { halign: 'center' , textColor: [0, 0, 0] } as any }, { content: 'State Tax', colSpan: 2, styles: { halign: 'center' , textColor: [0, 0, 0] } as any }, { content: 'Total\nTax Amount', rowSpan: 2, styles: { halign: 'center', valign: 'middle' , textColor: [0, 0, 0] } as any }],
                     ['Rate', 'Amount', 'Rate', 'Amount']
                 ],
                 body: taxBreakdownBody,
@@ -283,6 +288,7 @@ export const PDFService = {
 
     async generateQuotationPDF(data: Partial<Invoice>, brandAssets: { logo: string | null, signature: string | null, seal: string | null, repName: string, repPhone: string }, bankDetails?: BankDetails) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const totals = calculateDetailedTotals(data);
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -339,12 +345,12 @@ export const PDFService = {
                 return [
                     it.description, it.model || '-', it.features ? it.features : '-', `${it.quantity}\n${it.unit}`,
                     `Rs.${Number(it.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${it.taxRate}%`, `Rs.${gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                    { content: `Rs.${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' } }
+                    { content: `Rs.${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' , textColor: [0, 0, 0] } }
                 ];
             }),
             theme: 'grid',
             headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [0, 0, 0], halign: 'center' },
-            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 20 }, 2: { cellWidth: 35 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 18, halign: 'right' }, 7: { cellWidth: 35 } }
         });
 
@@ -395,7 +401,7 @@ export const PDFService = {
             ['Delivery', `: ${data.deliveryTerms}`],
             ['Warranty', `: ${data.warrantyTerms}`]
         ];
-        autoTable(doc, { startY: finalY + 2, margin: { left: 15 }, theme: 'plain', styles: { fontSize: 10.5, cellPadding: 1 }, columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 150 } }, body: termsList });
+        autoTable(doc, { startY: finalY + 2, margin: { left: 15 }, theme: 'plain', styles: { fontSize: 10.5, cellPadding: 1 , textColor: [0, 0, 0] }, columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 1: { cellWidth: 150 } }, body: termsList });
 
         let signOffY = (doc as any).lastAutoTable.finalY + 10;
         if (signOffY + 50 > pageHeight - margin) { doc.addPage(); signOffY = 20; }
@@ -416,6 +422,7 @@ export const PDFService = {
 
     async generatePurchaseOrderPDF(data: Partial<Invoice>, isCustomerPO: boolean = true) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const seller = data.sellerProfile || COMPANY_DETAILS;
         
         const calculatePOTotals = (order: Partial<Invoice>) => {
@@ -460,7 +467,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`${isCustomerPO ? 'SMCPO' : 'SMPOC'} NO: ${data.invoiceNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.date)}`],
                 [`${isCustomerPO ? 'CPO' : 'VENDOR REF'} NO: ${data.cpoNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.cpoDate)}`]
@@ -473,7 +480,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Name of the ${isCustomerPO ? 'Customer' : 'Vendor'} and Address:\n\n${data.customerName || ''}\n${data.customerAddress || ''}`, `${isCustomerPO ? 'Delivery' : 'Dispatch'} Address:\n\n${data.deliveryAddress || data.customerAddress || ''}`]
             ],
@@ -485,7 +492,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`${isCustomerPO ? 'Customer' : 'Vendor'} GST No: ${data.customerGstin || ''}`, `Our GST No: ${COMPANY_DETAILS.gstin}`]
             ],
@@ -501,7 +508,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
             head: [['Sl no.', 'Product', 'Qty', 'Rate', 'Amount', 'Gst %', 'Gst value', 'Price with Gst']],
             body: (data.items || []).map((it, idx) => {
@@ -525,23 +532,23 @@ export const PDFService = {
         });
 
         const totalRows: any[] = [
-            [{ content: 'Total', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } as any }]
+            [{ content: 'Total', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }]
         ];
         if (totals.freight > 0) {
             totalRows.push(
-                [{ content: 'Freight', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.freight + totals.freightGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+                [{ content: 'Freight', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: (Number(totals.freight + totals.freightGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' , textColor: [0, 0, 0] } as any }]
             );
         }
         totalRows.push(
-            [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' } as any }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+            [{ content: 'Discount/Adjustment', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: (Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' , textColor: [0, 0, 0] } as any }]
         );
         if (data.isRoundOff && totals.roundOff !== 0) {
             totalRows.push(
-                [{ content: 'Round Off', styles: { fontStyle: 'bold' } as any }, { content: (Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' } as any }]
+                [{ content: 'Round Off', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: (Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' , textColor: [0, 0, 0] } as any }]
             );
         }
         totalRows.push(
-            [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 } as any }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } as any }]
+            [{ content: 'Grand Total', styles: { fontStyle: 'bold', fontSize: 9 , textColor: [0, 0, 0] } as any }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 , textColor: [0, 0, 0] } as any }]
         );
 
         autoTable(doc, {
@@ -549,7 +556,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: totalRows,
             columnStyles: { 0: { cellWidth: pageWidth - 20 - 30 }, 1: { cellWidth: 30 } }
         });
@@ -560,7 +567,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Advance Payment details: ${data.advanceAmount ? `Rs. ${data.advanceAmount.toLocaleString('en-IN')} via ${data.paymentMethod || ''} on ${formatDateDDMMYYYY(data.advanceDate)}` : 'nil'}`]
             ]
@@ -578,7 +585,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
             head: [['Bank and Branch', 'Mode of payment', 'Date', 'Amount']],
             body: [
@@ -593,7 +600,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Delivery time: ${data.deliveryTime || ''}`]
             ]
@@ -605,7 +612,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 15, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 15, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Any special note regarding supply, payment terms(to be filled by company personal):\n${data.specialNote || 'Payment will be done on delivery of material.'}`]
             ]
@@ -617,7 +624,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 25, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Customer seal and signature:\n\n\n`, `Sreemeditec representative signature:\n\n\nFor SREE MEDITEC\nAuthorised Signatory`]
             ],
@@ -629,6 +636,7 @@ export const PDFService = {
 
     async generateServiceOrderPDF(data: Partial<Invoice>) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         
         const calculateServiceTotals = (order: Partial<Invoice>) => {
             const items = order.items || [];
@@ -670,7 +678,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`ORDER NO: ${data.invoiceNumber || ''}`, `DATE: ${formatDateDDMMYYYY(data.date)}`],
                 [`VISIT TYPE: ${data.visitType || '---'}`, `PRIORITY: ${data.priority || '---'}`],
@@ -685,7 +693,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 40, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, minCellHeight: 40, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [
                     `CUSTOMER DETAILS:\n\n${data.customerHospital || ''}\n${data.customerName || ''}\n${data.customerAddress || ''}\nGST: ${data.customerGstin || ''}\nPhone: ${data.phone || ''}`,
@@ -705,7 +713,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
             head: [['Sl no.', 'Description / Spares', 'Qty', 'Rate', 'Taxable', 'Gst %', 'Gst value', 'Amount']],
             body: (data.items || []).map((it, idx) => {
@@ -742,11 +750,11 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
-                [{ content: 'Sub-Total (Before Discount)', styles: { fontStyle: 'bold' } }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                [{ content: 'Adjustments / Discount', styles: { fontStyle: 'bold' } }, { content: `- ${(Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { halign: 'right', textColor: [220, 38, 38] } }],
-                [{ content: 'Grand Total (Net Amount)', styles: { fontStyle: 'bold', fontSize: 9 } }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 } }]
+                [{ content: 'Sub-Total (Before Discount)', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: (Number(totals.totalWithGst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } }],
+                [{ content: 'Adjustments / Discount', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: `- ${(Number(data.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, styles: { halign: 'right', textColor: [220, 38, 38] } }],
+                [{ content: 'Grand Total (Net Amount)', styles: { fontStyle: 'bold', fontSize: 9 , textColor: [0, 0, 0] } }, { content: (Number(totals.grandTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 9 , textColor: [0, 0, 0] } }]
             ],
             columnStyles: { 0: { cellWidth: pageWidth - 20 - 40 }, 1: { cellWidth: 40 } }
         });
@@ -757,10 +765,10 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - 20,
             theme: 'grid',
-            styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [`Payment Terms: ${data.paymentMethod || ''} | Bank: ${data.paymentBank || data.bankAndBranch || ''}\nAdvance: ₹${(data.advanceAmount || 0).toLocaleString('en-IN')} | Date: ${formatDateDDMMYYYY(data.paymentDate)}`, `Execution Schedule: ${data.deliveryTime || 'As per schedule'}\nWarranty: ${data.warrantyTerms || 'Standard'}`],
-                [{ content: `Special Instructions: ${data.specialNote || 'No additional instructions provided.'}`, colSpan: 2, styles: { fontStyle: 'italic' } }]
+                [{ content: `Special Instructions: ${data.specialNote || 'No additional instructions provided.'}`, colSpan: 2, styles: { fontStyle: 'italic' , textColor: [0, 0, 0] } }]
             ],
             columnStyles: { 0: { cellWidth: colWidth }, 1: { cellWidth: colWidth } }
         });
@@ -786,6 +794,7 @@ export const PDFService = {
 
     async generateServiceReportPDF(data: Partial<ServiceReport>) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         const seller = data.sellerProfile || COMPANY_DETAILS;
@@ -820,14 +829,14 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' , textColor: [0, 0, 0] },
             body: [
                 [
                     { content: `Sr No: ${data.reportNumber || ''}`, styles: { textColor: medical600 as any } },
-                    { content: `Office: ${data.office || 'Chennai'}`, styles: { fontStyle: 'normal' } },
-                    { content: `Engineer: ${(data.engineerName || '').toUpperCase()}`, styles: { fontStyle: 'normal' } },
-                    { content: `Date: ${formatDateDDMMYYYY(data.date)}`, styles: { fontStyle: 'normal' } },
-                    { content: `Time: ${data.time || ''}`, styles: { fontStyle: 'normal' } }
+                    { content: `Office: ${data.office || 'Chennai'}`, styles: { fontStyle: 'normal' , textColor: [0, 0, 0] } },
+                    { content: `Engineer: ${(data.engineerName || '').toUpperCase()}`, styles: { fontStyle: 'normal' , textColor: [0, 0, 0] } },
+                    { content: `Date: ${formatDateDDMMYYYY(data.date)}`, styles: { fontStyle: 'normal' , textColor: [0, 0, 0] } },
+                    { content: `Time: ${data.time || ''}`, styles: { fontStyle: 'normal' , textColor: [0, 0, 0] } }
                 ]
             ],
             columnStyles: { 
@@ -841,7 +850,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' , textColor: [0, 0, 0] },
             body: [
                 [
                     { content: `Customer: ${(data.customerName || '').toUpperCase()}` },
@@ -859,16 +868,16 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [
                     { 
                         content: `Address:\n\n${(data.customerAddress || '').toUpperCase()}`, 
-                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' } 
+                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' , textColor: [0, 0, 0] } 
                     },
                     { 
                         content: `Machine Status:\n\n\n\n\n\nSoftware version: ${data.softwareVersion || '---'}`, 
-                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' } 
+                        styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' , textColor: [0, 0, 0] } 
                     }
                 ]
             ],
@@ -899,22 +908,22 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [
                     { 
                         content: `Complaint Summary:\n\n${data.problemReported || '---'}`, 
-                        styles: { minCellHeight: 25, fontStyle: 'italic' } 
+                        styles: { minCellHeight: 25, fontStyle: 'italic' , textColor: [0, 0, 0] } 
                     },
                     { 
                         content: `Engineer's observations:\n\n${data.engineerObservations || '---'}`, 
-                        styles: { minCellHeight: 25, fontStyle: 'italic' } 
+                        styles: { minCellHeight: 25, fontStyle: 'italic' , textColor: [0, 0, 0] } 
                     }
                 ]
             ],
             head: [[
-                { content: 'COMPLAINT SUMMARY', styles: { fontSize: 7, fontStyle: 'bold' } },
-                { content: "ENGINEER'S OBSERVATIONS", styles: { fontSize: 7, fontStyle: 'bold' } }
+                { content: 'COMPLAINT SUMMARY', styles: { fontSize: 7, fontStyle: 'bold' , textColor: [0, 0, 0] } },
+                { content: "ENGINEER'S OBSERVATIONS", styles: { fontSize: 7, fontStyle: 'bold' , textColor: [0, 0, 0] } }
             ]],
             showHead: 'everyPage' as any
         });
@@ -925,7 +934,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, fontStyle: 'bold' , textColor: [0, 0, 0] },
             body: [
                 [`PO/WO Number from Customer:   ${data.poWoNumber || '---'}`]
             ]
@@ -944,7 +953,7 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 3, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 ['Hardware/Spares:', data.actionHardware || '---'],
                 ['Operational Fix:', data.actionOperational || '---'],
@@ -969,16 +978,16 @@ export const PDFService = {
             margin: { left: margin },
             tableWidth: pageWidth - (margin * 2),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 0, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            styles: { fontSize: 8, cellPadding: 0, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             body: [
                 [
                     { 
                         content: `Follow up / Remarks:\n\n${data.queriesRemarks || '---'}\n\n\n\n\n\n\n\n\nCustomer Signature\n(Seal & Stamp Required)`, 
-                        styles: { minCellHeight: 80, halign: 'center', valign: 'bottom', cellPadding: 5, fontStyle: 'italic', fontSize: 7.5 } 
+                        styles: { minCellHeight: 80, halign: 'center', valign: 'bottom', cellPadding: 5, fontStyle: 'italic', fontSize: 7.5 , textColor: [0, 0, 0] } 
                     },
                     {
                         content: '', // Placeholder for the sub-table
-                        styles: { minCellHeight: 80, valign: 'top' }
+                        styles: { minCellHeight: 80, valign: 'top' , textColor: [0, 0, 0] }
                     }
                 ]
             ],
@@ -991,15 +1000,15 @@ export const PDFService = {
                         margin: { left: dataCell.cell.x },
                         tableWidth: dataCell.cell.width,
                         theme: 'grid',
-                        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+                        styles: { fontSize: 7.5, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
                         body: [
-                            [{ content: 'Past balance (A):', styles: { fontStyle: 'bold' } }, { content: pastBal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Visit Charges (B):', styles: { fontStyle: 'bold' } }, { content: visitChg.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Spares Charges (C):', styles: { fontStyle: 'bold' } }, { content: sparesSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } }],
-                            [{ content: 'Total receivable (A+B+C):', styles: { fontStyle: 'bold', fillColor: slate50 as any } }, { content: totalRec.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10, fillColor: slate50 as any } }],
-                            [{ content: 'Amount received (D):', styles: { fontStyle: 'bold' } }, { content: recvd.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: medical600 as any } }],
-                            [{ content: 'Balance (Total-D):', styles: { fontStyle: 'bold', fillColor: slate100 as any } }, { content: balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: rose600 as any, fillColor: slate100 as any } }],
-                            [{ content: 'Memo No:', styles: { fontStyle: 'italic' } }, { content: data.memoNumber || '---', styles: { halign: 'right', fontStyle: 'bold' } }]
+                            [{ content: 'Past balance (A):', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: pastBal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } }],
+                            [{ content: 'Visit Charges (B):', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: visitChg.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } }],
+                            [{ content: 'Spares Charges (C):', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: sparesSum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } }],
+                            [{ content: 'Total receivable (A+B+C):', styles: { fontStyle: 'bold', fillColor: slate50 as any , textColor: [0, 0, 0] } }, { content: totalRec.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fontSize: 10, fillColor: slate50 as any , textColor: [0, 0, 0] } }],
+                            [{ content: 'Amount received (D):', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } }, { content: recvd.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: medical600 as any } }],
+                            [{ content: 'Balance (Total-D):', styles: { fontStyle: 'bold', fillColor: slate100 as any , textColor: [0, 0, 0] } }, { content: balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', textColor: rose600 as any, fillColor: slate100 as any } }],
+                            [{ content: 'Memo No:', styles: { fontStyle: 'italic' , textColor: [0, 0, 0] } }, { content: data.memoNumber || '---', styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } }]
                         ]
                     });
 
@@ -1021,6 +1030,7 @@ export const PDFService = {
 
     async generateDeliveryChallanPDF(data: Partial<DeliveryChallan>) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         const midX = pageWidth / 2;
@@ -1039,28 +1049,32 @@ export const PDFService = {
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
-        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', margin + 2, 18);
+        doc.text(seller.companyName || seller.name || 'SREE MEDITEC', margin + 3, 18);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(seller.address, margin + 2, 23);
-        doc.text(`Ph: ${seller.phone}`, margin + 2, 27);
-        doc.text(`GSTIN/UIN: ${seller.gstin}`, margin + 2, 31);
+        
+        const sellerAddr = doc.splitTextToSize(seller.address, midX - margin - 5);
+        doc.text(sellerAddr, margin + 3, 23);
+        
+        const nextY = 23 + (sellerAddr.length * 4);
+        doc.text(`Ph: ${seller.phone}`, margin + 3, nextY);
+        doc.text(`GSTIN/UIN: ${seller.gstin}`, margin + 3, nextY + 4);
 
         // Metadata on right
         const metadataY = 18;
         doc.setFont('helvetica', 'bold');
-        doc.text(`Challan No: ${data.challanNumber || ''}`, midX + 2, metadataY);
+        doc.text(`Challan No: ${data.challanNumber || ''}`, midX + 3, metadataY);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, midX + 2, metadataY + 5);
-        doc.text(`Reference: ${data.subject || '---'}`, midX + 2, metadataY + 10);
+        doc.text(`Date: ${formatDateDDMMYYYY(data.date)}`, midX + 3, metadataY + 5);
+        doc.text(`Reference: ${data.subject || '---'}`, midX + 3, metadataY + 10);
 
         doc.line(margin, 40, pageWidth - margin, 40);
-        doc.text('Consignee:', margin + 2, 45);
+        doc.text('Consignee:', margin + 3, 45);
         doc.setFont('helvetica', 'bold');
-        doc.text(data.customerName || '', margin + 2, 50);
+        doc.text(data.customerName || '', margin + 3, 50);
         doc.setFont('helvetica', 'normal');
         const addr = doc.splitTextToSize(data.customerAddress || '', midX - margin - 5);
-        doc.text(addr, margin + 2, 54);
+        doc.text(addr, margin + 3, 54);
 
         autoTable(doc, {
             startY: 92,
@@ -1074,8 +1088,8 @@ export const PDFService = {
                 it.remarks || ''
             ]),
             theme: 'grid',
-            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1 },
-            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+            headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, textColor: [0, 0, 0] },
+            styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             columnStyles: {
                 0: { cellWidth: 15, halign: 'center' },
                 1: { cellWidth: 'auto' },
@@ -1110,6 +1124,7 @@ export const PDFService = {
 
     async generateInstallationReportPDF(data: any) {
         const doc = new jsPDF();
+        doc.setTextColor(0, 0, 0);
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 15;
         const seller = data.sellerProfile || COMPANY_DETAILS;

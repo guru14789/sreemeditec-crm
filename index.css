@@ -15,6 +15,21 @@
   body {
     background-color: theme('colors.slate.950');
   }
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2.5' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25em 1.25em;
+    padding-right: 2.25rem !important;
+  }
+  
+  .dark select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2.5' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E");
+  }
 }
 
 @layer utilities {
@@ -401,12 +416,45 @@
 .overflow-y-auto > table,
 [class*="overflow-auto"] > table,
 [class*="overflow-y-auto"] > table {
-  min-width: max-content;
+  /* min-width: max-content; */
 }
 /* Wrapper applied to all scrollable table containers */
 .table-responsive-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ── Global Registry Table Normalization ──────────────────────────────────
+   All data rows (tbody tr td) across every module registry share the same
+   font-size (11px), font-family (Inter / system), and font-weight baseline.
+   Individual <td> classes may still add bold/color overrides, but the base
+   size and typeface are locked here to keep every list consistent.
+   ────────────────────────────────────────────────────────────────────────── */
+table.w-full tbody tr td,
+table.w-full tbody tr th {
+  font-size: 11px !important;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  white-space: nowrap !important;
+}
+/* Keep table header cells slightly smaller with consistent tracking */
+table.w-full thead tr th {
+  font-size: 9px !important;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap !important;
+}
+/* Tally shell overrides — monospace is intentional there */
+.tally-shell table tbody tr td,
+.tally-shell table thead tr th,
+.tally-shell table tbody tr th {
+  font-family: 'Courier New', Courier, monospace !important;
+}
+/* PDF print layouts — keep their own sizing for precise mm-based layouts */
+.pdf-print-area table tbody tr td,
+.pdf-print-area table thead tr th {
+  font-size: revert !important;
+  font-family: revert !important;
 }
 
 /* ── MOBILE (max 767px) ── */
@@ -487,10 +535,44 @@
 
   /* ── Tally / Accounting: full-width shell ── */
   .tally-gateway {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: 1fr !important;
   }
   .tally-left-menu {
     display: none;
+  }
+  .tally-top-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 8px 10px !important;
+  }
+  .tally-top-bar-right {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 6px !important;
+  }
+  .tally-fkey-bar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 6px !important;
+  }
+  .tally-fkey-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .tally-fkey {
+    flex-shrink: 0;
+  }
+
+  .tally-status-bar {
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+    align-items: flex-start !important;
+  }
+  .tally-status-bar .hint {
+    white-space: normal !important;
+    word-break: break-word !important;
   }
 
   /* ── Service task 7-col metric grid ── */

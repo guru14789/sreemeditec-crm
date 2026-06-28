@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { generateEmailDraft } from '../geminiService';
 import { useData } from './DataContext';
+import { AutoSuggest } from './AutoSuggest';
 
 const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
     <div className="flex flex-col gap-1.5 w-full">
@@ -260,41 +261,43 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                <button onClick={() => setViewState('stock')} className={`px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'stock' ? 'bg-emerald-900 text-emerald-100 shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={14} /> Pipeline</button>
-                <button onClick={() => setViewState('today')} className={`px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'today' ? 'bg-emerald-900 text-emerald-100 shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Calendar size={14} /> Today's Touchpoints</button>
-                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setLead(DEFAULT_LEAD); }} className={`px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${viewState === 'builder' && builderMode === 'add' ? 'bg-emerald-900 text-emerald-100 shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={14} /> Intake</button>
+            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit max-w-full overflow-x-auto shrink-0 flex gap-1">
+                <button onClick={() => setViewState('stock')} className={`px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-all ${viewState === 'stock' ? 'bg-emerald-900 text-emerald-100 shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={14} /> Pipeline</button>
+                <button onClick={() => setViewState('today')} className={`px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shrink-0 transition-all ${viewState === 'today' ? 'bg-emerald-900 text-emerald-100 shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Calendar size={14} /> Today's Touchpoints</button>
             </div>
 
             {viewState === 'stock' && (
-                <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
-                    <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                        <div className="p-6 border-b border-slate-300 bg-slate-50 flex flex-col sm:flex-row justify-between items-center shrink-0 gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-200 text-slate-800">
-                                    <Activity size={20} />
-                                </div>
+                <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 animate-in fade-in">
+                    <div className="flex-1 min-w-0 flex flex-col gap-4">
+                        {/* Unified Green Gradient Toolbar */}
+                        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-[0_20px_40px_-10px_rgba(4,47,46,0.5)] border border-emerald-800/30 shrink-0 z-20 rounded-[2rem] md:rounded-3xl">
+                            <div className="hidden sm:flex items-center gap-4 group">
+                                <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0"><Activity size={20} /></div>
                                 <div className="flex flex-col">
-                                    <h3 className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest leading-none mb-1">Lead Registry</h3>
- <p className="text-2xl font-bold tracking-tight text-slate-800 leading-none">{leads.length} Opportunities Indexed</p>
+                                    <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Lead Registry</h2>
+                                    <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{leads.length} Opportunities Indexed</p>
                                 </div>
                             </div>
-                            <div className="relative w-full sm:w-80">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input 
-                                    type="text" 
-                                    placeholder="Search leads / deep search..." 
-                                    className="w-full pl-10 pr-12 py-2.5 bg-white border border-slate-300 rounded-[2rem] text-[11px] font-bold outline-none focus:border-medical-500 transition-all shadow-inner uppercase" 
-                                    value={searchQuery} 
-                                    onChange={(e) => { setSearchQuery(e.target.value); if(!e.target.value) setServerLeads([]); }}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
-                                />
-                                <button onClick={handleDeepSearch} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"><ArrowUpRight size={14} /></button>
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                                <div className="relative w-full sm:w-80">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50" size={16} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search leads / deep search..." 
+                                        className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-3 md:py-2.5 pl-11 pr-12 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase placeholder:normal-case shadow-inner" 
+                                        value={searchQuery} 
+                                        onChange={(e) => { setSearchQuery(e.target.value); if(!e.target.value) setServerLeads([]); }}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
+                                    />
+                                    <button onClick={handleDeepSearch} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-indigo-600 text-white rounded-[1rem] hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"><ArrowUpRight size={14} /></button>
+                                </div>
+                                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setLead(DEFAULT_LEAD); }} className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3 md:py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><Plus size={16} /> New Lead</button>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto custom-scrollbar">
-                            <table className="w-full text-left text-[11px]">
+                        <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col">
+                            <div className="flex-1 overflow-auto custom-scrollbar">
+                            <table className="w-full text-left text-[11px] hidden lg:table">
                                 <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
                                     <tr><th className="px-8 py-5">Opportunity</th><th className="px-8 py-5">Source</th><th className="px-8 py-5">Interest / Value</th><th className="px-8 py-5">Next Action</th><th className="px-8 py-5 text-right">Status</th></tr>
                                 </thead>
@@ -317,12 +320,45 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                     )}
                                 </tbody>
                             </table>
+                            <div className="lg:hidden flex flex-col divide-y divide-slate-100">
+                                {filteredLeads.map(l => (
+                                    <div key={l.id} className={`p-5 hover:bg-slate-50 transition-colors cursor-pointer flex flex-col gap-3 ${selectedLead?.id === l.id ? 'bg-medical-50/50' : ''}`} onClick={() => setSelectedLead(l)}>
+                                        <div className="flex justify-between items-start">
+                                            <div className="min-w-0 pr-3">
+                                                <div className="font-black text-slate-800 uppercase text-[13px] tracking-tight truncate">{l.name}</div>
+                                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 truncate">{l.hospital}</div>
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border shrink-0 ${l.status === 'Won' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>{l.status}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 mt-1">
+                                            <div className="min-w-0">
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 truncate">Interest</div>
+                                                <div className="font-bold text-slate-700 text-[11px] truncate">{l.productInterest || 'N/A'}</div>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5 truncate">Value</div>
+                                                <div className="text-emerald-600 font-black text-[11px] truncate">₹{(l.value || 0).toLocaleString('en-IN')}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center mt-2 pt-3 border-t border-slate-100">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 shrink-0">{l.source}</span>
+                                            {getNextFollowUp(l) ? (
+                                                <div className="flex items-center gap-1.5 text-[9px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 uppercase tracking-tighter shrink-0"><Calendar size={10}/> {getNextFollowUp(l)?.type}</div>
+                                            ) : <span className="text-slate-300 font-black uppercase tracking-widest text-[9px]">Awaiting Task</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                                {filteredLeads.length === 0 && (
+                                    <div className="py-20 text-center text-slate-300 font-black uppercase tracking-[0.3em] opacity-50 italic text-[10px]">No Registry Found</div>
+                                )}
+                            </div>
                             {serverLeads.length === 0 && (
                                 <div className="p-8 flex justify-center bg-slate-50/20 border-t border-slate-50">
                                     <button onClick={async () => { setIsLoadingMore(true); await fetchMoreData('leads', 'lastContact'); setIsLoadingMore(false); }} disabled={isLoadingMore} className="px-10 py-3 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-700 scale-95 transition-all shadow-sm flex items-center gap-2">{isLoadingMore ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} className="rotate-45" />} Load Archive</button>
                                 </div>
                             )}
                         </div>
+                    </div>
                     </div>
 
                     {selectedLead && (
@@ -378,7 +414,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                         {showAddFollowUp && (
                                             <div className="p-6 bg-white border border-slate-300 rounded-[2rem] shadow-2xl space-y-5 animate-in slide-in-from-top-4">
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <FormRow label="Channel"><select className="w-full h-[40px] border border-slate-200 rounded-[2rem] px-4 text-[11px] font-black uppercase" value={newFollowUp.type} onChange={e => setNewFollowUp({ ...newFollowUp, type: e.target.value as any })}><option>Call</option><option>Meeting</option><option>WhatsApp</option></select></FormRow>
+                                                    <FormRow label="Channel"><select className="w-full h-[40px] border border-slate-200 rounded-[2rem] px-4 text-[11px] font-black uppercase appearance-none" value={newFollowUp.type} onChange={e => setNewFollowUp({ ...newFollowUp, type: e.target.value as any })}><option>Call</option><option>Meeting</option><option>WhatsApp</option></select></FormRow>
                                                     <FormRow label="Schedule"><input type="date" className="w-full h-[40px] border border-slate-200 rounded-[2rem] px-4 text-[11px] font-black" value={newFollowUp.date} onChange={e => setNewFollowUp({ ...newFollowUp, date: e.target.value })} /></FormRow>
                                                 </div>
                                                 <FormRow label="Engagement Notes"><textarea className="w-full min-h-[80px] border border-slate-200 rounded-[2rem] px-4 py-2 text-[11px] font-bold outline-none focus:border-medical-500" placeholder="CONTEXT FOR NEXT TOUCHPOINT..." value={newFollowUp.notes || ''} onChange={e => setNewFollowUp({ ...newFollowUp, notes: e.target.value })} /></FormRow>
@@ -425,7 +461,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             )}
 
             {viewState === 'today' && (
-                <div className="flex-1 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in animate-duration-300">
+                <div className="flex-1 min-w-0 bg-white rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in animate-duration-300">
                     <div className="p-6 border-b border-slate-300 bg-slate-50 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-200 text-slate-800">
@@ -505,7 +541,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             )}
 
             {viewState === 'builder' && (
-                <div className="flex-1 flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
+                <div className="flex-1 min-w-0 flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
                     <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-10 py-6 justify-between items-center">
                         <div className="flex flex-col"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Manual Opportunity Entry' : 'Evolve Lead Profile'}</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Synchronizing pipeline with cloud terminal</p></div>
                         <button onClick={() => setViewState('stock')} className="p-3 bg-white text-slate-400 rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm"><X size={24}/></button>
@@ -515,8 +551,32 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                         <section className="space-y-6">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Building2 size={14} className="text-medical-500" />1. Lead Identity Node</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="sm:col-span-2"><FormRow label="Contact / Entity Name *"><input type="text" list="client-name-list" className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 uppercase" placeholder="ENTER NAME" value={lead.name || ''} onChange={e => handleSelectClient('name', e.target.value.toUpperCase())} /></FormRow></div>
-                                <div className="sm:col-span-2"><FormRow label="Hospital / Organization *"><input type="text" list="client-hosp-list" className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-bold outline-none" placeholder="FACILITY NAME" value={lead.hospital || ''} onChange={e => handleSelectClient('hospital', e.target.value)} /></FormRow></div>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Contact / Entity Name *">
+                                        <AutoSuggest
+                                            value={lead.name || ''}
+                                            onChange={val => handleSelectClient('name', val.toUpperCase())}
+                                            onSelect={client => handleSelectClient('name', client.name.toUpperCase())}
+                                            suggestions={clients}
+                                            filterKey="name"
+                                            className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                            placeholder="ENTER NAME"
+                                        />
+                                    </FormRow>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Hospital / Organization *">
+                                        <AutoSuggest
+                                            value={lead.hospital || ''}
+                                            onChange={val => handleSelectClient('hospital', val)}
+                                            onSelect={client => handleSelectClient('hospital', client.hospital || '')}
+                                            suggestions={clients}
+                                            filterKey="hospital"
+                                            className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-bold outline-none"
+                                            placeholder="FACILITY NAME"
+                                        />
+                                    </FormRow>
+                                </div>
                                 <div className="sm:col-span-4"><FormRow label="Geographical Location / Address"><textarea className="w-full min-h-[80px] bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-bold outline-none focus:border-medical-500" placeholder="PHYSICAL LOCATION DATA" value={lead.address || ''} onChange={e => setLead({...lead, address: e.target.value})} /></FormRow></div>
                             </div>
                         </section>
@@ -524,9 +584,21 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                         <section className="space-y-6">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><DollarSign size={14} className="text-medical-500" />2. Opportunity Intelligence</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <FormRow label="Acquisition Source"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" value={lead.source} onChange={e => setLead({...lead, source: e.target.value as any})}><option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Direct</option><option>Sales</option></select></FormRow>
-                                <FormRow label="Pipeline Status"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" value={lead.status} onChange={e => setLead({...lead, status: e.target.value as any})}>{Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}</select></FormRow>
-                                <div className="sm:col-span-2"><FormRow label="Product Interest / Requirement"><input type="text" list="prod-list" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black uppercase font-mono" placeholder="WHAT ARE THEY LOOKING FOR?" value={lead.productInterest || ''} onChange={e => setLead({...lead, productInterest: e.target.value})} /></FormRow></div>
+                                <FormRow label="Acquisition Source"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={lead.source} onChange={e => setLead({...lead, source: e.target.value as any})}><option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Direct</option><option>Sales</option><option>IndiaMART</option></select></FormRow>
+                                <FormRow label="Pipeline Status"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={lead.status} onChange={e => setLead({...lead, status: e.target.value as any})}>{Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}</select></FormRow>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Product Interest / Requirement">
+                                        <AutoSuggest
+                                            value={lead.productInterest || ''}
+                                            onChange={val => setLead({...lead, productInterest: val})}
+                                            onSelect={prod => setLead({...lead, productInterest: prod.name})}
+                                            suggestions={products}
+                                            filterKey="name"
+                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black uppercase font-mono"
+                                            placeholder="WHAT ARE THEY LOOKING FOR?"
+                                        />
+                                    </FormRow>
+                                </div>
                                 <FormRow label="Valuation Target (₹)"><input type="number" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black" placeholder="0.00" value={lead.value || ''} onChange={e => setLead({...lead, value: Number(e.target.value)})} /></FormRow>
                                 <FormRow label="Handled By"><div className="relative w-full"><input type="text" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" placeholder="SEARCH AGENT" value={lead.salesTakenBy || ''} onChange={e => { setLead({...lead, salesTakenBy: e.target.value}); setShowEmpDropdown(true); }} onFocus={() => setShowEmpDropdown(true)} onBlur={() => setTimeout(() => setShowEmpDropdown(false), 200)} />{showEmpDropdown && lead.salesTakenBy && <div className="absolute z-[130] top-full left-0 w-full mt-1 bg-white border border-slate-300 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in">{employees.filter(emp => emp.name.toLowerCase().includes(lead.salesTakenBy!.toLowerCase())).slice(0, 5).map(emp => <button key={emp.id} className="w-full text-left px-5 py-3 hover:bg-medical-50 border-b border-slate-100 last:border-0 transition-colors" onClick={() => { setLead({...lead, salesTakenBy: emp.name}); setShowEmpDropdown(false); }}><div className="text-[11px] font-black text-slate-800 uppercase tracking-tighter">{emp.name}</div><div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{emp.department}</div></button>)}</div>}</div></FormRow>
                             </div>
@@ -549,9 +621,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                 </div>
             )}
 
-            <datalist id="client-name-list">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
-            <datalist id="client-hosp-list">{clients.filter(c => c.hospital).map(c => <option key={c.id} value={c.hospital} />)}</datalist>
-            <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
+
         </div>
     );
 };

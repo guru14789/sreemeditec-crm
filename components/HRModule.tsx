@@ -204,24 +204,72 @@ export const HRModule: React.FC = () => {
     );
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-3xl border shadow-sm gap-4">
-                <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                    <button onClick={() => setActiveTab('employees')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${activeTab === 'employees' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Users size={14} /> Registry ({employees.length})</button>
-                    <button onClick={() => setActiveTab('permissions')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${activeTab === 'permissions' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><ShieldCheck size={14} /> Access Grid</button>
-                </div>
-                <div className="flex gap-3 w-full sm:w-auto flex-1 justify-end">
-                    <div className="relative flex-1 sm:max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input type="text" placeholder="Search staff..." className="pl-10 pr-4 py-2 border border-slate-300 rounded-[2rem] text-sm w-full outline-none focus:border-medical-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        <div className="h-full flex flex-col gap-2 overflow-hidden p-0 md:p-1">
+            {/* Header Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 pt-6 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none rounded-b-[1.5rem] md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none rounded-b-[1.5rem] md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="flex items-center gap-3 md:gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <Users size={20} className="hidden xl:block" />
+                            <Users size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Staff Management</h2>
+                            <p className="text-emerald-100/80 text-[10px] md:text-xs font-semibold leading-relaxed">Manage Employees And Access Control</p>
+                        </div>
                     </div>
-                    <button onClick={handleOpenAddModal} className="bg-[#022c22] text-white px-6 py-2 rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2">+ Add Member</button>
+
+                    <div className="hidden sm:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Users size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Active Staff</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                {employees.length}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Actions */}
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full lg:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setActiveTab('employees')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${activeTab === 'employees' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <Users size={12} /> Registry
+                        </button>
+                        <button onClick={() => setActiveTab('permissions')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${activeTab === 'permissions' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <ShieldCheck size={12} /> Access Grid
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                        <div className="relative group/search flex-1 w-full lg:w-64">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50 group-focus-within/search:text-white transition-colors" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Search staff..." 
+                                className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 pl-11 pr-4 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all shadow-inner"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleOpenAddModal} 
+                            className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-emerald-400 text-emerald-950 px-6 py-2 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] hover:scale-[1.02] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <UserPlus size={16} /> Add Member
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {activeTab === 'employees' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 pb-6">
                         {filteredEmployees.map((emp, idx) => {
                             const gradients = [
                                 { bg: 'bg-gradient-to-br from-emerald-950 to-green-900', shadow: 'shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)]', avatar: 'bg-emerald-900/60 text-emerald-300 border-emerald-500/20', text: 'text-emerald-300', textLight: 'text-white', label: 'text-emerald-100/80', divider: 'border-emerald-800/50', badge: 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20', accent: 'text-emerald-300', roseBadge: 'bg-rose-900/40 text-rose-300 border-rose-800/50' },
@@ -230,29 +278,29 @@ export const HRModule: React.FC = () => {
                             ];
                             const g = gradients[idx % gradients.length];
                             return (
-                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-5 rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99]`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-[2rem] flex items-center justify-center font-playfair font-bold text-2xl tracking-tight tracking-tight border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
+                            <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-3 md:p-5 rounded-[16px] md:rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99]`}>
+                                <div className="flex justify-between items-center mb-2 md:mb-4">
+                                    <div className="flex items-center gap-2.5 md:gap-4">
+                                        <div className={`w-9 h-9 md:w-14 md:h-14 rounded-xl md:rounded-[2rem] flex items-center justify-center font-playfair font-bold text-sm md:text-2xl tracking-tight border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
                                         <div>
-                                            <h4 className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.name}</h4>
-                                            <p className={`text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
+                                            <h4 className={`text-xs md:text-base font-black uppercase tracking-tight leading-none ${g.textLight}`}>{emp.name}</h4>
+                                            <p className={`text-[7px] md:text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest leading-none`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
                                         </div>
                                     </div>
-                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</span>
+                                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[7px] md:text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</span>
                                 </div>
-                                <div className={`space-y-3 pt-4 border-t ${g.divider}`}>
+                                <div className={`space-y-1 md:space-y-3 pt-2 md:pt-4 border-t ${g.divider}`}>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Department</span>
-                                        <span className={`text-[10px] font-black ${g.textLight} uppercase tracking-widest`}>{emp.department}</span>
+                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Department</span>
+                                        <span className={`text-[8px] md:text-[10px] font-black ${g.textLight} uppercase tracking-widest`}>{emp.department}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Password</span>
-                                        <span className={`text-[10px] font-mono font-bold ${g.textLight}`}>{emp.password}</span>
+                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Password</span>
+                                        <span className={`text-[8px] md:text-[10px] font-mono font-bold ${g.textLight}`}>{emp.password}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-[9px] font-black ${g.label} uppercase`}>Access Status</span>
-                                        <span className={`text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-300' : g.accent}`}>
+                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Access Status</span>
+                                        <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-300' : g.accent}`}>
                                             {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${Object.keys(emp.permissions || {}).length} Modules Grant`}
                                         </span>
                                     </div>
@@ -282,26 +330,26 @@ export const HRModule: React.FC = () => {
                             <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Admin access here ≠ System Admin. Change Enterprise Role for full admin.</span>
                         </div>
                     </div>
-                    <div className="bg-white rounded-[2rem] border border-slate-300 overflow-hidden shadow-sm mb-6">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400">
-                                <tr><th className="px-4 py-2.5 w-64">Identity</th><th className="px-4 py-2.5">Permission Array Configuration</th></tr>
+                    <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-slate-300 md:overflow-x-auto shadow-sm mb-6">
+                        <table className="w-full min-w-full md:min-w-[800px] text-left text-[11px] block md:table">
+                            <thead className="bg-slate-50 border-b border-slate-300 sticky top-0 z-10 font-black uppercase tracking-widest text-slate-400 hidden md:table-header-group">
+                                <tr><th className="px-4 md:px-8 py-2.5 w-48 md:w-64">Identity</th><th className="px-4 md:px-8 py-2.5">Permission Array Configuration</th></tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 block md:table-row-group">
                                 {filteredEmployees.map(emp => {
                                     const isAdmin = emp.role === 'SYSTEM_ADMIN';
                                     return (
-                                        <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''}`}>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-10 h-10 rounded-[2rem] flex items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
+                                        <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''} block md:table-row p-4 md:p-0`}>
+                                            <td className="px-0 md:px-8 py-2 md:py-6 block md:table-cell">
+                                                <div className="flex items-center gap-2 md:gap-3">
+                                                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-[1.5rem] md:rounded-[2rem] flex shrink-0 items-center justify-center font-black text-white ${isAdmin ? 'bg-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{emp.name.charAt(0)}</div>
                                                     <div>
-                                                        <div className="font-black text-slate-800 uppercase tracking-tight">{emp.name}</div>
-                                                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{emp.role.replace('_', ' ')}</div>
+                                                        <div className="font-black text-[11px] text-slate-800 uppercase tracking-tight leading-tight">{emp.name}</div>
+                                                        <div className="text-[11px] text-slate-400 font-bold uppercase mt-0.5">{emp.role.replace('_', ' ')}</div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
+                                            <td className="px-0 md:px-8 py-2 md:py-6 block md:table-cell mt-2 md:mt-0">
                                                 {(() => {
                                                     const isSuper = emp.email?.toLowerCase() === 'sreekumar.career@gmail.com';
                                                     
@@ -324,7 +372,7 @@ export const HRModule: React.FC = () => {
                                                     }
 
                                                     return (
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <div className="flex flex-row md:flex-wrap gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden snap-x">
                                                             {MODULE_OPTIONS.map(mod => {
                                                                 const role = (emp.permissions || {})[mod.value];
                                                                 const isPending = isUpdatingPermission === `${emp.id}-${mod.value}`;
@@ -333,7 +381,7 @@ export const HRModule: React.FC = () => {
                                                                         key={mod.value}
                                                                         disabled={isUpdatingPermission !== null}
                                                                         onClick={() => togglePermission(emp.id, mod.value as TabView)}
-                                                                        className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all active:scale-95 flex flex-col items-center gap-0.5 ${
+                                                                        className={`px-3 py-2 md:px-3 md:py-1.5 rounded-lg md:rounded-lg border text-[8px] md:text-[9px] font-black uppercase transition-all active:scale-95 flex flex-col items-center justify-center shrink-0 snap-start min-w-[90px] md:min-w-0 ${
                                                                             isPending ? 'opacity-50 animate-pulse bg-slate-100 border-slate-300 text-slate-400' :
                                                                             role === 'Admin' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 
                                                                             role === 'Employee' ? 'bg-medical-600 text-white border-medical-600 shadow-md' : 

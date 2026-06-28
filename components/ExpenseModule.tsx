@@ -28,14 +28,16 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         employees = [], attendanceRecords = []
     } = useData();
 
-    const [selectedEmployeeName, setSelectedEmployeeName] = useState(currentUser);
+    const [selectedEmployeeName, setSelectedEmployeeName] = useState(userRole === 'Admin' ? 'ALL' : currentUser);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     // Sync selectedEmployeeName if currentUser prop changes
     useEffect(() => {
         if (currentUser) {
-            setSelectedEmployeeName(currentUser);
+            setSelectedEmployeeName(userRole === 'Admin' ? 'ALL' : currentUser);
         }
-    }, [currentUser]);
+    }, [currentUser, userRole]);
 
     // Find the target employee for allowance tracking
     const targetEmployee = useMemo(() => {
@@ -44,83 +46,83 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
     // Calculate allowance balances dynamically based on attendance and claims
     const allowanceBalances = useMemo(() => {
-        if (!targetEmployee) {
-            return { 
-                dailyAvailable: 0, 
-                outstationAvailable: 0, 
-                totalClaimable: 0, 
-                eligiblePresentDays: 0, 
-                eligibleOutstationDays: 0, 
-                totalDailyAllowance: 0, 
-                totalOutstationAllowance: 0, 
-                claimedDaily: 0, 
-                claimedOutstation: 0 
-            };
-        }
+        const currentYear = selectedYear;
+        const currentMonth = selectedMonth;
+        const currentYearMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-        const now = new Date();
-        const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-        const empRecords = attendanceRecords.filter(r => r.userId === targetEmployee.id && r.date.startsWith(currentYearMonth));
-        
-        let eligiblePresentDays = 0;
-        let eligibleOutstationDays = 0;
-
-        empRecords.forEach(record => {
-            const dateObj = new Date(record.date);
-            const isSunday = dateObj.getDay() === 0;
-
-            if (record.status !== 'OnLeave') {
-                if (record.workMode === 'Outstation') {
-                    // Include Sundays only when marked as Outstation
-                    eligibleOutstationDays++;
-                } else {
-                    // Daily allowance: Present Days, exclude outstation days, exclude sundays
-                    if (!isSunday) {
+        const calculateForEmployee = (emp: any) => {
+            const empRecords = attendanceRecords.filter(r => r.userId === emp.id && r.date.startsWith(currentYearMonth));
+            let eligiblePresentDays = 0;
+            let eligibleOutstationDays = 0;
+            
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
+                const dateObj = new Date(currentYear, currentMonth, i);
+                const isSunday = dateObj.getDay() === 0;
+                const record = empRecords.find(r => r.date === dateStr);
+                
+                if (record && record.status !== 'OnLeave') {
+                    if (record.workMode === 'Outstation') {
+                        eligibleOutstationDays++;
+                    } else if (!isSunday) {
                         eligiblePresentDays++;
                     }
                 }
             }
-        });
 
-        const dailyRate = targetEmployee.dailyAllowance || 0;
-        const outstationRate = targetEmployee.outstationAllowance || 0;
+            const dailyRate = emp.dailyAllowance || 0;
+            const outstationRate = emp.outstationAllowance || 0;
+            const totalDailyAllowance = eligiblePresentDays * dailyRate;
+            const totalOutstationAllowance = eligibleOutstationDays * outstationRate;
 
-        const totalDailyAllowance = eligiblePresentDays * dailyRate;
-        const totalOutstationAllowance = eligibleOutstationDays * outstationRate;
+            const employeeExpenses = expenses.filter(e => 
+                e.employeeName.toLowerCase() === emp.name.toLowerCase() && 
+                e.status !== 'Rejected' &&
+                e.category !== 'Company' &&
+                e.date.startsWith(currentYearMonth)
+            );
 
-        // Sum up claimed expenses that are 'Approved' and NOT 'Company' category and are in the current month
-        const employeeExpenses = expenses.filter(e => 
-            e.employeeName.toLowerCase() === targetEmployee.name.toLowerCase() && 
-            e.status === 'Approved' &&
-            e.category !== 'Company' &&
-            e.date.startsWith(currentYearMonth)
-        );
+            const claimedDaily = employeeExpenses.filter(e => e.category === 'Daily Allowance').reduce((sum, curr) => sum + (curr.amount || 0), 0);
+            const claimedOutstation = employeeExpenses.filter(e => e.category === 'Outstation Allowance').reduce((sum, curr) => sum + (curr.amount || 0), 0);
 
-        const claimedDaily = employeeExpenses
-            .filter(e => e.category === 'Daily Allowance')
-            .reduce((sum, curr) => sum + (curr.amount || 0), 0);
-
-        const claimedOutstation = employeeExpenses
-            .filter(e => e.category === 'Outstation Allowance')
-            .reduce((sum, curr) => sum + (curr.amount || 0), 0);
-
-        const dailyAvailable = Math.max(0, totalDailyAllowance - claimedDaily);
-        const outstationAvailable = Math.max(0, totalOutstationAllowance - claimedOutstation);
-        const totalClaimable = dailyAvailable + outstationAvailable;
-
-        return {
-            dailyAvailable,
-            outstationAvailable,
-            totalClaimable,
-            eligiblePresentDays,
-            eligibleOutstationDays,
-            totalDailyAllowance,
-            totalOutstationAllowance,
-            claimedDaily,
-            claimedOutstation
+            const dailyAvailable = Math.max(0, totalDailyAllowance - claimedDaily);
+            const outstationAvailable = Math.max(0, totalOutstationAllowance - claimedOutstation);
+            
+            return {
+                dailyAvailable, outstationAvailable, totalClaimable: dailyAvailable + outstationAvailable,
+                eligiblePresentDays, eligibleOutstationDays, totalDailyAllowance, totalOutstationAllowance,
+                claimedDaily, claimedOutstation
+            };
         };
-    }, [targetEmployee, attendanceRecords, expenses, selectedEmployeeName]);
+
+        if (selectedEmployeeName === 'ALL') {
+            return employees.reduce((acc, emp) => {
+                const empBal = calculateForEmployee(emp);
+                return {
+                    dailyAvailable: acc.dailyAvailable + empBal.dailyAvailable,
+                    outstationAvailable: acc.outstationAvailable + empBal.outstationAvailable,
+                    totalClaimable: acc.totalClaimable + empBal.totalClaimable,
+                    eligiblePresentDays: acc.eligiblePresentDays + empBal.eligiblePresentDays,
+                    eligibleOutstationDays: acc.eligibleOutstationDays + empBal.eligibleOutstationDays,
+                    totalDailyAllowance: acc.totalDailyAllowance + empBal.totalDailyAllowance,
+                    totalOutstationAllowance: acc.totalOutstationAllowance + empBal.totalOutstationAllowance,
+                    claimedDaily: acc.claimedDaily + empBal.claimedDaily,
+                    claimedOutstation: acc.claimedOutstation + empBal.claimedOutstation
+                };
+            }, {
+                dailyAvailable: 0, outstationAvailable: 0, totalClaimable: 0,
+                eligiblePresentDays: 0, eligibleOutstationDays: 0, totalDailyAllowance: 0,
+                totalOutstationAllowance: 0, claimedDaily: 0, claimedOutstation: 0
+            });
+        }
+
+        if (!targetEmployee) {
+            return { dailyAvailable: 0, outstationAvailable: 0, totalClaimable: 0, eligiblePresentDays: 0, eligibleOutstationDays: 0, totalDailyAllowance: 0, totalOutstationAllowance: 0, claimedDaily: 0, claimedOutstation: 0 };
+        }
+
+        return calculateForEmployee(targetEmployee);
+    }, [targetEmployee, employees, attendanceRecords, expenses, selectedEmployeeName, selectedMonth, selectedYear]);
 
     const [viewState, setViewState] = useState<'stock' | 'builder'>('stock');
     const [builderMode, setBuilderMode] = useState<'add' | 'edit'>('add');
@@ -378,24 +380,56 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     };
 
     return (
-        <div className="h-full flex flex-col gap-2 md:gap-4 overflow-hidden p-1 md:p-2">
-            
-            {/* Vouchers/Expenses Header Snapshot */}
-            <div className="space-y-3 mb-2 w-full">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
-                        <DollarSign size={13} className="text-emerald-600" /> Expenses Snapshot
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[7px] font-bold text-slate-400 uppercase">Live Workspace</span>
+        <div className="h-full flex flex-col gap-2 md:gap-4 overflow-hidden p-0 md:p-2">
+            {/* Header Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <Receipt size={20} className="hidden xl:block" />
+                            <Receipt size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Vouchers & Expenses</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Post Double-Entry Vouchers</p>
+                        </div>
+                    </div>
+
+                    <div className="hidden sm:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Clock size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Pending Value</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                ₹{formatShortCurrency(expenseStats.pending)}
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+
+                {/* Bottom Row: Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setViewState('stock')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'stock' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <List size={12} /> Console
+                        </button>
+                        <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' && builderMode === 'add' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <Plus size={12} /> Claim
+                        </button>
+                    </div>
+                </div>
+            </div>
+                       {/* Vouchers/Expenses Header Snapshot */}
+            <div className="space-y-3 mb-2 w-full px-2 md:px-0">
+                <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 w-full overflow-x-auto custom-scrollbar pb-2 snap-x snap-mandatory">
                     {/* Card 1: Approved */}
-                    <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                    <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[70vw] sm:min-w-[300px] md:min-w-0 snap-center shrink-0">
+                        <div className="flex justify-between items-start mb-1 md:mb-2">
+                            <div className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center group-hover:scale-110 transition-transform text-[#c5a059] drop-shadow-md">
                                 <CheckCircle2 size={15} />
                             </div>
                             <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -403,15 +437,15 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </span>
                         </div>
                         <div>
-                            <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Approved Vouchers</p>
- <h3 className="text-lg font-bold tracking-tight text-white mt-1">₹{formatShortCurrency(expenseStats.approved)}</h3>
+                            <p className="text-[7.5px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Approved Vouchers</p>
+                            <h3 className="text-base md:text-lg font-bold tracking-tight text-white mt-1">₹{formatShortCurrency(expenseStats.approved)}</h3>
                         </div>
                     </div>
 
                     {/* Card 2: Pending */}
-                    <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                    <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[70vw] sm:min-w-[300px] md:min-w-0 snap-center shrink-0">
+                        <div className="flex justify-between items-start mb-1 md:mb-2">
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
                                 <Clock size={15} />
                             </div>
                             <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -419,15 +453,15 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </span>
                         </div>
                         <div>
-                            <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Pending Vouchers</p>
- <h3 className="text-lg font-bold tracking-tight text-white mt-1">₹{formatShortCurrency(expenseStats.pending)}</h3>
+                            <p className="text-[7.5px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Pending Vouchers</p>
+                            <h3 className="text-base md:text-lg font-bold tracking-tight text-white mt-1">₹{formatShortCurrency(expenseStats.pending)}</h3>
                         </div>
                     </div>
 
                     {/* Card 3: Rejected */}
-                    <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+                    <div className="p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[70vw] sm:min-w-[300px] md:min-w-0 snap-center shrink-0" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+                        <div className="flex justify-between items-start mb-1 md:mb-2">
+                            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
                                 <XCircle size={15} />
                             </div>
                             <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -435,25 +469,26 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </span>
                         </div>
                         <div>
-                            <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Rejected Vouchers</p>
- <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">₹{formatShortCurrency(expenseStats.rejected)}</h3>
+                            <p className="text-[7.5px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Rejected Vouchers</p>
+                            <h3 className="text-base md:text-lg font-bold tracking-tight text-amber-950 mt-1">₹{formatShortCurrency(expenseStats.rejected)}</h3>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                <button onClick={() => setViewState('stock')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={14} /> Console</button>
-                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={14} /> Claim</button>
-            </div>
 
             {viewState === 'stock' ? (
                 <div className="flex-1 flex flex-col lg:flex-row gap-2 md:gap-4 min-h-0">
                     <div className="flex-1 bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                         <div className="p-3 md:p-5 border-b border-slate-300 bg-slate-50/30 flex flex-col sm:flex-row justify-between items-center shrink-0 gap-3 md:gap-4">
-                            <div className="flex items-center gap-2 md:gap-3">
+                            <div className="hidden md:flex items-center gap-2 md:gap-3">
                                 <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-100 rounded-[2rem] md:rounded-[2rem] flex items-center justify-center text-emerald-600 shadow-inner border border-emerald-50"><Receipt size={16} /></div>
                                 <div><h3 className="font-black text-slate-800 uppercase tracking-tight text-xs md:text-base">Vouchers</h3><p className="text-[8px] md:text-[10px] text-slate-400 font-black uppercase tracking-widest">{filteredExpenses.length} Records</p></div>
+                                
+                                <div className="hidden sm:flex bg-slate-100 p-1 md:p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 gap-1 ml-4 md:ml-6">
+                                    <button onClick={() => setViewState('stock')} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={12} className="md:w-3.5 md:h-3.5" /> Console</button>
+                                    <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
+                                </div>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <div className="relative flex-1 sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input type="text" placeholder="Filter..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] text-[10px] font-bold outline-none focus:border-medical-500 transition-all shadow-inner uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
@@ -465,12 +500,31 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         <div className="bg-slate-50/50 border-b border-slate-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
                             <div className="flex items-center gap-2">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Allowance Focus:</span>
+                                <select 
+                                    value={selectedMonth}
+                                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
+                                >
+                                    {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                                        <option key={m} value={i}>{m}</option>
+                                    ))}
+                                </select>
+                                <select 
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
+                                >
+                                    {[2024, 2025, 2026, 2027].map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
                                 {userRole === 'Admin' ? (
                                     <select 
                                         value={selectedEmployeeName}
                                         onChange={e => setSelectedEmployeeName(e.target.value)}
                                         className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
                                     >
+                                        <option value="ALL">All Employees</option>
                                         {employees.map(emp => (
                                             <option key={emp.id} value={emp.name}>{emp.name}</option>
                                         ))}
@@ -500,41 +554,56 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto custom-scrollbar">
-                            <table className="w-full text-left text-[9px]">
-                                <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[8px] md:text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
+                        <div className="flex-1 overflow-auto custom-scrollbar md:p-0 p-2">
+                            <table className="w-full text-left text-[11px] block md:table">
+                                <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[8px] md:text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9] hidden md:table-header-group">
                                     <tr>
-                                        <th className="px-4 md:px-8 py-3 md:py-4 text-left">Entry</th>
-                                        {userRole === 'Admin' && <th className="px-4 md:px-8 py-3 md:py-4 text-left hidden sm:table-cell">Personnel</th>}
-                                        <th className="px-4 md:px-8 py-3 md:py-4 text-left">Info</th>
-                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Value</th>
-                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Status</th>
-                                        <th className="px-4 md:px-8 py-3 md:py-4 text-center">Action</th>
+                                        <th className="px-3 md:px-6 py-2 md:py-3 text-left">Entry</th>
+                                        {userRole === 'Admin' && <th className="px-3 md:px-6 py-2 md:py-3 text-left hidden sm:table-cell">Personnel</th>}
+                                        <th className="px-3 md:px-6 py-2 md:py-3 text-left">Info</th>
+                                        <th className="px-3 md:px-6 py-2 md:py-3 text-center">Value</th>
+                                        <th className="px-3 md:px-6 py-2 md:py-3 text-center">Status</th>
+                                        <th className="px-3 md:px-6 py-2 md:py-3 text-center">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 block md:table-row-group">
                                     {filteredExpenses.map(e => (
-                                        <tr key={e.id} className={`hover:bg-slate-50/80 transition-colors group cursor-pointer border-b border-slate-50 ${selectedExpense?.id === e.id ? 'bg-medical-50/40' : ''}`} onClick={() => { setSelectedExpense(e); if (window.innerWidth < 1024) { setTimeout(() => document.getElementById('expense-detail-view')?.scrollIntoView({ behavior: 'smooth' }), 100); } }}>
-                                            <td className="px-4 md:px-8 py-4 md:py-6 align-middle"><div className="font-black text-slate-400 uppercase text-[9px] tracking-widest">{e.date}</div><div className="text-[8px] font-bold text-slate-300 uppercase mt-0.5 hidden sm:block">#{e.id.slice(-6)}</div></td>
-                                            {userRole === 'Admin' && <td className="px-4 md:px-8 py-4 md:py-6 hidden sm:table-cell align-middle"><div className="flex items-center gap-2"><div className="w-6 h-6 bg-slate-100 rounded-lg flex items-center justify-center font-black text-slate-500 border border-slate-200 text-[10px]">{e.employeeName.charAt(0)}</div><span className="font-black text-slate-700 uppercase tracking-tighter truncate max-w-[80px]">{e.employeeName}</span></div></td>}
-                                            <td className="px-4 md:px-8 py-4 md:py-6 align-middle">
-                                                <div className="flex flex-col gap-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
+                                        <tr key={e.id} className={`block md:table-row hover:bg-slate-50/80 transition-colors group cursor-pointer border md:border-b border-slate-200 md:border-slate-50 rounded-2xl md:rounded-none mb-3 md:mb-0 p-3 md:p-0 bg-white ${selectedExpense?.id === e.id ? 'bg-medical-50/40 ring-1 ring-medical-500/30' : ''}`} onClick={() => { setSelectedExpense(e); if (window.innerWidth < 1024) { setTimeout(() => document.getElementById('expense-detail-view')?.scrollIntoView({ behavior: 'smooth' }), 100); } }}>
+                                            
+                                            <td className="block md:table-cell px-2 py-1 md:px-6 md:py-3 align-middle border-b md:border-none border-slate-50 md:border-0 pb-2 md:pb-3 flex justify-between items-center md:items-start md:flex-col">
+                                                <div className="font-black text-slate-400 uppercase text-[9px] tracking-widest">{e.date}</div>
+                                                <div className="text-[8px] font-bold text-slate-300 uppercase md:mt-0.5">#{e.id.slice(-6)}</div>
+                                            </td>
+                                            
+                                            {userRole === 'Admin' && <td className="block md:table-cell px-2 py-1.5 md:px-6 md:py-3 align-middle border-b md:border-none border-slate-50"><div className="flex items-center gap-2"><div className="w-5 h-5 md:w-6 md:h-6 bg-slate-100 rounded-lg flex items-center justify-center font-black text-slate-500 border border-slate-200 text-[9px] md:text-[10px]">{e.employeeName.charAt(0)}</div><span className="font-black text-slate-700 uppercase tracking-tighter truncate max-w-[120px] md:max-w-[80px] text-[10px] md:text-auto">{e.employeeName}</span></div></td>}
+                                            
+                                            <td className="block md:table-cell px-2 py-2 md:px-6 md:py-3 align-middle">
+                                                <div className="flex flex-col gap-1.5 md:gap-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${e.category === 'Company' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-indigo-600 bg-indigo-50 border-indigo-100'}`}>{e.category}</span>
-                                                        <span className="font-bold text-slate-700 uppercase truncate max-w-[150px] md:max-w-[250px]">{e.description}</span>
+                                                        <span className="font-bold text-slate-700 uppercase truncate max-w-[200px] md:max-w-[250px]">{e.description}</span>
                                                         {e.category === 'Company' && <span className="text-[7.5px] font-black text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter hidden md:inline-block">Not Deducted</span>}
                                                     </div>
-                                                    {e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"><ImageIcon size={8}/> Proof Available</button>}
+                                                    {e.receiptUrl && <button onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(e.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }} className="flex w-fit items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors bg-medical-50 md:bg-transparent px-2 py-1 md:px-0 md:py-0 rounded"><ImageIcon size={10} className="md:w-[8px] md:h-[8px]"/> Proof Available</button>}
                                                 </div>
                                             </td>
-                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle"><div className="inline-block font-black text-[11px] md:text-[13px] text-slate-800 tracking-tighter min-w-[60px]">₹{e.amount.toLocaleString('en-IN')}</div></td>
-                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle">
-                                                <div className="flex justify-center">
-                                                    <span className={`w-20 inline-flex items-center justify-center text-[8px] font-black uppercase tracking-widest py-1 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span>
+                                            
+                                            <td className="block md:table-cell px-2 py-1.5 md:px-6 md:py-3 text-left md:text-center align-middle border-t md:border-none border-slate-50 mt-2 md:mt-0 pt-2 md:pt-3">
+                                                <div className="flex items-center justify-between md:justify-center w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Value</span>
+                                                    <div className="inline-block font-black text-[12px] md:text-[13px] text-slate-800 tracking-tighter min-w-[60px]">₹{e.amount.toLocaleString('en-IN')}</div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 md:px-8 py-4 md:py-6 text-center align-middle">
-                                                <div className="flex justify-center">
+                                            
+                                            <td className="block md:table-cell px-2 py-1.5 md:px-6 md:py-3 text-left md:text-center align-middle border-b md:border-none border-slate-50 pb-2 md:pb-3">
+                                                <div className="flex items-center justify-between md:justify-center w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Status</span>
+                                                    <span className={`w-auto px-3 md:w-20 inline-flex items-center justify-center text-[8px] font-black uppercase tracking-widest py-1 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span>
+                                                </div>
+                                            </td>
+                                            
+                                            <td className="block md:table-cell px-2 py-2 md:px-6 md:py-3 text-center align-middle">
+                                                <div className="flex justify-end md:justify-center w-full">
                                                     {e.status === 'Pending' && (userRole === 'Admin' || e.employeeName === currentUser) ? (
                                                         <button 
                                                             onClick={(ev) => { ev.stopPropagation(); setDeleteModalId(e.id); }}
@@ -543,6 +612,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                                         >
                                                             <Trash2 size={14} />
                                                         </button>
+
                                                     ) : (
                                                         <div className="w-8 h-8 flex items-center justify-center opacity-10 grayscale">
                                                             <Trash2 size={14} className="text-slate-300" />
@@ -575,12 +645,20 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-4 md:space-y-5 custom-scrollbar">
-                                <section className="grid grid-cols-2 gap-4">
+                                <section className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div className="p-4 bg-gradient-to-br from-emerald-950 to-green-900 rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
-                                        <p className="text-[9px] font-black text-emerald-100/80 uppercase tracking-widest mb-1">Claim Date</p>
+                                        <p className="text-[9px] font-black text-emerald-100/80 uppercase tracking-widest mb-1">Voucher Date</p>
                                         <p className="text-sm font-black text-white">{selectedExpense.date}</p>
                                     </div>
-                                    <div className="p-4 bg-gradient-to-br from-emerald-800 to-emerald-600 rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
+                                    <div className="p-4 bg-gradient-to-br from-slate-800 to-slate-700 rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(30,41,59,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(30,41,59,0.5)] transition-all duration-300 overflow-hidden">
+                                        <p className="text-[9px] font-black text-slate-300/80 uppercase tracking-widest mb-1">Submitted On</p>
+                                        <p className="text-xs font-black text-white uppercase truncate">
+                                            {selectedExpense.id.includes('-') && !isNaN(parseInt(selectedExpense.id.split('-')[1])) 
+                                                ? new Date(parseInt(selectedExpense.id.split('-')[1])).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) 
+                                                : 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div className="p-4 bg-gradient-to-br from-emerald-800 to-emerald-600 rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 overflow-hidden">
                                         <p className="text-[9px] font-black text-emerald-100/80 uppercase tracking-widest mb-1">Personnel</p>
                                         <p className="text-sm font-black text-white uppercase truncate">{selectedExpense.employeeName}</p>
                                     </div>
@@ -650,7 +728,13 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
             ) : (
                 <div className="flex-1 flex flex-col bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
                     <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-6 md:px-10 py-4 md:py-6 justify-between items-center">
-                        <div className="flex flex-col"><h3 className="text-lg md:text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Claim Intake' : 'Voucher Edit'}</h3><p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Synchronizing with enterprise ledger</p></div>
+                        <div className="flex items-center gap-4 md:gap-6">
+                            <div className="flex flex-col"><h3 className="text-lg md:text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Claim Intake' : 'Voucher Edit'}</h3><p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Synchronizing with enterprise ledger</p></div>
+                            <div className="hidden sm:flex bg-slate-100 p-1 md:p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 gap-1 ml-4 md:ml-6">
+                                <button onClick={() => setViewState('stock')} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={12} className="md:w-3.5 md:h-3.5" /> Console</button>
+                                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
+                            </div>
+                        </div>
                         <button onClick={() => setViewState('stock')} className="p-2 md:p-3 bg-white text-slate-400 rounded-[2rem] md:rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm"><X size={20}/></button>
                     </div>
 
@@ -661,8 +745,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 {userRole === 'Admin' && (
                                     <div className="sm:col-span-1">
                                         <FormRow label="Personnel / Employee">
-                                            <select 
-                                                className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer" 
+                                            <select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer appearance-none" 
                                                 value={expense.employeeName || selectedEmployeeName} 
                                                 onChange={e => setExpense({...expense, employeeName: e.target.value})}
                                             >
@@ -674,7 +757,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     </div>
                                 )}
                                 <div className="sm:col-span-1"><FormRow label="Voucher Date"><input type="date" className="w-full h-[36px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={expense.date} onChange={e => setExpense({...expense, date: e.target.value})} /></FormRow></div>
-                                <FormRow label="Expense Category"><select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer" value={expense.category} onChange={e => setExpense({...expense, category: e.target.value as any})}><option value="Daily Allowance">Daily Allowance</option><option value="Outstation Allowance">Outstation Allowance</option><option value="Salary Advance">Advance Payment</option><option value="Company">Company</option></select></FormRow>
+                                <FormRow label="Expense Category"><select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer appearance-none" value={expense.category} onChange={e => setExpense({...expense, category: e.target.value as any})}><option value="Daily Allowance">Daily Allowance</option><option value="Outstation Allowance">Outstation Allowance</option><option value="Salary Advance">Advance Payment</option><option value="Company">Company</option></select></FormRow>
  <div className={userRole === 'Admin' ? "sm:col-span-1" : "sm:col-span-2"}><FormRow label="Settlement Value (₹) *"><input type="number" className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-lg md:text-xl font-bold tracking-tight text-emerald-600 tracking-tighter" placeholder="0.00" value={expense.amount || ''} onChange={e => setExpense({...expense, amount: Number(e.target.value)})} /></FormRow></div>
                             </div>
                         </section>

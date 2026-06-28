@@ -260,7 +260,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   };
 
   const MetricCard = ({ label, value, icon, color }: { label: string; value: number; icon: any; color: string }) => (
-    <div className="bg-white dark:bg-slate-900 p-2.5 md:p-3 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-2.5 min-w-0">
+    <div className="bg-white dark:bg-slate-900 p-2.5 md:p-3 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-2.5 min-w-[90px] shrink-0 snap-start">
       <div className={`p-1.5 rounded-lg ${color} text-white shadow shrink-0`}>{icon}</div>
       <div className="min-w-0 flex items-baseline gap-1.5">
         <p className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight leading-none">{value}</p>
@@ -360,23 +360,24 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative">
+    <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative p-0 md:p-1">
       {/* Header */}
-      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-4 md:p-5 pt-6 rounded-none rounded-b-[1.5rem] md:rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group m-0 md:m-3 lg:m-4">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-        <div className="flex items-center gap-5 relative z-10">
-          <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
-            <QrCode size={24} />
+        <div className="hidden sm:flex items-center gap-5 relative z-10 w-full lg:w-auto">
+          <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+            <QrCode size={20} className="hidden xl:block" />
+            <QrCode size={16} className="xl:hidden" />
           </div>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Service Task</h2>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Service Task</h2>
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
                 <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Live</span>
               </div>
             </div>
-            <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em]">SERVICE DESK</p>
+            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Service Desk</p>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto relative z-10">
@@ -390,25 +391,27 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button
-            onClick={() => setShowQR(!showQR)}
-            className={`px-5 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-2 ${showQR ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-600 text-white shadow-lg'}`}
-          >
-            <QrCode size={16} /> {showQR ? 'Hide QR' : 'Show QR'}
-          </button>
-          {isAdmin && (
-            <button 
-              onClick={() => setShowCreateModal(true)} 
-              className="bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2"
+          <div className="flex gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => setShowQR(!showQR)}
+              className={`flex-1 px-4 py-3 rounded-[2rem] text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-1.5 md:gap-2 ${showQR ? 'bg-emerald-800 text-emerald-200' : 'bg-emerald-600 text-white shadow-lg'}`}
             >
-              <Plus size={16} /> Create
+              <QrCode size={14} className="md:w-[16px] md:h-[16px]" /> {showQR ? 'Hide QR' : 'Show QR'}
             </button>
-          )}
+            {isAdmin && (
+              <button 
+                onClick={() => setShowCreateModal(true)} 
+                className="flex-1 bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-4 py-3 rounded-[2rem] text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-1.5 md:gap-2"
+              >
+                <Plus size={14} className="md:w-[16px] md:h-[16px]" /> Create
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Dashboard Metrics */}
-      <div className="grid grid-cols-7 gap-1.5 shrink-0">
+      <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-1.5 shrink-0 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
         <MetricCard label="Total" value={metrics.total} icon={<BarChart3 size={14} />} color="bg-slate-600" />
         <MetricCard label="New" value={metrics.newTasks} icon={<AlertCircle size={14} />} color="bg-blue-600" />
         <MetricCard label="Unassigned" value={metrics.unassigned} icon={<User size={14} />} color="bg-amber-600" />
@@ -621,8 +624,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <div>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Image size={14} className="text-teal-600" /> Work Photos</h4>
                     <div className="flex items-center gap-3">
-                      <select
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-[10px] font-bold outline-none"
+                      <select className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] px-3 py-2 text-[10px] font-bold outline-none appearance-none"
                         value={uploadCategory}
                         onChange={(e) => setUploadCategory(e.target.value as any)}
                       >

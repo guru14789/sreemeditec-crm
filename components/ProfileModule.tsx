@@ -30,7 +30,7 @@ interface ActiveSession {
 const NavItem = ({ id, icon: Icon, label, activeTab, onClick }: { id: string, icon: any, label: string, activeTab: string, onClick: (id: any) => void }) => (
     <button 
         onClick={() => onClick(id)}
-        className={`flex items-center gap-3 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest rounded-[2rem] transition-all whitespace-nowrap lg:whitespace-normal shrink-0 lg:shrink-1 ${
+        className={`flex items-center gap-2 px-3 py-1.5 text-[10px] md:text-[11px] font-black uppercase tracking-widest rounded-[2rem] transition-all whitespace-nowrap lg:whitespace-normal shrink-0 lg:shrink-1 ${
             activeTab === id 
             ? 'bg-gradient-to-r from-emerald-900 to-emerald-800 text-white shadow-lg shadow-emerald-950/20 ring-1 ring-emerald-500/30' 
             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
@@ -228,33 +228,33 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
 
     return (
         <div className="h-full flex flex-col gap-4 overflow-hidden">
-            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-6 rounded-[36px] text-white shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] flex flex-col md:flex-row items-center gap-6 relative overflow-hidden shrink-0 group">
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none"><Building2 size={120} /></div>
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 m-1 md:m-3 lg:m-4 p-4 md:p-6 rounded-[28px] md:rounded-[36px] text-white shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] flex flex-row items-center gap-4 relative overflow-hidden shrink-0 group">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none"></div>
+                <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none hidden md:block"><Building2 size={120} /></div>
                 <div className="relative shrink-0">
-                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/10 backdrop-blur-md border-2 border-white/20 flex items-center justify-center text-3xl font-playfair font-bold tracking-tight text-white shadow-2xl overflow-hidden uppercase">
+                    <div className="w-14 h-14 md:w-24 md:h-24 rounded-[1.2rem] md:rounded-3xl bg-white/10 backdrop-blur-md border-2 border-white/20 flex items-center justify-center text-xl md:text-3xl font-playfair font-bold tracking-tight text-white shadow-2xl overflow-hidden uppercase">
                         {profile.name.charAt(0)}
                     </div>
-                    <button disabled={!isEditing} className={`absolute -bottom-2 -right-2 bg-medical-500 p-2 rounded-[2rem] shadow-xl border-2 border-emerald-950 transition-opacity ${!isEditing ? 'opacity-30' : 'hover:bg-medical-400'}`}><Camera size={14} /></button>
+                    <button disabled={!isEditing} className={`absolute -bottom-1 -right-1 md:-bottom-2 md:-right-2 bg-medical-500 p-1.5 md:p-2 rounded-[2rem] shadow-xl border-2 border-emerald-950 transition-opacity ${!isEditing ? 'opacity-30' : 'hover:bg-medical-400'}`}><Camera size={12} className="md:w-3.5 md:h-3.5 w-3 h-3" /></button>
                 </div>
-                <div className="flex-1 text-center md:text-left min-w-0">
- <h2 className="text-2xl md:text-3xl font-playfair font-bold tracking-tight uppercase truncate">{profile.name}</h2>
-                    <div className="flex wrap justify-center md:justify-start items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest border border-emerald-500/30">{userRole} Access</span>
-                        <span className="text-[10px] font-bold text-emerald-100/50 uppercase tracking-wider">• {profile.department}</span>
+                <div className="flex-1 text-left min-w-0">
+ <h2 className="text-lg md:text-3xl font-playfair font-bold tracking-tight uppercase truncate">{profile.name}</h2>
+                    <div className="flex flex-wrap items-center gap-1.5 md:gap-2 mt-0.5 md:mt-1">
+                        <span className="px-1.5 md:px-2 py-0.5 bg-emerald-500/20 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest border border-emerald-500/30">{userRole}</span>
+                        <span className="text-[8px] md:text-[10px] font-bold text-emerald-100/50 uppercase tracking-wider truncate hidden sm:inline">• {profile.department}</span>
                     </div>
                 </div>
                 <button 
                     onClick={() => { if (isEditing && hasUnsavedChanges) { if (confirm("Discard unsaved registry changes?")) handleDiscard(); } else setIsEditing(!isEditing); }}
-                    className={`px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${isEditing ? 'bg-rose-500 text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50 hover:shadow-lg transition-all'}`}
+                    className={`p-2.5 md:px-6 md:py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0 relative z-10 ${isEditing ? 'bg-rose-500 text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50 hover:shadow-lg transition-all'}`}
                 >
                     {isEditing ? <X size={14} /> : <Edit size={14} />}
-                    <span>{isEditing ? 'Stop Editing' : 'Edit Account'}</span>
+                    <span className="hidden md:inline">{isEditing ? 'Stop Editing' : 'Edit Account'}</span>
                 </button>
             </div>
 
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden">
-                <div className="w-full lg:w-60 flex lg:flex-col shrink-0 gap-3 overflow-x-auto lg:overflow-x-visible custom-scrollbar p-1">
+            <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-4 overflow-hidden">
+                <div className="w-full lg:w-60 flex lg:flex-col shrink-0 gap-2 md:gap-3 overflow-x-auto lg:overflow-x-visible custom-scrollbar p-0.5 md:p-1">
                     <NavItem id="general" icon={User} label="Identity" activeTab={activeTab} onClick={setActiveTab} />
                     <NavItem id="security" icon={Shield} label="Security" activeTab={activeTab} onClick={setActiveTab} />
                     <NavItem id="preferences" icon={Bell} label="Preferences" activeTab={activeTab} onClick={setActiveTab} />
@@ -262,15 +262,15 @@ export const ProfileModule: React.FC<ProfileModuleProps> = ({ userRole, setUserR
                 </div>
 
                 <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-300 dark:border-slate-800 overflow-hidden flex flex-col">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
                         <div className="max-w-3xl mx-auto">
                             {activeTab === 'general' && (
                                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="mb-6 flex justify-between items-center">
-                                        <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Registry Information</h3>
+                                    <div className="mb-4 md:mb-6 flex justify-between items-center">
+                                        <h3 className="text-base md:text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Registry Information</h3>
                                         <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-lg uppercase tracking-widest">ID: {authUser?.id}</span>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 md:gap-y-4">
                                         <FormRow label="Full Legal Name"><input type="text" disabled={!isEditing} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} /></FormRow>
                                         <FormRow label="Designation"><input type="text" disabled={true} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold opacity-60 cursor-not-allowed outline-none" value={profile.role} /></FormRow>
                                         <FormRow label="Email Access"><input type="email" disabled={!isEditing} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-[2rem] text-sm font-bold disabled:opacity-60 outline-none focus:border-medical-500 transition-colors" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} /></FormRow>

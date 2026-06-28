@@ -95,49 +95,61 @@ export const Dashboard: React.FC = () => {
           </h3>
           <span className="text-[7px] font-bold text-slate-400 uppercase">This Period</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
-            <div className="flex justify-between items-start mb-2">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
-                <Activity size={15} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-sm md:shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[60px] md:min-h-[120px] gap-3 md:gap-0">
+            <div className="flex items-center md:items-start md:justify-between md:mb-2 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform shrink-0">
+                <Activity size={14} className="md:w-[15px] md:h-[15px]" />
               </div>
-              <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Sales</p>
+                <h3 className="text-[15px] font-bold tracking-tight text-white mt-0.5">{formatCurrency(stats.todayRevenue)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 <TrendingUp size={8} /> Today
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Sales</p>
- <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.todayRevenue)}</h3>
+              <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.todayRevenue)}</h3>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
-            <div className="flex justify-between items-start mb-2">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
-                <Calendar size={15} />
+          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-sm md:shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[60px] md:min-h-[120px] gap-3 md:gap-0">
+            <div className="flex items-center md:items-start md:justify-between md:mb-2 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform shrink-0">
+                <Calendar size={14} className="md:w-[15px] md:h-[15px]" />
               </div>
-              <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Weekly Goal</p>
+                <h3 className="text-[15px] font-bold tracking-tight text-white mt-0.5">{formatCurrency(stats.weekRevenue)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 <TrendingUp size={8} /> {((stats.weekRevenue / (stats.monthRevenue || 1)) * 100).toFixed(0)}%
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Weekly Goal</p>
- <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.weekRevenue)}</h3>
+              <h3 className="text-lg font-bold tracking-tight text-white mt-1">{formatCurrency(stats.weekRevenue)}</h3>
             </div>
           </div>
 
-          <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
-            <div className="flex justify-between items-start mb-2">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
-                <Wallet size={15} />
+          <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-sm md:shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[60px] md:min-h-[120px] gap-3 md:gap-0" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+            <div className="flex items-center md:items-start md:justify-between md:mb-2 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform shrink-0">
+                <Wallet size={14} className="md:w-[15px] md:h-[15px]" />
               </div>
-              <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Monthly Intake</p>
+                <h3 className="text-[15px] font-bold tracking-tight text-amber-950 mt-0.5">{formatCurrency(stats.monthRevenue)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Monthly
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Monthly Intake</p>
- <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(stats.monthRevenue)}</h3>
+              <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(stats.monthRevenue)}</h3>
             </div>
           </div>
         </div>
@@ -148,49 +160,61 @@ export const Dashboard: React.FC = () => {
         <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
           <Wallet size={13} className="text-emerald-600" /> Live Workspace Summary
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[100px]">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 rounded-[1.25rem] md:rounded-[2rem] shadow-sm md:shadow-[0_15px_30px_-10px_rgba(6,78,59,0.5)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_20px_40px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[50px] md:min-h-[100px] gap-3 md:gap-0">
+            <div className="flex items-center md:items-start md:justify-between mb-0 md:mb-1 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform shrink-0">
                 <CheckCircle2 size={12} />
               </div>
-              <span className="flex items-center gap-1 text-[6.5px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[7.5px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Approved</p>
+                <h3 className="text-sm font-bold tracking-tight text-white mt-0.5">{formatCurrency(expenseStats?.approved || 0)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[6.5px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 <CheckCircle2 size={8} /> CLEARED
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Approved</p>
- <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.approved || 0)}</h3>
+              <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.approved || 0)}</h3>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[100px]">
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 rounded-[1.25rem] md:rounded-[2rem] shadow-sm md:shadow-[0_15px_30px_-10px_rgba(16,185,129,0.4)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_20px_40px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[50px] md:min-h-[100px] gap-3 md:gap-0">
+            <div className="flex items-center md:items-start md:justify-between mb-0 md:mb-1 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform shrink-0">
                 <Clock size={12} />
               </div>
-              <span className="flex items-center gap-1 text-[6.5px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[7.5px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Pending</p>
+                <h3 className="text-sm font-bold tracking-tight text-white mt-0.5">{formatCurrency(expenseStats?.pending || 0)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[6.5px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 <Clock size={8} /> AWAITING
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Pending</p>
- <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.pending || 0)}</h3>
+              <h3 className="text-base font-bold tracking-tight text-white mt-1">{formatCurrency(expenseStats?.pending || 0)}</h3>
             </div>
           </div>
 
-          <div className="p-3 rounded-[2rem] shadow-[0_15px_30px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[100px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
-            <div className="flex justify-between items-start mb-1">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+          <div className="p-3 rounded-[1.25rem] md:rounded-[2rem] shadow-sm md:shadow-[0_15px_30px_-10px_rgba(197,160,89,0.5)] flex flex-row md:flex-col justify-between items-center md:items-stretch group hover:scale-[1.02] hover:shadow-md md:hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[50px] md:min-h-[100px] gap-3 md:gap-0" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+            <div className="flex items-center md:items-start md:justify-between mb-0 md:mb-1 w-full md:w-auto gap-3 md:gap-0">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform shrink-0">
                 <XCircle size={12} />
               </div>
-              <span className="flex items-center gap-1 text-[6.5px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <div className="flex-1 md:hidden">
+                <p className="text-[7.5px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Rejected</p>
+                <h3 className="text-sm font-bold tracking-tight text-amber-950 mt-0.5">{formatCurrency(expenseStats?.rejected || 0)}</h3>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 text-[6.5px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 <XCircle size={8} /> DECLINED
               </span>
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Rejected</p>
- <h3 className="text-base font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(expenseStats?.rejected || 0)}</h3>
+              <h3 className="text-base font-bold tracking-tight text-amber-950 mt-1">{formatCurrency(expenseStats?.rejected || 0)}</h3>
             </div>
           </div>
         </div>
@@ -267,7 +291,7 @@ export const Dashboard: React.FC = () => {
               <h3 className="font-black text-[10px] text-slate-800 dark:text-slate-100 uppercase tracking-widest">Internal Forecast</h3>
               <p className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Revenue Trend</p>
             </div>
-            <select className="text-[9px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-600 dark:text-slate-300 outline-none uppercase">
+            <select className="text-[9px] font-black bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-600 dark:text-slate-300 outline-none uppercase appearance-none">
               <option>Last 7 Days</option>
             </select>
           </div>

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, X,
-    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare
+    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -396,57 +396,103 @@ export const SupplierPOModule: React.FC = () => {
     );
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, isRoundOff: false, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.', freightAmount: 0, freightTaxRate: 18, selectedBank: bankDetailsList.find(b => b.isDefault) || undefined }); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New Procurement</button>
-            </div>
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-hidden p-0 md:p-2 bg-slate-50/50">
+            {/* Unified Green Gradient Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <History size={20} className="hidden xl:block" />
+                            <History size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Supplier PO Registry</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'SupplierPO').length} Total Orders</p>
+                        </div>
+                    </div>
 
-            {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30">
-                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Procurement History</h3>
-                        <div className="flex items-center gap-2">
-                            <select 
-                                value={filingFilter}
-                                onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-1.5 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
-                            >
-                                <option value="All">All Filing</option>
-                                <option value="Filed">Filed</option>
-                                <option value="Not Filed">Not Filed</option>
-                                <option value="Not Updated">Not Updated</option>
-                            </select>
-                            <div className="relative w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <ShoppingCart size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Procurement Value</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                ₹{invoices
+                                    .filter(i => i.documentType === 'SupplierPO')
+                                    .reduce((sum, i) => sum + (i.grandTotal || 0), 0)
+                                    .toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Actions & Search */}
+                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    {/* Search & Filters */}
+                    {viewState === 'history' && (
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto flex-1 group">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <select 
+                                    value={filingFilter}
+                                    onChange={(e) => setFilingFilter(e.target.value as any)}
+                                    className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
+                                >
+                                    <option value="All" className="bg-emerald-900">All Filing</option>
+                                    <option value="Filed" className="bg-emerald-900">Filed</option>
+                                    <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
+                                    <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
+                                </select>
+                            </div>
+                            <div className="relative w-full sm:max-w-xs xl:max-w-sm flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-100/50 transition-colors" size={14} />
                                 <input 
                                     type="text" 
                                     placeholder="Search orders..." 
-                                    className="w-full pl-9 pr-10 py-1.5 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
                                     value={poSearch}
                                     onChange={(e) => setPoSearch(e.target.value.toUpperCase())}
+                                    className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 pl-9 pr-10 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
                                 />
                                 {poSearch && (
                                     <button 
                                         onClick={() => setPoSearch('')}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-100/50 hover:text-white transition-colors"
                                     >
                                         <X size={12} />
                                     </button>
                                 )}
                             </div>
                         </div>
+                    )}
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <History size={16} /> Registry
+                        </button>
+                        <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderTab('form'); setOrder({ date: new Date().toISOString().split('T')[0], cpoDate: new Date().toISOString().split('T')[0], items: [], status: 'Pending', documentType: 'SupplierPO', bankDetails: '33APGPS4675G2ZL', deliveryAddress: DEFAULT_DELIVERY_ADDRESS, advanceAmount: 0, isRoundOff: false, discount: 0, deliveryTime: 'Immediate', specialNote: '', paymentTerms: 'Terms: 100% against delivery or as agreed.', freightAmount: 0, freightTaxRate: 18, selectedBank: bankDetailsList.find(b => b.isDefault) || undefined }); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <PenTool size={16} /> New Procurement
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {viewState === 'history' ? (
+                <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto">Procurement History</h3>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-4 py-2 font-inter">PO #</th>
+                                    <th className="px-4 py-2 font-inter">PO / Date</th>
                                     <th className="px-4 py-2">Vendor</th>
-                                    <th className="px-4 py-2">Author</th>
-                                    <th className="px-4 py-2 text-right">Grand Total</th>
-                                    <th className="px-4 py-2 text-center">Filed Status</th>
-                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 hidden md:table-cell">Author</th>
+                                    <th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -469,15 +515,18 @@ export const SupplierPOModule: React.FC = () => {
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
-                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
+                                        <td className="px-4 py-3">
+                                            <div className="font-black text-slate-800 font-inter tracking-widest">{inv.invoiceNumber}</div>
+                                            <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{inv.date || '—'}</div>
+                                        </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-4 py-2">
+                                        <td className="px-4 py-2 hidden md:table-cell">
                                             <div title={inv.createdBy || 'System'} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
                                                 filedStatus={inv.filedStatus} 
@@ -488,7 +537,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
@@ -577,7 +626,7 @@ export const SupplierPOModule: React.FC = () => {
                                                     </FormRow>
                                                 </div>
                                                 <FormRow label="Select Bank">
-                                                    <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer"
+                                                    <select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer appearance-none"
                                                         value={order.selectedBank?.id || ''}
                                                         onChange={e => {
                                                             const selected = bankDetailsList.find(b => b.id === e.target.value);

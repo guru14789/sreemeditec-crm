@@ -264,7 +264,7 @@ export const PublicServiceForm: React.FC = () => {
                   <div>
                     <label className={labelClass}>Service Category</label>
                     <div className="relative">
-                      <select className={`${inputClass} appearance-none pr-10`} value={form.serviceCategory} onChange={e => handleChange('serviceCategory', e.target.value)}>
+                      <select className={`${inputClass} pr-10`} value={form.serviceCategory} onChange={e => handleChange('serviceCategory', e.target.value)}>
                         <option value="">Select category...</option>
                         {SERVICE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                       </select>
@@ -277,7 +277,7 @@ export const PublicServiceForm: React.FC = () => {
                     <label className={labelClass}>Priority</label>
                     <div className="relative">
                       <ChevronDown size={15} className={inputIconClass} />
-                      <select className={`${inputClass} appearance-none pr-10`} value={form.priority} onChange={e => handleChange('priority', e.target.value)}>
+                      <select className={`${inputClass} pr-10`} value={form.priority} onChange={e => handleChange('priority', e.target.value)}>
                         {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                       </select>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DeliveryChallan, StockMovement } from '../types';
+import { DeliveryChallan, StockMovement, TabView } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
@@ -27,6 +27,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 
 export const DeliveryChallanModule: React.FC = () => {
     const { clients, products, deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan, updateProduct, recordStockMovement, addNotification, currentUser, financialYear, companyProfiles, isSystemAdmin, pendingChallanData, setPendingChallanData, showConfirm, previewPDF } = useData();
+    const isAdmin = currentUser?.permissions?.[TabView.DELIVERY] === 'Admin' || isSystemAdmin;
 
     const handleDelete = async (id: string, num: string) => {
         const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Challan ${num}? This action cannot be undone.`);
@@ -195,48 +196,91 @@ export const DeliveryChallanModule: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><History size={16} /> Registry</button>
-                <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><PenTool size={16} /> New Challan</button>
-            </div>
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-hidden p-0 md:p-2 bg-slate-50/50">
+            {/* Unified Green Gradient Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <History size={20} className="hidden xl:block" />
+                            <History size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Delivery Challan Archive</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{deliveryChallans.length} Challans Filed</p>
+                        </div>
+                    </div>
 
-            {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center bg-slate-50/30">
-                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Delivery Challan Archive</h3>
-                        <div className="flex items-center gap-2">
-                            <select 
-                                value={filingFilter}
-                                onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
-                            >
-                                <option value="All">All Filing</option>
-                                <option value="Filed">Filed</option>
-                                <option value="Not Filed">Not Filed</option>
-                                <option value="Not Updated">Not Updated</option>
-                            </select>
-                            <div className="relative w-full sm:w-64">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Truck size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Dispatches</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                {deliveryChallans.length}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Actions & Search */}
+                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    {/* Search & Filters */}
+                    {viewState === 'history' && (
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto flex-1 group">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <select 
+                                    value={filingFilter}
+                                    onChange={(e) => setFilingFilter(e.target.value as any)}
+                                    className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
+                                >
+                                    <option value="All" className="bg-emerald-900">All Filing</option>
+                                    <option value="Filed" className="bg-emerald-900">Filed</option>
+                                    <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
+                                    <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
+                                </select>
+                            </div>
+                            <div className="relative w-full sm:max-w-xs xl:max-w-sm flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-100/50 transition-colors" size={14} />
                                 <input 
                                     type="text" 
                                     placeholder="Search challans..." 
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase placeholder:normal-case"
+                                    className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 pl-9 pr-4 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase placeholder:normal-case shadow-inner"
                                 />
                             </div>
                         </div>
+                    )}
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <History size={16} /> Registry
+                        </button>
+                        <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <PenTool size={16} /> New Challan
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {viewState === 'history' ? (
+                <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto">Delivery Challan Archive</h3>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-4 py-2 font-inter">Challan #</th>
+                                    <th className="px-4 py-2 font-inter">Challan / Date</th>
                                     <th className="px-4 py-2">Consignee</th>
-                                    <th className="px-4 py-2">Author</th>
-                                    <th className="px-4 py-2 text-center">Filed Status</th>
-                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 hidden md:table-cell">Author</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -259,14 +303,17 @@ export const DeliveryChallanModule: React.FC = () => {
                                     .sort((a, b) => (b.challanNumber || '').localeCompare(a.challanNumber || '', undefined, { numeric: true }))
                                     .map((c: any) => (
                                     <tr key={c.id} onClick={() => { setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
-                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{c.challanNumber}</span></td>
+                                        <td className="px-4 py-3">
+                                            <div className="font-black text-slate-800 font-inter tracking-widest">{c.challanNumber}</div>
+                                            <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{c.date || '—'}</div>
+                                        </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{c.customerName}</td>
-                                        <td className="px-4 py-2">
+                                        <td className="px-4 py-2 hidden md:table-cell">
                                             <div title={c.createdBy || 'System'} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {c.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={c.id}
                                                 filedStatus={c.filedStatus}
@@ -277,7 +324,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{c.status}</span></td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${c.status === 'Dispatched' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{c.status}</span></td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === c.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === c.id ? null : c.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === c.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
@@ -287,7 +334,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(c); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(c.id, c.challanNumber || 'Challan'); setActiveMenuId(null); }} 
                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"
@@ -324,8 +371,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div className="sm:col-span-2 lg:col-span-1">
                                                 <FormRow label="Issuing Entity (Seller)">
-                                                    <select 
-                                                        className="w-full h-[36px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                                    <select className="w-full h-[36px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700 appearance-none"
                                                         value={challan.sellerProfile?.id || ''}
                                                         onChange={e => {
                                                             const selected = companyProfiles.find(p => p.id === e.target.value);
@@ -437,12 +483,14 @@ export const DeliveryChallanModule: React.FC = () => {
                                                                 placeholder="Unit"
                                                             />
                                                         </div>
+                                                        {isAdmin && (
                                                         <button 
                                                             onClick={() => setChallan(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))}
                                                             className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                                         >
                                                             <Trash2 size={16} />
                                                         </button>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
                                                         <div className="flex gap-2">
@@ -496,8 +544,8 @@ export const DeliveryChallanModule: React.FC = () => {
                             </div>
                         )}
                         {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50">
-                                <div className="bg-white w-full max-w-[800px] shadow-2xl p-4 md:p-12 space-y-5 font-sans leading-relaxed text-slate-800 border border-slate-200 overflow-x-auto">
+                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50 print:bg-white print:p-0">
+                                <div className="bg-white w-[210mm] min-h-[297mm] shrink-0 shadow-2xl p-8 md:p-12 space-y-5 font-sans leading-relaxed text-slate-800 border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-8">
                                     <div className="text-center space-y-1">
                                         <h2 className="text-4xl font-playfair font-bold tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>

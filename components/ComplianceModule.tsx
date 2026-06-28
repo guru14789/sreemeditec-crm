@@ -294,34 +294,34 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
   };
 
   return (
-    <div className="h-full flex flex-col gap-6 overflow-hidden p-2">
+    <div className="h-full flex flex-col gap-4 md:gap-6 overflow-hidden p-1 md:p-2">
       {/* Header & Month Picker */}
-      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row justify-between items-center gap-6 p-6 rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 m-0 md:m-3 lg:m-4 p-4 md:p-6 rounded-[1.5rem] md:rounded-[36px] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-        <div className="flex items-center gap-5 relative z-10">
-          <div className="w-14 h-14 bg-emerald-900/60 rounded-full flex items-center justify-center text-emerald-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] transition-transform group-hover:scale-110">
+        <div className="flex items-center gap-3 md:gap-5 relative z-10 w-full md:w-auto">
+          <div className="w-10 h-10 md:w-14 md:h-14 shrink-0 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110">
             <ShieldCheck size={24} />
           </div>
           <div>
-            <h2 className="text-2xl md:text-[28px] font-playfair font-bold tracking-tight text-white uppercase leading-none">Compliance Terminal</h2>
-            <p className="text-[9px] font-extrabold text-emerald-300/80 uppercase tracking-[0.2em] mt-1">Statutory Tax & Regulatory Reporting</p>
+            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Compliance Terminal</h2>
+            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Statutory Tax & Regulatory Reporting</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 bg-emerald-900/40 p-2.5 rounded-[2rem] border border-emerald-700/50 relative z-10 shadow-inner">
-          <Calendar size={16} className="text-emerald-400 ml-2" />
+        <div className="flex items-center w-full md:w-auto justify-center gap-2 bg-gradient-to-r from-[#c5a059] to-[#e5c185] px-4 py-2 md:px-5 md:py-2.5 rounded-[1.5rem] md:rounded-[2rem] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all relative z-10 shrink-0 cursor-pointer relative overflow-hidden">
+          <Calendar size={16} className="text-amber-950 shrink-0" />
           <input 
             type="month" 
-            className="bg-transparent border-none text-xs font-black uppercase outline-none text-white focus:ring-0 cursor-pointer"
+            className="bg-transparent border-none text-xs md:text-sm font-black uppercase outline-none text-amber-950 focus:ring-0 cursor-pointer w-full text-center md:text-left md:w-auto"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row gap-4 md:gap-6 overflow-hidden">
         {/* Navigation Sidebar */}
-        <div className="w-full md:w-64 space-y-2">
+        <div className="w-full md:w-64 flex flex-row md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0 shrink-0 snap-x custom-scrollbar">
           {[
             { id: 'gstr1', label: 'GSTR-1 (Outward)', icon: FileSpreadsheet, desc: 'Sales & Supplies' },
             { id: 'gstr3b', label: 'GSTR-3B (Monthly)', icon: PieChart, desc: 'Summary Return' },
@@ -331,44 +331,44 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`w-full p-6 rounded-[2rem] text-left transition-all border flex items-center gap-4 group ${
+              className={`shrink-0 min-w-[180px] md:min-w-0 md:w-full p-3 md:p-6 rounded-[1rem] md:rounded-[2rem] text-left transition-all border flex items-center gap-3 md:gap-4 group snap-start ${
                 activeTab === tab.id 
                   ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-500/20' 
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-500'
               }`}
             >
-              <div className={`p-2 rounded-[2rem] transition-colors ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600'}`}>
-                <tab.icon size={18} />
+              <div className={`p-2 rounded-[1rem] md:rounded-[2rem] transition-colors shrink-0 ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600'}`}>
+                <tab.icon size={16} className="md:w-[18px] md:h-[18px]" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">{tab.label}</p>
-                <p className={`text-[8px] font-bold uppercase opacity-60 ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`}>{tab.desc}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 truncate">{tab.label}</p>
+                <p className={`text-[8px] font-bold uppercase opacity-60 truncate ${activeTab === tab.id ? 'text-white' : 'text-slate-400'}`}>{tab.desc}</p>
               </div>
             </button>
           ))}
         </div>
 
         {/* Main Report Area */}
-        <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
+        <div className="flex-1 bg-white dark:bg-slate-900 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
           {activeTab === 'gstr1' && (
             <>
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+              <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
                 <div>
                   <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Outward Supplies (GSTR-1)</h3>
                   <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Total {gstr1Data.length} records found for {selectedMonth}</p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
                   <button 
                     onClick={handleExportGSTR1}
-                    className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
+                    className="flex-1 md:flex-none justify-center bg-white border border-slate-200 text-slate-600 px-4 md:px-6 py-2 md:py-2.5 rounded-[1.5rem] md:rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
                   >
                     <Download size={14} /> CSV
                   </button>
                   <button 
                     onClick={handleExportGSTR1JSON}
-                    className="bg-emerald-600 text-white px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                    className="flex-1 md:flex-none justify-center bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-[1.5rem] md:rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
                   >
-                    <Download size={14} /> Portal JSON
+                    <Download size={14} /> JSON
                   </button>
                 </div>
               </div>
@@ -431,16 +431,16 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
           )}
 
           {activeTab === 'gstr3b' && (
-            <div className="flex-1 overflow-auto p-8 space-y-5">
-              <div className="max-w-4xl mx-auto space-y-5">
+            <div className="flex-1 overflow-auto p-4 md:p-8 space-y-4 md:space-y-5">
+              <div className="max-w-4xl mx-auto space-y-4 md:space-y-5">
                 <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">GSTR-3B Self-Assessment</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Consolidated Tax Summary for {selectedMonth}</p>
+                  <h3 className="text-xl md:text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase">GSTR-3B Self-Assessment</h3>
+                  <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Consolidated Tax Summary for {selectedMonth}</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                   {/* Outward Liabilities */}
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-[2rem]"><ArrowRight size={18} /></div>
@@ -474,7 +474,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                   </div>
 
                   {/* ITC Availability */}
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-[2rem]"><IndianRupee size={18} /></div>
@@ -509,9 +509,9 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                 </div>
 
                 {/* Net Liability */}
-                <div className="bg-indigo-600 p-10 rounded-[3rem] text-white shadow-2xl shadow-indigo-500/40 relative overflow-hidden">
+                <div className="bg-indigo-600 p-6 md:p-10 rounded-[1.5rem] md:rounded-[3rem] text-white shadow-2xl shadow-indigo-500/40 relative overflow-hidden">
                    <div className="absolute top-0 right-0 p-8 opacity-10"><CheckCircle2 size={120} /></div>
-                   <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                   <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8">
                      <div className="space-y-2 text-center md:text-left">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Net Tax Payable (Self-Assessment)</h4>
  <p className="text-4xl font-bold tracking-tighter">₹{Math.max(0, gstr3bSummary.sales.tax - gstr3bSummary.itc.tax).toLocaleString('en-IN')}</p>
@@ -519,7 +519,7 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
                           <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest mt-1">Excess ITC of ₹{(gstr3bSummary.itc.tax - gstr3bSummary.sales.tax).toLocaleString('en-IN')} to carry forward</p>
                         )}
                      </div>
-                     <button className="bg-white text-indigo-600 px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all">
+                     <button className="bg-white text-indigo-600 px-6 md:px-10 py-3 md:py-4 rounded-[1.5rem] md:rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-105 transition-all w-full md:w-auto">
                        Submit Data to Portal
                      </button>
                    </div>
@@ -535,14 +535,14 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
 
           {activeTab === 'hsn' && (
             <>
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50">
+              <div className="p-4 md:p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
                 <div>
                   <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">HSN-wise Summary</h3>
                   <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Summary of supplies by HSN / SAC code</p>
                 </div>
                 <button 
                   onClick={handleExportHSN}
-                  className="bg-white border border-slate-200 text-slate-600 px-6 py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 transition-all font-bold"
+                  className="bg-white border border-slate-200 text-slate-600 px-4 md:px-6 py-2 md:py-2.5 rounded-[1.5rem] md:rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-all font-bold w-full md:w-auto"
                 >
                   <Download size={14} /> Export CSV
                 </button>
@@ -588,16 +588,16 @@ export const ComplianceModule: React.FC<ComplianceModuleProps> = ({ userRole }) 
           )}
 
           {activeTab === 'tds' && (
-             <div className="flex-1 overflow-auto p-8 space-y-4">
-                <div className="flex justify-between items-center mb-8">
+             <div className="flex-1 overflow-auto p-4 md:p-8 space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
                   <div>
-                    <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase tracking-tight">Withholding Tax (TDS/TCS) Log</h3>
+                    <h3 className="text-lg md:text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-white uppercase">Withholding Tax (TDS/TCS) Log</h3>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Summary of tax deducted at source for {selectedMonth}</p>
                   </div>
-                  <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-[2rem] flex items-center gap-4">
-                     <div className="text-right">
+                  <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
+                     <div className="text-left md:text-right">
                         <p className="text-[8px] font-black text-amber-600 uppercase">Total TDS Liability</p>
- <p className="text-xl font-bold tracking-tight text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString('en-IN')}</p>
+ <p className="text-lg md:text-xl font-bold tracking-tight text-amber-600">₹{vouchers.filter(v => v.date.startsWith(selectedMonth) && v.narration.toLowerCase().includes('tds')).reduce((sum, v) => sum + v.totalAmount, 0).toLocaleString('en-IN')}</p>
                      </div>
                   </div>
                 </div>

@@ -15,7 +15,8 @@ import {
     limit,
     increment,
     startAfter,
-    runTransaction
+    runTransaction,
+    documentId
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
@@ -399,6 +400,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const previewPDF = (blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob);
         setPdfPreviewUrl({ url, filename });
+        // Track the download/preview in audit logs
+        addLog('System', 'Generated/Viewed Document', `Previewed/Downloaded PDF: ${filename}`);
     };
 
     // Active Notifications state
@@ -439,6 +442,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             category,
             action,
             details,
+            platform: (typeof window !== 'undefined' && ((window as any).Capacitor || window.location.protocol === 'capacitor:')) ? 'App' : 'Web'
         };
         
         const log: LogEntry = { ...baseLog };
@@ -535,32 +539,94 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // This effect watches the `employees` onSnapshot directly and instantly
     // updates currentUser permissions so admin changes reflect with zero delay.
     useEffect(() => {
-        if (!currentUser || !employees.length) return;
-        // Super-admin is hardcoded — never look them up in the registry
-        if (currentUser.id === 'EMP-OWNER') return;
+        if (!employees.length) return;
 
-        const updated = employees.find(e => e.id === currentUser.id);
-        if (!updated) return;
+        setCurrentUser(prev => {
+            if (!prev) return prev;
 
-        const permChanged = JSON.stringify(updated.permissions) !== JSON.stringify(currentUser.permissions);
-        const roleChanged = updated.role !== currentUser.role;
-        const accessRevoked = !updated.isLoginEnabled && currentUser.isLoginEnabled;
-
-        if (permChanged || roleChanged || accessRevoked) {
-            setCurrentUser({ ...updated });
-            if (accessRevoked) {
-                // Force logout if admin disabled the account
-                addLog('Auth', 'Access Revoked', `${updated.name} forcibly signed out by Admin.`);
-                signOut(auth);
+            // Map hardcoded superadmin to their real database employee object if it exists
+            if (prev.id === 'EMP-OWNER') {
+                const realAdmin = employees.find(e => e.email === prev.email);
+                if (realAdmin && realAdmin.id !== 'EMP-OWNER') {
+                    return {
+                        ...realAdmin,
+                        role: 'SYSTEM_ADMIN',
+                        permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
+                    };
+                }
+                return prev;
             }
-        }
-    }, [employees]); // eslint-disable-line react-hooks/exhaustive-deps
-    // Note: intentionally only depends on `employees` to avoid circular updates.
-    // currentUser is read from the latest ref value, not as a dependency.
+
+            const updated = employees.find(e => e.id === prev.id);
+            if (!updated) return prev;
+
+            // Robust permissions equality check
+            const p1 = updated.permissions || {};
+            const p2 = prev.permissions || {};
+            const keys1 = Object.keys(p1);
+            const keys2 = Object.keys(p2);
+            let permChanged = keys1.length !== keys2.length;
+            if (!permChanged) {
+                permChanged = keys1.some(k => p1[k] !== p2[k]);
+            }
+
+            const roleChanged = updated.role !== prev.role;
+            const accessRevoked = !updated.isLoginEnabled && prev.isLoginEnabled;
+
+            if (permChanged || roleChanged || accessRevoked) {
+                if (accessRevoked) {
+                    addLog('Auth', 'Access Revoked', `${updated.name} forcibly signed out by Admin.`);
+                    signOut(auth);
+                }
+                return { ...updated };
+            }
+            return prev;
+        });
+    }, [employees]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
         
+        // Auto-cleanup for completed tasks older than 18 months
+        const cleanupTasks = async () => {
+            const lastCleanup = localStorage.getItem('lastTaskCleanup');
+            const now = Date.now();
+            if (!lastCleanup || now - parseInt(lastCleanup) > 7 * 24 * 60 * 60 * 1000) {
+                try {
+                    const eighteenMonthsAgo = new Date();
+                    eighteenMonthsAgo.setMonth(eighteenMonthsAgo.getMonth() - 18);
+                    const cutoff = eighteenMonthsAgo.getTime();
+
+                    const oldTasksQuery = query(collection(db, "tasks"), where("status", "==", "Done"));
+                    const snap = await getDocs(oldTasksQuery);
+                    
+                    for (const d of snap.docs) {
+                        const data = d.data();
+                        let createdTime = cutoff + 1; 
+                        
+                        if (data.createdAt) {
+                            createdTime = new Date(data.createdAt).getTime();
+                        } else {
+                            const match = d.id.match(/\d{13}/);
+                            if (match) {
+                                createdTime = parseInt(match[0], 10);
+                            } else if (data.dueDate) {
+                                createdTime = new Date(data.dueDate).getTime();
+                            }
+                        }
+
+                        if (createdTime < cutoff) {
+                            deleteDoc(doc(db, "tasks", d.id)).catch(console.error);
+                        }
+                    }
+                    localStorage.setItem('lastTaskCleanup', now.toString());
+                } catch (err) {
+                    console.error("Task cleanup failed:", err);
+                }
+            }
+        };
+        cleanupTasks();
+
         // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
         const loadRegistries = async () => {
             try {
@@ -1846,36 +1912,62 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addLeaveRequest = async (req: LeaveRequest) => {
-        await setDoc(doc(db, "leave_requests", req.id), sanitizeData(req));
-        await addLog('Attendance', 'Leave Applied', `${req.userName} for ${req.startDate}`);
-        addNotification('Leave Applied', 'Your request has been sent for approval.', 'info');
+        setLeaveRequests(prev => [req, ...prev]);
+        try {
+            await setDoc(doc(db, "leave_requests", req.id), sanitizeData(req));
+            await addLog('Attendance', 'Leave Applied', `${req.userName} for ${req.startDate}`);
+            addNotification('Leave Applied', 'Your request has been sent for approval.', 'info');
+        } catch (e) {
+            console.error("Failed to add leave request:", e);
+            setLeaveRequests(prev => prev.filter(r => r.id !== req.id));
+            addNotification('Error', 'Failed to submit leave request.', 'alert');
+        }
     };
 
     const updateLeaveRequest = async (id: string, updates: Partial<LeaveRequest>) => {
         const existing = leaveRequests.find(r => r.id === id);
         if (!existing) return;
         
-        await updateDoc(doc(db, "leave_requests", id), sanitizeData(updates));
-        await addLog('Attendance', 'Leave Status', `${existing.userName} -> ${updates.status}`);
+        // Optimistic update
+        setLeaveRequests(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
 
-        if (updates.status === 'Approved') {
-            // Mark days as OnLeave in Attendance
-            const start = new Date(existing.startDate);
-            const end = new Date(existing.endDate);
-            const curr = new Date(start);
-            while (curr <= end) {
-                const ds = curr.toISOString().split('T')[0];
-                const rid = `${existing.userId}_${ds}`;
-                await setDoc(doc(db, "attendance", rid), sanitizeData({
-                    id: rid, userId: existing.userId, userName: existing.userName,
-                    date: ds, status: 'OnLeave', leaveReason: existing.reason,
-                    checkInTime: null, checkOutTime: null, totalWorkedMs: 0, workMode: 'Office'
-                }), { merge: true });
-                curr.setDate(curr.getDate() + 1);
+        try {
+            await updateDoc(doc(db, "leave_requests", id), sanitizeData(updates));
+            await addLog('Attendance', 'Leave Status', `${existing.userName} -> ${updates.status}`);
+
+            if (updates.status === 'Approved') {
+                // Mark days as OnLeave in Attendance
+                const start = new Date(existing.startDate);
+                const end = new Date(existing.endDate);
+                const curr = new Date(start);
+                while (curr <= end) {
+                    const ds = curr.toISOString().split('T')[0];
+                    const rid = `${existing.userId}_${ds}`;
+                    
+                    const newAtt = {
+                        id: rid, userId: existing.userId, userName: existing.userName,
+                        date: ds, status: 'OnLeave' as const, leaveReason: existing.reason,
+                        checkInTime: null, checkOutTime: null, totalWorkedMs: 0, workMode: 'Office' as const
+                    };
+
+                    setAttendanceRecords(prev => {
+                        const exists = prev.find(a => a.id === rid);
+                        if (exists) return prev.map(a => a.id === rid ? { ...a, ...newAtt } : a);
+                        return [...prev, newAtt];
+                    });
+
+                    await setDoc(doc(db, "attendance", rid), sanitizeData(newAtt), { merge: true });
+                    curr.setDate(curr.getDate() + 1);
+                }
+                addNotification('Leave Approved', `Request for ${existing.userName} cleared.`, 'success');
+            } else if (updates.status === 'Rejected') {
+                addNotification('Leave Rejected', `Request for ${existing.userName} declined.`, 'alert');
             }
-            addNotification('Leave Approved', `Request for ${existing.userName} cleared.`, 'success');
-        } else if (updates.status === 'Rejected') {
-            addNotification('Leave Rejected', `Request for ${existing.userName} declined.`, 'alert');
+        } catch (e) {
+            console.error("Failed to update leave request:", e);
+            // Revert on failure
+            setLeaveRequests(prev => prev.map(r => r.id === id ? existing : r));
+            addNotification('Error', 'Failed to process leave request.', 'alert');
         }
     };
 
@@ -2849,45 +2941,72 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const fetchAuditLogs = async (isLoadMore: boolean = false) => {
         try {
-            const logsRef = collection(db, "logs");
-            let q;
-            
-            if (isLoadMore && lastLogDoc) {
-                q = query(logsRef, orderBy("timestamp", "desc"), startAfter(lastLogDoc), limit(50));
-            } else {
-                q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
-                setHasMoreLogs(true);
+            // Auto-cleanup process (Deletes logs older than 5 months)
+            if (!isLoadMore) {
+                const fiveMonthsAgo = new Date();
+                fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
+                const cutoffDateStr = fiveMonthsAgo.toISOString().split('T')[0];
+                
+                try {
+                    const oldLogsQuery = query(collection(db, "system_audit"), where(documentId(), "<", cutoffDateStr));
+                    const snapshot = await getDocs(oldLogsQuery);
+                    snapshot.forEach(d => {
+                        deleteDoc(doc(db, "system_audit", d.id)).catch(console.error);
+                    });
+                } catch (e) {
+                    console.error("Failed to cleanup old logs", e);
+                }
             }
 
-            const snap = await getDocs(q);
-            let entries = snap.docs.map(d => ({ ...d.data(), id: d.id } as LogEntry));
+            let entries: LogEntry[] = [];
+            let startDateStr = new Date().toISOString().split('T')[0];
             
-            // If new collection is empty or has very few items, try falling back to legacy daily docs
-            if (entries.length < 50) {
-                // Fallback: Check last 7 days of daily audit logs
-                let legacyEntries: LogEntry[] = [];
-                for (let i = 0; i < 7; i++) {
-                    const date = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-                    const legacySnap = await getDoc(doc(db, "system_audit", date));
-                    if (legacySnap.exists()) {
-                        const dayEntries = legacySnap.data().entries as LogEntry[];
-                        legacyEntries = [...legacyEntries, ...dayEntries];
-                    }
-                    if (legacyEntries.length + entries.length >= 15) break;
+            if (isLoadMore && lastLogDoc && typeof lastLogDoc === 'string') {
+                const dateObj = new Date(lastLogDoc);
+                dateObj.setDate(dateObj.getDate() - 1);
+                startDateStr = dateObj.toISOString().split('T')[0];
+            } else if (!isLoadMore) {
+                // If not loading more, we'll start fresh from today.
+            }
+
+            let currentDateObj = new Date(startDateStr);
+            
+            // Fetch backwards up to 14 days to find logs to minimize read count per batch.
+            for (let i = 0; i < 14; i++) {
+                const date = currentDateObj.toISOString().split('T')[0];
+                const daySnap = await getDoc(doc(db, "system_audit", date));
+                if (daySnap.exists()) {
+                    const dayEntries = daySnap.data().entries as LogEntry[];
+                    entries = [...entries, ...dayEntries];
                 }
                 
-                // Merge and filter duplicates (logs might exist in both during transition)
-                const combined = [...entries, ...legacyEntries];
-                const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
-                entries = unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 15);
-                setHasMoreLogs(false); // Legacy fallback only fetches one set for now
+                // Keep moving date backwards for the next potential iteration or for setting lastLogDoc
+                currentDateObj.setDate(currentDateObj.getDate() - 1);
+                
+                // Break early if we've accumulated at least 50 logs to show in this page load
+                if (entries.length >= 50) {
+                    break;
+                }
+            }
+            
+            entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            
+            // Use lastLogDoc to store the last searched date as a string cursor.
+            const nextCursorStr = currentDateObj.toISOString().split('T')[0];
+            setLastLogDoc(nextCursorStr);
+            
+            if (currentDateObj.getFullYear() < 2024) {
+                setHasMoreLogs(false);
             } else {
-                setLastLogDoc(snap.docs[snap.docs.length - 1]);
-                if (snap.docs.length < 15) setHasMoreLogs(false);
+                setHasMoreLogs(true);
             }
             
             if (isLoadMore) {
-                setLogs(prev => [...prev, ...entries]);
+                setLogs(prev => {
+                    const combined = [...prev, ...entries];
+                    const unique = Array.from(new Map(combined.map(l => [l.id, l])).values());
+                    return unique.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+                });
             } else {
                 setLogs(entries);
             }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import JSZip from 'jszip';
 import { db } from './firebase';
 import { collection, getDocs, query, updateDoc, doc } from 'firebase/firestore';
@@ -38,6 +38,7 @@ import { ArchiveModule } from './components/ArchiveModule';
 import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
 import { ServiceTaskModule } from './components/ServiceTaskModule';
+import { BarcodeCreatorModule } from './components/BarcodeCreatorModule';
 import { PublicServiceForm } from './components/PublicServiceForm';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
@@ -55,7 +56,7 @@ const NavItem: React.FC<{
 }> = ({ tab, icon: Icon, label, activeTab, isSidebarOpen, onSelect }) => {
   const isActive = activeTab === tab;
   return (
-    <button
+    <button type="button"
       onClick={() => onSelect(tab)}
       title={!isSidebarOpen ? label : undefined}
       className={`group w-full flex items-center transition-all relative mb-1 ${isActive
@@ -63,7 +64,7 @@ const NavItem: React.FC<{
         : 'text-emerald-50/50 hover:text-white hover:bg-white/5'
         } ${isSidebarOpen ? 'px-3 py-2 md:py-2.5 rounded-xl md:rounded-2xl gap-2.5 md:gap-3' : 'justify-center p-2 rounded-xl w-12 h-12 mx-auto'}`}
     >
-      <Icon size={isSidebarOpen ? 16 : 20} className={`shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+      <Icon size={isSidebarOpen ? 16 : 20} className={`shrink-0 transition-all ${isActive ? 'scale-110 !stroke-white' : 'group-hover:scale-110 stroke-[url(#gold-grad)] group-hover:!stroke-white'}`} />
       {isSidebarOpen && <span className="truncate flex-1 text-left font-playfair font-bold tracking-wide text-xs md:text-sm">{label}</span>}
     </button>
   );
@@ -108,6 +109,257 @@ const HeaderStatCard = ({ label, value, icon: Icon, colorClass, subText }: { lab
     </div>
 );
 
+
+type AppUIState = {
+  isSidebarOpen: boolean;
+  isCommandPaletteOpen: boolean;
+  taskReadOnlyUnlocked: boolean;
+  isEditingPrize: boolean;
+  tempPrize: string;
+};
+
+type AppUIAction =
+  | { type: 'SET_SIDEBAR_OPEN'; payload: boolean }
+  | { type: 'TOGGLE_SIDEBAR' }
+  | { type: 'SET_COMMAND_PALETTE_OPEN'; payload: boolean }
+  | { type: 'SET_TASK_READONLY_UNLOCKED'; payload: boolean }
+  | { type: 'SET_EDITING_PRIZE'; payload: boolean }
+  | { type: 'SET_TEMP_PRIZE'; payload: string };
+
+const uiReducer = (state: AppUIState, action: AppUIAction): AppUIState => {
+  switch (action.type) {
+    case 'SET_SIDEBAR_OPEN': return { ...state, isSidebarOpen: action.payload };
+    case 'TOGGLE_SIDEBAR': return { ...state, isSidebarOpen: !state.isSidebarOpen };
+    case 'SET_COMMAND_PALETTE_OPEN': return { ...state, isCommandPaletteOpen: action.payload };
+    case 'SET_TASK_READONLY_UNLOCKED': return { ...state, taskReadOnlyUnlocked: action.payload };
+    case 'SET_EDITING_PRIZE': return { ...state, isEditingPrize: action.payload };
+    case 'SET_TEMP_PRIZE': return { ...state, tempPrize: action.payload };
+    default: return state;
+  }
+};
+
+
+const AppContent: React.FC<{
+  activeTab: TabView;
+  setActiveTab: (tab: TabView) => void;
+  hasAccess: (tab: TabView) => boolean;
+  isCheckedInToday: boolean;
+  userRole: 'Admin' | 'Employee';
+  tabRole: 'Admin' | 'Employee';
+  taskReadOnlyUnlocked: boolean;
+  setTaskReadOnlyUnlocked: (val: boolean) => void;
+  currentUserName: string;
+  tasks: any[];
+  financialYear: string;
+  updateFinancialYear: (val: string) => void;
+  handleFullBackup: () => void;
+  handleMigratePermissions: () => void;
+  isSuperAdmin: boolean;
+  currentUser: any;
+}> = (props) => {
+  const {
+    activeTab, setActiveTab, hasAccess, isCheckedInToday, userRole, tabRole,
+    taskReadOnlyUnlocked, setTaskReadOnlyUnlocked, currentUserName, tasks,
+    financialYear, updateFinancialYear, handleFullBackup, handleMigratePermissions,
+    isSuperAdmin, currentUser
+  } = props;
+  
+  const { showAlert, showConfirm, showPrompt } = useData();
+
+      const render = () => {
+    if (!hasAccess(activeTab)) return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-full flex items-center justify-center text-rose-500 mb-4">
+          <ShieldCheck size={40} />
+        </div>
+        <h3 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Module Locked</h3>
+        <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[280px] text-center">Contact HR for access.</p>
+        <button type="button" onClick={() => setActiveTab(TabView.DASHBOARD)} className="mt-6 px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl text-sm font-bold">Go to Dashboard</button>
+      </div>
+    );
+
+    // GATING: Lock tasks and dashboard if not checked in (except for Admin)
+    const isTaskOrDashboard = activeTab === TabView.TASKS || activeTab === TabView.DASHBOARD;
+    const isTaskReadOnlyBypass = activeTab === TabView.TASKS && taskReadOnlyUnlocked;
+    if (isTaskOrDashboard && !isCheckedInToday && userRole !== 'Admin' && !isTaskReadOnlyBypass) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
+                <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse border-4 border-amber-200">
+                    <Lock size={48} />
+                </div>
+                <h3 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Day Not Started</h3>
+                <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm max-w-[320px] text-center font-medium">Tasks are synchronized only after a successful check-in. Please log your attendance to continue.</p>
+                <div className="flex gap-4 mt-8">
+                    <button type="button" onClick={() => setActiveTab(TabView.ATTENDANCE)} className="px-8 py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all active:scale-95">Go to Check-In</button>
+                    {activeTab === TabView.TASKS && (
+                        <button type="button" onClick={() => setTaskReadOnlyUnlocked(true)} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all active:scale-95">View Tasks (Read-Only)</button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    switch (activeTab) {
+      case TabView.DASHBOARD:
+        return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+      case TabView.LEADS: return <LeadsModule />;
+      case TabView.QUOTES: return <QuotationModule />;
+      case TabView.PO_BUILDER: return <PurchaseOrderModule />;
+      case TabView.SUPPLIER_PO: return <SupplierPOModule />;
+      case TabView.SERVICE_ORDERS: return <ServiceOrderModule />;
+      case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
+      case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
+      case TabView.INVENTORY: return <InventoryModule />;
+      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} userRole={tabRole} />;
+      case TabView.TASKS: return <TaskModule userRole={tabRole} readOnly={taskReadOnlyUnlocked && !isCheckedInToday && userRole !== 'Admin'} />;
+      case TabView.HR: return <HRModule />;
+      case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
+      case TabView.CLIENTS: return <ClientModule />;
+      case TabView.VENDORS: return <VendorModule />;
+      case TabView.DELIVERY: return <DeliveryChallanModule />;
+      case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
+      case TabView.REPORTS: return <ReportsModule />;
+      case TabView.LOGS: return <LogsModule />;
+      case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
+      case TabView.PERFORMANCE: return <PerformanceModule />;
+      case TabView.SERVICE_TASK: return <ServiceTaskModule userRole={tabRole} />;
+      case TabView.BILLING: return <BillingModule variant="billing" />;
+      case TabView.CATALOG: return <CatalogModule />;
+      case TabView.BARCODE_CREATOR: return <BarcodeCreatorModule />;
+      case TabView.PAYROLL: return <PayrollModule />;
+      case TabView.ARCHIVE: return <ArchiveModule />;
+      case TabView.ACCOUNTING: return <AccountingModule userRole={tabRole} onClose={() => setActiveTab(TabView.DASHBOARD)} />;
+      case TabView.COMPLIANCE: return <ComplianceModule userRole={tabRole} />;
+      case TabView.CONFIG: return (
+        <SystemConfigModule
+          financialYear={financialYear}
+          updateFinancialYear={updateFinancialYear}
+          handleFullBackup={handleFullBackup}
+          handleMigratePermissions={handleMigratePermissions}
+          isSuperAdmin={isSuperAdmin}
+          userRole={tabRole}
+          currentUser={currentUser}
+          showAlert={showAlert}
+          showConfirm={showConfirm}
+          showPrompt={showPrompt}
+          setActiveTab={setActiveTab}
+        />
+      );
+      default: return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+    }
+  };
+
+  return render();
+};
+
+
+const AppSidebar: React.FC<{
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (val: boolean) => void;
+  setIsCommandPaletteOpen: (val: boolean) => void;
+  sidebarSections: any[];
+  activeTab: TabView;
+  setActiveTab: (tab: TabView) => void;
+  hasAccess: (tab: TabView) => boolean;
+  handleSignOut: (e: any) => void;
+}> = ({ isSidebarOpen, setIsSidebarOpen, setIsCommandPaletteOpen, sidebarSections, activeTab, setActiveTab, hasAccess, handleSignOut }) => {
+  return (
+    <aside className={`print:hidden bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 
+            ${isSidebarOpen
+              ? 'w-64 translate-x-0'
+              : 'w-20 -translate-x-full lg:translate-x-0'} 
+            fixed lg:relative h-full shadow-2xl`}>
+            
+            <svg width="0" height="0" className="absolute pointer-events-none">
+              <defs>
+                <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop stopColor="#b8944f" offset="0%" />
+                  <stop stopColor="#d0ad74" offset="100%" />
+                </linearGradient>
+              </defs>
+            </svg>
+    
+            {/* Branding Header */}
+            <div className={`p-4 md:p-5 flex items-center shrink-0 bg-black/10 pt-[max(env(safe-area-inset-top,24px),24px)] md:pt-[max(env(safe-area-inset-top,20px),20px)] min-h-[4.5rem] ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
+              {isSidebarOpen ? (
+                <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
+                  <span className="flex items-center gap-2">
+                    <img src="/images/sreemeditec-logo.png" alt="Logo" className="h-6 md:h-7 w-auto object-contain" />
+                    <span className="font-playfair font-black text-white text-xl md:text-2xl tracking-tight leading-none">Sreemeditec</span>
+                  </span>
+                  <span className="text-[8px] font-bold text-emerald-400/60 uppercase tracking-[0.3em] ml-0.5 mt-1">Enterprise</span>
+                </div>
+              ) : null}
+              <button type="button" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all transform active:scale-90"><Menu size={24} /></button>
+            </div>
+    
+            {/* Global Ctrl+K Search Pill */}
+            <div className="px-4 mb-2 shrink-0">
+              <button type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className={`w-full flex items-center justify-between bg-black/20 hover:bg-black/35 text-emerald-50/55 hover:text-white border border-white/5 hover:border-white/10 rounded-xl transition-all ${
+                  isSidebarOpen ? 'px-3.5 py-2' : 'p-2 justify-center'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Search size={14} className="shrink-0 text-emerald-400" />
+                  {isSidebarOpen && <span className="text-xs font-semibold">Search...</span>}
+                </div>
+                {isSidebarOpen && (
+                  <span className="text-[9px] font-black opacity-40 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0">⌘K</span>
+                )}
+              </button>
+            </div>
+    
+            {/* Scrollable Navigation Area */}
+            <div className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
+              {sidebarSections.map((section, idx) => {
+                const accessibleItems = section.items.filter(item => hasAccess(item.tab));
+                if (accessibleItems.length === 0) return null;
+                return (
+                  <React.Fragment key={idx}>
+                    <SectionHeading isSidebarOpen={isSidebarOpen}>{section.title}</SectionHeading>
+                    {accessibleItems.map((item, itemIdx) => (
+                      <NavItem
+                        key={itemIdx}
+                        tab={item.tab}
+                        icon={item.icon}
+                        label={item.label}
+                        activeTab={activeTab}
+                        isSidebarOpen={isSidebarOpen}
+                        onSelect={(t) => {
+                          setActiveTab(t);
+                          if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                        }}
+                      />
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+    
+            {/* Session Controls */}
+            <div className={`p-4 pb-safe border-t border-white/5 shrink-0 bg-black/10 relative z-[100] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
+              <button
+                onClick={handleSignOut}
+                type="button"
+                className={`group w-full flex items-center transition-all cursor-pointer pointer-events-auto relative active:scale-95 ${isSidebarOpen ? 'px-4 py-3 rounded-[1.25rem] gap-4 bg-rose-500/10 hover:bg-gradient-to-r hover:from-rose-500/20 hover:to-rose-600/10 border border-rose-500/20 hover:border-rose-500/40 shadow-[0_0_20px_-10px_rgba(244,63,94,0.2)] hover:shadow-[0_0_30px_-5px_rgba(244,63,94,0.4)]' : 'justify-center p-3 rounded-[1.25rem] w-14 h-14 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20'}`}
+              >
+                <div className={`flex items-center justify-center bg-rose-500/20 text-rose-400 group-hover:text-rose-200 group-hover:bg-rose-500/40 transition-colors shadow-inner shadow-rose-950/50 ${isSidebarOpen ? 'w-10 h-10 rounded-xl' : 'w-full h-full rounded-[1rem]'}`}>
+                  <LogOut size={isSidebarOpen ? 16 : 20} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />
+                </div>
+                {isSidebarOpen && (
+                  <div className="flex-1 min-w-0 pointer-events-none text-left">
+                    <span className="block truncate font-black tracking-[0.2em] text-[8px] uppercase text-rose-300/60 leading-none mb-1">Session Control</span>
+                    <span className="block truncate font-bold tracking-tight text-rose-100 group-hover:text-white text-sm">Secure Sign Out</span>
+                  </div>
+                )}
+              </button>
+            </div>
+          </aside>
+  );
+};
+
 export const App: React.FC = () => {
     const { 
         isAuthenticated, currentUser, logout, tasks, products, expenses, prizePool, updatePrizePool, 
@@ -117,8 +369,21 @@ export const App: React.FC = () => {
         showAlert, showConfirm, showPrompt
     } = useData();
 
-    const [isEditingPrize, setIsEditingPrize] = useState(false);
-    const [tempPrize, setTempPrize] = useState(prizePool.toString());
+    const [uiState, dispatchUI] = useReducer(uiReducer, {
+        isSidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+        isCommandPaletteOpen: false,
+        taskReadOnlyUnlocked: false,
+        isEditingPrize: false,
+        tempPrize: prizePool.toString()
+    });
+    const { isSidebarOpen, isCommandPaletteOpen, taskReadOnlyUnlocked, isEditingPrize, tempPrize } = uiState;
+
+    // Setters bound to dispatch
+    const setIsSidebarOpen = (val: boolean) => dispatchUI({ type: 'SET_SIDEBAR_OPEN', payload: val });
+    const setIsCommandPaletteOpen = (val: boolean) => dispatchUI({ type: 'SET_COMMAND_PALETTE_OPEN', payload: val });
+    const setTaskReadOnlyUnlocked = (val: boolean) => dispatchUI({ type: 'SET_TASK_READONLY_UNLOCKED', payload: val });
+    const setIsEditingPrize = (val: boolean) => dispatchUI({ type: 'SET_EDITING_PRIZE', payload: val });
+    const setTempPrize = (val: string) => dispatchUI({ type: 'SET_TEMP_PRIZE', payload: val });
 
     // Anti-Gravity Safety Effect: Auto-normalize currentUser permissions if they arrive as Array
     useEffect(() => {
@@ -128,10 +393,6 @@ export const App: React.FC = () => {
             updateEmployee(currentUser.id, { permissions: normalized });
         }
     }, [currentUser?.permissions, currentUser?.id]);
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [taskReadOnlyUnlocked, setTaskReadOnlyUnlocked] = useState(false);
-    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -400,6 +661,7 @@ export const App: React.FC = () => {
         { tab: TabView.CLIENTS, icon: Contact, label: 'Client Database' },
         { tab: TabView.VENDORS, icon: Truck, label: 'Vendor Database' },
         { tab: TabView.INVENTORY, icon: Package, label: 'Inventory' },
+        { tab: TabView.BARCODE_CREATOR, icon: QrCode, label: 'Barcode Creator' },
         { tab: TabView.CATALOG, icon: ShoppingBag, label: 'Product Catalog' },
       ]
     },
@@ -447,87 +709,7 @@ export const App: React.FC = () => {
     const isCheckedInToday = attendanceRecords.some(r => r.userId === currentUser?.id && r.date === todayStr && (r.status === 'CheckedIn' || r.status === 'Completed'));
 
 
-    const renderContent = () => {
-    if (!hasAccess(activeTab)) return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 rounded-full flex items-center justify-center text-rose-500 mb-4">
-          <ShieldCheck size={40} />
-        </div>
-        <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100">Module Locked</h3>
-        <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-[280px] text-center">Contact HR for access.</p>
-        <button onClick={() => setActiveTab(TabView.DASHBOARD)} className="mt-6 px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-xl text-sm font-bold">Go to Dashboard</button>
-      </div>
-    );
 
-    // GATING: Lock tasks and dashboard if not checked in (except for Admin)
-    const isTaskOrDashboard = activeTab === TabView.TASKS || activeTab === TabView.DASHBOARD;
-    const isTaskReadOnlyBypass = activeTab === TabView.TASKS && taskReadOnlyUnlocked;
-    if (isTaskOrDashboard && !isCheckedInToday && userRole !== 'Admin' && !isTaskReadOnlyBypass) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900">
-                <div className="w-24 h-24 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse border-4 border-amber-200">
-                    <Lock size={48} />
-                </div>
-                <h3 className="text-2xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tighter">Day Not Started</h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-3 text-sm max-w-[320px] text-center font-medium">Tasks are synchronized only after a successful check-in. Please log your attendance to continue.</p>
-                <div className="flex gap-4 mt-8">
-                    <button onClick={() => setActiveTab(TabView.ATTENDANCE)} className="px-8 py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-medical-500/20 transition-all active:scale-95">Go to Check-In</button>
-                    {activeTab === TabView.TASKS && (
-                        <button onClick={() => setTaskReadOnlyUnlocked(true)} className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-slate-700 shadow-lg transition-all active:scale-95">View Tasks (Read-Only)</button>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
-    switch (activeTab) {
-      case TabView.DASHBOARD:
-        return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
-      case TabView.LEADS: return <LeadsModule />;
-      case TabView.QUOTES: return <QuotationModule />;
-      case TabView.PO_BUILDER: return <PurchaseOrderModule />;
-      case TabView.SUPPLIER_PO: return <SupplierPOModule />;
-      case TabView.SERVICE_ORDERS: return <ServiceOrderModule />;
-      case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
-      case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
-      case TabView.INVENTORY: return <InventoryModule />;
-      case TabView.ATTENDANCE: return <AttendanceModule tasks={tasks} userRole={tabRole} />;
-      case TabView.TASKS: return <TaskModule userRole={tabRole} readOnly={taskReadOnlyUnlocked && !isCheckedInToday && userRole !== 'Admin'} />;
-      case TabView.HR: return <HRModule />;
-      case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
-      case TabView.CLIENTS: return <ClientModule />;
-      case TabView.VENDORS: return <VendorModule />;
-      case TabView.DELIVERY: return <DeliveryChallanModule />;
-      case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
-      case TabView.REPORTS: return <ReportsModule />;
-      case TabView.LOGS: return <LogsModule />;
-      case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
-      case TabView.PERFORMANCE: return <PerformanceModule />;
-      case TabView.SERVICE_TASK: return <ServiceTaskModule userRole={tabRole} />;
-      case TabView.BILLING: return <BillingModule variant="billing" />;
-      case TabView.CATALOG: return <CatalogModule />;
-      case TabView.PAYROLL: return <PayrollModule />;
-      case TabView.ARCHIVE: return <ArchiveModule />;
-      case TabView.ACCOUNTING: return <AccountingModule userRole={tabRole} />;
-      case TabView.COMPLIANCE: return <ComplianceModule userRole={tabRole} />;
-      case TabView.CONFIG: return (
-        <SystemConfigModule
-          financialYear={financialYear}
-          updateFinancialYear={updateFinancialYear}
-          handleFullBackup={handleFullBackup}
-          handleMigratePermissions={handleMigratePermissions}
-          isSuperAdmin={isSuperAdmin}
-          userRole={tabRole}
-          currentUser={currentUser}
-          showAlert={showAlert}
-          showConfirm={showConfirm}
-          showPrompt={showPrompt}
-          setActiveTab={setActiveTab}
-        />
-      );
-      default: return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
-    }
-  };
 
   /* Notifications icons removed */
 
@@ -544,108 +726,34 @@ export const App: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      <aside className={`bg-[#01261d] text-slate-100 flex flex-col z-[70] transition-all duration-300 border-r border-white/5 
-        ${isSidebarOpen
-          ? 'w-64 translate-x-0'
-          : 'w-20 -translate-x-full lg:translate-x-0'} 
-        fixed lg:relative h-full shadow-2xl`}>
-
-        {/* Branding Header */}
-        <div className={`p-4 md:p-5 flex items-center shrink-0 bg-black/10 pt-[max(env(safe-area-inset-top,24px),24px)] md:pt-[max(env(safe-area-inset-top,20px),20px)] min-h-[4.5rem] ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
-          {isSidebarOpen ? (
-            <div className="flex flex-col animate-in fade-in slide-in-from-left-4">
-              <span className="flex items-center gap-2">
-                <img src="/logo.png" alt="Logo" className="h-6 md:h-7 w-auto" />
-                <span className="font-playfair font-black text-white text-xl md:text-2xl tracking-tight leading-none">Sreemeditec</span>
-              </span>
-              <span className="text-[8px] font-bold text-emerald-400/60 uppercase tracking-[0.3em] ml-0.5 mt-1">Enterprise</span>
-            </div>
-          ) : null}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1.5 md:p-2 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all transform active:scale-90"><Menu size={24} /></button>
-        </div>
-
-        {/* Global Ctrl+K Search Pill */}
-        <div className="px-4 mb-2 shrink-0">
-          <button 
-            onClick={() => setIsCommandPaletteOpen(true)}
-            className={`w-full flex items-center justify-between bg-black/20 hover:bg-black/35 text-emerald-50/55 hover:text-white border border-white/5 hover:border-white/10 rounded-xl transition-all ${
-              isSidebarOpen ? 'px-3.5 py-2' : 'p-2 justify-center'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Search size={14} className="shrink-0 text-emerald-400" />
-              {isSidebarOpen && <span className="text-xs font-semibold">Search...</span>}
-            </div>
-            {isSidebarOpen && (
-              <span className="text-[9px] font-black opacity-40 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0">⌘K</span>
-            )}
-          </button>
-        </div>
-
-        {/* Scrollable Navigation Area */}
-        <div className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isSidebarOpen ? 'px-4' : 'px-2'}`}>
-          {sidebarSections.map((section, idx) => {
-            const accessibleItems = section.items.filter(item => hasAccess(item.tab));
-            if (accessibleItems.length === 0) return null;
-            return (
-              <React.Fragment key={idx}>
-                <SectionHeading isSidebarOpen={isSidebarOpen}>{section.title}</SectionHeading>
-                {accessibleItems.map((item, itemIdx) => (
-                  <NavItem
-                    key={itemIdx}
-                    tab={item.tab}
-                    icon={item.icon}
-                    label={item.label}
-                    activeTab={activeTab}
-                    isSidebarOpen={isSidebarOpen}
-                    onSelect={(t) => {
-                      setActiveTab(t);
-                      if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                    }}
-                  />
-                ))}
-              </React.Fragment>
-            );
-          })}
-        </div>
-
-        {/* Session Controls */}
-        <div className={`p-4 border-t border-white/5 shrink-0 bg-black/10 relative z-[100] ${!isSidebarOpen && 'flex flex-col items-center'}`}>
-          <button
-            onClick={handleSignOut}
-            type="button"
-            className={`group w-full flex items-center transition-all cursor-pointer pointer-events-auto relative active:scale-95 ${isSidebarOpen ? 'px-4 py-3 rounded-[1.25rem] gap-4 bg-rose-500/10 hover:bg-gradient-to-r hover:from-rose-500/20 hover:to-rose-600/10 border border-rose-500/20 hover:border-rose-500/40 shadow-[0_0_20px_-10px_rgba(244,63,94,0.2)] hover:shadow-[0_0_30px_-5px_rgba(244,63,94,0.4)]' : 'justify-center p-3 rounded-[1.25rem] w-14 h-14 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20'}`}
-          >
-            <div className={`flex items-center justify-center bg-rose-500/20 text-rose-400 group-hover:text-rose-200 group-hover:bg-rose-500/40 transition-colors shadow-inner shadow-rose-950/50 ${isSidebarOpen ? 'w-10 h-10 rounded-xl' : 'w-full h-full rounded-[1rem]'}`}>
-              <LogOut size={isSidebarOpen ? 16 : 20} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />
-            </div>
-            {isSidebarOpen && (
-              <div className="flex-1 min-w-0 pointer-events-none text-left">
-                <span className="block truncate font-black tracking-[0.2em] text-[8px] uppercase text-rose-300/60 leading-none mb-1">Session Control</span>
-                <span className="block truncate font-playfair font-bold tracking-tight text-rose-100 group-hover:text-white text-sm">Secure Sign Out</span>
-              </div>
-            )}
-          </button>
-        </div>
-      </aside>
+      <AppSidebar 
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        setIsCommandPaletteOpen={setIsCommandPaletteOpen}
+        sidebarSections={sidebarSections}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        hasAccess={hasAccess}
+        handleSignOut={handleSignOut}
+      />
 
       <main className={`flex-1 flex flex-col min-w-0 h-full relative bg-[#F3F0E8] ${activeTab === TabView.ACCOUNTING ? 'overflow-hidden' : ''}`}>
-        <header className={`bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 md:px-5 py-2 md:py-3 flex items-center shrink-0 z-50 sticky top-0 shadow-sm transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] min-h-[4rem] md:min-h-[4.5rem] ${activeTab === TabView.ACCOUNTING ? 'hidden' : ''}`}>
+        <header className={`print:hidden bg-white dark:bg-slate-900 lg:bg-transparent lg:dark:bg-transparent border-b border-slate-200 dark:border-slate-800 lg:border-none px-3 md:px-5 py-2 md:py-3 lg:p-0 flex items-center shrink-0 z-50 sticky lg:absolute top-0 lg:top-5 lg:right-5 lg:w-auto shadow-sm lg:shadow-none pointer-events-auto lg:pointer-events-none transition-colors duration-300 pt-[max(env(safe-area-inset-top,32px),32px)] md:pt-[max(env(safe-area-inset-top,16px),16px)] lg:pt-0 min-h-[4rem] md:min-h-[4.5rem] lg:min-h-0 ${activeTab === TabView.ACCOUNTING ? 'hidden' : ''}`}>
           <div className="w-12 lg:hidden">
-            {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
+            {!isSidebarOpen && <button type="button" onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 transition-all"><Menu size={22} /></button>}
           </div>
-          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left min-w-0 px-2">
-            <h2 className="text-base md:text-[20px] font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate">
+          <div className="flex flex-col items-start text-left min-w-0 px-1 sm:px-2 shrink-0 max-w-[100px] sm:max-w-none lg:hidden">
+            <h2 className="text-sm sm:text-base md:text-[20px] font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 tracking-tighter uppercase leading-tight truncate w-full">
               {activeTab.replace(/_/g, ' ')}
             </h2>
-            <div className="flex items-center gap-1.5 md:mt-1">
+            <div className="hidden sm:flex items-center gap-1.5 md:mt-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
               <span className="text-[10px] md:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none whitespace-nowrap">Live Workspace</span>
             </div>
           </div>
           
-          {activeTab === TabView.BILLING && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none">
+          {activeTab === TabView.BILLING && tabRole === 'Admin' && (
+            <div className="flex sm:hidden items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                {(() => {
                  const outstanding = invoices
                     .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status !== 'Cancelled')
@@ -663,8 +771,9 @@ export const App: React.FC = () => {
                 })()}
             </div>
           )}
+
           {activeTab === TabView.INVENTORY && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none">
+            <div className="flex items-center sm:justify-end gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                {/* Valuation Calculations */}
                {(() => {
                  const equipmentCostAll = products.reduce((acc, p) => acc + ((p.stock || 0) * (p.purchasePrice || 0)), 0);
@@ -701,7 +810,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.ATTENDANCE && currentUser && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
+            <div className="flex sm:hidden items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                {(() => {
                  const workMode = (currentUser.department === 'Service' || currentUser.department === 'Sales' || currentUser.department === 'Support') ? 'Field' : (currentUser.department === 'Remote' ? 'Remote' : 'Office');
                  const goal = workMode === 'Field' ? 'Complete Tasks' : '7 Hours Work';
@@ -736,7 +845,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.EXPENSES && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
+            <div className="flex sm:hidden items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                {(() => {
                  return (
                    <>
@@ -768,7 +877,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === TabView.PERFORMANCE && (
-            <div className="flex items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto scrollbar-none max-w-full">
+            <div className="flex sm:hidden items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                <HeaderStatCard 
                   label="My Points" 
                   value={userStats.points.toString()} 
@@ -815,7 +924,7 @@ export const App: React.FC = () => {
                           <div className="flex items-baseline gap-1">
                             <span className="text-xs font-black tracking-tight leading-none">₹{formatIndianNumber(prizePool)}</span>
                             {isSystemAdmin && (
-                              <button onClick={() => { setTempPrize(prizePool.toString()); setIsEditingPrize(true); }} className="p-0.5 hover:bg-white/20 rounded ml-1 transition-colors"><Edit2 size={10} /></button>
+                              <button type="button" onClick={() => { setTempPrize(prizePool.toString()); setIsEditingPrize(true); }} className="p-0.5 hover:bg-white/20 rounded ml-1 transition-colors"><Edit2 size={10} /></button>
                             )}
                           </div>
                         )}
@@ -825,7 +934,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          <div className="flex items-center gap-1 md:gap-3 relative">
+          <div className="flex items-center gap-1 md:gap-3 relative shrink-0 ml-auto lg:pointer-events-auto">
             {/* System Alerts Removed */}
 
             <div onClick={() => setActiveTab(TabView.PROFILE)} className="ml-1 cursor-pointer group"><div className="w-8 h-8 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-xs">{currentUserName.charAt(0)}</div></div>
@@ -833,7 +942,24 @@ export const App: React.FC = () => {
         </header>
 
         <div className={`flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50/40 dark:bg-slate-950 ${activeTab === TabView.ACCOUNTING ? '!p-0' : ''}`}>
-          <div className={`flex-1 flex flex-col min-h-0 w-full animate-in fade-in duration-500 overflow-hidden ${activeTab === TabView.ACCOUNTING ? '!p-0' : 'p-2.5 lg:p-5'}`}>{renderContent()}</div>
+          <div className={`flex-1 flex flex-col min-h-0 w-full animate-in fade-in duration-500 overflow-hidden ${activeTab === TabView.ACCOUNTING ? '!p-0' : 'p-2.5 lg:p-5'}`}><AppContent
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              hasAccess={hasAccess}
+              isCheckedInToday={isCheckedInToday}
+              userRole={userRole}
+              tabRole={tabRole}
+              taskReadOnlyUnlocked={taskReadOnlyUnlocked}
+              setTaskReadOnlyUnlocked={setTaskReadOnlyUnlocked}
+              currentUserName={currentUserName}
+              tasks={tasks}
+              financialYear={financialYear}
+              updateFinancialYear={updateFinancialYear}
+              handleFullBackup={handleFullBackup}
+              handleMigratePermissions={handleMigratePermissions}
+              isSuperAdmin={isSuperAdmin}
+              currentUser={currentUser}
+            /></div>
         </div>
       </main>
       <WinnerPopup />

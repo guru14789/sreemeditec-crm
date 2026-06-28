@@ -182,17 +182,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             const checkOutDate = editCheckOut ? new Date(editCheckOut) : null;
             
             if (!checkInDate && !checkOutDate && editStatus !== 'OnLeave') {
-                alert("Please provide at least a Check-In or Check-Out time.");
+                await showAlert("Please provide at least a Check-In or Check-Out time.", "Validation Error");
                 return;
             }
 
             if (checkInDate && isNaN(checkInDate.getTime())) {
-                alert("Invalid Check-In Date or Time");
+                await showAlert("Invalid Check-In Date or Time", "Validation Error");
                 return;
             }
 
             if (checkOutDate && isNaN(checkOutDate.getTime())) {
-                alert("Invalid Check-Out Date or Time");
+                await showAlert("Invalid Check-Out Date or Time", "Validation Error");
                 return;
             }
 
@@ -207,7 +207,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             } else if (checkInDate && checkOutDate) {
                 diffMs = checkOutDate.getTime() - checkInDate.getTime();
                 if (diffMs < 0) {
-                    alert("Check-out cannot be earlier than Check-in.");
+                    await showAlert("Check-out cannot be earlier than Check-in.", "Validation Error");
                     return;
                 }
                 finalStatus = 'Completed';
@@ -220,12 +220,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 // If only checkout given, we try to use existing checkin if any
                 const existingIn = editingAttendanceRecord.checkInTime ? new Date(editingAttendanceRecord.checkInTime) : null;
                 if (!existingIn) {
-                    alert("Cannot log Check-Out without a Check-In record.");
+                    await showAlert("Cannot log Check-Out without a Check-In record.", "Validation Error");
                     return;
                 }
                 diffMs = checkOutDate.getTime() - existingIn.getTime();
                 if (diffMs < 0) {
-                    alert("Check-out cannot be earlier than Check-in.");
+                    await showAlert("Check-out cannot be earlier than Check-in.", "Validation Error");
                     return;
                 }
                 finalStatus = 'Completed';
@@ -327,7 +327,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         const isSuperAdmin = me.email?.toLowerCase() === 'sreekumar.career@gmail.com';
         
         if (!isCheckedIn && !isWithinWindow && !isSuperAdmin) {
-            alert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact an Admin to log your attendance manually.");
+            await showAlert("Mandatory Check-in window is 9:15 AM - 9:50 AM IST. You have missed this window. Please contact an Admin to log your attendance manually.", "Check-in Window Missed");
             return;
         }
 
@@ -469,11 +469,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 } else if (dayRecord) {
                     if (dayRecord.status === 'OnLeave') {
                         leaveDates.push(`${i} (${dayRecord.leaveReason || 'No Reason'})`);
+                    } else if (dayRecord.workMode === 'Outstation') {
+                        totalDaysPresent++;
+                        totalWorkedMs += (dayRecord.totalWorkedMs || 0);
                     } else {
                         totalDaysPresent++;
                         totalWorkedMs += (dayRecord.totalWorkedMs || 0);
                     }
-                } else {
+                } else if (dateObj.getDay() !== 0 && !isHoliday) {
                     absentDates.push(i.toString());
                 }
             }
@@ -586,6 +589,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     duration = '-';
                     remarks = dayRecord.leaveReason || 'Reason Not Specified';
                     daysOnLeave++;
+                } else if (dayRecord.workMode === 'Outstation') {
+                    status = 'Outstation';
+                    duration = formatDuration(dayRecord.totalWorkedMs || 0);
+                    totalWorkedMs += (dayRecord.totalWorkedMs || 0);
+                    daysPresent++;
+                    remarks = 'Outstation Duty';
                 } else {
                     status = 'Present';
                     duration = formatDuration(dayRecord.totalWorkedMs || 0);
@@ -650,9 +659,53 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     };
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-y-auto p-1 custom-scrollbar">
+        <div className="h-full flex flex-col gap-2 md:gap-4 overflow-y-auto p-0 md:p-1 custom-scrollbar">
+            {/* Header Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <Clock size={20} className="hidden xl:block" />
+                            <Clock size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Check-In / Out</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Mark Daily Attendance And Coordinates</p>
+                        </div>
+                    </div>
 
-            {/* Confirmation Modal */}
+                    <div className="hidden sm:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Activity size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Today's Shift</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                {isLocked ? "Day Locked" : isCheckedIn ? "Active Shift" : "Not Started"}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Actions */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button
+                            onClick={() => {
+                                setCalendarSelectedUser(me || null);
+                                setCalendarViewDate(new Date());
+                                setShowCalendarModal(true);
+                            }}
+                            className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100`}
+                        >
+                            <Calendar size={12} /> My Calendar
+                        </button>
+                    </div>
+                </div>
+            </div>
             {showConfirmModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-300 transform transition-all animate-in fade-in zoom-in duration-300">
@@ -759,16 +812,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 setCalendarViewDate(new Date());
                                 setShowCalendarModal(true);
                             }}
-                            className="flex items-center gap-1.5 text-[8px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-widest transition-colors"
+                            className="hidden md:flex items-center gap-1.5 text-[8px] font-black text-slate-400 hover:text-emerald-600 uppercase tracking-widest transition-colors"
                         >
                             <Calendar size={10} /> My Calendar
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 px-2 md:px-0">
                         {/* Card 1: Today's Shift */}
-                        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+                        <div className="hidden md:flex bg-gradient-to-br from-emerald-950 to-green-900 m-0 md:m-3 lg:m-4 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px]">
                             <div className="flex justify-between items-start mb-2">
-                                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                                <div className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center group-hover:scale-110 transition-transform text-[#c5a059] drop-shadow-md">
                                     <Activity size={15} />
                                 </div>
                                 <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -776,17 +829,17 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 </span>
                             </div>
                             <div>
-                                <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Shift</p>
-                                <h3 className="text-lg font-playfair font-bold tracking-tight text-white mt-1">
+                                <p className="text-[7.5px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Today's Shift</p>
+                                <h3 className="text-base md:text-lg font-playfair font-bold tracking-tight text-white mt-1">
                                     {isLocked ? "Day Locked" : isCheckedIn ? "Active Shift" : "Not Started"}
                                 </h3>
                             </div>
                         </div>
 
                         {/* Card 2: Work Progress */}
-                        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
+                        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 m-0 md:m-3 lg:m-4 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[90px] md:min-h-[120px]">
                             <div className="flex justify-between items-start mb-2">
-                                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
                                     <Timer size={15} />
                                 </div>
                                 <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -797,10 +850,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 </span>
                             </div>
                             <div>
-                                <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">
+                                <p className="text-[7.5px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">
                                     {workMode === 'Field' ? "Tasks Progress" : "Time Logged"}
                                 </p>
-                                <h3 className="text-lg font-playfair font-bold tracking-tight text-white mt-1">
+                                <h3 className="text-base md:text-lg font-playfair font-bold tracking-tight text-white mt-1">
                                     {workMode === 'Field' 
                                         ? `${completedTasksCount}/${totalTasksCount} Tasks` 
                                         : isOfficeHoursComplete ? 'Goal Met' : `${formatDuration(totalWorkedMs)}`}
@@ -846,11 +899,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 <button
                                     onClick={card3Action}
                                     disabled={!card3Action}
-                                    className={`p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between transition-all duration-300 min-h-[120px] text-left relative overflow-hidden ${card3Action ? 'group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] cursor-pointer' : 'opacity-90 cursor-default'}`}
+                                    className={`m-0 md:m-3 lg:m-4 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between transition-all duration-300 min-h-[90px] md:min-h-[120px] text-left relative overflow-hidden ${card3Action ? 'group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] cursor-pointer' : 'opacity-90 cursor-default'}`}
                                     style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}
                                 >
                                     <div className="flex justify-between items-start mb-2">
-                                        <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 transition-transform">
+                                        <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 transition-transform">
                                             {card3Icon}
                                         </div>
                                         <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -858,8 +911,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         </span>
                                     </div>
                                     <div>
-                                        <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">{card3Title}</p>
- <h3 className="text-lg font-bold tracking-tight text-amber-950 mt-1">{card3Value}</h3>
+                                        <p className="text-[7.5px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">{card3Title}</p>
+                                        <h3 className="text-base md:text-lg font-bold tracking-tight text-amber-950 mt-1">{card3Value}</h3>
                                     </div>
                                 </button>
                             );
@@ -869,6 +922,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
 
 
                 {/* Bottom Section: Staff Registry (Attendance Sheet) - Full Width */}
+                {isAdmin && (
                 <div className="w-full bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
                     <div className="p-2 md:p-3 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/25">
                         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
@@ -929,7 +983,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                     </div>
 
                     <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left text-[9.5px] md:text-[10.5px] text-slate-600">
+                        <table className="w-full text-left text-[11px] text-slate-600">
                             <thead className="bg-[#fcfdfd] border-b border-slate-200 sticky top-0 z-10 text-[6.5px] md:text-[7.5px] uppercase font-black tracking-widest text-slate-400">
                                 <tr>
                                     <th className="px-2 md:px-4 py-1.5 md:py-2">Staff Member</th>
@@ -979,7 +1033,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             <td className="px-2 md:px-4 py-1.5 md:py-2 text-right">
                                                 <div className="flex items-center justify-end gap-1 md:gap-1.5">
                                                     <span className={`px-1 py-0.5 rounded-md text-[6.5px] md:text-[7.5px] font-black uppercase border tracking-wider ${getStatusBadge(emp.status, emp.id)}`}>
-                                                        {isHolidayToday ? 'Hol' : rec?.status === 'Completed' ? 'Lock' : rec?.status?.slice(0, 4) || emp.status?.slice(0, 4)}
+                                                        {(() => {
+                                                if (rec) {
+                                                    if (rec.status === 'OnLeave') return 'Leave';
+                                                    if (rec.workMode === 'Outstation') return 'Outstation';
+                                                    if (rec.status === 'Completed' || rec.status === 'CheckedIn') return 'Present';
+                                                }
+                                                if (isHolidayToday) return 'Holiday';
+                                                if (new Date().getDay() === 0) return 'Sunday';
+                                                return 'Absent';
+                                            })()}
                                                     </span>
                                                     {isAdmin && (
                                                         <button 
@@ -1062,6 +1125,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                         </table>
                     </div>
                 </div>
+                )}
             </div>
             {showEditAttendanceModal && editingAttendanceRecord && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
@@ -1108,8 +1172,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Mode</label>
-                                        <select 
-                                            className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500 appearance-none cursor-pointer" 
+                                        <select className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500 cursor-pointer appearance-none" 
                                             value={editWorkMode} 
                                             onChange={e => setEditWorkMode(e.target.value as any)}
                                         >

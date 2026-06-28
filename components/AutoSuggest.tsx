@@ -26,13 +26,17 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (value && showSuggestions) {
-      const results = suggestions.filter(item => {
-        const primary = String(item[filterKey] || '').toLowerCase();
-        const secondary = filterKey === 'hospital' ? String(item.name || '').toLowerCase() : '';
-        return primary.includes(value.toLowerCase()) || secondary.includes(value.toLowerCase());
-      });
-      setFiltered(results.slice(0, 10));
+    if (showSuggestions) {
+      if (!value) {
+        setFiltered(suggestions.slice(0, 50));
+      } else {
+        const results = suggestions.filter(item => {
+          const primary = String(item[filterKey] || '').toLowerCase();
+          const secondary = filterKey === 'hospital' ? String(item.name || '').toLowerCase() : '';
+          return primary.includes(value.toLowerCase()) || secondary.includes(value.toLowerCase());
+        });
+        setFiltered(results.slice(0, 50));
+      }
     } else {
       setFiltered([]);
     }
@@ -62,7 +66,7 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
         placeholder={placeholder}
       />
       {showSuggestions && filtered.length > 0 && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-[2rem] shadow-xl max-h-60 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-[2rem] shadow-xl max-h-48 md:max-h-60 overflow-y-auto py-2 animate-in fade-in slide-in-from-top-1 duration-200 custom-scrollbar">
           {filtered.map((item, index) => (
             <div
               key={index}

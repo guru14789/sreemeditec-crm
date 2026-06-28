@@ -171,7 +171,7 @@ export const SupportModule: React.FC = () => {
                             </div>
                             <div className="flex gap-2">
                                 <div className="relative w-48 sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search cases..." className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-[2rem] text-[11px] font-bold outline-none focus:border-medical-500 transition-all shadow-inner uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
-                                <select className="bg-white border border-slate-300 rounded-[2rem] px-4 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all shadow-inner" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>All</option><option>Open</option><option>In Progress</option><option>Resolved</option></select>
+                                <select className="bg-white border border-slate-300 rounded-[2rem] px-4 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all shadow-inner appearance-none" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>All</option><option>Open</option><option>In Progress</option><option>Resolved</option></select>
                             </div>
                         </div>
 
@@ -256,7 +256,7 @@ export const SupportModule: React.FC = () => {
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Info size={14} className="text-medical-500" />1. Incident Discovery</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="sm:col-span-3"><FormRow label="Incident Subject *"><input type="text" className="w-full h-[36px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5 uppercase" placeholder="BRIEF DESCRIPTION OF THE CORE ISSUE" value={newTicket.subject || ''} onChange={e => setNewTicket({...newTicket, subject: e.target.value.toUpperCase()})} /></FormRow></div>
-                                <FormRow label="Priority Vector"><select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" value={newTicket.priority} onChange={e => setNewTicket({...newTicket, priority: e.target.value as any})}><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></FormRow>
+                                <FormRow label="Priority Vector"><select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={newTicket.priority} onChange={e => setNewTicket({...newTicket, priority: e.target.value as any})}><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select></FormRow>
                             </div>
                         </section>
 
@@ -265,7 +265,7 @@ export const SupportModule: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="sm:col-span-2"><FormRow label="Contact Full Name *"><input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-bold uppercase" placeholder="REPORTER IDENTITY" value={newTicket.customerName || ''} onChange={e => setNewTicket({...newTicket, customerName: e.target.value})} /></FormRow></div>
                                 <div className="sm:col-span-2"><FormRow label="Primary Email Address"><input type="email" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-bold lowercase" placeholder="CONTACT@DOMAIN.COM" value={newTicket.customerEmail || ''} onChange={e => setNewTicket({...newTicket, customerEmail: e.target.value})} /></FormRow></div>
-                                <FormRow label="Inquiry Category"><select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" value={newTicket.category} onChange={e => setNewTicket({...newTicket, category: e.target.value as any})}><option>Technical</option><option>Billing</option><option>Sales</option><option>General</option></select></FormRow>
+                                <FormRow label="Inquiry Category"><select className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={newTicket.category} onChange={e => setNewTicket({...newTicket, category: e.target.value as any})}><option>Technical</option><option>Billing</option><option>Sales</option><option>General</option></select></FormRow>
                             </div>
                         </section>
 

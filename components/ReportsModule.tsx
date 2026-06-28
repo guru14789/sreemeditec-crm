@@ -970,141 +970,160 @@ export const ReportsModule: React.FC = () => {
   // VIEW: MAIN REPORTS DASHBOARD
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="h-full flex flex-col gap-4 overflow-y-auto p-1.5">
+    <div className="h-full flex flex-col gap-4 overflow-y-auto p-0 md:p-1.5">
       <GlobalChartDefs />
 
       {/* Header Toolbar */}
-      <div className="flex flex-col sm:flex-row justify-between gap-3 shrink-0 bg-white p-2 px-3 rounded-[2rem] border border-slate-300 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-gradient-to-br from-medical-600 to-violet-600 rounded-lg text-white shadow-lg shadow-medical-500/20">
-            <FileText size={18} />
-          </div>
-          <div>
-            <h2 className="text-[10px] font-black text-slate-800 uppercase tracking-tight">Analytics & Reports</h2>
-            <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest leading-none">Financial Performance</p>
-          </div>
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 pt-6 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none rounded-b-[1.5rem] md:rounded-[2rem]">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none rounded-b-[1.5rem] md:rounded-[2rem]"></div>
+        
+        {/* Top Row: Title & Stats */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+            <div className="flex items-center gap-3 md:gap-4 group">
+                <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                    <FileText size={20} className="hidden xl:block" />
+                    <FileText size={16} className="xl:hidden" />
+                </div>
+                <div className="flex flex-col">
+                    <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Analytics & Reports</h2>
+                    <p className="text-emerald-100/80 text-[10px] md:text-xs font-semibold leading-relaxed">Financial Performance</p>
+                </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                    <TrendingUp size={16} />
+                </div>
+                <div className="flex flex-col truncate">
+                    <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Revenue</p>
+                    <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                        {formatCurrency(totalRevenue)}
+                    </p>
+                </div>
+            </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Tab Selection */}
-          <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1 mr-1">
-            <button
-              onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
-              className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${reportsTab === 'overview' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
-              className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${reportsTab === 'analytics' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}
-            >
-              Analytics <span className={`${reportsTab === 'analytics' ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-200 text-slate-500'} px-1 rounded-sm text-[7px]`}>BETA</span>
-            </button>
-          </div>
-
-          <div className="relative hidden sm:block">
-            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
-            <select
-              className="pl-7 pr-6 py-1.5 bg-slate-50 border border-slate-300 text-slate-700 text-[10px] font-black uppercase rounded-lg outline-none focus:ring-2 focus:ring-medical-500/20 appearance-none cursor-pointer hover:bg-slate-100 transition-colors"
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-            >
-              <option>Today</option>
-              <option>This Week</option>
-              <option>This Month</option>
-              <option>This Quarter</option>
-              <option>This Year</option>
-            </select>
-          </div>
-          <button
-            onClick={handleExportCSV}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 group shadow-sm"
-          >
-            <Download size={12} className="text-slate-400 group-hover:text-medical-600 transition-colors" />
-            <span className="hidden sm:inline">Export Report</span>
-          </button>
+        {/* Bottom Row: Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+            <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                <button
+                onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
+                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'overview' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                Overview
+                </button>
+                <button
+                onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
+                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'analytics' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                Analytics <span className={`${reportsTab === 'analytics' ? 'bg-amber-950 text-amber-100' : 'bg-emerald-900 text-emerald-300'} px-1 rounded-sm text-[7px]`}>BETA</span>
+                </button>
+            </div>
+            
+            <div className="flex items-center gap-3">
+                <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-200" size={14} />
+                    <select className="pl-9 pr-6 py-2 bg-emerald-900/40 border border-emerald-700/50 text-emerald-100 text-[10px] font-black uppercase rounded-[2rem] outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer hover:bg-emerald-800/50 transition-colors appearance-none"
+                    value={dateRange}
+                    onChange={(e) => setDateRange(e.target.value)}
+                    >
+                    <option>Today</option>
+                    <option>This Week</option>
+                    <option>This Month</option>
+                    <option>This Quarter</option>
+                    <option>This Year</option>
+                    </select>
+                </div>
+                <button
+                    onClick={handleExportCSV}
+                    className="bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 text-amber-950 px-4 py-2 rounded-[2rem] text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 shadow-[0_5px_15px_-3px_rgba(212,175,55,0.4)] hover:shadow-[0_8px_20px_-3px_rgba(212,175,55,0.5)]"
+                >
+                    <Download size={14} className="text-amber-900" />
+                    <span className="hidden sm:inline">Export</span>
+                </button>
+            </div>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 shrink-0">
+      <div className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-3 md:gap-4 shrink-0 pb-2 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
         {/* Card 1: Total Sales */}
-        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[120px]">
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
           <div className="flex justify-between items-start mb-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
-              <DollarSign size={15} />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+              <DollarSign size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
               <TrendingUp size={8} /> +12.5%
             </span>
           </div>
           <div>
-            <p className="text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
-            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
+            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
           </div>
         </div>
 
         {/* Card 2: Net Profit */}
-        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[120px]">
+        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
           <div className="flex justify-between items-start mb-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
-              <TrendingUp size={15} />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+              <TrendingUp size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
               <TrendingUp size={8} /> +8.2%
             </span>
           </div>
           <div>
-            <p className="text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
-            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalProfit)}</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
+            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalProfit)}</h3>
           </div>
         </div>
 
         {/* Card 3: Expense */}
-        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(75,54,33,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(75,54,33,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #4b3621 0%, #6f4e37 100%)' }}>
+        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(75,54,33,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(75,54,33,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #4b3621 0%, #6f4e37 100%)' }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
-              <ArrowDownRight size={15} />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
+              <ArrowDownRight size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[7px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
               <TrendingDown size={8} /> -2.4%
             </span>
           </div>
           <div>
-            <p className="text-[8px] font-extrabold text-amber-200/80 uppercase tracking-widest leading-none">Expense</p>
-            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-200/80 uppercase tracking-widest leading-none">Expense</p>
+            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
           </div>
         </div>
 
         {/* Card 4: Procurement */}
-        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(109,40,217,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(109,40,217,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)' }}>
+        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(109,40,217,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(109,40,217,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)' }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-violet-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-violet-200 group-hover:scale-110 transition-transform">
-              <ShoppingCart size={15} />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-violet-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-violet-200 group-hover:scale-110 transition-transform">
+              <ShoppingCart size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              <Package size={8} /> {filteredPurchaseRecords.length} entries
+            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+              <Package size={8} /> {filteredPurchaseRecords.length}
             </span>
           </div>
           <div>
-            <p className="text-[8px] font-extrabold text-violet-200/80 uppercase tracking-widest leading-none">Procurement</p>
-            <h3 className="text-base font-black text-white mt-1">₹{formatIndianNumber(totalPurchaseRecords)}</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-violet-200/80 uppercase tracking-widest leading-none">Procurement</p>
+            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalPurchaseRecords)}</h3>
           </div>
         </div>
 
         {/* Card 5: Growth */}
-        <div className="p-4 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[120px]" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
-              <PieChartIcon size={15} />
+            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+              <PieChartIcon size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-amber-950/25 text-amber-950 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
               Annual
             </span>
           </div>
           <div>
-            <p className="text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Growth</p>
-            <h3 className="text-base font-black text-amber-950 mt-1">{growthRate}%</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Growth</p>
+            <h3 className="text-sm md:text-base font-black text-amber-950 mt-1">{growthRate}%</h3>
           </div>
         </div>
       </div>

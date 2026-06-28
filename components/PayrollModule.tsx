@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Timer, CreditCard, ShieldCheck, User, Users, TrendingUp, Landmark } from 'lucide-react';
+import { Download, Timer, CreditCard, ShieldCheck, User, Users, TrendingUp, Landmark, ChevronDown, X } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -21,6 +21,8 @@ export const PayrollModule: React.FC = () => {
 
     const isAdmin = me?.role === 'SYSTEM_ADMIN' || me?.email === 'sreekumar.career@gmail.com';
     const [selectedEmployeeId, setSelectedEmployeeId] = useState(me?.id || '');
+    
+    const [activePicker, setActivePicker] = useState<'month' | 'year' | 'employee' | null>(null);
 
     // Resolve the active target employee for payroll calculations
     const targetEmployee = useMemo(() => {
@@ -70,8 +72,9 @@ export const PayrollModule: React.FC = () => {
                     holidayCredits++;
                 } else {
                     const today = new Date();
+                    today.setHours(0, 0, 0, 0);
                     const checkDate = new Date(selectedSalaryYear, selectedSalaryMonth, i);
-                    if (checkDate <= today) {
+                    if (checkDate < today) {
                         absentDays++;
                     }
                 }
@@ -85,8 +88,12 @@ export const PayrollModule: React.FC = () => {
 
         const dailyAllowanceRate = targetEmployee.dailyAllowance || 0;
         const outstationAllowanceRate = targetEmployee.outstationAllowance || 0;
-        const totalDailyAllowance = eligiblePresentDays * dailyAllowanceRate;
-        const totalOutstationAllowance = outstationDays * outstationAllowanceRate;
+        const totalDailyAllowance = expenses
+            .filter(e => e.employeeName === targetEmployee.name && e.category === 'Daily Allowance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+            .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+        const totalOutstationAllowance = expenses
+            .filter(e => e.employeeName === targetEmployee.name && e.category === 'Outstation Allowance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+            .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
         const basic = grossSalary;
         const hra = 0;
@@ -174,8 +181,9 @@ export const PayrollModule: React.FC = () => {
                         holidayCredits++;
                     } else {
                         const today = new Date();
+                        today.setHours(0, 0, 0, 0);
                         const checkDate = new Date(selectedSalaryYear, selectedSalaryMonth, i);
-                        if (checkDate <= today) {
+                        if (checkDate < today) {
                             absentDays++;
                         }
                     }
@@ -189,8 +197,12 @@ export const PayrollModule: React.FC = () => {
 
             const dailyAllowanceRate = emp.dailyAllowance || 0;
             const outstationAllowanceRate = emp.outstationAllowance || 0;
-            const totalDailyAllowance = eligiblePresentDays * dailyAllowanceRate;
-            const totalOutstationAllowance = outstationDays * outstationAllowanceRate;
+            const totalDailyAllowance = expenses
+                .filter(e => e.employeeName === emp.name && e.category === 'Daily Allowance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+            const totalOutstationAllowance = expenses
+                .filter(e => e.employeeName === emp.name && e.category === 'Outstation Allowance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
             const basic = grossSalary;
             const pf = 0;
@@ -216,6 +228,7 @@ export const PayrollModule: React.FC = () => {
                 presentDays,
                 absentDays,
                 outstationDays,
+                leaveDays,
                 baseSalary,
                 salesIncentive,
                 tillDaySalary: grossSalary,
@@ -328,66 +341,68 @@ export const PayrollModule: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-6 md:gap-8 items-center relative py-6 px-2">
+        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-4 md:gap-8 items-center relative py-0 md:py-6 px-0 md:px-2">
             <div className="w-full max-w-4xl space-y-4">
                 {/* Hero / Selection Panel */}
-                <div className="bg-gradient-to-br from-emerald-950 to-green-900 rounded-[2rem] p-6 md:p-10 text-white shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] relative overflow-hidden">
+                <div className="bg-gradient-to-br from-emerald-950 to-green-900 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem] p-4 md:p-8 text-white shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] relative overflow-hidden">
                     <div className="absolute -right-20 -bottom-20 opacity-10 pointer-events-none">
                         <CreditCard size={320} />
                     </div>
 
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
-                        <div className="max-w-md text-center md:text-left">
-                            <div className="w-12 h-12 bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 rounded-[2rem] flex items-center justify-center mb-4 backdrop-blur-md mx-auto md:mx-0">
-                                <ShieldCheck size={24} />
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+                        <div className="flex items-center md:items-start md:flex-col gap-3 md:gap-0 max-w-md text-left w-full">
+                            <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md md:mb-4 backdrop-blur-md shrink-0">
+                                <ShieldCheck size={24} className="w-5 h-5 md:w-6 md:h-6" />
                             </div>
-                            <h1 className="text-xl md:text-3xl font-playfair font-bold tracking-tight uppercase tracking-tighter mb-2">Payroll Portal</h1>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">
-                                Review monthly attendance records, sales commissions, and generate official slip drafts for Sree Meditec team members.
-                            </p>
+                            <div>
+                                <h1 className="text-base md:text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Payroll Portal</h1>
+                                <p className="hidden md:block text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed mt-2">
+                                    Review Monthly Attendance Records, Sales Commissions, And Generate Official Slip Drafts For Sree Meditec Team Members.
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-5 w-full md:w-80 shadow-2xl flex flex-col gap-4">
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-4 md:p-5 w-full md:w-[400px] shadow-2xl flex flex-col gap-3">
                             {isAdmin && (
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase tracking-wider text-emerald-100/60 flex items-center gap-1"><Users size={10}/> Choose Employee</label>
-                                    <select 
-                                        value={selectedEmployeeId}
-                                        onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-1.5.5 text-xs font-bold outline-none text-white focus:bg-slate-900 transition-all cursor-pointer"
+                                <div className="space-y-1.5 mb-1">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 flex items-center gap-1 ml-1"><Users size={12}/> Choose Employee</label>
+                                    <div 
+                                        onClick={() => setActivePicker('employee')}
+                                        className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
-                                        <option value="" className="text-slate-900">-- Select --</option>
-                                        {employees.map(emp => (
-                                            <option key={emp.id} value={emp.id} className="text-slate-900">{emp.name} ({emp.department})</option>
-                                        ))}
-                                    </select>
+                                        <span className="truncate">
+                                            {selectedEmployeeId 
+                                                ? (() => {
+                                                    const emp = employees.find(e => e.id === selectedEmployeeId);
+                                                    return emp ? `${emp.name} (${emp.department})` : '-- Select --';
+                                                  })()
+                                                : '-- Select --'}
+                                        </span>
+                                        <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3 w-full">
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase tracking-wider text-emerald-100/60">Month</label>
-                                    <select 
-                                        value={selectedSalaryMonth}
-                                        onChange={(e) => setSelectedSalaryMonth(parseInt(e.target.value))}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 ml-1">Month</label>
+                                    <div 
+                                        onClick={() => setActivePicker('month')}
+                                        className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
-                                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
-                                            <option key={m} value={i} className="text-slate-900">{m}</option>
-                                        ))}
-                                    </select>
+                                        <span>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedSalaryMonth]}</span>
+                                        <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black uppercase tracking-wider text-emerald-100/60">Year</label>
-                                    <select 
-                                        value={selectedSalaryYear}
-                                        onChange={(e) => setSelectedSalaryYear(parseInt(e.target.value))}
-                                        className="w-full bg-slate-900/50 border border-white/20 rounded-[2rem] px-3 py-2 text-xs font-black uppercase outline-none focus:bg-slate-900 transition-all cursor-pointer"
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 ml-1">Year</label>
+                                    <div 
+                                        onClick={() => setActivePicker('year')}
+                                        className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
-                                        {[2024, 2025, 2026].map(y => (
-                                            <option key={y} value={y} className="text-slate-900">{y}</option>
-                                        ))}
-                                    </select>
+                                        <span>{selectedSalaryYear}</span>
+                                        <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -405,22 +420,22 @@ export const PayrollModule: React.FC = () => {
 
                 {/* Admin Overview Panel */}
                 {isAdmin && allEmployeesSalarySummary.length > 0 && (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 md:rounded-3xl p-3 md:p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2 md:pb-4">
                             <div>
-                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                                    <Users size={16} className="text-emerald-500" />
-                                    All Employees Payroll Summary
+                                <h3 className="text-xs md:text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                    <Users size={14} className="text-emerald-500" />
+                                    Payroll Summary
                                 </h3>
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">
+                                <p className="hidden md:block text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">
                                     Overview of incentives and attendance-based salary for {monthName} {selectedSalaryYear}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
+                        <div className="overflow-x-auto custom-scrollbar md:p-0 p-2">
+                            <table className="w-full text-left border-collapse block md:table">
+                                <thead className="hidden md:table-header-group">
                                     <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                                         <th className="py-3 px-4">Employee</th>
                                         <th className="py-3 px-4">Attendance</th>
@@ -431,37 +446,65 @@ export const PayrollModule: React.FC = () => {
                                         <th className="py-3 px-4 text-center">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 block md:table-row-group">
                                     {allEmployeesSalarySummary.map((row) => (
                                         <tr 
                                             key={row.id} 
-                                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all text-xs cursor-pointer ${selectedEmployeeId === row.id ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : ''}`}
+                                            className={`block md:table-row hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all text-[11px] md:text-xs cursor-pointer border-b border-slate-200 md:border-slate-100 md:rounded-none p-2 md:p-0 bg-white ${selectedEmployeeId === row.id ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : ''}`}
                                             onClick={() => setSelectedEmployeeId(row.id)}
                                         >
-                                            <td className="py-3 px-4">
-                                                <div className="font-bold text-slate-800 dark:text-slate-200">{row.name}</div>
-                                                <div className="text-[9px] text-slate-400 font-semibold uppercase">{row.department} · {row.role}</div>
+                                            <td className="block md:table-cell py-1 px-1 md:py-3 md:px-4 border-b border-dashed md:border-none border-slate-200 md:border-0 pb-1 flex justify-between items-center md:items-start md:flex-col">
+                                                <div>
+                                                    <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">{row.name}</div>
+                                                    <div className="text-[8px] text-slate-400 font-semibold uppercase">{row.department} · {row.role}</div>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedEmployeeId(row.id);
+                                                    }}
+                                                    className="md:hidden px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
+                                                >
+                                                    Select
+                                                </button>
                                             </td>
-                                            <td className="py-3 px-4 font-black text-[9px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                                                 <span className="text-emerald-600 dark:text-emerald-400">{row.presentDays} Pres</span>
-                                                 <span className="mx-1.5 text-slate-300 dark:text-slate-700">|</span>
-                                                 <span className="text-rose-500">{row.absentDays} Abs</span>
-                                                 <span className="mx-1.5 text-slate-300 dark:text-slate-700">|</span>
-                                                 <span className="text-indigo-600 dark:text-indigo-400">{row.outstationDays} Out</span>
+                                            <td className="block md:table-cell py-0.5 px-1 md:py-3 md:px-4 font-black text-[9px] text-slate-600 dark:text-slate-400 pt-2">
+                                                 <div className="flex items-center justify-between md:justify-start w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Attendance</span>
+                                                    <div>
+                                                        <span className="text-emerald-600 dark:text-emerald-400">{row.presentDays} Pres</span>
+                                                        <span className="mx-1 text-slate-300 dark:text-slate-700">|</span>
+                                                        <span className="text-rose-500">{row.absentDays} Abs</span>
+                                                        <span className="mx-1 text-slate-300 dark:text-slate-700">|</span>
+                                                        <span className="text-indigo-600 dark:text-indigo-400">{row.outstationDays} Out</span>
+                                                    </div>
+                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right font-semibold text-slate-700 dark:text-slate-300">
-                                                ₹{row.baseSalary.toLocaleString('en-IN')}
+                                            <td className="hidden md:table-cell py-0.5 px-1 md:py-3 md:px-4 text-left md:text-right font-semibold text-slate-700 dark:text-slate-300">
+                                                <div className="flex items-center justify-between md:justify-end w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Base Salary</span>
+                                                    <span>₹{row.baseSalary.toLocaleString('en-IN')}</span>
+                                                </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right font-black text-indigo-600 dark:text-indigo-400">
-                                                ₹{row.tillDaySalary.toLocaleString('en-IN')}
+                                            <td className="hidden md:table-cell py-0.5 px-1 md:py-3 md:px-4 text-left md:text-right font-black text-indigo-600 dark:text-indigo-400">
+                                                <div className="flex items-center justify-between md:justify-end w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Till-Day Salary</span>
+                                                    <span>₹{row.tillDaySalary.toLocaleString('en-IN')}</span>
+                                                </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
-                                                ₹{row.salesIncentive.toLocaleString('en-IN')}
+                                            <td className="block md:table-cell py-0.5 px-1 md:py-3 md:px-4 text-left md:text-right font-black text-emerald-600 dark:text-emerald-400">
+                                                <div className="flex items-center justify-between md:justify-end w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Sales Incentives</span>
+                                                    <span>₹{row.salesIncentive.toLocaleString('en-IN')}</span>
+                                                </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">
-                                                ₹{row.netPay.toLocaleString('en-IN')}
+                                            <td className="block md:table-cell py-0.5 px-1 md:py-3 md:px-4 text-left md:text-right font-black text-slate-900 dark:text-white pb-1">
+                                                <div className="flex items-center justify-between md:justify-end w-full">
+                                                    <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Net Payable</span>
+                                                    <span>₹{row.netPay.toLocaleString('en-IN')}</span>
+                                                </div>
                                             </td>
-                                            <td className="py-3 px-4 text-center">
+                                            <td className="hidden md:table-cell py-3 px-4 text-center">
                                                 <button 
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -509,7 +552,7 @@ export const PayrollModule: React.FC = () => {
                                 <div className="my-3 space-y-1">
                                     <div className="flex items-baseline gap-2">
  <span className="text-2xl font-bold tracking-tight text-white">{salaryDetails.presentDays}</span>
-                                        <span className="text-xs font-bold text-emerald-300">/ {salaryDetails.daysInMonth} Days Present</span>
+                                        <span className="text-xs font-bold text-emerald-300">/ {salaryDetails.daysInMonth} Days</span>
                                     </div>
                                     {salaryDetails.outstationDays > 0 && (
                                         <div className="flex items-baseline gap-2">
@@ -579,6 +622,75 @@ export const PayrollModule: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Custom Picker Modal (Mobile App Friendly) */}
+            {activePicker && (
+                <div className="fixed inset-0 z-[9999] flex flex-col justify-end bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 w-full rounded-t-[2rem] shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
+                        <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">
+                                {activePicker === 'month' && 'Select Month'}
+                                {activePicker === 'year' && 'Select Year'}
+                                {activePicker === 'employee' && 'Select Employee'}
+                            </h3>
+                            <button 
+                                onClick={() => setActivePicker(null)}
+                                className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-full transition-colors"
+                            >
+                                <X size={16} strokeWidth={3} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                            {activePicker === 'month' && (
+                                <div className="flex flex-col">
+                                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                                        <button
+                                            key={m}
+                                            onClick={() => { setSelectedSalaryMonth(i); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${selectedSalaryMonth === i ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            {m}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {activePicker === 'year' && (
+                                <div className="flex flex-col">
+                                    {[2024, 2025, 2026, 2027].map(y => (
+                                        <button
+                                            key={y}
+                                            onClick={() => { setSelectedSalaryYear(y); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${selectedSalaryYear === y ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            {y}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {activePicker === 'employee' && (
+                                <div className="flex flex-col">
+                                    <button
+                                        onClick={() => { setSelectedEmployeeId(''); setActivePicker(null); }}
+                                        className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${!selectedEmployeeId ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                    >
+                                        -- Select --
+                                    </button>
+                                    {employees.map(emp => (
+                                        <button
+                                            key={emp.id}
+                                            onClick={() => { setSelectedEmployeeId(emp.id); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors flex flex-col ${selectedEmployeeId === emp.id ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            <span>{emp.name}</span>
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60 mt-1">{emp.department}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

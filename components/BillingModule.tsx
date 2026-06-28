@@ -5,7 +5,7 @@ import {
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
     History, MoreVertical, XCircle, RotateCcw, Wallet,
-    ChevronDown, ArrowUpRight, CheckCheck, Truck, MessageSquare, Mail
+    ChevronDown, ArrowUpRight, CheckCheck, Truck, MessageSquare, Mail, AlertTriangle
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
@@ -63,6 +63,8 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     
     return { taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount };
 };
+
+import { AutoSuggest } from './AutoSuggest';
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
     const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
@@ -147,6 +149,27 @@ Email: sreemeditec@gmail.com`;
     const [serverInvoices, setServerInvoices] = useState<Invoice[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+
+    const overdueInvoices = useMemo(() => {
+        if (!isSystemAdmin) return [];
+        const today = new Date();
+        return invoices.filter(inv => {
+            if ((inv.documentType && inv.documentType !== 'Invoice') || !inv.invoiceNumber?.startsWith('SM/')) return false;
+            if (inv.status === 'Paid' || inv.status === 'Completed' || inv.status === 'Cancelled') return false;
+            if (!inv.date) return false;
+            
+            // Re-check calculated status
+            const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
+            if (balance <= 0) return false;
+
+            const invDate = new Date(inv.date);
+            const diffTime = today.getTime() - invDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays > 35;
+        });
+    }, [invoices, isSystemAdmin]);
 
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -359,90 +382,165 @@ Email: sreemeditec@gmail.com`;
     };
 
     return (
-        <div className="h-full flex flex-col gap-4 overflow-hidden p-2">
-            <div className="flex justify-between items-center shrink-0">
-                <div className="bg-slate-100 p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 flex gap-1">
-                    <button onClick={() => setViewState('history')} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'history' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}>
-                        <History size={16} /> Registry
-                    </button>
-                    <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai', paidAmount: 0 }); setBuilderTab('form'); }} className={`px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-2 ${viewState === 'builder' ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}>
-                        <PenTool size={16} /> New Invoice
-                    </button>
+        <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-hidden p-0 md:p-2 bg-slate-50/50">
+            {/* Unified Green Gradient Toolbar */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none md:rounded-[2rem]">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none md:rounded-[2rem]"></div>
+                
+                {/* Top Row: Title & Stats */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+                    <div className="hidden lg:flex items-center gap-4 group">
+                        <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+                            <History size={20} className="hidden xl:block" />
+                            <History size={16} className="xl:hidden" />
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Invoice Registry</h2>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'Invoice' || !i.documentType).length} Total Records</p>
+                        </div>
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
+                            <Wallet size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Outstanding</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
+                                ₹{invoices
+                                    .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status === 'Pending')
+                                    .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0)
+                                    .toLocaleString('en-IN')}
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-950 to-green-900 rounded-[1.5rem] px-5 py-2.5 flex items-center gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] animate-in fade-in slide-in-from-right-4 hover:scale-[1.02] transition-all duration-300 group">
-                    <div className="p-2 bg-emerald-900/50 text-emerald-100 rounded-[2rem] group-hover:scale-110 transition-transform">
-                        <Wallet size={16} />
+                {/* Overdue Notification Card */}
+                {isSystemAdmin && overdueInvoices.length > 0 && viewState === 'history' && (
+                    <div 
+                        onClick={() => {
+                            setSearchQuery('');
+                            setServerInvoices([]);
+                            setFilingFilter('All');
+                            setShowOverdueOnly(prev => !prev);
+                        }}
+                        className={`relative z-10 flex items-center justify-between gap-4 px-4 py-3 rounded-2xl cursor-pointer transition-all border ${showOverdueOnly ? 'bg-rose-500/90 border-rose-400 shadow-lg shadow-rose-500/30' : 'bg-rose-950/40 border-rose-900/50 hover:bg-rose-900/40'} animate-in fade-in slide-in-from-top-2`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${showOverdueOnly ? 'bg-white/20 text-white' : 'bg-rose-500/20 text-rose-400'}`}>
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div className="flex flex-col">
+                                <h3 className={`text-sm font-bold tracking-wide uppercase ${showOverdueOnly ? 'text-white' : 'text-rose-400'}`}>Aging Alert: 35+ Days Overdue</h3>
+                                <p className={`text-[11px] font-semibold mt-0.5 ${showOverdueOnly ? 'text-white/80' : 'text-rose-200/60'}`}>
+                                    {overdueInvoices.length} {overdueInvoices.length === 1 ? 'invoice requires' : 'invoices require'} immediate attention (Total: ₹{overdueInvoices.reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0).toLocaleString('en-IN')})
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center shrink-0">
+                            {showOverdueOnly ? (
+                                <div className="text-[10px] font-black uppercase text-white bg-black/20 px-3 py-1.5 rounded-lg">Showing Overdue</div>
+                            ) : (
+                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase text-rose-300 bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 hover:bg-rose-500/30 transition-colors">
+                                    <span>View Pending</span>
+                                    <ArrowUpRight size={14} />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[8px] font-black text-emerald-100/80 uppercase tracking-widest leading-none mb-1">Total Outstanding</p>
-                        <p className="text-lg font-playfair font-bold tracking-tight text-white leading-none tabular-nums">
-                            ₹{invoices
-                                .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status === 'Pending')
-                                .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0)
-                                .toLocaleString('en-IN')}
-                        </p>
+                )}
+
+                {/* Bottom Row: Actions & Search */}
+                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                    {/* Search & Filters */}
+                    {viewState === 'history' && (
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto flex-1 group">
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <select 
+                                    value={filingFilter}
+                                    onChange={(e) => setFilingFilter(e.target.value as any)}
+                                    className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
+                                >
+                                    <option value="All" className="bg-emerald-900">All Filing</option>
+                                    <option value="Filed" className="bg-emerald-900">Filed</option>
+                                    <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
+                                    <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
+                                </select>
+                            </div>
+                            <div className="relative w-full sm:max-w-xs xl:max-w-sm flex-1 flex gap-2">
+                                <div className="relative flex-1">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-100/50">
+                                        {isSearching ? <RotateCcw size={14} className="animate-spin" /> : <Search size={14} />}
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Deep search in history..." 
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            if (!e.target.value) setServerInvoices([]);
+                                        }}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
+                                        className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 pl-9 pr-10 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all shadow-inner"
+                                    />
+                                    {searchQuery && (
+                                        <button 
+                                            onClick={handleDeepSearch}
+                                            className="absolute right-1 top-1/2 -translate-y-1/2 bg-emerald-700 text-white p-1.5 rounded-full hover:bg-emerald-600 transition-colors shadow-sm"
+                                        >
+                                            <ArrowUpRight size={10} />
+                                        </button>
+                                    )}
+                                </div>
+                                {serverInvoices.length > 0 && (
+                                    <button 
+                                        onClick={() => {setSearchQuery(''); setServerInvoices([]);}} 
+                                        className="text-[9px] font-black text-rose-200 uppercase hover:text-white px-2 transition-colors whitespace-nowrap self-center hidden sm:block"
+                                    >
+                                        Clear Results
+                                    </button>
+                                )}
+                            </div>
+                            {serverInvoices.length > 0 && (
+                                <button 
+                                    onClick={() => {setSearchQuery(''); setServerInvoices([]);}} 
+                                    className="text-[9px] font-black text-rose-200 uppercase hover:text-white px-2 transition-colors whitespace-nowrap sm:hidden"
+                                >
+                                    Clear Results
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <History size={16} /> Registry
+                        </button>
+                        <button onClick={() => { setViewState('builder'); setEditingId(null); setInvoice({ date: new Date().toISOString().split('T')[0], items: [], status: 'Pending', smcpoNumber: 'verbal', deliveryTime: 'Immediately', specialNote: 'Chennai', paidAmount: 0 }); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <PenTool size={16} /> New Invoice
+                        </button>
                     </div>
                 </div>
             </div>
 
             {viewState === 'history' ? (
-                <div className="flex-1 bg-white rounded-3xl border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50/30">
-                        <div className="flex items-center gap-4 flex-1">
-                            <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] shrink-0">Financial Archive</h3>
-                            <select 
-                                value={filingFilter}
-                                onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded-[2rem] text-[10px] font-bold px-3 py-1.5 outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/5 uppercase"
-                            >
-                                <option value="All">All Filing</option>
-                                <option value="Filed">Filed</option>
-                                <option value="Not Filed">Not Filed</option>
-                                <option value="Not Updated">Not Updated</option>
-                            </select>
-                            <div className="relative max-w-xs flex-1">
-                                <input 
-                                    type="text" 
-                                    placeholder="Deep search in history..." 
-                                    className="w-full pl-8 pr-12 py-1.5 bg-white border border-slate-300 rounded-lg text-[10px] font-bold outline-none focus:border-medical-500 transition-all"
-                                    value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        if (!e.target.value) setServerInvoices([]);
-                                    }}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
-                                />
-                                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                                    {isSearching ? <RotateCcw size={12} className="animate-spin" /> : <Search size={12} />}
-                                </div>
-                                {searchQuery && (
-                                    <button 
-                                        onClick={handleDeepSearch}
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-medical-600 text-white p-1 rounded-md hover:bg-medical-700 transition-colors"
-                                    >
-                                        <ArrowUpRight size={10} />
-                                    </button>
-                                )}
-                            </div>
-                            {serverInvoices.length > 0 && (
-                                <button onClick={() => {setSearchQuery(''); setServerInvoices([]);}} className="text-[9px] font-black text-rose-500 uppercase hover:underline">Clear Search Results</button>
-                            )}
-                        </div>
+                <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
+                        <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto shrink-0">Financial Archive</h3>
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
-                                    <th className="px-4 py-2 font-inter">Invoice #</th>
+                                    <th className="px-4 py-2 font-inter">Invoice / Date</th>
                                     <th className="px-4 py-2">Consignee</th>
-                                    <th className="px-4 py-2">Author</th>
-                                    <th className="px-4 py-2 text-right">Grand Total</th>
-                                    <th className="px-4 py-2 text-center">Paid Amt</th>
-                                    <th className="px-4 py-2 text-center">Closed By</th>
-                                    <th className="px-4 py-2 text-right">Balance</th>
-                                    <th className="px-4 py-2 text-center">Filed Status</th>
-                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 hidden md:table-cell">Author</th>
+                                    <th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Paid Amt</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Closed By</th>
+                                    <th className="px-4 py-2 text-right hidden sm:table-cell">Balance</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -453,6 +551,9 @@ Email: sreemeditec@gmail.com`;
                                 ))
                                     .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
                                     .filter(i => {
+                                        if (showOverdueOnly) {
+                                            return overdueInvoices.some(overdue => overdue.id === i.id);
+                                        }
                                         if (filingFilter === 'All') return true;
                                         if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
                                         return i.filedStatus === filingFilter;
@@ -460,9 +561,12 @@ Email: sreemeditec@gmail.com`;
                                     .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setInvoice(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className={`hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0 ${inv.status === 'Cancelled' ? 'bg-rose-50/50 text-rose-900 border-rose-100' : ''}`}>
-                                        <td className="px-4 py-2 font-black"><span className="font-inter font-bold tracking-widest">{inv.invoiceNumber}</span></td>
+                                        <td className="px-4 py-3">
+                                            <div className="font-black text-slate-800 font-inter tracking-widest">{inv.invoiceNumber}</div>
+                                            <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{inv.date || '—'}</div>
+                                        </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-4 py-2">
+                                        <td className="px-4 py-2 hidden md:table-cell">
                                             <div 
                                                 title={inv.createdBy || 'System'}
                                                 className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
@@ -470,9 +574,9 @@ Email: sreemeditec@gmail.com`;
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-4 py-2">
-                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 hidden sm:table-cell">
+                                            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                                                 <input 
                                                     type="number"
                                                     key={`${inv.id}-${inv.paidAmount}`}
@@ -507,7 +611,7 @@ Email: sreemeditec@gmail.com`;
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2">
+                                        <td className="px-4 py-2 hidden sm:table-cell">
                                             {inv.closedBy ? (
                                                 <div 
                                                     title={employees?.find(e => e.id === inv.closedBy)?.name || inv.closedBy || 'Unknown'}
@@ -519,8 +623,8 @@ Email: sreemeditec@gmail.com`;
                                                 <span className="text-slate-300 text-center block">-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-rose-600">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
-                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
                                                 filedStatus={inv.filedStatus} 
@@ -531,7 +635,7 @@ Email: sreemeditec@gmail.com`;
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center">
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell">
                                             {(() => {
                                                 const displayStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
                                                     ? (((inv.grandTotal || 0) - (inv.paidAmount || 0) <= 0) ? 'Completed' : 'Pending')
@@ -691,14 +795,15 @@ Email: sreemeditec@gmail.com`;
 
                     <div className="flex-1 overflow-hidden">
                         {builderTab === 'form' && (
-                            <div className="h-full overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar bg-white">
+                            <div className="h-full flex flex-col bg-white">
+                                <div className="flex-1 overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar">
                                 <section className="space-y-4">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-inter font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber || ''} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
                                         <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm outline-none font-bold" value={invoice.date || ''} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
                                         <FormRow label="Buyer Order #">
-                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none cursor-pointer" value={invoice.smcpoNumber || ''} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none cursor-pointer appearance-none" value={invoice.smcpoNumber || ''} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
                                                 <option value="Mail confirmation">Mail confirmation</option>
                                                 <option value="Verbal">Verbal</option>
                                                 <option value="PO">PO</option>
@@ -706,7 +811,7 @@ Email: sreemeditec@gmail.com`;
                                             </select>
                                         </FormRow>
                                         <FormRow label="Dispatch Mode">
-                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none cursor-pointer" value={invoice.dispatchedThrough || ''} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})}>
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none cursor-pointer appearance-none" value={invoice.dispatchedThrough || ''} onChange={e => setInvoice({...invoice, dispatchedThrough: e.target.value})}>
                                                 <option value="Person">Person</option>
                                                 <option value="Courier">Courier</option>
                                                 <option value="Transport">Transport</option>
@@ -727,8 +832,7 @@ Email: sreemeditec@gmail.com`;
                                              </div>
                                          </FormRow>
                                         <FormRow label="Seller Profile">
-                                            <select 
-                                                className="w-full h-[46px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                            <select className="w-full h-[46px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700 appearance-none"
                                                 value={invoice.sellerProfile?.id || ''}
                                                 onChange={e => {
                                                     const selected = companyProfiles.find(p => p.id === e.target.value);
@@ -742,8 +846,7 @@ Email: sreemeditec@gmail.com`;
                                             </select>
                                         </FormRow>
                                         <FormRow label="Closed By">
-                                            <select 
-                                                className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700"
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700 appearance-none"
                                                 value={invoice.closedBy || ''}
                                                 onChange={e => setInvoice({ ...invoice, closedBy: e.target.value })}
                                             >
@@ -770,8 +873,7 @@ Email: sreemeditec@gmail.com`;
                                             />
                                         </FormRow>
                                         <FormRow label="Select Bank">
-                                            <select 
-                                                className="w-full h-[46px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700"
+                                            <select className="w-full h-[46px] bg-white border border-medical-200 rounded-[2rem] px-3 py-1.5.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-medical-700 appearance-none"
                                                 value={invoice.selectedBank?.id || ''}
                                                 onChange={e => {
                                                     const selected = bankDetailsList.find(b => b.id === e.target.value);
@@ -795,18 +897,25 @@ Email: sreemeditec@gmail.com`;
                                                 <h4 className="text-[9px] font-black text-slate-400 uppercase mb-4 tracking-wider flex items-center gap-2">Consignee (Ship to)</h4>
                                                 <div className="space-y-4">
                                                     <FormRow label="Consignee Name *">
-                                                        <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.customerName || ''} onChange={e => {
-                                                            const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
-                                                            setInvoice(prev => ({
-                                                                ...prev,
-                                                                customerName: e.target.value,
-                                                                customerAddress: client ? client.address : prev.customerAddress,
-                                                                customerGstin: client ? (client.gstin || '').toUpperCase() : prev.customerGstin,
-                                                                buyerName: prev.buyerName || (client ? client.name : ''),
-                                                                buyerAddress: prev.buyerAddress || (client ? client.address : ''),
-                                                                buyerGstin: prev.buyerGstin || (client ? (client.gstin || '').toUpperCase() : '')
-                                                            }));
-                                                        }} placeholder="Search registry..." />
+                                                        <AutoSuggest
+                                                            value={invoice.customerName || ''}
+                                                            onChange={val => setInvoice(prev => ({ ...prev, customerName: val }))}
+                                                            onSelect={client => {
+                                                                setInvoice(prev => ({
+                                                                    ...prev,
+                                                                    customerName: client.name,
+                                                                    customerAddress: client.address || prev.customerAddress,
+                                                                    customerGstin: client.gstin ? client.gstin.toUpperCase() : prev.customerGstin,
+                                                                    buyerName: prev.buyerName || client.name,
+                                                                    buyerAddress: prev.buyerAddress || client.address,
+                                                                    buyerGstin: prev.buyerGstin || (client.gstin ? client.gstin.toUpperCase() : '')
+                                                                }));
+                                                            }}
+                                                            suggestions={clients}
+                                                            filterKey="name"
+                                                            className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                                                            placeholder="Search registry..."
+                                                        />
                                                     </FormRow>
                                                     <FormRow label="Consignee GSTIN">
                                                         <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-bold outline-none uppercase" value={invoice.customerGstin || ''} onChange={e => setInvoice({...invoice, customerGstin: e.target.value.toUpperCase()})} placeholder="33XXXXX" />
@@ -826,15 +935,22 @@ Email: sreemeditec@gmail.com`;
                                                 </div>
                                                 <div className="space-y-4">
                                                     <FormRow label="Buyer Name">
-                                                        <input type="text" list="client-list" className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all" value={invoice.buyerName || ''} onChange={e => {
-                                                            const client = clients.find(c => c.name === e.target.value || c.hospital === e.target.value);
-                                                            setInvoice(prev => ({
-                                                                ...prev,
-                                                                buyerName: e.target.value,
-                                                                buyerAddress: client ? client.address : prev.buyerAddress,
-                                                                buyerGstin: client ? (client.gstin || '').toUpperCase() : prev.buyerGstin
-                                                            }));
-                                                        }} placeholder="Billing Entity Name" />
+                                                        <AutoSuggest
+                                                            value={invoice.buyerName || ''}
+                                                            onChange={val => setInvoice(prev => ({ ...prev, buyerName: val }))}
+                                                            onSelect={client => {
+                                                                setInvoice(prev => ({
+                                                                    ...prev,
+                                                                    buyerName: client.name,
+                                                                    buyerAddress: client.address || prev.buyerAddress,
+                                                                    buyerGstin: client.gstin ? client.gstin.toUpperCase() : prev.buyerGstin
+                                                                }));
+                                                            }}
+                                                            suggestions={clients}
+                                                            filterKey="name"
+                                                            className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
+                                                            placeholder="Billing Entity Name"
+                                                        />
                                                     </FormRow>
                                                     <FormRow label="Buyer GSTIN">
                                                         <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-bold outline-none uppercase" value={invoice.buyerGstin || ''} onChange={e => setInvoice({...invoice, buyerGstin: e.target.value.toUpperCase()})} placeholder="33XXXXX" />
@@ -860,7 +976,21 @@ Email: sreemeditec@gmail.com`;
                                                     <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 sm:gap-6">
                                                         <div className="col-span-2 sm:col-span-5">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                                                            <input type="text" list="prod-list" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black" placeholder="Item Name" value={item.description || ''} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                                                            <AutoSuggest
+                                                                value={item.description || ''}
+                                                                onChange={val => updateItem(item.id, 'description', val)}
+                                                                onSelect={prod => {
+                                                                    updateItem(item.id, 'description', prod.name);
+                                                                    if (prod.hsn) updateItem(item.id, 'hsn', prod.hsn);
+                                                                    if (prod.taxRate) updateItem(item.id, 'taxRate', prod.taxRate);
+                                                                    if (prod.sellingPrice) updateItem(item.id, 'unitPrice', prod.sellingPrice);
+                                                                    if (prod.features) updateItem(item.id, 'features', prod.features);
+                                                                }}
+                                                                suggestions={products}
+                                                                filterKey="name"
+                                                                className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black"
+                                                                placeholder="Item Name"
+                                                            />
                                                         </div>
                                                         <div className="col-span-1 sm:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
@@ -959,10 +1089,12 @@ Email: sreemeditec@gmail.com`;
                                     </div>
                                 </section>
 
-                                <div className="flex flex-col sm:flex-row gap-4 pt-12 sticky bottom-0 bg-white pb-8 border-t border-slate-50 z-30">
-                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-5 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all">Discard</button>
-                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-5 bg-white border-2 border-medical-500 text-medical-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
-                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(invoice); }} className="w-full sm:flex-[2] py-5 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row gap-4 p-6 md:px-12 md:py-8 shrink-0 bg-white border-t border-slate-200 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.05)] z-30 relative">
+                                    <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-200">Discard</button>
+                                    <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
+                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(invoice); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
                                         <Save size={20} /> Finalize & PDF
                                     </button>
                                 </div>
@@ -1235,7 +1367,6 @@ Email: sreemeditec@gmail.com`;
                     </div>
                 </div>
             )}
-            <datalist id="client-list">{clients.map(c => <option key={c.id} value={c.name} />)}</datalist>
             <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
         </div>
     );
