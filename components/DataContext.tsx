@@ -781,7 +781,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Only subscribe when their corresponding tab is active to reduce Firestore reads.
 
     useEffect(() => {
-        if (!firebaseUser || !currentUser || activeTab !== TabView.ATTENDANCE) return;
+        if (!firebaseUser || !currentUser || (
+            activeTab !== TabView.ATTENDANCE &&
+            activeTab !== TabView.PAYROLL &&
+            activeTab !== TabView.DASHBOARD &&
+            activeTab !== TabView.PERFORMANCE &&
+            activeTab !== TabView.HR
+        )) return;
         const unsub = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)), (err) => console.warn("attendance listener:", err));
         return () => unsub();
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
