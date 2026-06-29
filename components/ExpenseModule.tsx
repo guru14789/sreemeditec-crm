@@ -1,11 +1,12 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ExpenseRecord } from '../types';
 import { 
     Receipt, Plus, FileText, CheckCircle2, Clock, XCircle, 
     Check, X, Image as ImageIcon, RefreshCw, Upload, 
     AlertCircle, MessageSquare, Download, Camera, List, 
     ArrowUpRight, Trash2, Edit2, Activity, DollarSign, 
-    Search, User, ChevronRight, PieChart, Info, RotateCw, Sparkles, Minus, TrendingUp
+    Search, User, ChevronRight, PieChart, Info, RotateCw, Sparkles, Minus, TrendingUp, ChevronDown
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -145,6 +146,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [activePicker, setActivePicker] = useState<'month' | 'year' | 'employee' | null>(null);
 
     const DEFAULT_EXPENSE: Partial<ExpenseRecord> = {
         date: new Date().toISOString().split('T')[0],
@@ -497,41 +499,38 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         </div>
 
                         {/* Allowance Balances Summary Bar */}
-                        <div className="bg-slate-50/50 border-b border-slate-300 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Allowance Focus:</span>
-                                <select 
-                                    value={selectedMonth}
-                                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
-                                >
-                                    {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
-                                        <option key={m} value={i}>{m}</option>
-                                    ))}
-                                </select>
-                                <select 
-                                    value={selectedYear}
-                                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
-                                >
-                                    {[2024, 2025, 2026, 2027].map(y => (
-                                        <option key={y} value={y}>{y}</option>
-                                    ))}
-                                </select>
-                                {userRole === 'Admin' ? (
-                                    <select 
-                                        value={selectedEmployeeName}
-                                        onChange={e => setSelectedEmployeeName(e.target.value)}
-                                        className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase outline-none focus:border-medical-500 transition-all cursor-pointer text-slate-800"
+                        <div className="bg-slate-50/50 border-b border-slate-300 px-4 py-2.5 flex flex-col lg:flex-row lg:flex-wrap items-start lg:items-center justify-between gap-3 shrink-0">
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-2 w-full lg:w-auto">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Allowance Focus:</span>
+                                <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
+                                    <div 
+                                        onClick={() => setActivePicker('month')}
+                                        className="relative w-full md:w-auto bg-white border border-emerald-500/50 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-1.5 text-[12px] md:text-[10px] font-black uppercase transition-all cursor-pointer text-emerald-700 shadow-sm flex items-center justify-between min-w-[80px]"
                                     >
-                                        <option value="ALL">All Employees</option>
-                                        {employees.map(emp => (
-                                            <option key={emp.id} value={emp.name}>{emp.name}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{currentUser}</span>
-                                )}
+                                        <span>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][selectedMonth]}</span>
+                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none" />
+                                    </div>
+                                    <div 
+                                        onClick={() => setActivePicker('year')}
+                                        className="relative w-full md:w-auto bg-white border border-slate-300 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-1.5 text-[12px] md:text-[10px] font-black uppercase transition-all cursor-pointer text-slate-700 shadow-sm flex items-center justify-between min-w-[80px]"
+                                    >
+                                        <span>{selectedYear}</span>
+                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    </div>
+                                    {userRole === 'Admin' ? (
+                                        <div 
+                                            onClick={() => setActivePicker('employee')}
+                                            className="relative w-full col-span-2 md:col-span-1 md:w-auto mt-1 md:mt-0 bg-white border border-slate-300 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-1.5 text-[12px] md:text-[10px] font-black uppercase transition-all cursor-pointer text-slate-700 shadow-sm flex items-center justify-between min-w-[150px]"
+                                        >
+                                            <span className="truncate">
+                                                {selectedEmployeeName === 'ALL' ? 'All Employees' : selectedEmployeeName}
+                                            </span>
+                                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                        </div>
+                                    ) : (
+                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight col-span-2 md:col-span-1 md:ml-2 self-center">{currentUser}</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                                 <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-sm">
@@ -970,6 +969,76 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Custom Picker Modal (Mobile App Friendly) */}
+            {activePicker && createPortal(
+                <div className="fixed inset-0 z-[99999] flex flex-col justify-end bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 w-full rounded-t-[2rem] shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
+                        <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">
+                                {activePicker === 'month' && 'Select Month'}
+                                {activePicker === 'year' && 'Select Year'}
+                                {activePicker === 'employee' && 'Select Employee'}
+                            </h3>
+                            <button 
+                                onClick={() => setActivePicker(null)}
+                                className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-full transition-colors"
+                            >
+                                <X size={16} strokeWidth={3} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                            {activePicker === 'month' && (
+                                <div className="flex flex-col">
+                                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, i) => (
+                                        <button
+                                            key={m}
+                                            onClick={() => { setSelectedMonth(i); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${selectedMonth === i ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            {m}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {activePicker === 'year' && (
+                                <div className="flex flex-col">
+                                    {[2024, 2025, 2026, 2027].map(y => (
+                                        <button
+                                            key={y}
+                                            onClick={() => { setSelectedYear(y); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${selectedYear === y ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            {y}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {activePicker === 'employee' && (
+                                <div className="flex flex-col">
+                                    <button
+                                        onClick={() => { setSelectedEmployeeName('ALL'); setActivePicker(null); }}
+                                        className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors ${selectedEmployeeName === 'ALL' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                    >
+                                        -- Select --
+                                    </button>
+                                    {employees.map(emp => (
+                                        <button
+                                            key={emp.id}
+                                            onClick={() => { setSelectedEmployeeName(emp.name); setActivePicker(null); }}
+                                            className={`p-4 text-left font-bold rounded-[1.5rem] transition-colors flex flex-col ${selectedEmployeeName === emp.name ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+                                        >
+                                            <span>{emp.name}</span>
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider opacity-60 mt-1">{emp.department}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

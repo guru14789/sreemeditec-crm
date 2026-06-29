@@ -320,11 +320,15 @@ export const Dashboard: React.FC = () => {
           <div className="flex-1 min-h-0 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={dataTickets} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
-                  {dataTickets.map((_, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+                {serviceTickets.length > 0 ? (
+                  <Pie data={dataTickets} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
+                    {dataTickets.map((_, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                ) : (
+                  <Pie data={[{ value: 1, name: 'No Jobs' }]} cx="50%" cy="50%" innerRadius={70} outerRadius={90} dataKey="value" stroke="none" fill="#f1f5f9" />
+                )}
                 <Tooltip contentStyle={{ borderRadius: '16px', border: 'none' }} />
               </PieChart>
             </ResponsiveContainer>

@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem, TabView } from '../types';
 import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
 import { useData } from './DataContext';
+import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const formatIndianNumber = (num: number) => {
@@ -436,16 +437,7 @@ export const PurchaseRecordModule: React.FC = () => {
                 <div className="flex flex-col xl:flex-row items-center justify-between gap-4 relative z-10 w-full">
                     <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto flex-1 group">
                         <div className="flex items-center gap-3 w-full sm:w-auto">
-                            <select 
-                                value={filingFilter}
-                                onChange={(e) => setFilingFilter(e.target.value as any)}
-                                className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-4 py-2.5 sm:py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
-                            >
-                                <option value="All" className="bg-emerald-900">All Filing</option>
-                                <option value="Filed" className="bg-emerald-900">Filed</option>
-                                <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
-                                <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
-                            </select>
+                            <FilingFilterDropdown value={filingFilter} onChange={setFilingFilter} />
                         </div>
                         <div className="relative w-full sm:max-w-xs xl:max-w-md 2xl:max-w-lg flex-1">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50 transition-colors" size={16} />

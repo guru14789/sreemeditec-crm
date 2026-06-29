@@ -1186,7 +1186,7 @@ export const ReportsModule: React.FC = () => {
                 <div className="flex-1 w-full min-h-0 relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={CATEGORY_DATA} cx="50%" cy="45%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value">
+                        <Pie data={CATEGORY_DATA} cx="50%" cy="45%" innerRadius={40} outerRadius={60} stroke="none" dataKey="value">
                         {CATEGORY_DATA.map((_, index) => (<Cell key={`cell-${index}`} fill={GRADIENT_COLORS[index % GRADIENT_COLORS.length]} />))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
@@ -1460,7 +1460,7 @@ export const ReportsModule: React.FC = () => {
                   <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
                     <ResponsiveContainer width="100%" height="90%">
                       <PieChart>
-                        <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                        <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} stroke="none" dataKey="value">
                           {analyticsData.expenseCategories.map((_, idx) => (
                             <Cell key={idx} fill={GRADIENT_COLORS[idx % GRADIENT_COLORS.length]} />
                           ))}

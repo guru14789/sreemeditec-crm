@@ -899,20 +899,39 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 <button
                                     onClick={card3Action}
                                     disabled={!card3Action}
-                                    className={`m-0 md:m-3 lg:m-4 p-3 md:p-4 rounded-[20px] md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between transition-all duration-300 min-h-[90px] md:min-h-[120px] text-left relative overflow-hidden ${card3Action ? 'group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] cursor-pointer' : 'opacity-90 cursor-default'}`}
-                                    style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}
+                                    className={`m-0 md:m-3 lg:m-4 p-3 md:p-4 rounded-[20px] md:rounded-[28px] flex items-center justify-between transition-all duration-300 min-h-[90px] md:min-h-[120px] text-left relative overflow-hidden outline-none ${
+                                        !card3Action 
+                                            ? 'bg-slate-100 border border-slate-200 cursor-default opacity-90' 
+                                            : isCheckedIn 
+                                                ? 'bg-emerald-50 border border-emerald-200 group hover:bg-emerald-100 cursor-pointer shadow-sm' 
+                                                : 'bg-amber-50 border border-amber-200 group hover:bg-amber-100 cursor-pointer shadow-sm'
+                                    }`}
                                 >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 transition-transform">
-                                            {card3Icon}
+                                    <div className="flex flex-col justify-between h-full w-full">
+                                        <div className="flex justify-between items-start mb-2 w-full">
+                                            <div className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-transform ${
+                                                !card3Action ? 'bg-slate-200 text-slate-500' : isCheckedIn ? 'bg-emerald-200 text-emerald-700' : 'bg-amber-200 text-amber-700'
+                                            }`}>
+                                                {card3Icon}
+                                            </div>
+                                            
+                                            {/* Toggle Switch Visual */}
+                                            <div className={`relative w-12 h-6 md:w-14 md:h-7 rounded-full transition-colors duration-300 flex items-center px-1 shadow-inner ${
+                                                !card3Action ? 'bg-slate-300' : isCheckedIn ? 'bg-emerald-500' : 'bg-slate-300'
+                                            }`}>
+                                                <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                                    isCheckedIn ? 'translate-x-6 md:translate-x-7' : 'translate-x-0'
+                                                }`} />
+                                            </div>
                                         </div>
-                                        <span className="flex items-center gap-1 text-[7px] font-black bg-amber-950/25 text-amber-950 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                            {card3Pill}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <p className="text-[7.5px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">{card3Title}</p>
-                                        <h3 className="text-base md:text-lg font-bold tracking-tight text-amber-950 mt-1">{card3Value}</h3>
+                                        <div>
+                                            <p className={`text-[7.5px] md:text-[8px] font-extrabold uppercase tracking-widest leading-none ${
+                                                !card3Action ? 'text-slate-400' : isCheckedIn ? 'text-emerald-600/80' : 'text-amber-600/80'
+                                            }`}>{card3Title}</p>
+                                            <h3 className={`text-base md:text-lg font-bold tracking-tight mt-1 ${
+                                                !card3Action ? 'text-slate-600' : isCheckedIn ? 'text-emerald-900' : 'text-amber-900'
+                                            }`}>{card3Value}</h3>
+                                        </div>
                                     </div>
                                 </button>
                             );

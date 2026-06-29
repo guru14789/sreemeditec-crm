@@ -268,7 +268,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
             {viewState === 'stock' && (
                 <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 animate-in fade-in">
-                    <div className="flex-1 min-w-0 flex flex-col gap-4">
+                    <div className="flex-1 min-w-0 min-h-0 flex flex-col gap-4">
                         {/* Unified Green Gradient Toolbar */}
                         <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-[0_20px_40px_-10px_rgba(4,47,46,0.5)] border border-emerald-800/30 shrink-0 z-20 rounded-[2rem] md:rounded-3xl">
                             <div className="hidden sm:flex items-center gap-4 group">

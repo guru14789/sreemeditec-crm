@@ -6,6 +6,7 @@ import {
     History, Download, Edit, Eye, List as ListIcon, Save, Clock, User, Settings, CreditCard, DollarSign, MoreVertical, Shield, Wrench, Activity, MessageSquare, Printer
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
@@ -390,16 +391,7 @@ export const ServiceReportModule: React.FC = () => {
                     {viewState === 'history' && (
                         <div className="flex flex-col sm:flex-row items-center gap-2 w-full xl:w-auto flex-1 group">
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <select 
-                                    value={filingFilter}
-                                    onChange={(e) => setFilingFilter(e.target.value as any)}
-                                    className="w-full sm:w-auto bg-emerald-900/40 border border-emerald-700/50 text-white rounded-[2rem] text-[10px] font-bold px-3 py-2 outline-none cursor-pointer focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner"
-                                >
-                                    <option value="All" className="bg-emerald-900">All Filing</option>
-                                    <option value="Filed" className="bg-emerald-900">Filed</option>
-                                    <option value="Not Filed" className="bg-emerald-900">Not Filed</option>
-                                    <option value="Not Updated" className="bg-emerald-900">Not Updated</option>
-                                </select>
+                                <FilingFilterDropdown value={filingFilter} onChange={setFilingFilter} />
                             </div>
                             <div className="relative w-full sm:max-w-xs xl:max-w-sm flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-100/50 transition-colors" size={14} />
