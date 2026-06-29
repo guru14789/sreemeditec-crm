@@ -12,8 +12,8 @@ import { useData } from './DataContext';
 import { AutoSuggest } from './AutoSuggest';
 
 const FormRow = ({ label, children }: { label: string, children?: React.ReactNode }) => (
-    <div className="flex flex-col gap-1.5 w-full">
-        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[14px]">{label}</label>
+    <div className="flex flex-col gap-1 md:gap-1.5 w-full">
+        <label className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 truncate whitespace-nowrap min-h-[12px] md:min-h-[14px]">{label}</label>
         {children}
     </div>
 );
@@ -541,16 +541,27 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             )}
 
             {viewState === 'builder' && (
-                <div className="flex-1 min-w-0 flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
-                    <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-10 py-6 justify-between items-center">
-                        <div className="flex flex-col"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Manual Opportunity Entry' : 'Evolve Lead Profile'}</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Synchronizing pipeline with cloud terminal</p></div>
-                        <button onClick={() => setViewState('stock')} className="p-3 bg-white text-slate-400 rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm"><X size={24}/></button>
+                <div className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl md:rounded-[2.5rem] shadow-2xl border border-slate-300 overflow-hidden animate-in slide-in-from-bottom-6 duration-300">
+                    <div className="flex bg-slate-50/80 backdrop-blur-sm border-b border-slate-300 shrink-0 px-4 md:px-10 py-4 md:py-6 justify-between items-center">
+                        <div className="flex flex-col">
+                            <h3 className="text-lg md:text-2xl font-black text-slate-800 uppercase tracking-tight">
+                                {builderMode === 'add' ? 'Manual Opportunity Entry' : 'Evolve Lead Profile'}
+                            </h3>
+                            <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 md:mt-1">
+                                Synchronizing pipeline with cloud terminal
+                            </p>
+                        </div>
+                        <button onClick={() => setViewState('stock')} className="p-2 md:p-3 bg-white text-slate-400 rounded-full md:rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm">
+                            <X className="size-[18px] md:size-6" />
+                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar pb-32">
-                        <section className="space-y-6">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Building2 size={14} className="text-medical-500" />1. Lead Identity Node</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 md:space-y-12 custom-scrollbar pb-24 md:pb-32">
+                        <section className="space-y-4 md:space-y-6">
+                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] border-b border-slate-100 pb-1.5 md:pb-2 flex items-center gap-2">
+                                <Building2 size={14} className="text-medical-500" />1. Lead Identity Node
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                                 <div className="sm:col-span-2">
                                     <FormRow label="Contact / Entity Name *">
                                         <AutoSuggest
@@ -559,7 +570,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                             onSelect={client => handleSelectClient('name', client.name.toUpperCase())}
                                             suggestions={clients}
                                             filterKey="name"
-                                            className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 uppercase"
+                                            className="w-full h-[40px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5 uppercase"
                                             placeholder="ENTER NAME"
                                         />
                                     </FormRow>
@@ -572,20 +583,53 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                             onSelect={client => handleSelectClient('hospital', client.hospital || '')}
                                             suggestions={clients}
                                             filterKey="hospital"
-                                            className="w-full h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] px-5 text-sm font-bold outline-none"
+                                            className="w-full h-[40px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-bold outline-none"
                                             placeholder="FACILITY NAME"
                                         />
                                     </FormRow>
                                 </div>
-                                <div className="sm:col-span-4"><FormRow label="Geographical Location / Address"><textarea className="w-full min-h-[80px] bg-white border border-slate-300 rounded-[2rem] px-5 py-3 text-sm font-bold outline-none focus:border-medical-500" placeholder="PHYSICAL LOCATION DATA" value={lead.address || ''} onChange={e => setLead({...lead, address: e.target.value})} /></FormRow></div>
+                                <div className="sm:col-span-4">
+                                    <FormRow label="Geographical Location / Address">
+                                        <textarea 
+                                            className="w-full min-h-[60px] md:min-h-[80px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 py-2.5 md:py-3 text-xs md:text-sm font-bold outline-none focus:border-medical-500" 
+                                            placeholder="PHYSICAL LOCATION DATA" 
+                                            value={lead.address || ''} 
+                                            onChange={e => setLead({...lead, address: e.target.value})} 
+                                        />
+                                    </FormRow>
+                                </div>
                             </div>
                         </section>
 
-                        <section className="space-y-6">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><DollarSign size={14} className="text-medical-500" />2. Opportunity Intelligence</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <FormRow label="Acquisition Source"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={lead.source} onChange={e => setLead({...lead, source: e.target.value as any})}><option>Website</option><option>Amazon</option><option>Flipkart</option><option>Referral</option><option>Direct</option><option>Sales</option><option>IndiaMART</option></select></FormRow>
-                                <FormRow label="Pipeline Status"><select className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase appearance-none" value={lead.status} onChange={e => setLead({...lead, status: e.target.value as any})}>{Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}</select></FormRow>
+                        <section className="space-y-4 md:space-y-6">
+                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] border-b border-slate-100 pb-1.5 md:pb-2 flex items-center gap-2">
+                                <DollarSign size={14} className="text-medical-500" />2. Opportunity Intelligence
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                                <FormRow label="Acquisition Source">
+                                    <select 
+                                        className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-[11px] md:text-xs font-black uppercase appearance-none" 
+                                        value={lead.source} 
+                                        onChange={e => setLead({...lead, source: e.target.value as any})}
+                                    >
+                                        <option>Website</option>
+                                        <option>Amazon</option>
+                                        <option>Flipkart</option>
+                                        <option>Referral</option>
+                                        <option>Direct</option>
+                                        <option>Sales</option>
+                                        <option>IndiaMART</option>
+                                    </select>
+                                </FormRow>
+                                <FormRow label="Pipeline Status">
+                                    <select 
+                                        className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-[11px] md:text-xs font-black uppercase appearance-none" 
+                                        value={lead.status} 
+                                        onChange={e => setLead({...lead, status: e.target.value as any})}
+                                    >
+                                        {Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </FormRow>
                                 <div className="sm:col-span-2">
                                     <FormRow label="Product Interest / Requirement">
                                         <AutoSuggest
@@ -594,29 +638,91 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                             onSelect={prod => setLead({...lead, productInterest: prod.name})}
                                             suggestions={products}
                                             filterKey="name"
-                                            className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black uppercase font-mono"
+                                            className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-black uppercase font-mono"
                                             placeholder="WHAT ARE THEY LOOKING FOR?"
                                         />
                                     </FormRow>
                                 </div>
-                                <FormRow label="Valuation Target (₹)"><input type="number" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black" placeholder="0.00" value={lead.value || ''} onChange={e => setLead({...lead, value: Number(e.target.value)})} /></FormRow>
-                                <FormRow label="Handled By"><div className="relative w-full"><input type="text" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-xs font-black uppercase" placeholder="SEARCH AGENT" value={lead.salesTakenBy || ''} onChange={e => { setLead({...lead, salesTakenBy: e.target.value}); setShowEmpDropdown(true); }} onFocus={() => setShowEmpDropdown(true)} onBlur={() => setTimeout(() => setShowEmpDropdown(false), 200)} />{showEmpDropdown && lead.salesTakenBy && <div className="absolute z-[130] top-full left-0 w-full mt-1 bg-white border border-slate-300 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in">{employees.filter(emp => emp.name.toLowerCase().includes(lead.salesTakenBy!.toLowerCase())).slice(0, 5).map(emp => <button key={emp.id} className="w-full text-left px-5 py-3 hover:bg-medical-50 border-b border-slate-100 last:border-0 transition-colors" onClick={() => { setLead({...lead, salesTakenBy: emp.name}); setShowEmpDropdown(false); }}><div className="text-[11px] font-black text-slate-800 uppercase tracking-tighter">{emp.name}</div><div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{emp.department}</div></button>)}</div>}</div></FormRow>
+                                <FormRow label="Valuation Target (₹)">
+                                    <input 
+                                        type="number" 
+                                        className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-black" 
+                                        placeholder="0.00" 
+                                        value={lead.value || ''} 
+                                        onChange={e => setLead({...lead, value: Number(e.target.value)})} 
+                                    />
+                                </FormRow>
+                                <FormRow label="Handled By">
+                                    <div className="relative w-full">
+                                        <input 
+                                            type="text" 
+                                            className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-[11px] md:text-xs font-black uppercase" 
+                                            placeholder="SEARCH AGENT" 
+                                            value={lead.salesTakenBy || ''} 
+                                            onChange={e => { setLead({...lead, salesTakenBy: e.target.value}); setShowEmpDropdown(true); }} 
+                                            onFocus={() => setShowEmpDropdown(true)} 
+                                            onBlur={() => setTimeout(() => setShowEmpDropdown(false), 200)} 
+                                        />
+                                        {showEmpDropdown && lead.salesTakenBy && (
+                                            <div className="absolute z-[130] top-full left-0 w-full mt-1 bg-white border border-slate-300 rounded-[1rem] shadow-2xl overflow-hidden animate-in fade-in">
+                                                {employees.filter(emp => emp.name.toLowerCase().includes(lead.salesTakenBy!.toLowerCase())).slice(0, 5).map(emp => (
+                                                    <button key={emp.id} className="w-full text-left px-4 py-2.5 hover:bg-medical-50 border-b border-slate-100 last:border-0 transition-colors" onClick={() => { setLead({...lead, salesTakenBy: emp.name}); setShowEmpDropdown(false); }}>
+                                                        <div className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">{emp.name}</div>
+                                                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{emp.department}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </FormRow>
                             </div>
                         </section>
 
-                        <section className="space-y-6">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Phone size={14} className="text-medical-500" />3. Communication Node</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <FormRow label="Primary Point of Contact"><input type="text" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-bold uppercase" placeholder="MANAGER NAME" value={lead.contactPerson || ''} onChange={e => setLead({...lead, contactPerson: e.target.value})} /></FormRow>
-                                <FormRow label="Mobile / WhatsApp"><input type="text" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-black font-mono" placeholder="+91" value={lead.phone || ''} onChange={e => setLead({...lead, phone: e.target.value})} /></FormRow>
-                                <div className="sm:col-span-2"><FormRow label="Email Address"><input type="email" className="w-full h-[48px] bg-white border border-slate-300 rounded-[2rem] px-5 text-sm font-bold lowercase" placeholder="CLIENT@DOMAIN.COM" value={lead.email || ''} onChange={e => setLead({...lead, email: e.target.value})} /></FormRow></div>
+                        <section className="space-y-4 md:space-y-6">
+                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] md:tracking-[0.4em] border-b border-slate-100 pb-1.5 md:pb-2 flex items-center gap-2">
+                                <Phone size={14} className="text-medical-500" />3. Communication Node
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                                <FormRow label="Primary Point of Contact">
+                                    <input 
+                                        type="text" 
+                                        className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-bold uppercase" 
+                                        placeholder="MANAGER NAME" 
+                                        value={lead.contactPerson || ''} 
+                                        onChange={e => setLead({...lead, contactPerson: e.target.value})} 
+                                    />
+                                </FormRow>
+                                <FormRow label="Mobile / WhatsApp">
+                                    <input 
+                                        type="text" 
+                                        className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-black font-mono" 
+                                        placeholder="+91" 
+                                        value={lead.phone || ''} 
+                                        onChange={e => setLead({...lead, phone: e.target.value})} 
+                                    />
+                                </FormRow>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Email Address">
+                                        <input 
+                                            type="email" 
+                                            className="w-full h-[40px] md:h-[48px] bg-white border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-bold lowercase" 
+                                            placeholder="CLIENT@DOMAIN.COM" 
+                                            value={lead.email || ''} 
+                                            onChange={e => setLead({...lead, email: e.target.value})} 
+                                        />
+                                    </FormRow>
+                                </div>
                             </div>
                         </section>
                     </div>
 
-                    <div className="sticky bottom-0 left-0 right-0 p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-end gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-10">
-                        <button onClick={() => { setViewState('stock'); setLead(DEFAULT_LEAD); }} className="px-10 py-4 bg-slate-100 text-slate-500 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200">Abort Registry</button>
-                        <button onClick={handleSave} className="px-16 py-4 bg-gradient-to-r from-medical-600 to-indigo-500 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-widest shadow-2xl shadow-medical-500/40 active:scale-95 transition-all hover:brightness-110">Commit Opportunity</button>
+                    <div className="sticky bottom-0 left-0 right-0 p-4 md:p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-end gap-3 md:gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-4 md:px-10">
+                        <button onClick={() => { setViewState('stock'); setLead(DEFAULT_LEAD); }} className="px-6 md:px-10 py-3 md:py-4 bg-slate-100 text-slate-500 rounded-[1.5rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200">
+                            Abort Registry
+                        </button>
+                        <button onClick={handleSave} className="px-10 md:px-16 py-3 md:py-4 bg-gradient-to-r from-medical-600 to-indigo-500 text-white rounded-[1.5rem] md:rounded-[2rem] font-black text-[10px] md:text-[11px] uppercase tracking-widest shadow-2xl shadow-medical-500/40 active:scale-95 transition-all hover:brightness-110">
+                            Commit Opportunity
+                        </button>
                     </div>
                 </div>
             )}
