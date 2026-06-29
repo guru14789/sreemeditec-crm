@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2, Activity, TrendingUp, Zap } from 'lucide-react';
-import { Task, Employee, AttendanceRecord, LeaveRequest } from '../types';
+import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2, Activity, TrendingUp, Zap, FileText, ChevronRight, AlertCircle, MapPin } from 'lucide-react';
+import { Task, Employee, AttendanceRecord } from '../types';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileText, ChevronRight, AlertCircle } from 'lucide-react';
 
 interface AttendanceModuleProps {
     tasks: Task[];
     userRole?: 'Admin' | 'Employee'; // Controlled by HR Access Grid via tabRole
 }
 
-type WorkMode = 'Office' | 'Field' | 'Remote';
+type WorkMode = 'Office' | 'Field' | 'Remote' | 'Outstation';
 
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userRole = 'Employee' }) => {
     const { 
@@ -19,12 +18,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         employees, addNotification, holidays, addHoliday, removeHoliday, addLog,
         leaveRequests, addLeaveRequest, updateLeaveRequest, showAlert, showConfirm 
     } = useData();
-    const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
-    const [accumulatedMs, setAccumulatedMs] = useState(0);
-    const [isLocked, setIsLocked] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     const [workMode, setWorkMode] = useState<WorkMode>('Office');
@@ -74,21 +69,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
 
     const todayRecord: AttendanceRecord | undefined = attendanceRecords.find(r => r.userId === me?.id && r.date === todayStr);
 
-    // Synchronize state with Firestore record
-    useEffect(() => {
-        if (todayRecord) {
-            setIsCheckedIn(todayRecord.status === 'CheckedIn');
-            setAccumulatedMs(todayRecord.totalWorkedMs || 0);
-            setSessionStartTime(todayRecord.lastSessionStartTime ? new Date(todayRecord.lastSessionStartTime) : null);
-            setIsLocked(todayRecord.status === 'Completed');
-        } else {
-            // Reset if no record for today
-            setIsCheckedIn(false);
-            setAccumulatedMs(0);
-            setSessionStartTime(null);
-            setIsLocked(false);
-        }
-    }, [todayRecord]);
+    // Derived states (always perfectly in sync with Firestore)
+    const isCheckedIn = todayRecord?.status === 'CheckedIn';
+    const accumulatedMs = todayRecord?.totalWorkedMs || 0;
+    const sessionStartTime = todayRecord?.lastSessionStartTime ? new Date(todayRecord.lastSessionStartTime) : null;
+    const isLocked = todayRecord?.status === 'Completed';
 
     // Determine current user's mode from HR record
     useEffect(() => {
@@ -868,25 +853,21 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             let card3Title = "Quick Action";
                             let card3Value = "Check In Now";
                             let card3Icon = <Zap size={15} />;
-                            let card3Pill = "ACTION";
 
                             if (isHolidayToday) {
                                 card3Title = "System Status";
                                 card3Value = todayHoliday?.name || "Holiday";
                                 card3Icon = <Calendar size={15} />;
-                                card3Pill = "HOLIDAY";
                             } else if (isLocked) {
                                 if (!isAfter7PM) {
                                     card3Title = "Optional Action";
                                     card3Value = "Log Departure";
                                     card3Icon = <CheckCircle size={15} />;
-                                    card3Pill = "DEPARTURE";
                                     card3Action = logActualDeparture;
                                 } else {
                                     card3Title = "System Status";
                                     card3Value = "Closed (7PM)";
                                     card3Icon = <Lock size={15} />;
-                                    card3Pill = "LOCKED";
                                 }
                             } else {
                                 card3Action = handleCheckInOut;
@@ -1645,7 +1626,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         await removeAttendance(recordId);
                                         addLog('Attendance', 'Quick Update', `Marked ${calendarSelectedUser.name} as Absent on ${quickSelectedDate}`);
                                     } else {
-                                        const nowStr = new Date().toISOString();
                                         const updates: any = {
                                             id: recordId,
                                             userId: calendarSelectedUser.id,

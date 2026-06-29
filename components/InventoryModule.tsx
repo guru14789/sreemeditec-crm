@@ -215,8 +215,15 @@ export const InventoryModule: React.FC = () => {
 
     // Filtered Products for Search
     const filteredProducts = useMemo(() => {
-        if (serverProducts.length > 0) return serverProducts;
-        return products.filter(p =>
+        const list = serverProducts.length > 0 ? serverProducts : products;
+        const baseList = list.map(item => {
+            const realTime = products.find(p => p.id === item.id);
+            return realTime ? realTime : item;
+        });
+        
+        if (serverProducts.length > 0) return baseList;
+        
+        return baseList.filter(p =>
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -386,7 +393,7 @@ export const InventoryModule: React.FC = () => {
     const handleQuickUpdate = (id: string, field: string, value: string | number) => {
         const product = products.find(p => p.id === id);
         if (product) {
-            updateProduct(id, { ...product, [field]: value });
+            updateProduct(id, { [field]: value });
             addNotification('Registry Adjusted', `Updated ${field} for ${product.name}`, 'success');
         }
         setInlineEdit(null);

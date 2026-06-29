@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, LogIn, Chrome, AlertCircle, RefreshCw, ShieldAlert, ExternalLink, Copy, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, RefreshCw, ShieldAlert, ExternalLink, Copy, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useData } from './DataContext';
 import Shuffle from './Shuffle';
+import { auth } from '../firebase';
+import { setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 
 export const Login: React.FC = () => {
-    const { login, loginWithGoogle, dbError, authError, isAuthenticating } = useData();
+    const { login, dbError, authError, isAuthenticating } = useData();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -42,17 +44,8 @@ export const Login: React.FC = () => {
         setError(null);
         setUnauthorizedDomain(null);
         try {
+            await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
             await login(email, password);
-        } catch (err: any) {
-            handleAuthError(err);
-        }
-    };
-
-    const handleGoogleLogin = async () => {
-        setError(null);
-        setUnauthorizedDomain(null);
-        try {
-            await loginWithGoogle();
         } catch (err: any) {
             handleAuthError(err);
         }
@@ -137,6 +130,7 @@ export const Login: React.FC = () => {
                                     triggerOnce={false}
                                     triggerOnHover={true}
                                     respectReducedMotion={true}
+                                    onShuffleComplete={() => {}}
                                     style={{ fontSize: 'inherit', fontFamily: 'inherit', lineHeight: 'inherit', textAlign: 'left' }}
                                 />
                             </span>

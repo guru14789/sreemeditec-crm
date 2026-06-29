@@ -323,9 +323,24 @@ Email: sreemeditec@gmail.com`;
             setViewState('history');
             setEditingId(null);
             addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
-        } catch (err) {
+            return true;
+        } catch (err: any) {
             console.error("Save error:", err);
+            try {
+                const parsed = JSON.parse(err.message);
+                if (parsed.type === 'INSUFFICIENT_STOCK') {
+                    const productDetails = parsed.items.map((item: any) => `- ${item.name} (Requested: ${item.requested}, Available: ${item.available})`).join('\n');
+                    await showAlert(
+                        `Insufficient stock available for the selected product(s). Please raise a Purchase Order.\n\n${productDetails}`,
+                        "Insufficient Stock"
+                    );
+                    return false;
+                }
+            } catch (e) {
+                // Not a JSON or stock error
+            }
             addNotification('Save Failed', 'Could not persist invoice.', 'alert');
+            return false;
         }
     };
 
@@ -1086,7 +1101,7 @@ Email: sreemeditec@gmail.com`;
                                 <div className="flex flex-col sm:flex-row gap-4 p-6 md:px-12 md:py-8 shrink-0 bg-white border-t border-slate-200 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.05)] z-30 relative">
                                     <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-200">Discard</button>
                                     <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
-                                    <button onClick={() => { handleSave('Finalized'); handleDownloadPDF(invoice); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
+                                    <button onClick={async () => { const ok = await handleSave('Finalized'); if (ok) handleDownloadPDF(invoice); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
                                         <Save size={20} /> Finalize & PDF
                                     </button>
                                 </div>

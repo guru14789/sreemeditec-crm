@@ -260,6 +260,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [clients, setClients] = useState<Client[]>([]);
     const [currentUser, setCurrentUser] = useState<Employee | null>(null);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [authInitialized, setAuthInitialized] = useState(false);
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [invoiceSnap, setInvoiceSnap] = useState<Invoice[]>([]);
@@ -463,9 +464,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setCurrentUser(null);
                 loginLoggedRef.current = false;
             }
+            setAuthInitialized(true);
         });
         return () => unsubscribe();
     }, []);
+
+    // Pre-initialize anonymous auth context on mount to speed up subsequent password logins
+    useEffect(() => {
+        if (authInitialized && !auth.currentUser) {
+            signInAnonymously(auth).catch(e => console.warn("Pre-auth failed:", e));
+        }
+    }, [authInitialized]);
 
     useEffect(() => {
         if (!firebaseUser) return;
@@ -478,60 +487,106 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
     useEffect(() => {
-        if (!firebaseUser || firebaseUser.isAnonymous) return;
+        if (!firebaseUser) return;
         
-        let resolvedUser: Employee | null = null;
-        const email = (firebaseUser.email || firebaseUser.providerData?.[0]?.email)?.toLowerCase();
+        if (!firebaseUser.isAnonymous) {
+            let resolvedUser: Employee | null = null;
+            const email = (firebaseUser.email || firebaseUser.providerData?.[0]?.email)?.toLowerCase();
 
-
-        // 1. Check for Super Admin Bypass (Immediate Resolution)
-        if (email === 'sreekumar.career@gmail.com') {
-            resolvedUser = {
-                id: 'EMP-OWNER',
-                name: 'Sreekumar',
-                role: 'SYSTEM_ADMIN',
-                department: 'Administration',
-                email: email,
-                status: 'Active',
-                isLoginEnabled: true,
-                permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
-            };
-        } else if (employees.length > 0) {
-            // 2. Resolve against Registry
-            const match = employees.find(e => e.email.toLowerCase() === email);
-            if (match) {
-                if (match.isLoginEnabled) {
-                    resolvedUser = { ...match };
+            // 1. Check for Super Admin Bypass (Immediate Resolution)
+            if (email === 'sreekumar.career@gmail.com') {
+                resolvedUser = {
+                    id: 'EMP-OWNER',
+                    name: 'Sreekumar',
+                    role: 'SYSTEM_ADMIN',
+                    department: 'Administration',
+                    email: email,
+                    status: 'Active',
+                    isLoginEnabled: true,
+                    permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
+                };
+            } else if (employees.length > 0) {
+                // 2. Resolve against Registry
+                const match = employees.find(e => e.email.toLowerCase() === email);
+                if (match) {
+                    if (match.isLoginEnabled) {
+                        resolvedUser = { ...match };
+                    } else {
+                        setAuthError("Registry Locked: Access disabled.");
+                        signOut(auth);
+                        setIsAuthenticating(false);
+                    }
                 } else {
-                    setAuthError("Registry Locked: Access disabled.");
+                    setAuthError(`Access Denied: '${firebaseUser.email}' not found in registry.`);
                     signOut(auth);
                     setIsAuthenticating(false);
                 }
-            } else {
-                setAuthError(`Access Denied: '${firebaseUser.email}' not found in registry.`);
-                signOut(auth);
+            }
+
+            if (resolvedUser) {
+                // Write/update their UID mapping
+                setDoc(doc(db, "uid_maps", firebaseUser.uid), {
+                    employeeId: resolvedUser.id,
+                    role: resolvedUser.role,
+                    email: email || '',
+                    updatedAt: new Date().toISOString()
+                }).catch(e => console.warn("Failed to write to uid_maps on Google login:", e));
+
+                setCurrentUser(resolvedUser);
+                if (!loginLoggedRef.current) {
+                    addLog('Auth', 'System Login', `User ${resolvedUser.name} initiated secure session.`);
+                    loginLoggedRef.current = true;
+                }
                 setIsAuthenticating(false);
+                setAuthError(null);
             }
+        } else {
+            // Restore anonymous session
+            const restoreSession = async () => {
+                try {
+                    const snap = await getDoc(doc(db, "uid_maps", firebaseUser.uid));
+                    if (snap.exists()) {
+                        const mapData = snap.data();
+                        const empId = mapData.employeeId;
+                        if (empId === 'EMP-OWNER') {
+                            const adminUser: Employee = {
+                                id: 'EMP-OWNER',
+                                name: 'Sreekumar',
+                                role: 'SYSTEM_ADMIN',
+                                department: 'Administration',
+                                email: mapData.email || 'sreekumar.career@gmail.com',
+                                status: 'Active',
+                                isLoginEnabled: true,
+                                permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
+                            };
+                            setCurrentUser(adminUser);
+                            if (!loginLoggedRef.current) {
+                                addLog('Auth', 'System Login', `User Sreekumar restored secure session.`);
+                                loginLoggedRef.current = true;
+                            }
+                        } else if (employees.length > 0) {
+                            const match = employees.find(e => e.id === empId);
+                            if (match) {
+                                if (match.isLoginEnabled) {
+                                    setCurrentUser(match);
+                                    if (!loginLoggedRef.current) {
+                                        addLog('Auth', 'System Login', `User ${match.name} restored secure session.`);
+                                        loginLoggedRef.current = true;
+                                    }
+                                } else {
+                                    setAuthError("Registry Locked: Access disabled.");
+                                    signOut(auth);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Restore anonymous session failed:", err);
+                }
+            };
+            restoreSession();
         }
-
-        if (resolvedUser) {
-            // Write/update their UID mapping
-            setDoc(doc(db, "uid_maps", firebaseUser.uid), {
-                employeeId: resolvedUser.id,
-                role: resolvedUser.role,
-                email: email || '',
-                updatedAt: new Date().toISOString()
-            }).catch(e => console.warn("Failed to write to uid_maps on Google login:", e));
-
-            setCurrentUser(resolvedUser);
-            if (!loginLoggedRef.current) {
-                addLog('Auth', 'System Login', `User ${resolvedUser.name} initiated secure session.`);
-                loginLoggedRef.current = true;
-            }
-            setIsAuthenticating(false);
-            setAuthError(null);
-        }
-    }, [firebaseUser, employees, isAuthenticating]);
+    }, [firebaseUser, employees]);
 
     // ─── REAL-TIME PERMISSION SYNC ────────────────────────────────────────────────
     // Employees who log in via password use anonymous Firebase auth.
@@ -630,10 +685,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
         const loadRegistries = async () => {
             try {
-                const [cSnap, vSnap, pSnap, hSnap, purSnap] = await Promise.all([
+                const [cSnap, vSnap, hSnap, purSnap] = await Promise.all([
                     getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
                     getDocs(query(collection(db, "vendors"), orderBy('name', 'asc'))),
-                    getDocs(query(collection(db, "products"), orderBy('name', 'asc'))),
                     getDocs(collection(db, "holidays")),
                     getDocs(collection(db, "purchaseRecords"))
                 ]);
@@ -659,7 +713,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
                 setVendors(updatedVendors);
-                setProducts(pSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
                 setHolidays(hSnap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
             } catch (err) { console.error("Registry load failed", err); }
         };
@@ -683,6 +736,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
         const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
         const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
+        const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)), (err) => console.warn("products listener:", err));
 
         const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
             if (s.exists()) {
@@ -719,7 +773,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubSettings(); unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
-            unsubStats();
+            unsubStats(); unsubProducts();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 
@@ -924,7 +978,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const lowerEmail = email.toLowerCase();
             
             // 1. First, satisfy Firestore Security Rules by ensuring AT LEAST an anonymous auth context
-            // This is required because our rules block all reads to unauthenticated users.
+            // Since we pre-auth on mount, this is almost always already completed.
             if (!auth.currentUser) {
                 try {
                     await signInAnonymously(auth);
@@ -946,35 +1000,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     permissions: Object.values(TabView).reduce((acc, tab) => ({ ...acc, [tab]: 'Admin' }), {})
                 };
                 if (auth.currentUser) {
-                    await setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
+                    setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
                         employeeId: 'EMP-OWNER',
                         role: 'SYSTEM_ADMIN',
                         email: lowerEmail,
                         updatedAt: new Date().toISOString()
-                    });
+                    }).catch(e => console.warn("Failed to write to uid_maps:", e));
                 }
                 setCurrentUser(adminUser);
                 setIsAuthenticating(false);
                 return true;
             }
 
-            // 3. Direct Query against Employee Registry (Bypassing local state which might be empty)
-            const q = query(collection(db, "employees"), where("email", "==", lowerEmail));
-            const snap = await getDocs(q);
+            // 3. Optimize Lookup: Try local employees registry first to avoid database network roundtrips
+            let match: Employee | undefined = employees.find(e => e.email.toLowerCase() === lowerEmail);
+            let empId = match?.id;
+
+            if (!match) {
+                // Fallback to direct query only if local registry isn't populated yet
+                const q = query(collection(db, "employees"), where("email", "==", lowerEmail));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    match = snap.docs[0].data() as Employee;
+                    empId = snap.docs[0].id;
+                }
+            }
             
-            if (!snap.empty) {
-                const match = snap.docs[0].data() as Employee;
+            if (match && empId) {
                 if (!match.isLoginEnabled) {
                     setAuthError("Account Locked: Registry access revoked by Admin.");
                 } else if (match.password === password) {
-                    const empId = snap.docs[0].id;
                     if (auth.currentUser) {
-                        await setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
+                        // Write to uid_maps asynchronously (non-blocking)
+                        setDoc(doc(db, "uid_maps", auth.currentUser.uid), {
                             employeeId: empId,
                             role: match.role,
                             email: lowerEmail,
                             updatedAt: new Date().toISOString()
-                        });
+                        }).catch(e => console.warn("Failed to write to uid_maps:", e));
                     }
                     setCurrentUser({ ...match, id: empId });
                     setIsAuthenticating(false);
@@ -1129,15 +1192,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     
     const addProduct = async (p: Product) => { 
+        const originalProducts = [...products];
         setProducts(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)));
-        await setDoc(doc(db, "products", p.id), sanitizeData(p)); 
-        await addLog('Inventory', 'Added Product', `Item: ${p.name}`); 
+        try {
+            await setDoc(doc(db, "products", p.id), sanitizeData(p)); 
+            await addLog('Inventory', 'Added Product', `Item: ${p.name}`); 
+        } catch (error: any) {
+            console.error("Failed to add product:", error);
+            setProducts(originalProducts);
+            addNotification('Add Product Failed', `Could not create product in database: ${error.message}`, 'alert');
+        }
     };
     const updateProduct = async (id: string, p: Partial<Product>) => {
         const existing = products.find(pr => pr.id === id);
+        const originalProducts = [...products];
         if (existing) setProducts(prev => prev.map(pr => pr.id === id ? { ...pr, ...p } as Product : pr).sort((a, b) => a.name.localeCompare(b.name)));
-        await updateDoc(doc(db, "products", id), sanitizeData(p));
-        await addLog('Inventory', 'Updated Product', `Item: ${existing?.name || id}`, existing, { ...existing, ...p });
+        try {
+            await updateDoc(doc(db, "products", id), sanitizeData(p));
+            await addLog('Inventory', 'Updated Product', `Item: ${existing?.name || id}`, existing, { ...existing, ...p });
+        } catch (error: any) {
+            console.error("Failed to update product:", error);
+            // Revert local state on database failure
+            setProducts(originalProducts);
+            addNotification('Update Failed', `Could not update product stock in database: ${error.message}`, 'alert');
+        }
     };
 
     const addStockBatch = async (batch: StockBatch) => {
@@ -1149,9 +1227,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await updateDoc(doc(db, "stockBatches", id), sanitizeData(updates));
     };
     const removeProduct = async (id: string) => { 
+        const originalProducts = [...products];
         setProducts(prev => prev.filter(p => p.id !== id));
-        await deleteDoc(doc(db, "products", id)); 
-        await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); 
+        try {
+            await deleteDoc(doc(db, "products", id)); 
+            await addLog('Inventory', 'Removed Product', `Deleted: ${id}`); 
+        } catch (error: any) {
+            console.error("Failed to remove product:", error);
+            setProducts(originalProducts);
+            addNotification('Remove Product Failed', `Could not delete product in database: ${error.message}`, 'alert');
+        }
     };
 
     const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
@@ -1310,33 +1395,169 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const existing = invoices.find(i => i.id === id);
         if (!existing) return;
 
-        const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...u }, reason);
-        const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+        const wasInventoryAffecting = existing.documentType === 'Invoice' && existing.status !== 'Draft' && existing.status !== 'Cancelled';
+        const isInventoryAffecting = (u.documentType || existing.documentType) === 'Invoice' && 
+                                     (u.status || existing.status) !== 'Draft' && 
+                                     (u.status || existing.status) !== 'Cancelled';
 
-        await updateDoc(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
-        await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
+        if (wasInventoryAffecting || isInventoryAffecting) {
+            let updatedProductsList: Product[] = [];
+            let stockMovementsToCreate: StockMovement[] = [];
+            
+            await runTransaction(db, async (tx) => {
+                const currentProducts = [...products];
+                
+                // Group new items
+                const newGrouped: Record<string, number> = {};
+                if (isInventoryAffecting) {
+                    const finalItems = u.items !== undefined ? u.items : existing.items;
+                    (finalItems || []).forEach(item => {
+                        const name = (item.description || '').toUpperCase();
+                        if (name) {
+                            newGrouped[name] = (newGrouped[name] || 0) + (Number(item.quantity) || 0);
+                        }
+                    });
+                }
+                
+                // Group old items
+                const oldGrouped: Record<string, number> = {};
+                if (wasInventoryAffecting) {
+                    (existing.items || []).forEach(item => {
+                        const name = (item.description || '').toUpperCase();
+                        if (name) {
+                            oldGrouped[name] = (oldGrouped[name] || 0) + (Number(item.quantity) || 0);
+                        }
+                    });
+                }
+                
+                // Collect all product names
+                const allProductNames = Array.from(new Set([
+                    ...Object.keys(newGrouped),
+                    ...Object.keys(oldGrouped)
+                ]));
+                
+                const insufficientItems: any[] = [];
+                const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
+                
+                for (const prodName of allProductNames) {
+                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                    let dbProduct: Product | null = null;
+                    let ref = null;
+                    if (masterProduct) {
+                        ref = doc(db, "products", masterProduct.id);
+                        const snap = await tx.get(ref);
+                        if (snap.exists()) {
+                            dbProduct = snap.data() as Product;
+                        }
+                    }
+                    
+                    const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
+                    const oldQty = oldGrouped[prodName] || 0;
+                    const newQty = newGrouped[prodName] || 0;
+                    
+                    const availableStock = dbStock + oldQty;
+                    
+                    if (newQty > availableStock) {
+                        insufficientItems.push({
+                            name: prodName,
+                            requested: newQty,
+                            available: availableStock
+                        });
+                    } else if (ref && dbProduct) {
+                        const newStock = dbStock + oldQty - newQty;
+                        productsToUpdate.push({
+                            ref,
+                            newStock,
+                            productData: { ...dbProduct, stock: newStock }
+                        });
+                        
+                        const netChange = oldQty - newQty;
+                        if (netChange > 0) {
+                            stockMovementsToCreate.push({
+                                id: `MVT-INV-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                productId: dbProduct.id,
+                                productName: dbProduct.name,
+                                type: 'In',
+                                quantity: netChange,
+                                date: u.date || existing.date || new Date().toISOString().split('T')[0],
+                                reference: `Rev/Mod: Invoice #${existing.invoiceNumber || existing.id}`,
+                                purpose: 'Restock'
+                            });
+                        } else if (netChange < 0) {
+                            stockMovementsToCreate.push({
+                                id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                productId: dbProduct.id,
+                                productName: dbProduct.name,
+                                type: 'Out',
+                                quantity: Math.abs(netChange),
+                                date: u.date || existing.date || new Date().toISOString().split('T')[0],
+                                reference: `Invoice #${existing.invoiceNumber || existing.id}`,
+                                purpose: 'Sale'
+                            });
+                        }
+                    } else {
+                        if (newQty > 0) {
+                            insufficientItems.push({
+                                name: prodName,
+                                requested: newQty,
+                                available: 0
+                            });
+                        }
+                    }
+                }
+                
+                if (insufficientItems.length > 0) {
+                    throw new Error(JSON.stringify({ type: 'INSUFFICIENT_STOCK', items: insufficientItems }));
+                }
+                
+                const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...u }, reason);
+                const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+                
+                tx.update(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
+                
+                productsToUpdate.forEach(({ ref, newStock }) => {
+                    tx.update(ref, { stock: newStock });
+                });
+                
+                stockMovementsToCreate.forEach(m => {
+                    const docData = { ...m, timestamp: new Date().toISOString() };
+                    tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+                });
+                
+                updatedProductsList = currentProducts.map(p => {
+                    const update = productsToUpdate.find(u => u.productData.id === p.id);
+                    return update ? update.productData : p;
+                });
+            });
+            
+            if (updatedProductsList.length > 0) {
+                setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
+            }
+            
+            await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
+        } else {
+            const auditEntry = createAuditEntry('Modified', existing, { ...existing, ...u }, reason);
+            const updatedEditHistory = [auditEntry, ...(existing.editHistory || [])].slice(0, 50);
+            
+            await updateDoc(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
+            await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
+        }
 
-        // Sync with Inventory (reversing old and applying updated record)
         const updatedRecord = { ...existing, ...u } as Invoice;
-        await syncInventoryFromInvoice(updatedRecord, existing || null);
         await checkAndAddInvoiceIncentive(updatedRecord);
 
-        // Update Summary if status changed to approved or amount changed
         if (existing && existing.documentType !== 'Quotation') {
             const wasValid = existing.status !== 'Draft' && existing.status !== 'Cancelled';
             const isNowValid = (u.status || existing.status) !== 'Draft' && (u.status || existing.status) !== 'Cancelled';
             const type = existing.documentType === 'SupplierPO' ? 'expense' : 'revenue';
             
             if (!wasValid && isNowValid) {
-                // Newly approved
                 await updateMonthlySummary(existing.date, u.grandTotal || existing.grandTotal || 0, type);
                 if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, u.grandTotal || existing.grandTotal || 0);
             } else if (wasValid && isNowValid && u.grandTotal !== undefined && u.grandTotal !== existing.grandTotal) {
-                // Amount changed on already approved doc
                 await updateMonthlySummary(existing.date, u.grandTotal - (existing.grandTotal || 0), type);
                 if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, u.grandTotal - (existing.grandTotal || 0));
             } else if (wasValid && !isNowValid) {
-                // Cancelled or moved to draft
                 await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
                 if (currentUser) await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
             }
@@ -2147,46 +2368,369 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addPurchaseRecord = async (r: PurchaseRecord) => {
-        await setDoc(doc(db, "purchaseRecords", r.id), sanitizeData(r));
+        let updatedProductsList: Product[] = [];
+        let productsToLog: { isNew: boolean, productData: Product }[] = [];
+        
+        await runTransaction(db, async (tx) => {
+            const currentProducts = [...products];
+            
+            const getItems = (rec: PurchaseRecord) => {
+                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number }[] = [];
+                if (rec.items && rec.items.length > 0) {
+                    rec.items.forEach(item => {
+                        list.push({
+                            name: item.equipmentName || '',
+                            qty: Number(item.qty) || 0,
+                            rate: Number(item.rate) || 0,
+                            unit: item.unit || 'nos',
+                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                        });
+                    });
+                } else if (rec.equipmentName) {
+                    list.push({
+                        name: rec.equipmentName,
+                        qty: Number(rec.qty) || 0,
+                        rate: Number(rec.rate) || 0,
+                        unit: rec.unit || 'nos',
+                        gstPercent: Number(rec.gstPercent || (rec.cgstPercent || 0) + (rec.sgstPercent || 0) + (rec.igstPercent || 0) || 0)
+                    });
+                }
+                return list;
+            };
+            
+            const newItems = getItems(r);
+            const dateSupply = r.dateSupply || new Date().toISOString().split('T')[0];
+            
+            const productsToUpdate: { ref: any, isNew: boolean, productData: Product }[] = [];
+            const stockMovementsToCreate: StockMovement[] = [];
+            
+            for (const item of newItems) {
+                if (!item.name) continue;
+                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+                let ref = null;
+                let dbProduct: Product | null = null;
+                
+                if (masterProduct) {
+                    ref = doc(db, "products", masterProduct.id);
+                    const snap = await tx.get(ref);
+                    if (snap.exists()) {
+                        dbProduct = snap.data() as Product;
+                    }
+                }
+                
+                if (dbProduct && ref) {
+                    const newStock = Number(dbProduct.stock || 0) + item.qty;
+                    const updatedProduct = {
+                        ...dbProduct,
+                        stock: newStock,
+                        purchasePrice: item.rate,
+                        lastRestocked: dateSupply,
+                        supplier: r.supplier || dbProduct.supplier
+                    };
+                    productsToUpdate.push({ ref, isNew: false, productData: updatedProduct });
+                    
+                    stockMovementsToCreate.push({
+                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: dbProduct.id,
+                        productName: dbProduct.name,
+                        type: 'In',
+                        quantity: item.qty,
+                        date: dateSupply,
+                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        purpose: 'Restock'
+                    });
+                } else {
+                    const newProdId = masterProduct?.id || `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                    ref = doc(db, "products", newProdId);
+                    const newProd: Product = {
+                        id: newProdId,
+                        name: item.name.toUpperCase(),
+                        category: 'Equipment',
+                        sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                        stock: item.qty,
+                        unit: item.unit,
+                        purchasePrice: item.rate,
+                        sellingPrice: item.rate,
+                        minLevel: 5,
+                        location: 'Warehouse',
+                        supplier: r.supplier || '',
+                        lastRestocked: dateSupply,
+                        taxRate: item.gstPercent,
+                        hsn: ''
+                    };
+                    productsToUpdate.push({ ref, isNew: true, productData: newProd });
+                    
+                    stockMovementsToCreate.push({
+                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: newProdId,
+                        productName: newProd.name,
+                        type: 'In',
+                        quantity: item.qty,
+                        date: dateSupply,
+                        reference: `Purchase #${r.invoiceNo || r.id}`,
+                        purpose: 'Restock'
+                    });
+                }
+            }
+            
+            tx.set(doc(db, "purchaseRecords", r.id), sanitizeData(r));
+            
+            productsToUpdate.forEach(({ ref, isNew, productData }) => {
+                if (isNew) {
+                    tx.set(ref, sanitizeData(productData));
+                } else {
+                    tx.update(ref, {
+                        stock: productData.stock,
+                        purchasePrice: productData.purchasePrice,
+                        lastRestocked: productData.lastRestocked,
+                        supplier: productData.supplier
+                    });
+                }
+            });
+            
+            stockMovementsToCreate.forEach(m => {
+                const docData = { ...m, timestamp: new Date().toISOString() };
+                tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+            });
+            
+            const tempProducts = [...currentProducts];
+            productsToUpdate.forEach(({ isNew, productData }) => {
+                if (isNew) {
+                    tempProducts.push(productData);
+                } else {
+                    const idx = tempProducts.findIndex(p => p.id === productData.id);
+                    if (idx !== -1) {
+                        tempProducts[idx] = productData;
+                    }
+                }
+            });
+            updatedProductsList = tempProducts;
+            productsToLog = productsToUpdate.map(u => ({ isNew: u.isNew, productData: u.productData }));
+        });
+        
+        if (updatedProductsList.length > 0) {
+            setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
+        }
+        
         const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
         await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
+        
+        productsToLog.forEach(({ isNew, productData }) => {
+            if (isNew) {
+                addLog('Inventory', 'Added Product', `Item: ${productData.name}`);
+            } else {
+                const oldProd = products.find(p => p.id === productData.id);
+                addLog('Inventory', 'Updated Product', `Item: ${productData.name}`, oldProd, productData);
+            }
+        });
+        
         if (r.supplier) {
             await updateVendorProcurementVolume(r.supplier);
         }
-
-        // Sync with Inventory
-        await syncInventoryFromPurchase(r, null);
-
-        // Event-driven accounting: auto-post Purchase voucher
         await postPurchaseVoucher(r);
     };
 
     const updatePurchaseRecord = async (id: string, updates: Partial<PurchaseRecord>) => {
         const existing = purchaseRecords.find(r => r.id === id);
-        let oldSupplier = existing?.supplier;
-        if (!oldSupplier) {
-            const docRef = doc(db, "purchaseRecords", id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                oldSupplier = docSnap.data().supplier;
+        if (!existing) return;
+        
+        let oldSupplier = existing.supplier;
+        let updatedProductsList: Product[] = [];
+        
+        await runTransaction(db, async (tx) => {
+            const currentProducts = [...products];
+            
+            const getItems = (rec: PurchaseRecord) => {
+                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number }[] = [];
+                if (rec.items && rec.items.length > 0) {
+                    rec.items.forEach(item => {
+                        list.push({
+                            name: item.equipmentName || '',
+                            qty: Number(item.qty) || 0,
+                            rate: Number(item.rate) || 0,
+                            unit: item.unit || 'nos',
+                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                        });
+                    });
+                } else if (rec.equipmentName) {
+                    list.push({
+                        name: rec.equipmentName,
+                        qty: Number(rec.qty) || 0,
+                        rate: Number(rec.rate) || 0,
+                        unit: rec.unit || 'nos',
+                        gstPercent: Number(rec.gstPercent || (rec.cgstPercent || 0) + (rec.sgstPercent || 0) + (rec.igstPercent || 0) || 0)
+                    });
+                }
+                return list;
+            };
+            
+            const oldItems = getItems(existing);
+            const updatedRecord = { ...existing, ...updates } as PurchaseRecord;
+            const newItems = getItems(updatedRecord);
+            const dateSupply = updatedRecord.dateSupply || new Date().toISOString().split('T')[0];
+            
+            const oldGrouped: Record<string, { qty: number }> = {};
+            oldItems.forEach(item => {
+                const name = item.name.trim().toLowerCase();
+                if (name) {
+                    oldGrouped[name] = { qty: (oldGrouped[name]?.qty || 0) + item.qty };
+                }
+            });
+            
+            const newGrouped: Record<string, { qty: number, rate: number, unit: string, gstPercent: number }> = {};
+            newItems.forEach(item => {
+                const name = item.name.trim().toLowerCase();
+                if (name) {
+                    newGrouped[name] = {
+                        qty: (newGrouped[name]?.qty || 0) + item.qty,
+                        rate: item.rate,
+                        unit: item.unit,
+                        gstPercent: item.gstPercent
+                    };
+                }
+            });
+            
+            const allProductNames = Array.from(new Set([
+                ...Object.keys(oldGrouped),
+                ...Object.keys(newGrouped)
+            ]));
+            
+            const productsToUpdate: { ref: any, isNew: boolean, productData: Product }[] = [];
+            const stockMovementsToCreate: StockMovement[] = [];
+            
+            for (const prodName of allProductNames) {
+                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === prodName);
+                let ref = null;
+                let dbProduct: Product | null = null;
+                
+                if (masterProduct) {
+                    ref = doc(db, "products", masterProduct.id);
+                    const snap = await tx.get(ref);
+                    if (snap.exists()) {
+                        dbProduct = snap.data() as Product;
+                    }
+                }
+                
+                const oldQty = oldGrouped[prodName]?.qty || 0;
+                const newInfo = newGrouped[prodName];
+                const newQty = newInfo?.qty || 0;
+                
+                if (dbProduct && ref) {
+                    const newStock = Math.max(0, Number(dbProduct.stock || 0) - oldQty + newQty);
+                    const updatedProduct = {
+                        ...dbProduct,
+                        stock: newStock,
+                        purchasePrice: newInfo ? newInfo.rate : dbProduct.purchasePrice,
+                        lastRestocked: newInfo ? dateSupply : dbProduct.lastRestocked,
+                        supplier: updatedRecord.supplier || dbProduct.supplier
+                    };
+                    productsToUpdate.push({ ref, isNew: false, productData: updatedProduct });
+                    
+                    const netChange = newQty - oldQty;
+                    if (netChange > 0) {
+                        stockMovementsToCreate.push({
+                            id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: dbProduct.id,
+                            productName: dbProduct.name,
+                            type: 'In',
+                            quantity: netChange,
+                            date: dateSupply,
+                            reference: `Purchase #${updatedRecord.invoiceNo || updatedRecord.id}`,
+                            purpose: 'Restock'
+                        });
+                    } else if (netChange < 0) {
+                        stockMovementsToCreate.push({
+                            id: `MVT-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: dbProduct.id,
+                            productName: dbProduct.name,
+                            type: 'Out',
+                            quantity: Math.abs(netChange),
+                            date: dateSupply,
+                            reference: `Rev: Purchase #${updatedRecord.invoiceNo || updatedRecord.id}`,
+                            purpose: 'Restock'
+                        });
+                    }
+                } else if (newQty > 0 && newInfo) {
+                    const newProdId = `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                    ref = doc(db, "products", newProdId);
+                    const newProd: Product = {
+                        id: newProdId,
+                        name: prodName.toUpperCase(),
+                        category: 'Equipment',
+                        sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                        stock: newQty,
+                        unit: newInfo.unit,
+                        purchasePrice: newInfo.rate,
+                        sellingPrice: newInfo.rate,
+                        minLevel: 5,
+                        location: 'Warehouse',
+                        supplier: updatedRecord.supplier || '',
+                        lastRestocked: dateSupply,
+                        taxRate: newInfo.gstPercent,
+                        hsn: ''
+                    };
+                    productsToUpdate.push({ ref, isNew: true, productData: newProd });
+                    
+                    stockMovementsToCreate.push({
+                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                        productId: newProdId,
+                        productName: newProd.name,
+                        type: 'In',
+                        quantity: newQty,
+                        date: dateSupply,
+                        reference: `Purchase #${updatedRecord.invoiceNo || updatedRecord.id}`,
+                        purpose: 'Restock'
+                    });
+                }
             }
+            
+            tx.update(doc(db, "purchaseRecords", id), sanitizeData(updates));
+            
+            productsToUpdate.forEach(({ ref, isNew, productData }) => {
+                if (isNew) {
+                    tx.set(ref, sanitizeData(productData));
+                } else {
+                    tx.update(ref, {
+                        stock: productData.stock,
+                        purchasePrice: productData.purchasePrice,
+                        lastRestocked: productData.lastRestocked,
+                        supplier: productData.supplier
+                    });
+                }
+            });
+            
+            stockMovementsToCreate.forEach(m => {
+                const docData = { ...m, timestamp: new Date().toISOString() };
+                tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+            });
+            
+            const tempProducts = [...currentProducts];
+            productsToUpdate.forEach(({ isNew, productData }) => {
+                if (isNew) {
+                    tempProducts.push(productData);
+                } else {
+                    const idx = tempProducts.findIndex(p => p.id === productData.id);
+                    if (idx !== -1) {
+                        tempProducts[idx] = productData;
+                    }
+                }
+            });
+            updatedProductsList = tempProducts;
+        });
+        
+        if (updatedProductsList.length > 0) {
+            setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
         }
-
-        await updateDoc(doc(db, "purchaseRecords", id), sanitizeData(updates));
+        
         await addLog('Inventory', 'Updated Purchase Entry', `ID: ${id}`, existing, { ...existing, ...updates });
-
-        // Sync with Inventory (reversing old and applying updated record)
-        const updatedRecord = { ...existing, ...updates } as PurchaseRecord;
-        await syncInventoryFromPurchase(updatedRecord, existing || null);
-
+        
         if (oldSupplier) {
             await updateVendorProcurementVolume(oldSupplier);
         }
         if (updates.supplier && updates.supplier !== oldSupplier) {
             await updateVendorProcurementVolume(updates.supplier);
         }
-
-        // Reverse old purchase vouchers and post updated one
+        
         const purchaseVouchers = vouchers.filter(v => v.referenceId === existing?.id && v.type === 'Purchase' && !v.voucherNumber?.startsWith('REV-'));
         for (const vch of purchaseVouchers) {
             try {
@@ -2198,28 +2742,95 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const removePurchaseRecord = async (id: string) => {
         const existing = purchaseRecords.find(r => r.id === id);
-        let supplier = existing?.supplier;
-        if (!supplier) {
-            const docRef = doc(db, "purchaseRecords", id);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                supplier = docSnap.data().supplier;
+        if (!existing) return;
+        
+        let supplier = existing.supplier;
+        let updatedProductsList: Product[] = [];
+        
+        await runTransaction(db, async (tx) => {
+            const currentProducts = [...products];
+            
+            const getItems = (rec: PurchaseRecord) => {
+                const list: { name: string, qty: number }[] = [];
+                if (rec.items && rec.items.length > 0) {
+                    rec.items.forEach(item => {
+                        list.push({
+                            name: item.equipmentName || '',
+                            qty: Number(item.qty) || 0
+                        });
+                    });
+                } else if (rec.equipmentName) {
+                    list.push({
+                        name: rec.equipmentName,
+                        qty: Number(rec.qty) || 0
+                    });
+                }
+                return list;
+            };
+            
+            const oldItems = getItems(existing);
+            const oldGrouped: Record<string, number> = {};
+            oldItems.forEach(item => {
+                const name = item.name.trim().toLowerCase();
+                if (name) {
+                    oldGrouped[name] = (oldGrouped[name] || 0) + item.qty;
+                }
+            });
+            
+            const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
+            const stockMovementsToCreate: StockMovement[] = [];
+            
+            for (const [prodName, oldQty] of Object.entries(oldGrouped)) {
+                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === prodName);
+                if (masterProduct) {
+                    const ref = doc(db, "products", masterProduct.id);
+                    const snap = await tx.get(ref);
+                    if (snap.exists()) {
+                        const dbProduct = snap.data() as Product;
+                        const newStock = Math.max(0, Number(dbProduct.stock || 0) - oldQty);
+                        
+                        productsToUpdate.push({ ref, newStock, productData: { ...dbProduct, stock: newStock } });
+                        
+                        stockMovementsToCreate.push({
+                            id: `MVT-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: dbProduct.id,
+                            productName: dbProduct.name,
+                            type: 'Out',
+                            quantity: oldQty,
+                            date: new Date().toISOString().split('T')[0],
+                            reference: `Rev: Purchase #${existing.invoiceNo || existing.id}`,
+                            purpose: 'Restock'
+                        });
+                    }
+                }
             }
+            
+            tx.delete(doc(db, "purchaseRecords", id));
+            
+            productsToUpdate.forEach(({ ref, newStock }) => {
+                tx.update(ref, { stock: newStock });
+            });
+            
+            stockMovementsToCreate.forEach(m => {
+                const docData = { ...m, timestamp: new Date().toISOString() };
+                tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+            });
+            
+            updatedProductsList = currentProducts.map(p => {
+                const update = productsToUpdate.find(u => u.productData.id === p.id);
+                return update ? update.productData : p;
+            });
+        });
+        
+        if (updatedProductsList.length > 0) {
+            setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
         }
-
-        await deleteDoc(doc(db, "purchaseRecords", id));
+        
         await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
-
-        // Reverse the deleted purchase entry in the Inventory
-        if (existing) {
-            await syncInventoryFromPurchase({ id } as PurchaseRecord, existing);
-        }
-
         if (supplier) {
             await updateVendorProcurementVolume(supplier);
         }
-
-        // Reverse associated purchase vouchers
+        
         const purchaseVouchers = vouchers.filter(v => v.referenceId === id && v.type === 'Purchase' && !v.voucherNumber?.startsWith('REV-'));
         for (const vch of purchaseVouchers) {
             try {
@@ -2895,15 +3506,118 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addInvoice = async (i: Invoice) => { 
-        await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
-        await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
+        const isInventoryAffecting = (i.documentType || 'Invoice') === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled';
         
-        // Sync with Inventory (subtract stock)
-        await syncInventoryFromInvoice(i, null);
-        
+        if (isInventoryAffecting) {
+            let updatedProductsList: Product[] = [];
+            let productsToLog: Product[] = [];
+            let stockMovementsToCreate: StockMovement[] = [];
+            
+            await runTransaction(db, async (tx) => {
+                const currentProducts = [...products];
+                
+                // Group new items
+                const newGrouped: Record<string, number> = {};
+                (i.items || []).forEach(item => {
+                    const name = (item.description || '').toUpperCase();
+                    if (name) {
+                        newGrouped[name] = (newGrouped[name] || 0) + (Number(item.quantity) || 0);
+                    }
+                });
+                
+                const insufficientItems: any[] = [];
+                const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
+                
+                for (const [prodName, newQty] of Object.entries(newGrouped)) {
+                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                    let dbProduct: Product | null = null;
+                    let ref = null;
+                    if (masterProduct) {
+                        ref = doc(db, "products", masterProduct.id);
+                        const snap = await tx.get(ref);
+                        if (snap.exists()) {
+                            dbProduct = snap.data() as Product;
+                        }
+                    }
+                    
+                    const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
+                    const availableStock = dbStock; // New invoice, so oldQty is 0
+                    
+                    if (newQty > availableStock) {
+                        insufficientItems.push({
+                            name: prodName,
+                            requested: newQty,
+                            available: availableStock
+                        });
+                    } else if (ref && dbProduct) {
+                        const newStock = dbStock - newQty;
+                        productsToUpdate.push({
+                            ref,
+                            newStock,
+                            productData: { ...dbProduct, stock: newStock }
+                        });
+                        
+                        stockMovementsToCreate.push({
+                            id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: dbProduct.id,
+                            productName: dbProduct.name,
+                            type: 'Out',
+                            quantity: newQty,
+                            date: i.date || new Date().toISOString().split('T')[0],
+                            reference: `Invoice #${i.invoiceNumber || i.id}`,
+                            purpose: 'Sale'
+                        });
+                    } else {
+                        insufficientItems.push({
+                            name: prodName,
+                            requested: newQty,
+                            available: 0
+                        });
+                    }
+                }
+                
+                if (insufficientItems.length > 0) {
+                    throw new Error(JSON.stringify({ type: 'INSUFFICIENT_STOCK', items: insufficientItems }));
+                }
+                
+                // Write Invoice
+                tx.set(doc(db, "invoices", i.id), sanitizeData(i));
+                
+                // Update product stocks
+                productsToUpdate.forEach(({ ref, newStock }) => {
+                    tx.update(ref, { stock: newStock });
+                });
+                
+                // Write stock movements
+                stockMovementsToCreate.forEach(m => {
+                    const docData = { ...m, timestamp: new Date().toISOString() };
+                    tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+                });
+                
+                productsToLog = productsToUpdate.map(u => u.productData);
+                updatedProductsList = currentProducts.map(p => {
+                    const update = productsToUpdate.find(u => u.productData.id === p.id);
+                    return update ? update.productData : p;
+                });
+            });
+            
+            if (updatedProductsList.length > 0) {
+                setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
+            }
+            
+            await addLog('Billing', 'Invoice Generated', i.invoiceNumber);
+            productsToLog.forEach(productData => {
+                const qty = newGrouped[productData.name.toUpperCase()];
+                addLog('Inventory', 'Invoice Deduction', `Subtracted ${qty} units of ${productData.name} due to invoice sale`);
+            });
+        } else {
+            // Non-inventory affecting (Draft, Quotation, ServiceOrder, etc.)
+            await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
+            await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
+        }
+
         await checkAndAddInvoiceIncentive(i);
 
-        // Aggregation trigger
         if (i.status !== 'Draft' && i.status !== 'Cancelled' && i.documentType !== 'Quotation') {
             const type = i.documentType === 'SupplierPO' ? 'expense' : 'revenue';
             await updateMonthlySummary(i.date, i.grandTotal || 0, type);
@@ -2912,30 +3626,93 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
 
-        // Event-driven accounting: auto-post Sales voucher for finalized invoices
         if (i.documentType === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled') {
             await postSalesVoucher(i);
         }
     };
     const removeInvoice = async (id: string) => {
         const existing = invoices.find(i => i.id === id);
-        if (existing) {
-            await addLog('Billing', 'Removed Invoice/Quotation', existing.invoiceNumber || id);
-            await deleteDoc(doc(db, "invoices", id));
-            
-            // Reverse invoice stock deduction in inventory
-            await syncInventoryFromInvoice({ id } as Invoice, existing);
+        if (!existing) return;
 
-            // If it was a revenue/expense impacting document, we might need to adjust summaries
-            // However, quotations (documentType === 'Quotation') usually don't impact revenue summaries in this system
-            // based on the logic in addInvoice (line 1144). 
-            // If it's a real invoice, we should subtract from summaries.
-            if (existing.status !== 'Draft' && existing.status !== 'Cancelled' && existing.documentType !== 'Quotation') {
-                const type = existing.documentType === 'SupplierPO' ? 'expense' : 'revenue';
-                await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
-                if (currentUser) {
-                    await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
+        const wasInventoryAffecting = existing.documentType === 'Invoice' && existing.status !== 'Draft' && existing.status !== 'Cancelled';
+        
+        if (wasInventoryAffecting) {
+            let updatedProductsList: Product[] = [];
+            let stockMovementsToCreate: StockMovement[] = [];
+            
+            await runTransaction(db, async (tx) => {
+                const currentProducts = [...products];
+                const oldGrouped: Record<string, number> = {};
+                existing.items.forEach(item => {
+                    const name = (item.description || '').toUpperCase();
+                    if (name) {
+                        oldGrouped[name] = (oldGrouped[name] || 0) + (Number(item.quantity) || 0);
+                    }
+                });
+                
+                const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
+                
+                for (const [prodName, oldQty] of Object.entries(oldGrouped)) {
+                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                    if (masterProduct) {
+                        const ref = doc(db, "products", masterProduct.id);
+                        const snap = await tx.get(ref);
+                        if (snap.exists()) {
+                            const dbProduct = snap.data() as Product;
+                            const dbStock = Number(dbProduct.stock || 0);
+                            const newStock = dbStock + oldQty;
+                            
+                            productsToUpdate.push({
+                                ref,
+                                newStock,
+                                productData: { ...dbProduct, stock: newStock }
+                            });
+                            
+                            stockMovementsToCreate.push({
+                                id: `MVT-INV-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                productId: dbProduct.id,
+                                productName: dbProduct.name,
+                                type: 'In',
+                                quantity: oldQty,
+                                date: new Date().toISOString().split('T')[0],
+                                reference: `Rev/Del: Invoice #${existing.invoiceNumber || existing.id}`,
+                                purpose: 'Restock'
+                            });
+                        }
+                    }
                 }
+                
+                tx.delete(doc(db, "invoices", id));
+                
+                productsToUpdate.forEach(({ ref, newStock }) => {
+                    tx.update(ref, { stock: newStock });
+                });
+                
+                stockMovementsToCreate.forEach(m => {
+                    const docData = { ...m, timestamp: new Date().toISOString() };
+                    tx.set(doc(db, "stockMovements", m.id), sanitizeData(docData));
+                });
+                
+                updatedProductsList = currentProducts.map(p => {
+                    const update = productsToUpdate.find(u => u.productData.id === p.id);
+                    return update ? update.productData : p;
+                });
+            });
+            
+            if (updatedProductsList.length > 0) {
+                setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
+            }
+        } else {
+            await deleteDoc(doc(db, "invoices", id));
+        }
+        
+        await addLog('Billing', 'Removed Invoice/Quotation', existing.invoiceNumber || id);
+
+        if (existing.status !== 'Draft' && existing.status !== 'Cancelled' && existing.documentType !== 'Quotation') {
+            const type = existing.documentType === 'SupplierPO' ? 'expense' : 'revenue';
+            await updateMonthlySummary(existing.date, -(existing.grandTotal || 0), type);
+            if (currentUser) {
+                await updateUserSummary(currentUser.id, currentUser.name, -(existing.grandTotal || 0));
             }
         }
     };
