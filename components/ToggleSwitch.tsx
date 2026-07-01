@@ -18,7 +18,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, d
       onMouseDown={() => setPressing(true)}
       onMouseUp={() => setPressing(false)}
       onMouseLeave={() => setPressing(false)}
-      onClick={() => { if (!disabled) onChange(!checked); }}
+      onClick={(e) => { e.stopPropagation(); if (!disabled) onChange(!checked); }}
       className={`
         relative w-[46px] h-[26px] rounded-full outline-none shrink-0
         transition-all duration-300 ease-in-out cursor-pointer

@@ -708,11 +708,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                         <AutoSuggest
                                                             value={currentItem.equipmentName || ''}
                                                             onChange={val => handleItemChange('equipmentName', val.toUpperCase())}
-                                                            onSelect={prod => {
-                                                                handleItemChange('equipmentName', prod.name.toUpperCase());
-                                                                if (prod.purchasePrice) handleItemChange('rate', prod.purchasePrice.toString());
-                                                                if (prod.taxRate) handleItemChange('gst', prod.taxRate.toString());
-                                                            }}
+                                                            onSelect={prod => handleItemChange('equipmentName', prod.name.toUpperCase())}
                                                             suggestions={products}
                                                             filterKey="name"
                                                             className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
