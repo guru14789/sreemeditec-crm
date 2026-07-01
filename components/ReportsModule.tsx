@@ -12,6 +12,7 @@ import {
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useData } from './DataContext';
+import { PDFService } from '../services/PDFService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatIndianNumber = (num: number) => {
@@ -129,7 +130,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports } = useData();
+  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -397,6 +398,22 @@ export const ReportsModule: React.FC = () => {
       return inv.closedBy === selectedEmployeeForClosures.id;
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [selectedEmployeeForClosures, invoices, dateRange]);
+
+  const handleViewInvoicePDF = async (invId: string) => {
+    const fullInvoice = invoices.find(i => i.id === invId || i.invoiceNumber === invId);
+    if (fullInvoice) {
+      try {
+        const isQuotation = fullInvoice.documentType === 'Quotation';
+        const blob = await PDFService.generateInvoicePDF(fullInvoice, isQuotation, fullInvoice.selectedBank);
+        previewPDF(blob, `${fullInvoice.invoiceNumber || 'Document'}.pdf`);
+      } catch (err) {
+        console.error("Failed to generate PDF:", err);
+        alert("Error generating PDF.");
+      }
+    } else {
+      alert("Invoice details not found.");
+    }
+  };
 
   const supplierTransactions = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -850,7 +867,12 @@ export const ReportsModule: React.FC = () => {
               <div className="max-h-[240px] overflow-y-auto custom-scrollbar">
                 {selectedProduct.invoiceList.sort((a, b) => b.date.localeCompare(a.date)).map((inv, i) => (
                   <div key={i} className="grid grid-cols-4 px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
-                    <span className="text-[9px] font-black text-violet-600 truncate">{inv.id}</span>
+                    <span 
+                      onClick={() => handleViewInvoicePDF(inv.id)} 
+                      className="text-[9px] font-black text-violet-600 truncate cursor-pointer hover:underline"
+                    >
+                      {inv.id}
+                    </span>
                     <span className="text-[9px] font-bold text-slate-500">{inv.date ? new Date(inv.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}</span>
                     <span className="text-[9px] font-bold text-slate-700 truncate">{inv.customer}</span>
                     <span className="text-[9px] font-black text-slate-800 text-right">{formatCurrency(inv.amount)}</span>
@@ -1962,6 +1984,58 @@ export const ReportsModule: React.FC = () => {
             )}
           </div>
 
+        </div>
+      )}
+
+      {selectedEmployeeForClosures && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedEmployeeForClosures(null)}>
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <div>
+                <h3 className="font-black text-sm text-slate-800 uppercase tracking-widest">{selectedEmployeeForClosures.name}</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">{employeeClosuresList.length} closures (invoices)</p>
+              </div>
+              <button onClick={() => setSelectedEmployeeForClosures(null)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={16} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+              {employeeClosuresList.length === 0 ? (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-xs text-slate-300 font-black uppercase">No closures found for selected period</p>
+                </div>
+              ) : (
+                employeeClosuresList.map((inv, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100 hover:bg-slate-100/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[9px] font-black uppercase bg-emerald-50 text-emerald-600">
+                        INV
+                      </div>
+                      <div>
+                        <span 
+                          onClick={() => handleViewInvoicePDF(inv.invoiceNumber || inv.id)} 
+                          className="text-[11px] font-black text-indigo-600 uppercase block cursor-pointer hover:underline"
+                        >
+                          {inv.invoiceNumber || inv.id}
+                        </span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">
+                          {inv.date} · {inv.customerName || (inv as any).clientName || 'Unknown Customer'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-black text-slate-800 block">{formatCurrency(inv.grandTotal || 0)}</span>
+                      <span className={`inline-block text-[7px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {inv.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
