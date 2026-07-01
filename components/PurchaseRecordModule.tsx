@@ -298,73 +298,78 @@ export const PurchaseRecordModule: React.FC = () => {
         setNewRecord(calculateTotals({ ...newRecord, items: updatedItems }, updatedItems));
     };
     const handleSaveRecord = async () => {
-        let itemsToSave = [...(newRecord.items || [])];
-        
-        // If items are empty but currentItem has data, auto-add it
-        if (itemsToSave.length === 0 && currentItem.equipmentName) {
-            const item: PurchaseItem = {
-                id: `PI-${Date.now()}`,
-                equipmentName: currentItem.equipmentName || '',
-                rate: Number(currentItem.rate) || 0,
-                qty: Number(currentItem.qty) || 0,
-                unit: currentItem.unit || 'nos',
-                gstPercent: Number(currentItem.gstPercent) || 0,
-                cgstPercent: Number(currentItem.cgstPercent) || 0,
-                sgstPercent: Number(currentItem.sgstPercent) || 0,
-                igstPercent: Number(currentItem.igstPercent) || 0,
-                totalIgst: Number(currentItem.totalIgst) || 0,
-                totalGst: Number(currentItem.totalGst) || 0,
-                total: Number(currentItem.total) || 0,
-            } as PurchaseItem;
-            itemsToSave.push(item);
+        try {
+            let itemsToSave = [...(newRecord.items || [])];
+            
+            // If items are empty but currentItem has data, auto-add it
+            if (itemsToSave.length === 0 && currentItem.equipmentName) {
+                const item: PurchaseItem = {
+                    id: `PI-${Date.now()}`,
+                    equipmentName: currentItem.equipmentName || '',
+                    rate: Number(currentItem.rate) || 0,
+                    qty: Number(currentItem.qty) || 0,
+                    unit: currentItem.unit || 'nos',
+                    gstPercent: Number(currentItem.gstPercent) || 0,
+                    cgstPercent: Number(currentItem.cgstPercent) || 0,
+                    sgstPercent: Number(currentItem.sgstPercent) || 0,
+                    igstPercent: Number(currentItem.igstPercent) || 0,
+                    totalIgst: Number(currentItem.totalIgst) || 0,
+                    totalGst: Number(currentItem.totalGst) || 0,
+                    total: Number(currentItem.total) || 0,
+                } as PurchaseItem;
+                itemsToSave.push(item);
+            }
+
+            if (itemsToSave.length === 0) {
+                alert("Please add at least one equipment.");
+                return;
+            }
+
+            const id = editingId || `PR-${Date.now()}`;
+            // Re-calculate totals based on items to save
+            const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
+            
+            const paidAmount = Number(finalTotals.paidAmount) || 0;
+            const balance = (finalTotals.total || 0) - paidAmount;
+            const status = balance <= 0 ? 'Completed' : 'Pending';
+
+            const record: PurchaseRecord = {
+                id,
+                dateSupply: finalTotals.dateSupply || '',
+                materialReceivedDate: finalTotals.materialReceivedDate || '',
+                supplier: finalTotals.supplier || '',
+                invoiceNo: finalTotals.invoiceNo || '',
+                items: itemsToSave,
+                packingCharges: Number(finalTotals.packingCharges) || 0,
+                forwardingCharges: Number(finalTotals.forwardingCharges) || 0,
+                freightCharges: Number(finalTotals.freightCharges) || 0,
+                freightGstPercent: Number(finalTotals.freightGstPercent) || 0,
+                totalGst: Number(finalTotals.totalGst) || 0,
+                totalIgst: Number(finalTotals.totalIgst) || 0,
+                total: Number(finalTotals.total) || 0,
+                isRoundOff: finalTotals.isRoundOff,
+                roundOff: finalTotals.roundOff,
+                createdBy: currentUser?.name,
+                paidAmount,
+                status
+            };
+
+            if (editingId) {
+                await updatePurchaseRecord(editingId, record);
+                addNotification('Entry Updated', `Purchase from ${record.supplier} updated.`, 'success');
+            } else {
+                await addPurchaseRecord(record);
+                addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
+            }
+
+            setShowAddModal(false);
+            setEditingId(null);
+            setNewRecord(INITIAL_RECORD_STATE);
+            setCurrentItem(INITIAL_ITEM_STATE);
+        } catch (err: any) {
+            console.error("Error saving purchase record:", err);
+            alert("Error: " + (err.message || err));
         }
-
-        if (itemsToSave.length === 0) {
-            alert("Please add at least one equipment.");
-            return;
-        }
-
-        const id = editingId || `PR-${Date.now()}`;
-        // Re-calculate totals based on items to save
-        const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
-        
-        const paidAmount = Number(finalTotals.paidAmount) || 0;
-        const balance = (finalTotals.total || 0) - paidAmount;
-        const status = balance <= 0 ? 'Completed' : 'Pending';
-
-        const record: PurchaseRecord = {
-            id,
-            dateSupply: finalTotals.dateSupply || '',
-            materialReceivedDate: finalTotals.materialReceivedDate || '',
-            supplier: finalTotals.supplier || '',
-            invoiceNo: finalTotals.invoiceNo || '',
-            items: itemsToSave,
-            packingCharges: Number(finalTotals.packingCharges) || 0,
-            forwardingCharges: Number(finalTotals.forwardingCharges) || 0,
-            freightCharges: Number(finalTotals.freightCharges) || 0,
-            freightGstPercent: Number(finalTotals.freightGstPercent) || 0,
-            totalGst: Number(finalTotals.totalGst) || 0,
-            totalIgst: Number(finalTotals.totalIgst) || 0,
-            total: Number(finalTotals.total) || 0,
-            isRoundOff: finalTotals.isRoundOff,
-            roundOff: finalTotals.roundOff,
-            createdBy: currentUser?.name,
-            paidAmount,
-            status
-        };
-
-        if (editingId) {
-            await updatePurchaseRecord(editingId, record);
-            addNotification('Entry Updated', `Purchase from ${record.supplier} updated.`, 'success');
-        } else {
-            await addPurchaseRecord(record);
-            addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
-        }
-
-        setShowAddModal(false);
-        setEditingId(null);
-        setNewRecord(INITIAL_RECORD_STATE);
-        setCurrentItem(INITIAL_ITEM_STATE);
     };
 
     const handleEdit = (record: PurchaseRecord) => {
