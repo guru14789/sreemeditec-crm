@@ -303,7 +303,7 @@ export const ReportsModule: React.FC = () => {
     // 4. Product Line Analysis
     const productMap: Record<string, { qty: number; total: number }> = {};
     invoices.forEach((inv) => {
-      if (inv.status === 'Draft' || inv.status === 'Cancelled' || (inv as any).documentType === 'SupplierPO' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'PO') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/') || inv.status === 'Draft' || inv.status === 'Cancelled') return;
       if (!filterByDateRange(inv.date)) return;
       (inv.items || []).forEach((item: any) => {
         const name = item.description || 'Unknown Product';
@@ -561,7 +561,7 @@ export const ReportsModule: React.FC = () => {
     const prodMap: Record<string, ProductDetail> = {};
 
     invoices.forEach((inv) => {
-      if (inv.status === 'Draft') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/') || inv.status === 'Draft' || inv.status === 'Cancelled') return;
       const invId = (inv as any).invoiceNumber || inv.id || '';
       const monthKey = (inv.date || '').substring(0, 7);
 
