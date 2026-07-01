@@ -2911,7 +2911,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Update current balances of ledgers involved
         for (const entry of v.entries) {
             const diff = entry.debit - entry.credit;
-            if (diff !== 0) {
+            if (diff !== 0 && entry.ledgerId && entry.ledgerId.trim() !== '') {
                 await updateDoc(doc(db, "ledgers", entry.ledgerId), {
                     currentBalance: increment(diff)
                 });
@@ -3460,8 +3460,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (sgstAmt > 0 && sgstLdg) entries.push({ id: `${r.id}-SGST`, ledgerId: sgstLdg.id, ledgerName: 'Input SGST', debit: sgstAmt, credit: 0 });
             if (igstAmt > 0 && igstLdg) entries.push({ id: `${r.id}-IGST`, ledgerId: igstLdg.id, ledgerName: 'Input IGST', debit: igstAmt, credit: 0 });
 
-            if (r.isRoundOff && r.roundOffAmount) {
-                const roAmt = Number(r.roundOffAmount);
+            const roValue = r.roundOffAmount ?? r.roundOff;
+            if (r.isRoundOff && roValue) {
+                const roAmt = Number(roValue);
                 if (roAmt > 0) {
                     entries.push({ id: `${r.id}-RO-DR`, ledgerId: roundOffLdg?.id || '', ledgerName: 'Round Off', debit: roAmt, credit: 0 });
                 } else if (roAmt < 0) {
