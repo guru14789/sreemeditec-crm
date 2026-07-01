@@ -152,8 +152,10 @@ Email: sreemeditec@gmail.com`;
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
+    const isBillingAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.BILLING] === 'Admin';
+
     const overdueInvoices = useMemo(() => {
-        if (!isSystemAdmin) return [];
+        if (!isBillingAdmin) return [];
         const today = new Date();
         return invoices.filter(inv => {
             if ((inv.documentType && inv.documentType !== 'Invoice') || !inv.invoiceNumber?.startsWith('SM/')) return false;
@@ -170,7 +172,7 @@ Email: sreemeditec@gmail.com`;
             
             return diffDays > 35;
         });
-    }, [invoices, isSystemAdmin]);
+    }, [invoices, isBillingAdmin]);
 
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -433,7 +435,7 @@ Email: sreemeditec@gmail.com`;
                 </div>
 
                 {/* Overdue Notification Card */}
-                {isSystemAdmin && overdueInvoices.length > 0 && viewState === 'history' && (
+                {isBillingAdmin && overdueInvoices.length > 0 && viewState === 'history' && (
                     <div 
                         onClick={() => {
                             setSearchQuery('');
