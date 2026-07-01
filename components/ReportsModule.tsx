@@ -145,6 +145,7 @@ export const ReportsModule: React.FC = () => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; transactions: any[] } | null>(null);
+  const [selectedEmployeeForClosures, setSelectedEmployeeForClosures] = useState<{ id: string; name: string } | null>(null);
 
   const filingStats = useMemo(() => {
     let filed = 0;
@@ -218,6 +219,7 @@ export const ReportsModule: React.FC = () => {
     let totalSales = 0;
     invoices.forEach((inv) => {
       if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       if (!filterByDateRange(inv.date)) return;
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
       const amt = inv.grandTotal || 0;
@@ -238,6 +240,7 @@ export const ReportsModule: React.FC = () => {
     const employeeSalesMap: Record<string, { total: number; invoices: number; name: string }> = {};
     invoices.forEach((inv) => {
       if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       if (!filterByDateRange(inv.date)) return;
       if (inv.closedBy) {
         const emp = (employees || []).find(e => e.id === inv.closedBy);
@@ -384,6 +387,16 @@ export const ReportsModule: React.FC = () => {
       topFreightCustomers,
     };
   }, [invoices, expenses, purchaseRecords, dateRange]);
+
+  const employeeClosuresList = useMemo(() => {
+    if (!selectedEmployeeForClosures) return [];
+    return invoices.filter(inv => {
+      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return false;
+      if (!filterByDateRange(inv.date)) return false;
+      return inv.closedBy === selectedEmployeeForClosures.id;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [selectedEmployeeForClosures, invoices, dateRange]);
 
   const supplierTransactions = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -1372,9 +1385,16 @@ export const ReportsModule: React.FC = () => {
               {expandedSection !== 'employees' ? (
                 <div className="space-y-2 flex-1 overflow-hidden">
                   {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => (
-                    <div key={idx} className="flex flex-col gap-0.5">
-                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
-                        <span className="truncate max-w-[120px] md:max-w-[100px]">{emp.name}</span>
+                    <div 
+                      key={idx} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
+                      }}
+                      className="flex flex-col gap-0.5 cursor-pointer group"
+                    >
+                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600 group-hover:text-indigo-600 transition-colors">
+                        <span className="truncate max-w-[120px] md:max-w-[100px] group-hover:underline">{emp.name}</span>
                         <span>{formatCurrency(emp.total)}</span>
                       </div>
                       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -1400,7 +1420,15 @@ export const ReportsModule: React.FC = () => {
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
-                            <span className="block text-[7px] font-bold text-indigo-600">{emp.invoices} Closures</span>
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
+                              }}
+                              className="block text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
+                            >
+                              {emp.invoices} Closures
+                            </span>
                           </div>
                         </div>
                       ))}
