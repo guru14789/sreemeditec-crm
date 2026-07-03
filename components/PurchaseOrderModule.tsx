@@ -2,7 +2,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
-    Plus, Search, Trash2, PenTool, 
+    Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, CreditCard, MoreVertical,
     FileText, User, CheckCircle, Percent, ImageIcon, ShieldCheck, ShoppingCart, Calendar, Building2, Save, ArrowUpRight, MessageSquare, Mail
 } from 'lucide-react';
