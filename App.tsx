@@ -844,7 +844,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === TabView.EXPENSES && (
+          {activeTab === TabView.EXPENSES && userRole === 'Admin' && (
             <div className="flex sm:hidden items-center gap-2 mx-2 sm:mx-6 animate-in fade-in slide-in-from-top-4 duration-500 overflow-x-auto custom-scrollbar flex-1 min-w-0">
                {(() => {
                  return (
