@@ -243,13 +243,14 @@ export const ReportsModule: React.FC = () => {
       if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
       if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       if (!filterByDateRange(inv.date)) return;
-      if (inv.closedBy) {
-        const emp = (employees || []).find(e => e.id === inv.closedBy);
-        const name = emp ? emp.name : 'Unknown Employee';
+      if (inv.closedBy && inv.closedBy !== 'Direct') {
+        const emp = (employees || []).find(e => e.id === inv.closedBy || e.name === inv.closedBy);
+        const name = emp ? emp.name : inv.closedBy;
+        const id = emp ? emp.id : inv.closedBy;
         const amt = inv.grandTotal || 0;
-        if (!employeeSalesMap[inv.closedBy]) employeeSalesMap[inv.closedBy] = { total: 0, invoices: 0, name };
-        employeeSalesMap[inv.closedBy].total += amt;
-        employeeSalesMap[inv.closedBy].invoices += 1;
+        if (!employeeSalesMap[id]) employeeSalesMap[id] = { total: 0, invoices: 0, name };
+        employeeSalesMap[id].total += amt;
+        employeeSalesMap[id].invoices += 1;
       }
     });
 
@@ -395,9 +396,15 @@ export const ReportsModule: React.FC = () => {
       if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
       if (!(inv.invoiceNumber || '').startsWith('SM/')) return false;
       if (!filterByDateRange(inv.date)) return false;
-      return inv.closedBy === selectedEmployeeForClosures.id;
+      if (!inv.closedBy || inv.closedBy === 'Direct') return false;
+      
+      const emp = (employees || []).find(e => e.id === inv.closedBy || e.name === inv.closedBy);
+      const name = emp ? emp.name : inv.closedBy;
+      const id = emp ? emp.id : inv.closedBy;
+      
+      return id === selectedEmployeeForClosures.id || name === selectedEmployeeForClosures.name;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [selectedEmployeeForClosures, invoices, dateRange]);
+  }, [selectedEmployeeForClosures, invoices, dateRange, employees]);
 
   const handleViewInvoicePDF = async (invId: string) => {
     const fullInvoice = invoices.find(i => i.id === invId || i.invoiceNumber === invId);

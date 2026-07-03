@@ -685,34 +685,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
         const loadRegistries = async () => {
             try {
-                const [cSnap, vSnap, hSnap, purSnap] = await Promise.all([
-                    getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
+                const [vSnap, cSnap, hSnap, pSnap, sSnap] = await Promise.all([
                     getDocs(query(collection(db, "vendors"), orderBy('name', 'asc'))),
+                    getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
                     getDocs(collection(db, "holidays")),
-                    getDocs(collection(db, "purchaseRecords"))
+                    getDocs(query(collection(db, "products"), orderBy('name', 'asc'))),
+                    getDoc(doc(db, "settings", "system"))
                 ]);
 
                 const loadedVendors = vSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Vendor);
-                const allPurchases = purSnap.docs.map(d => sanitizeData(d.data()) as PurchaseRecord);
 
-                const updatedVendors = loadedVendors.map(vendor => {
-                    const totalVolume = allPurchases
-                        .filter(p => (p.supplier || '').toUpperCase() === vendor.name.toUpperCase())
-                        .reduce((sum, p) => sum + (Number(p.total) || 0), 0);
-                    
-                    if (vendor.procurementVolume !== totalVolume) {
-                        updateDoc(doc(db, "vendors", vendor.id), { procurementVolume: totalVolume })
-                            .catch(err => console.error("Auto-sync vendor procurementVolume failed", err));
+                if (sSnap.exists()) {
+                    const data = sSnap.data();
+                    if (data.prizePool) setPrizePool(data.prizePool);
+                    if (data.financialYear) setFinancialYear(data.financialYear);
+                    if (data.bankDetails) {
+                        const banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                        setBankDetailsList(banks);
                     }
+                    if (data.bankRules) {
+                        setBankRules(data.bankRules);
+                    }
+                    if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
+                }
 
-                    return {
-                        ...vendor,
-                        procurementVolume: totalVolume
-                    };
-                });
-
+                setProducts(pSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
                 setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
-                setVendors(updatedVendors);
+                setVendors(loadedVendors);
                 setHolidays(hSnap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
             } catch (err) { console.error("Registry load failed", err); }
         };
@@ -736,23 +735,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
         const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
         const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
-        const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product)), (err) => console.warn("products listener:", err));
-
-        const unsubSettings = onSnapshot(doc(db, "settings", "system"), (s) => {
-            if (s.exists()) {
-                const data = s.data();
-                if (data.prizePool) setPrizePool(data.prizePool);
-                if (data.financialYear) setFinancialYear(data.financialYear);
-                if (data.bankDetails) {
-                    const banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
-                    setBankDetailsList(banks);
-                }
-                if (data.bankRules) {
-                    setBankRules(data.bankRules);
-                }
-                if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
-            }
-        }, (err) => console.warn("settings listener:", err));
         
         const qStats = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration') 
             ? query(collection(db, "expenses"))
@@ -772,8 +754,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
-            unsubSettings(); unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
-            unsubStats(); unsubProducts();
+            unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
+            unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 

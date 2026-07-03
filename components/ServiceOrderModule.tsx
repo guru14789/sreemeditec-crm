@@ -47,6 +47,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 
 export const ServiceOrderModule: React.FC = () => {
     const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingServiceReportData, setActiveTab, showConfirm, previewPDF } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SERVICE_ORDERS] === 'Admin';
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -485,7 +486,7 @@ export const ServiceOrderModule: React.FC = () => {
                                                         }} className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Wrench size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button onClick={async (e) => { e.stopPropagation(); const confirmed = await showConfirm('Are you sure you want to delete this record?'); if (confirmed) { await removeInvoice(inv.id); addNotification('Record Deleted', 'The service record has been removed.', 'success'); } setActiveMenuId(null); }} className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Trash2 size={18} /></button>
                                                         )}
                                                     </div>

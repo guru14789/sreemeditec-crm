@@ -110,6 +110,7 @@ import { AutoSuggest } from './AutoSuggest';
 
 export const QuotationModule: React.FC = () => {
     const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
@@ -636,9 +637,9 @@ Sree Meditec`;
                                                             <Mail size={18} />
                                                         </button>
 
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
-                                                                onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber); setActiveMenuId(null); }} 
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber || 'Document'); setActiveMenuId(null); }} 
                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all"
                                                                 title="Delete Quotation"
                                                             >

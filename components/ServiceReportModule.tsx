@@ -48,6 +48,7 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
 
 export const ServiceReportModule: React.FC = () => {
     const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin, pendingServiceReportData, setPendingServiceReportData, showConfirm, previewPDF } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SERVICE_REPORT] === 'Admin';
 
     const handleDelete = async (id: string, num: string) => {
         const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Service Report ${num}? This action cannot be undone.`);
@@ -486,7 +487,7 @@ export const ServiceReportModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(r.id!, r.reportNumber || 'Report'); setActiveMenuId(null); }} 
                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all flex-1 flex justify-center"

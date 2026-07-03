@@ -760,7 +760,7 @@ Email: sreemeditec@gmail.com`;
                                                                  <XCircle size={18} />
                                                              </button>
                                                          )}
-                                                        {isSystemAdmin && (
+                                                        {isBillingAdmin && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDelete(inv.id, inv.invoiceNumber || 'Document'); setActiveMenuId(null); }} 
                                                                 className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-all"

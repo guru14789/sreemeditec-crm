@@ -51,6 +51,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 
 export const SupplierPOModule: React.FC = () => {
     const { vendors, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, pendingSupplierPOData, setPendingSupplierPOData, showConfirm, showPrompt, previewPDF, bankDetailsList = [] } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SUPPLIER_PO] === 'Admin';
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         let phone = inv.phone || '';
@@ -540,7 +541,7 @@ export const SupplierPOModule: React.FC = () => {
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
                                                                     e.stopPropagation(); 

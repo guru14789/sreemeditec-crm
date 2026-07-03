@@ -45,6 +45,7 @@ export const InstallationReportModule: React.FC = () => {
         showConfirm,
         previewPDF
     } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.INSTALLATION_REPORTS] === 'Admin';
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -315,7 +316,7 @@ export const InstallationReportModule: React.FC = () => {
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
                                                         <button onClick={(e) => { e.stopPropagation(); setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(r); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
                                                                     e.stopPropagation(); 

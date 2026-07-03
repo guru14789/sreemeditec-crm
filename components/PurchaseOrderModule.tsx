@@ -50,6 +50,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 
 export const PurchaseOrderModule: React.FC = () => {
     const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingSupplierPOData, setActiveTab, showConfirm, showPrompt, previewPDF } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.PO_BUILDER] === 'Admin';
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
@@ -531,7 +532,7 @@ Sree Meditec`;
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleEmailSend(inv); setActiveMenuId(null); }} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send via Email"><Mail size={18} /></button>
-                                                        {isSystemAdmin && (
+                                                        {isAdmin && (
                                                             <button 
                                                                 onClick={async (e) => { 
                                                                     e.stopPropagation(); 
