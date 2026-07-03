@@ -921,6 +921,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                 </div>
 
 
+                {/* Apply Leave - All Users */}
+                <div className="px-2 md:px-0 mb-2">
+                    <button 
+                        onClick={() => setShowApplyLeaveModal(true)}
+                        className="p-2 px-4 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 hover:bg-rose-100 transition-all flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-sm"
+                    >
+                        <Calendar size={14} /> Apply Leave
+                    </button>
+                </div>
+
                 {/* Bottom Section: Staff Registry (Attendance Sheet) - Full Width */}
                 {isAdmin && (
                 <div className="w-full bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-[400px]">
@@ -959,12 +969,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                             )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <button 
-                                onClick={() => setShowApplyLeaveModal(true)}
-                                className="p-1 px-2.5 bg-rose-50 text-rose-600 rounded-lg border border-rose-100 hover:bg-rose-100 transition-all flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest shadow-sm"
-                            >
-                                <Calendar size={12} /> Apply Leave
-                            </button>
                             <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto custom-scrollbar-hide max-w-[200px] sm:max-w-none">
                                 {['All', 'Service', 'Administration', 'Support', 'Sales'].map(dept => (
                                     <button
