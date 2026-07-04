@@ -3489,6 +3489,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addInvoice = async (i: Invoice) => { 
+        const dup = invoices.find(inv => inv.invoiceNumber === i.invoiceNumber && inv.id !== i.id);
+        if (dup) {
+            throw new Error(JSON.stringify({ type: 'DUPLICATE_INVOICE', invoiceNumber: i.invoiceNumber }));
+        }
         const isInventoryAffecting = (i.documentType || 'Invoice') === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled';
         
         if (isInventoryAffecting) {

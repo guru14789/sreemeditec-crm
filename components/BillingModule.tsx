@@ -222,7 +222,12 @@ Email: sreemeditec@gmail.com`;
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !invoice.invoiceNumber) {
             const currentYearInvoices = invoices.filter(i => i.invoiceNumber && i.invoiceNumber.includes(`/${financialYear}/`));
-            const nextNum = currentYearInvoices.length + 1;
+            const maxNum = currentYearInvoices.reduce((max, i) => {
+                const parts = i.invoiceNumber.split('/');
+                const num = parseInt(parts[parts.length - 1], 10);
+                return isNaN(num) ? max : Math.max(max, num);
+            }, 0);
+            const nextNum = maxNum + 1;
             setInvoice(prev => ({
                 ...prev,
                 invoiceNumber: `SM/${financialYear}/${String(nextNum).padStart(4, '0')}`
@@ -330,6 +335,10 @@ Email: sreemeditec@gmail.com`;
             console.error("Save error:", err);
             try {
                 const parsed = JSON.parse(err.message);
+                if (parsed.type === 'DUPLICATE_INVOICE') {
+                    await showAlert(`Invoice #${parsed.invoiceNumber} already exists. Cannot create duplicate.`, "Duplicate Invoice");
+                    return false;
+                }
                 if (parsed.type === 'INSUFFICIENT_STOCK') {
                     const productDetails = parsed.items.map((item: any) => `- ${item.name} (Requested: ${item.requested}, Available: ${item.available})`).join('\n');
                     await showAlert(
