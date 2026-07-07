@@ -284,7 +284,8 @@ export const DeliveryChallanModule: React.FC = () => {
                                         return (
                                             (c.challanNumber || '').toLowerCase().includes(query) ||
                                             (c.customerName || '').toLowerCase().includes(query) ||
-                                            (c.createdBy || '').toLowerCase().includes(query)
+                                            (c.createdBy || '').toLowerCase().includes(query) ||
+                                            (c.items || []).some((item: any) => (item.description || '').toLowerCase().includes(query))
                                         );
                                     })
                                     .filter((c: any) => {

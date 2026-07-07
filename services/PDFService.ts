@@ -171,7 +171,7 @@ export const PDFService = {
 
         if (data.isRoundOff && docTotals.roundOff !== 0) {
             itemsBody.push(
-                ['', { content: 'Round Off', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]
+                ['', { content: 'Round Off', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', `${docTotals.roundOff > 0 ? '(+) ' : '(-) '}${Math.abs(Number(docTotals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]
             );
         }
 
@@ -544,7 +544,7 @@ export const PDFService = {
         );
         if (data.isRoundOff && totals.roundOff !== 0) {
             totalRows.push(
-                [{ content: 'Round Off', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: (Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), styles: { halign: 'right' , textColor: [0, 0, 0] } as any }]
+                [{ content: 'Round Off', styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, { content: `${totals.roundOff > 0 ? '(+) ' : '(-) '}${Math.abs(Number(totals.roundOff) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right' , textColor: [0, 0, 0] } as any }]
             );
         }
         totalRows.push(

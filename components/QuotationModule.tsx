@@ -390,7 +390,8 @@ Sree Meditec`;
                 i.invoiceNumber.toLowerCase().includes(lowSearch) ||
                 (i.customerName || '').toLowerCase().includes(lowSearch) ||
                 (i.subject || '').toLowerCase().includes(lowSearch) ||
-                (i.createdBy || '').toLowerCase().includes(lowSearch)
+                (i.createdBy || '').toLowerCase().includes(lowSearch) ||
+                (i.items || []).some(item => (item.description || '').toLowerCase().includes(lowSearch))
             );
         }
 

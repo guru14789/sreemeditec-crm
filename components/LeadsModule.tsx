@@ -178,6 +178,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                 ...lead as Lead,
                 id: `L-${Date.now()}`,
                 lastContact: new Date().toISOString().split('T')[0],
+                createdAt: new Date().toISOString(),
                 followUps: []
             };
             await addLead(finalLead);
@@ -299,11 +300,12 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                             <div className="flex-1 overflow-auto custom-scrollbar">
                             <table className="w-full text-left text-[11px] hidden lg:table">
                                 <thead className="bg-slate-50 sticky top-0 z-10 font-black uppercase text-[9px] text-slate-500 border-b tracking-widest shadow-[0_1px_0_0_#f1f5f9]">
-                                    <tr><th className="px-8 py-5">Opportunity</th><th className="px-8 py-5">Source</th><th className="px-8 py-5">Interest / Value</th><th className="px-8 py-5">Next Action</th><th className="px-8 py-5 text-right">Status</th></tr>
+                                    <tr><th className="px-8 py-5">Date of Entry</th><th className="px-8 py-5">Opportunity</th><th className="px-8 py-5">Source</th><th className="px-8 py-5">Interest / Value</th><th className="px-8 py-5">Next Action</th><th className="px-8 py-5 text-right">Status</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredLeads.map(l => (
                                         <tr key={l.id} className={`hover:bg-slate-50 transition-colors group cursor-pointer ${selectedLead?.id === l.id ? 'bg-medical-50/50' : ''}`} onClick={() => setSelectedLead(l)}>
+                                            <td className="px-8 py-5 whitespace-nowrap"><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : (l.id.startsWith('L-') && !isNaN(parseInt(l.id.replace('L-','')))) ? new Date(parseInt(l.id.replace('L-',''))).toLocaleDateString('en-IN') : l.lastContact || '-'}</span></td>
                                             <td className="px-8 py-5"><div className="font-black text-slate-800 uppercase text-[13px] tracking-tight">{l.name}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{l.hospital}</div></td>
                                             <td className="px-8 py-5"><span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">{l.source}</span></td>
                                             <td className="px-8 py-5"><div className="font-bold text-slate-700">{l.productInterest}</div><div className="text-emerald-600 font-black mt-0.5">₹{(l.value || 0).toLocaleString('en-IN')}</div></td>
@@ -316,7 +318,7 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                         </tr>
                                     ))}
                                     {filteredLeads.length === 0 && (
-                                        <tr><td colSpan={5} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Registry Found</td></tr>
+                                        <tr><td colSpan={6} className="py-40 text-center text-slate-300 font-black uppercase tracking-[0.5em] opacity-30 italic">No Registry Found</td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -328,7 +330,10 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                                 <div className="font-black text-slate-800 uppercase text-[13px] tracking-tight truncate">{l.name}</div>
                                                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5 truncate">{l.hospital}</div>
                                             </div>
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border shrink-0 ${l.status === 'Won' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>{l.status}</span>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border shrink-0 ${l.status === 'Won' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>{l.status}</span>
+                                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : (l.id.startsWith('L-') && !isNaN(parseInt(l.id.replace('L-','')))) ? new Date(parseInt(l.id.replace('L-',''))).toLocaleDateString('en-IN') : l.lastContact || '-'}</span>
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3 mt-1">
                                             <div className="min-w-0">

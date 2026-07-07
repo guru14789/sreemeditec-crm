@@ -385,7 +385,8 @@ export const PurchaseRecordModule: React.FC = () => {
         let filtered = purchaseRecords.filter(r =>
             (r.supplier || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (r.equipmentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (r.invoiceNo || '').toLowerCase().includes(searchQuery.toLowerCase())
+            (r.invoiceNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (r.items || []).some(item => (item.equipmentName || '').toLowerCase().includes(searchQuery.toLowerCase()))
         );
 
         if (filingFilter !== 'All') {

@@ -427,7 +427,8 @@ export const ServiceOrderModule: React.FC = () => {
                                             (i.invoiceNumber || '').toLowerCase().includes(query) ||
                                             (i.customerHospital || '').toLowerCase().includes(query) ||
                                             (i.equipmentName || '').toLowerCase().includes(query) ||
-                                            (i.model || '').toLowerCase().includes(query)
+                                            (i.model || '').toLowerCase().includes(query) ||
+                                            (i.items || []).some(item => (item.description || '').toLowerCase().includes(query))
                                         );
                                     })
                                     .filter(i => {

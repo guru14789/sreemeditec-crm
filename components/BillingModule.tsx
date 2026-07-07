@@ -565,7 +565,8 @@ Email: sreemeditec@gmail.com`;
                             <tbody className="divide-y divide-slate-100">
                                 {(serverInvoices.length > 0 ? serverInvoices : invoices.filter(i => 
                                     (i.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                    (i.customerName || '').toLowerCase().includes(searchQuery.toLowerCase())
+                                    (i.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                    (i.items || []).some(item => (item.description || '').toLowerCase().includes(searchQuery.toLowerCase()))
                                 ))
                                     .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
                                     .filter(i => {

@@ -444,7 +444,8 @@ export const ServiceReportModule: React.FC = () => {
                                             (r.reportNumber || '').toLowerCase().includes(query) ||
                                             (r.customerName || '').toLowerCase().includes(query) ||
                                             (r.equipmentName || '').toLowerCase().includes(query) ||
-                                            (r.engineerName || '').toLowerCase().includes(query)
+                                            (r.engineerName || '').toLowerCase().includes(query) ||
+                                            (r.itemsUsed || []).some((item: any) => (item.description || '').toLowerCase().includes(query))
                                         );
                                     })
                                     .filter((r: any) => {

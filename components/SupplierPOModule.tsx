@@ -496,7 +496,8 @@ export const SupplierPOModule: React.FC = () => {
                                         if (poSearch) {
                                             const low = poSearch.toLowerCase();
                                             return i.invoiceNumber.toLowerCase().includes(low) || 
-                                                   (i.customerName || '').toLowerCase().includes(low);
+                                                   (i.customerName || '').toLowerCase().includes(low) ||
+                                                   (i.items || []).some(item => (item.description || '').toLowerCase().includes(low));
                                         }
                                         return true;
                                     })

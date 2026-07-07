@@ -1067,7 +1067,33 @@ export const InventoryModule: React.FC = () => {
                         <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
                             <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none focus:border-medical-500" placeholder="Product Name *" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
+                                <div className="relative">
+                                    <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] pl-3 pr-10 py-2 text-[16px] font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (showPrompt) {
+                                                const pwd = await showPrompt("Enter admin password to generate SKU", "Generate SKU", "password");
+                                                if (pwd === "admin") {
+                                                    let newSku = "";
+                                                    let isDuplicate = true;
+                                                    while (isDuplicate) {
+                                                        newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                        isDuplicate = products.some(p => p.sku === newSku);
+                                                    }
+                                                    setNewProduct({ ...newProduct, sku: newSku });
+                                                    addNotification('SKU Generated', `New SKU ${newSku} generated successfully.`, 'success');
+                                                } else if (pwd !== null) {
+                                                    addNotification('Error', 'Incorrect password.', 'error');
+                                                }
+                                            }
+                                        }}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full p-1.5 transition-colors"
+                                        title="Auto Generate SKU"
+                                    >
+                                        <ScanBarcode size={14} />
+                                    </button>
+                                </div>
                                 <select className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
                                     <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option><option>Furniture</option>
                                 </select>

@@ -85,6 +85,7 @@ export interface Lead {
   followUps: FollowUp[];
   contactPerson?: string;
   salesTakenBy?: string;
+  createdAt?: string;
 }
 
 export interface Client {
