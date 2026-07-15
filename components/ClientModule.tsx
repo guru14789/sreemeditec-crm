@@ -103,27 +103,32 @@ export const ClientModule: React.FC = () => {
             status: client.status || 'Finalized'
         };
 
-        // Duplicate detection
+        // Duplicate detection (safe against undefined/null name or phone values)
         const isDuplicate = clients.some(c => 
             (c.id !== finalData.id) && 
-            ((finalData.phone && c.phone === finalData.phone) || 
-             (finalData.name && c.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()))
+            ((finalData.phone && c.phone && c.phone === finalData.phone) || 
+             (finalData.name && c.name && c.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()))
         );
         if (isDuplicate) {
             const confirmed = await showConfirm(`A client with name "${finalData.name}" or phone "${finalData.phone}" already exists. Save anyway?`, "Duplicate Detected");
             if (!confirmed) return;
         }
 
-        if (editingId) {
-            await updateClient(editingId, finalData);
-            addNotification('Registry Updated', `"${finalData.name}" record modified.`, 'success');
-        } else {
-            await addClient(finalData);
-            addNotification('Client Indexed', `"${finalData.name}" added to cloud.`, 'success');
+        try {
+            if (editingId) {
+                await updateClient(editingId, finalData);
+                addNotification('Registry Updated', `"${finalData.name}" record modified.`, 'success');
+            } else {
+                await addClient(finalData);
+                addNotification('Client Indexed', `"${finalData.name}" added to cloud.`, 'success');
+            }
+            setViewState('stock');
+            setEditingId(null);
+            setClient(DEFAULT_CLIENT);
+        } catch (error: any) {
+            console.error("Failed to save client:", error);
+            addNotification('Database Error', `Could not save client record: ${error.message || error}`, 'alert');
         }
-        setViewState('stock');
-        setEditingId(null);
-        setClient(DEFAULT_CLIENT);
     };
 
     const performDelete = async () => {
@@ -246,8 +251,18 @@ export const ClientModule: React.FC = () => {
                         <section className="space-y-3 md:space-y-4">
                             <h3 className="text-[9px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Globe size={14} className="text-emerald-500" />3. Communication Node</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-3">
-                                <div className="sm:col-span-2"><FormRow label="Email Address"><input type="email" className="w-full h-[32px] md:h-[36px] bg-white border border-slate-300 rounded-xl md:rounded-[2rem] px-3 text-[10px] md:text-xs font-medium uppercase" placeholder="CLIENT@FACILITY.COM" value={client.email || ''} onChange={e => setClient({...client, email: e.target.value})} /></FormRow></div>
-                                <div className="sm:col-span-2"><FormRow label="Phone / Mobile"><input type="text" className="w-full h-[32px] md:h-[36px] bg-white border border-slate-300 rounded-xl md:rounded-[2rem] px-3 text-[10px] md:text-xs font-semibold font-mono" placeholder="+91" value={client.phone || ''} onChange={e => setClient({...client, phone: e.target.value})} /></FormRow></div>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Email Address(es)">
+                                        <input type="text" className="w-full h-[32px] md:h-[36px] bg-white border border-slate-300 rounded-xl md:rounded-[2rem] px-3 text-[10px] md:text-xs font-medium uppercase" placeholder="client@facility.com, info@facility.com" value={client.email || ''} onChange={e => setClient({...client, email: e.target.value})} />
+                                        <span className="text-[8px] text-slate-400 font-bold px-1 uppercase tracking-tighter">Separate multiple emails with commas</span>
+                                    </FormRow>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <FormRow label="Phone / Mobile Number(s)">
+                                        <input type="text" className="w-full h-[32px] md:h-[36px] bg-white border border-slate-300 rounded-xl md:rounded-[2rem] px-3 text-[10px] md:text-xs font-semibold font-mono" placeholder="9876543210, 8765432109" value={client.phone || ''} onChange={e => setClient({...client, phone: e.target.value})} />
+                                        <span className="text-[8px] text-slate-400 font-bold px-1 uppercase tracking-tighter">Separate multiple numbers with commas</span>
+                                    </FormRow>
+                                </div>
                             </div>
                         </section>
                     </div>

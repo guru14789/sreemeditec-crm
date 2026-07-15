@@ -600,21 +600,33 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                                     <span className={`w-auto px-3 md:w-20 inline-flex items-center justify-center text-[8px] font-black uppercase tracking-widest py-1 rounded-md border ${getStatusStyle(e.status)}`}>{e.status}</span>
                                                 </div>
                                             </td>
-                                            
-                                            <td className="block md:table-cell px-2 py-2 md:px-6 md:py-3 text-center align-middle">
-                                                <div className="flex justify-end md:justify-center w-full">
-                                                    {e.status === 'Pending' && (userRole === 'Admin' || e.employeeName === currentUser) ? (
-                                                        <button 
-                                                            onClick={(ev) => { ev.stopPropagation(); setDeleteModalId(e.id); }}
-                                                            className="w-8 h-8 flex items-center justify-center text-rose-500 bg-rose-50 border border-rose-100 rounded-[2rem] transition-all hover:bg-rose-100 hover:scale-110 shadow-sm active:scale-95"
-                                                            title="Delete Pending Expense"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-
+                                                                         <td className="block md:table-cell px-2 py-2 md:px-6 md:py-3 text-center align-middle">
+                                                <div className="flex justify-end md:justify-center items-center gap-1.5 w-full">
+                                                    {e.status === 'Pending' && (userRole === 'Admin' || e.employeeName?.trim().toLowerCase() === currentUser?.trim().toLowerCase()) ? (
+                                                        <>
+                                                            <button 
+                                                                onClick={(ev) => { ev.stopPropagation(); setExpense(e); setViewState('builder'); setBuilderMode('edit'); }}
+                                                                className="w-8 h-8 flex items-center justify-center text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-[2rem] transition-all hover:bg-indigo-100 hover:scale-110 shadow-sm active:scale-95"
+                                                                title="Edit Pending Expense"
+                                                            >
+                                                                <Edit2 size={12} />
+                                                            </button>
+                                                            <button 
+                                                                onClick={(ev) => { ev.stopPropagation(); setDeleteModalId(e.id); }}
+                                                                className="w-8 h-8 flex items-center justify-center text-rose-500 bg-rose-50 border border-rose-100 rounded-[2rem] transition-all hover:bg-rose-100 hover:scale-110 shadow-sm active:scale-95"
+                                                                title="Delete Pending Expense"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </>
                                                     ) : (
-                                                        <div className="w-8 h-8 flex items-center justify-center opacity-10 grayscale">
-                                                            <Trash2 size={14} className="text-slate-300" />
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-8 h-8 flex items-center justify-center opacity-10 grayscale">
+                                                                <Edit2 size={12} className="text-slate-300" />
+                                                            </div>
+                                                            <div className="w-8 h-8 flex items-center justify-center opacity-10 grayscale">
+                                                                <Trash2 size={12} className="text-slate-300" />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -706,7 +718,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     </>
                                 ) : (
                                     <>
-                                        {selectedExpense.employeeName === currentUser && selectedExpense.status === 'Pending' && (
+                                        {selectedExpense.status === 'Pending' && (userRole === 'Admin' || selectedExpense.employeeName?.trim().toLowerCase() === currentUser?.trim().toLowerCase()) && (
                                             <button onClick={() => { setExpense(selectedExpense); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-3 md:py-4 bg-slate-800 text-white rounded-[2rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 md:gap-3"><Edit2 size={14}/> Modify</button>
                                         )}
                                         {selectedExpense.status === 'Pending' && (userRole === 'Admin' || selectedExpense.employeeName === currentUser) && (

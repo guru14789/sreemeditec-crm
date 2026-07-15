@@ -8,6 +8,7 @@ import {
   DollarSign, PieChart as PieChartIcon, ArrowDownRight,
   MoreHorizontal, Users, ArrowLeft, Search, Package,
   ShoppingCart, Award, ChevronRight, X, Truck,
+  AlertTriangle,
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -130,20 +131,34 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF } = useData();
+  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
   const [summaries, setSummaries] = useState<any[]>([]);
 
   // ── View state machine ──────────────────────────────────────────────────
-  type ViewState = 'main' | 'topProducts' | 'productDetail';
+  type ViewState = 'main' | 'topProducts' | 'productDetail' | 'customerSegments';
   const [view, setView] = useState<ViewState>('main');
   const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [productSort, setProductSort] = useState<'revenue' | 'units' | 'invoices'>('revenue');
 
+  // Segmentation state
+  type SegmentSubView = 'overview' | 'customers' | 'product-buyers';
+  const [segmentSubView, setSegmentSubView] = useState<SegmentSubView>('overview');
+  const [segmentSearch, setSegmentSearch] = useState('');
+  const [segmentSort, setSegmentSort] = useState<'spend' | 'orders' | 'lastOrder' | 'ltv' | 'aov' | 'name' | 'rfm'>('spend');
+  const [segmentSortDir, setSegmentSortDir] = useState<'asc' | 'desc'>('desc');
+  const [segmentFilters, setSegmentFilters] = useState({ income: 'All', orders: 'All', region: 'All', churn: 'All', rfm: 'All', salesRep: 'All', minSpend: '' });
+  const [segmentPage, setSegmentPage] = useState(1);
+  const [selectedSegmentCustomer, setSelectedSegmentCustomer] = useState<any | null>(null);
+  const [selectedProductFilter, setSelectedProductFilter] = useState('');
+  const [productBuyerSearch, setProductBuyerSearch] = useState('');
+  const [productBuyerPage, setProductBuyerPage] = useState(1);
+
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [deadStockCategoryFilter, setDeadStockCategoryFilter] = useState('All');
   const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; transactions: any[] } | null>(null);
   const [selectedEmployeeForClosures, setSelectedEmployeeForClosures] = useState<{ id: string; name: string } | null>(null);
@@ -389,6 +404,251 @@ export const ReportsModule: React.FC = () => {
       topFreightCustomers,
     };
   }, [invoices, expenses, purchaseRecords, dateRange]);
+ 
+  const deadStockData = useMemo(() => {
+    const today = new Date();
+    const deadThresholdDays = 180;
+    
+    // 1. Build map of last sold date for each product name
+    const productLastSaleMap: Record<string, string> = {};
+    invoices.forEach(inv => {
+      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      const date = inv.date;
+      if (!date) return;
+      (inv.items || []).forEach((item: any) => {
+        const pName = (item.description || '').trim().toLowerCase();
+        if (!pName) return;
+        if (!productLastSaleMap[pName] || date > productLastSaleMap[pName]) {
+          productLastSaleMap[pName] = date;
+        }
+      });
+    });
+
+    // 2. Identify products with stock > 0 and (no sales in last 180 days OR never sold)
+    const deadProducts = (products || []).filter(prod => {
+      if (prod.stock <= 0) return false;
+      const pName = (prod.name || '').trim().toLowerCase();
+      const lastSaleDateStr = productLastSaleMap[pName];
+      if (!lastSaleDateStr) return true; // Never sold
+      
+      const lastSaleDate = new Date(lastSaleDateStr);
+      const diffTime = today.getTime() - lastSaleDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= deadThresholdDays;
+    }).map(prod => {
+      const pName = (prod.name || '').trim().toLowerCase();
+      const lastSaleDateStr = productLastSaleMap[pName];
+      const diffDays = lastSaleDateStr 
+        ? Math.ceil((today.getTime() - new Date(lastSaleDateStr).getTime()) / (1000 * 60 * 60 * 24))
+        : 9999;
+      return {
+        ...prod,
+        lastSaleDate: lastSaleDateStr || 'Never Sold',
+        daysInactive: diffDays,
+        totalCostValue: prod.stock * (prod.purchasePrice || 0),
+        totalSaleValue: prod.stock * (prod.sellingPrice || 0)
+      };
+    }).sort((a, b) => b.totalCostValue - a.totalCostValue);
+
+    const totalCostValue = deadProducts.reduce((sum, p) => sum + p.totalCostValue, 0);
+    const totalItemsCount = deadProducts.reduce((sum, p) => sum + p.stock, 0);
+
+    return {
+      items: deadProducts,
+      totalCostValue,
+      totalItemsCount
+    };
+  }, [products, invoices]);
+
+  const filteredDeadStockItems = useMemo(() => {
+    return deadStockData.items.filter(p => 
+      deadStockCategoryFilter === 'All' || p.category === deadStockCategoryFilter
+    );
+  }, [deadStockData.items, deadStockCategoryFilter]);
+
+  const filteredDeadStockCostValue = useMemo(() => {
+    return filteredDeadStockItems.reduce((sum, p) => sum + p.totalCostValue, 0);
+  }, [filteredDeadStockItems]);
+
+  const filteredDeadStockItemsCount = useMemo(() => {
+    return filteredDeadStockItems.reduce((sum, p) => sum + p.stock, 0);
+  }, [filteredDeadStockItems]);
+
+  const deadStockCategories = useMemo(() => {
+    return ['All', ...new Set(deadStockData.items.map(p => p.category).filter(Boolean))];
+  }, [deadStockData.items]);
+
+  const customerSegmentsData = useMemo(() => {
+    const customerMap: Record<string, any> = {};
+    const today = new Date();
+
+    const getRegion = (addr: string, gstin?: string) => {
+      const gst = (gstin || '').trim();
+      
+      // Match via GST State Code (first two digits of GSTIN in India)
+      if (gst && /^\d{2}/.test(gst)) {
+        const code = gst.substring(0, 2);
+        if (['33', '29', '32', '37', '36', '34'].includes(code)) return 'South';
+        if (['07', '06', '03', '09', '05', '02', '01', '04'].includes(code)) return 'North';
+        if (['27', '24', '08', '30', '23', '22'].includes(code)) return 'West/Central';
+        if (['19', '10', '21', '20', '18', '11', '17', '16', '12', '14', '15', '13'].includes(code)) return 'East/North-East';
+      }
+
+      if (!addr) return 'Unknown';
+      const s = addr.toLowerCase().trim();
+      
+      // Match South
+      if (
+        ['tamil nadu', 'tamilnadu', 'kerala', 'karnataka', 'andhra pradesh', 'telangana', 'puducherry', 'pondicherry', 'chennai', 'bengaluru', 'bangalore', 'hyderabad', 'kochi', 'coimbatore', 'madurai', 'trichy', 'trivandrum', 'vizag', 'vijayawada'].some(st => s.includes(st)) ||
+        /\b(tn|kl|ka|ap|ts)\b/.test(s)
+      ) return 'South';
+      
+      // Match North
+      if (
+        ['delhi', 'new delhi', 'ncr', 'haryana', 'punjab', 'uttar pradesh', 'uttarakhand', 'himachal pradesh', 'jammu', 'kashmir', 'chandigarh', 'gurgaon', 'gurugram', 'noida', 'ghaziabad', 'lucknow', 'kanpur', 'amritsar', 'ludhiana', 'dehradun'].some(st => s.includes(st)) ||
+        /\b(dl|hr|pb|up|uk|hp|jk)\b/.test(s)
+      ) return 'North';
+      
+      // Match West/Central
+      if (
+        ['maharashtra', 'gujarat', 'rajasthan', 'goa', 'madhya pradesh', 'chhattisgarh', 'mumbai', 'pune', 'nagpur', 'ahmedabad', 'surat', 'vadodara', 'jaipur', 'jodhpur', 'indore', 'bhopal', 'raipur'].some(st => s.includes(st)) ||
+        /\b(mh|gj|rj|mp|cg)\b/.test(s)
+      ) return 'West/Central';
+      
+      // Match East/North-East
+      if (
+        ['west bengal', 'kolkata', 'calcutta', 'bihar', 'patna', 'odisha', 'orissa', 'bhubaneswar', 'jharkhand', 'ranchi', 'assam', 'guwahati', 'sikkim', 'meghalaya', 'shillong', 'tripura', 'arunachal', 'manipur', 'mizoram', 'nagaland'].some(st => s.includes(st)) ||
+        /\b(wb|jh|or|as)\b/.test(s)
+      ) return 'East/North-East';
+
+      return 'Unknown';
+    };
+
+    invoices.forEach(inv => {
+      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      if (!filterByDateRange(inv.date)) return;
+
+      const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
+      const clientObj = (clients || []).find(c => {
+        const cName = c.name?.trim().toLowerCase() || '';
+        const cHosp = c.hospital?.trim().toLowerCase() || '';
+        const invName = name?.trim().toLowerCase() || '';
+        return (
+          cName === invName || 
+          cHosp === invName ||
+          (cName && invName.includes(cName)) ||
+          (cHosp && invName.includes(cHosp)) ||
+          (cName && cName.includes(invName))
+        );
+      });
+      const email = inv.email || clientObj?.email || '';
+      const phone = inv.phone || clientObj?.phone || '';
+      const address = inv.customerAddress || clientObj?.address || '';
+      const gstin = inv.customerGstin || (inv as any).buyerGstin || clientObj?.gstin || '';
+      const amt = inv.grandTotal || 0;
+      const date = inv.date || '';
+      const salesRep = (() => {
+        if (!inv.closedBy || inv.closedBy === 'Direct') return 'Direct';
+        const emp = (employees || []).find(e => e.id === inv.closedBy || e.name?.trim().toLowerCase() === inv.closedBy?.trim().toLowerCase());
+        return emp ? emp.name : inv.closedBy;
+      })();
+
+      if (!customerMap[name]) {
+        customerMap[name] = {
+          id: name, name, email, phone,
+          location: address,
+          region: getRegion(address, gstin),
+          totalOrders: 0, totalSpend: 0, aov: 0,
+          lastOrderDate: date, customerSince: date,
+          incomeCategory: '', orderCategory: '',
+          churnRisk: 'Low', rfmScore: 0, rfmLabel: 'New',
+          rfmR: 0, rfmF: 0, rfmM: 0,
+          ltv: 0, daysSinceLastOrder: 0, avgOrderGapDays: 0,
+          salesRep,
+          purchasedProducts: {} as Record<string, { name: string; qty: number; revenue: number; lastDate: string }>,
+        };
+      }
+
+      const c = customerMap[name];
+      c.totalOrders += 1;
+      c.totalSpend += amt;
+      if (date > c.lastOrderDate) { c.lastOrderDate = date; c.salesRep = salesRep; }
+      if (c.customerSince === '' || date < c.customerSince) c.customerSince = date;
+
+      // Track products per customer
+      (inv.items || []).forEach((item: any) => {
+        const pName = item.description || 'Unknown Product';
+        if (!c.purchasedProducts[pName]) {
+          c.purchasedProducts[pName] = { name: pName, qty: 0, revenue: 0, lastDate: date };
+        }
+        c.purchasedProducts[pName].qty += item.quantity || 0;
+        c.purchasedProducts[pName].revenue += item.amount || 0;
+        if (date > c.purchasedProducts[pName].lastDate) c.purchasedProducts[pName].lastDate = date;
+      });
+    });
+
+    return Object.values(customerMap).map((c: any) => {
+      c.aov = c.totalOrders > 0 ? c.totalSpend / c.totalOrders : 0;
+      c.ltv = c.totalSpend;
+
+      // Income category
+      if (c.totalSpend >= 500000) c.incomeCategory = 'Premium';
+      else if (c.totalSpend >= 100000) c.incomeCategory = 'High';
+      else if (c.totalSpend >= 50000) c.incomeCategory = 'Medium';
+      else c.incomeCategory = 'Low';
+
+      // Order category
+      if (c.totalOrders >= 10) c.orderCategory = 'Loyal';
+      else if (c.totalOrders >= 4) c.orderCategory = 'Repeat';
+      else if (c.totalOrders >= 2) c.orderCategory = 'Occasional';
+      else c.orderCategory = 'First-time';
+
+      // Days since last order & avg gap
+      const lastDate = new Date(c.lastOrderDate);
+      const sinceDate = new Date(c.customerSince);
+      c.daysSinceLastOrder = Math.max(0, Math.floor((today.getTime() - lastDate.getTime()) / 86400000));
+      if (c.totalOrders > 1) {
+        const span = Math.floor((lastDate.getTime() - sinceDate.getTime()) / 86400000);
+        c.avgOrderGapDays = span / (c.totalOrders - 1);
+      } else {
+        c.avgOrderGapDays = 0;
+      }
+
+      // Churn risk
+      if (c.totalOrders >= 2 && c.avgOrderGapDays > 0) {
+        if (c.daysSinceLastOrder > c.avgOrderGapDays * 2) c.churnRisk = 'High';
+        else if (c.daysSinceLastOrder > c.avgOrderGapDays * 1.5) c.churnRisk = 'Medium';
+        else c.churnRisk = 'Low';
+      } else {
+        if (c.daysSinceLastOrder > 180) c.churnRisk = 'High';
+        else if (c.daysSinceLastOrder > 90) c.churnRisk = 'Medium';
+        else c.churnRisk = 'Low';
+      }
+
+      // RFM Scoring (each dimension 1-5)
+      const r = c.daysSinceLastOrder <= 30 ? 5 : c.daysSinceLastOrder <= 60 ? 4 : c.daysSinceLastOrder <= 90 ? 3 : c.daysSinceLastOrder <= 180 ? 2 : 1;
+      const f = c.totalOrders >= 10 ? 5 : c.totalOrders >= 7 ? 4 : c.totalOrders >= 4 ? 3 : c.totalOrders >= 2 ? 2 : 1;
+      const m = c.totalSpend >= 500000 ? 5 : c.totalSpend >= 100000 ? 4 : c.totalSpend >= 50000 ? 3 : c.totalSpend >= 20000 ? 2 : 1;
+      c.rfmR = r; c.rfmF = f; c.rfmM = m;
+      c.rfmScore = r + f + m;
+
+      // RFM Label
+      if (r >= 4 && f >= 4 && m >= 4) c.rfmLabel = 'Champions';
+      else if (r >= 3 && f >= 3 && m >= 3) c.rfmLabel = 'Loyal';
+      else if (r >= 4 && f <= 2) c.rfmLabel = 'Promising';
+      else if (r <= 2 && (f + m) >= 6) c.rfmLabel = 'At Risk';
+      else if (r === 1 && (f + m) < 6) c.rfmLabel = 'Dormant';
+      else c.rfmLabel = 'New';
+
+      // Flatten products to sorted array
+      c.purchasedProductsList = Object.values(c.purchasedProducts)
+        .sort((a: any, b: any) => b.revenue - a.revenue);
+      delete c.purchasedProducts;
+
+      return c;
+    }).sort((a: any, b: any) => b.totalSpend - a.totalSpend);
+  }, [invoices, employees, clients, dateRange]);
 
   const employeeClosuresList = useMemo(() => {
     if (!selectedEmployeeForClosures) return [];
@@ -726,6 +986,643 @@ export const ReportsModule: React.FC = () => {
     link.download = `Enterprise_Report_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
   };
+
+  const handleExportDeadStockCSV = () => {
+    const headers = ['Product Name', 'Category', 'SKU', 'Stock Qty', 'Unit', 'Purchase Price (₹)', 'Selling Price (₹)', 'Total Cost Value (₹)', 'Last Sale Date', 'Days Inactive'];
+    const rows = filteredDeadStockItems.map(p => [
+      `"${p.name.replace(/"/g, '""')}"`,
+      p.category,
+      `"${p.sku || ''}"`,
+      p.stock,
+      p.unit,
+      (p.purchasePrice || 0).toFixed(2),
+      (p.sellingPrice || 0).toFixed(2),
+      p.totalCostValue.toFixed(2),
+      p.lastSaleDate,
+      p.daysInactive === 9999 ? 'Never Sold' : p.daysInactive
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Dead_Stock_Inventory_${deadStockCategoryFilter}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW: CUSTOMER INTELLIGENCE (3-TAB)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (view === 'customerSegments') {
+    // ─ Derived lists ──────────────────────────────────────────────────────────────────────
+    const allProductNamesFromSegments = [...new Set(
+      customerSegmentsData.flatMap(c => (c.purchasedProductsList || []).map((p: any) => p.name))
+    )].sort() as string[];
+
+    const allSalesRepsFromSegments = [...new Set(
+      customerSegmentsData.map(c => c.salesRep).filter(Boolean)
+    )].sort() as string[];
+
+    // ─ Customer List filtered & sorted (AND logic for all filters) ─────────────────────
+    const minSpendNum = parseFloat(segmentFilters.minSpend) || 0;
+    const filteredSegments = customerSegmentsData.filter(c => {
+      const q = segmentSearch.toLowerCase();
+      const matchesSearch = !segmentSearch || c.name.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').includes(segmentSearch) || c.id.toLowerCase().includes(q);
+      const matchesIncome   = segmentFilters.income   === 'All' || c.incomeCategory === segmentFilters.income;
+      const matchesOrders   = segmentFilters.orders   === 'All' || c.orderCategory  === segmentFilters.orders;
+      const matchesRegion   = segmentFilters.region   === 'All' || c.region         === segmentFilters.region;
+      const matchesChurn    = segmentFilters.churn    === 'All' || c.churnRisk      === segmentFilters.churn;
+      const matchesRfm      = segmentFilters.rfm      === 'All' || c.rfmLabel       === segmentFilters.rfm;
+      const matchesSalesRep = segmentFilters.salesRep === 'All' || c.salesRep       === segmentFilters.salesRep;
+      const matchesMinSpend = minSpendNum === 0 || c.totalSpend >= minSpendNum;
+      return matchesSearch && matchesIncome && matchesOrders && matchesRegion && matchesChurn && matchesRfm && matchesSalesRep && matchesMinSpend;
+    }).sort((a, b) => {
+      let av: any, bv: any;
+      if (segmentSort === 'orders')    { av = a.totalOrders;  bv = b.totalOrders; }
+      else if (segmentSort === 'lastOrder') { av = a.lastOrderDate; bv = b.lastOrderDate; }
+      else if (segmentSort === 'ltv')  { av = a.ltv;  bv = b.ltv; }
+      else if (segmentSort === 'aov')  { av = a.aov;  bv = b.aov; }
+      else if (segmentSort === 'name') { av = a.name; bv = b.name; }
+      else if (segmentSort === 'rfm')  { av = a.rfmScore; bv = b.rfmScore; }
+      else                             { av = a.totalSpend; bv = b.totalSpend; }
+      if (typeof av === 'string') return segmentSortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      return segmentSortDir === 'asc' ? av - bv : bv - av;
+    });
+
+    const PAGE_SIZE = 20;
+    const totalPages = Math.ceil(filteredSegments.length / PAGE_SIZE) || 1;
+    const paginatedSegments = filteredSegments.slice((segmentPage - 1) * PAGE_SIZE, segmentPage * PAGE_SIZE);
+    const totalFilteredSpend = filteredSegments.reduce((sum, c) => sum + c.totalSpend, 0);
+
+    // ─ Product Buyers ───────────────────────────────────────────────────────────────────
+    const productBuyerRaw = selectedProductFilter
+      ? customerSegmentsData
+          .filter(c => (c.purchasedProductsList || []).some((p: any) => p.name === selectedProductFilter))
+          .map(c => {
+            const prod = (c.purchasedProductsList || []).find((p: any) => p.name === selectedProductFilter);
+            const clientObj = (clients || []).find(cl => {
+              const clName = cl.name?.trim().toLowerCase() || '';
+              const clHosp = cl.hospital?.trim().toLowerCase() || '';
+              const cName = c.name?.trim().toLowerCase() || '';
+              return (
+                clName === cName ||
+                clHosp === cName ||
+                (clName && cName.includes(clName)) ||
+                (clHosp && cName.includes(clHosp)) ||
+                (clName && clName.includes(cName))
+              );
+            });
+            return { 
+              ...c, 
+              email: c.email || clientObj?.email || '',
+              phone: c.phone || clientObj?.phone || '',
+              prodQty: prod?.qty || 0, 
+              prodRevenue: prod?.revenue || 0, 
+              prodLastDate: prod?.lastDate || '' 
+            };
+          })
+      : [];
+    const productBuyerFiltered = productBuyerRaw.filter(c => {
+      if (!productBuyerSearch) return true;
+      const q = productBuyerSearch.toLowerCase();
+      return c.name.toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q) || (c.phone || '').includes(productBuyerSearch);
+    }).sort((a, b) => b.prodRevenue - a.prodRevenue);
+    const PB_PAGE = 20;
+    const totalPbPages = Math.ceil(productBuyerFiltered.length / PB_PAGE) || 1;
+    const paginatedBuyers = productBuyerFiltered.slice((productBuyerPage - 1) * PB_PAGE, productBuyerPage * PB_PAGE);
+
+    // ─ RFM & Churn summaries ────────────────────────────────────────────────────────
+    const rfmGroups = [
+      { label: 'Champions',  color: 'bg-amber-50 border-amber-200 text-amber-800',   count: customerSegmentsData.filter(c => c.rfmLabel === 'Champions').length,  desc: 'Buy often, spend high, very recent' },
+      { label: 'Loyal',      color: 'bg-emerald-50 border-emerald-200 text-emerald-800', count: customerSegmentsData.filter(c => c.rfmLabel === 'Loyal').length,  desc: 'Regular buyers with good spend' },
+      { label: 'Promising',  color: 'bg-blue-50 border-blue-200 text-blue-800',      count: customerSegmentsData.filter(c => c.rfmLabel === 'Promising').length,  desc: 'Recent buyers, low frequency yet' },
+      { label: 'At Risk',    color: 'bg-orange-50 border-orange-200 text-orange-800',count: customerSegmentsData.filter(c => c.rfmLabel === 'At Risk').length,    desc: 'Once loyal, gone quiet recently' },
+      { label: 'Dormant',    color: 'bg-rose-50 border-rose-200 text-rose-800',      count: customerSegmentsData.filter(c => c.rfmLabel === 'Dormant').length,    desc: 'Long inactive, low value history' },
+      { label: 'New',        color: 'bg-indigo-50 border-indigo-200 text-indigo-800',count: customerSegmentsData.filter(c => c.rfmLabel === 'New').length,        desc: 'First-time or very early stage' },
+    ];
+    const churnHighList = customerSegmentsData.filter(c => c.churnRisk === 'High').slice(0, 6);
+    const churnHighCount = customerSegmentsData.filter(c => c.churnRisk === 'High').length;
+
+    // ─ KPIs ───────────────────────────────────────────────────────────────────────
+    const totalRevFromSeg = customerSegmentsData.reduce((s, c) => s + c.totalSpend, 0);
+    const avgAovAll = customerSegmentsData.length > 0 ? customerSegmentsData.reduce((s, c) => s + c.aov, 0) / customerSegmentsData.length : 0;
+    const avgLtvAll = customerSegmentsData.length > 0 ? totalRevFromSeg / customerSegmentsData.length : 0;
+    const totalOrdersAll = customerSegmentsData.reduce((s, c) => s + c.totalOrders, 0);
+
+    // ─ Donut chart data ───────────────────────────────────────────────────────────────
+    const DONUT_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#94a3b8'];
+    const donutData = ['Premium', 'High', 'Medium', 'Low'].map((cat, i) => ({
+      name: cat, value: customerSegmentsData.filter(c => c.incomeCategory === cat).length
+    })).filter(d => d.value > 0);
+
+    // ─ Export helpers ─────────────────────────────────────────────────────────────────
+    const handleExportSegmentsCSV = () => {
+      const headers = ['Customer', 'Email', 'Phone', 'Location', 'Region', 'Income', 'Order Cat.', 'RFM', 'Churn', 'Orders', 'Spend (₹)', 'AOV (₹)', 'LTV (₹)', 'Days Since', 'Last Order', 'Since', 'Sales Rep'];
+      const rows = filteredSegments.map(c => [
+        `"${c.name.replace(/"/g, '""')}"`, `"${c.email}"`, `"${c.phone}"`, `"${c.location.replace(/"/g, '""')}"`,
+        c.region, c.incomeCategory, c.orderCategory, c.rfmLabel, c.churnRisk,
+        c.totalOrders, c.totalSpend.toFixed(2), c.aov.toFixed(2), c.ltv.toFixed(2),
+        c.daysSinceLastOrder, c.lastOrderDate, c.customerSince, c.salesRep
+      ]);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+      link.download = `Customer_Segments_${new Date().toISOString().slice(0, 10)}.csv`; link.click();
+    };
+
+    const handleExportProductBuyersCSV = () => {
+      if (!selectedProductFilter) return;
+      const headers = ['Customer', 'Email', 'Phone', 'Region', 'Income', 'RFM', 'Units Bought', 'Revenue (₹)', 'Last Purchase'];
+      const rows = productBuyerFiltered.map(c => [
+        `"${c.name.replace(/"/g, '""')}"`, `"${c.email}"`, `"${c.phone}"`,
+        c.region, c.incomeCategory, c.rfmLabel, c.prodQty, c.prodRevenue.toFixed(2), c.prodLastDate
+      ]);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+      link.download = `Buyers_${selectedProductFilter.substring(0, 30).replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.csv`; link.click();
+    };
+
+    const toggleSort = (col: string) => {
+      if (segmentSort === col) setSegmentSortDir(d => d === 'asc' ? 'desc' : 'asc');
+      else { setSegmentSort(col as any); setSegmentSortDir('desc'); }
+      setSegmentPage(1);
+    };
+    const sortIcon = (col: string) => segmentSort === col ? (segmentSortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+
+    // Customer invoices for modal
+    const customerInvoices = selectedSegmentCustomer
+      ? invoices.filter(inv =>
+          (inv.customerName === selectedSegmentCustomer.name || (inv as any).clientName === selectedSegmentCustomer.name) &&
+          inv.documentType === 'Invoice' && inv.status !== 'Draft' && inv.status !== 'Cancelled' &&
+          (inv.invoiceNumber || '').startsWith('SM/')
+        ).sort((a, b) => b.date.localeCompare(a.date))
+      : [];
+
+    const rfmBadge = (label: string) => {
+      if (label === 'Champions') return 'bg-amber-100 text-amber-800';
+      if (label === 'Loyal')     return 'bg-emerald-100 text-emerald-800';
+      if (label === 'Promising') return 'bg-blue-100 text-blue-800';
+      if (label === 'At Risk')   return 'bg-orange-100 text-orange-700';
+      if (label === 'Dormant')   return 'bg-rose-100 text-rose-700';
+      return 'bg-indigo-50 text-indigo-700';
+    };
+    const churnBadge = (risk: string) => {
+      if (risk === 'High')   return 'bg-rose-100 text-rose-700';
+      if (risk === 'Medium') return 'bg-yellow-100 text-yellow-700';
+      return 'bg-green-50 text-green-700';
+    };
+    const incomeBadge = (cat: string) => {
+      if (cat === 'Premium') return 'bg-amber-100 text-amber-800';
+      if (cat === 'High')    return 'bg-emerald-100 text-emerald-800';
+      if (cat === 'Medium')  return 'bg-blue-100 text-blue-800';
+      return 'bg-slate-100 text-slate-600';
+    };
+
+    const TAB_LABELS: Record<string, string> = { overview: 'Overview', customers: 'Customer List', 'product-buyers': 'Product Buyers' };
+
+    return (
+      <div className="h-full flex flex-col gap-3 overflow-y-auto p-1.5 custom-scrollbar">
+        <GlobalChartDefs />
+
+        {/* ── HEADER + TAB BAR ── */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shrink-0 bg-white p-3 px-4 rounded-[2rem] border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setView('main'); setSegmentSearch(''); setSegmentSubView('overview'); }}
+              className="p-2 rounded-[2rem] bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-95"
+            ><ArrowLeft size={16} /></button>
+            <div className="p-2 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+              <Users size={20} />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-black text-slate-800 uppercase tracking-tight">Customer Intelligence</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none mt-0.5">{customerSegmentsData.length} Customers · {dateRange}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl">
+            {(['overview', 'customers', 'product-buyers'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSegmentSubView(tab)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${segmentSubView === tab ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >{TAB_LABELS[tab]}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── TAB 1: OVERVIEW ── */}
+        {segmentSubView === 'overview' && (
+          <div className="flex flex-col gap-4">
+
+            {/* KPI Row */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {[
+                { label: 'Total Customers', value: customerSegmentsData.length, cls: 'text-slate-800', bg: 'bg-white' },
+                { label: 'Total Revenue',   value: `₹${formatIndianNumber(totalRevFromSeg)}`, cls: 'text-emerald-600', bg: 'bg-white' },
+                { label: 'Avg AOV',         value: `₹${formatIndianNumber(avgAovAll)}`, cls: 'text-blue-600', bg: 'bg-white' },
+                { label: 'Avg LTV',         value: `₹${formatIndianNumber(avgLtvAll)}`, cls: 'text-indigo-600', bg: 'bg-white' },
+                { label: 'Total Orders',    value: totalOrdersAll, cls: 'text-amber-600', bg: 'bg-white' },
+                { label: 'Churn High Risk', value: churnHighCount, cls: 'text-rose-600', bg: 'bg-rose-50' },
+              ].map((kpi, i) => (
+                <div key={i} className={`${kpi.bg} p-3 rounded-[1.5rem] border border-slate-200 shadow-sm flex flex-col gap-1`}>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{kpi.label}</span>
+                  <span className={`text-[14px] font-black leading-tight ${kpi.cls}`}>{kpi.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm p-4">
+                <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Income Distribution</h3>
+                <div className="flex items-center gap-4">
+                  <div className="h-[180px] flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={donutData} cx="50%" cy="50%" innerRadius={50} outerRadius={72} dataKey="value" paddingAngle={2}>
+                          {donutData.map((_,i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {donutData.map((d, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                        <div>
+                          <div className="text-[10px] font-black text-slate-700">{d.name}</div>
+                          <div className="text-[9px] text-slate-400">{d.value} customers</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm p-4">
+                <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3">Order Category Breakdown</h3>
+                <div className="h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={['Loyal','Repeat','Occasional','First-time'].map(cat => ({ name: cat, value: customerSegmentsData.filter(c => c.orderCategory === cat).length }))} margin={{ left: -20, right: 5 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 8, fontWeight: 'bold' }} />
+                      <YAxis tick={{ fontSize: 8 }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="value" fill="url(#colorRev)" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* RFM Grid */}
+            <div className="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest">RFM Segmentation Grid</h3>
+                <span className="text-[8px] text-slate-400 font-bold">Recency · Frequency · Monetary — Click to filter</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {rfmGroups.map((g, i) => (
+                  <div
+                    key={i}
+                    className={`p-3 rounded-[1rem] border cursor-pointer hover:scale-[1.02] transition-transform ${g.color}`}
+                    onClick={() => { setSegmentFilters(f => ({ ...f, rfm: g.label })); setSegmentSubView('customers'); setSegmentPage(1); }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-black uppercase">{g.label}</span>
+                      <span className="text-[20px] font-black leading-none">{g.count}</span>
+                    </div>
+                    <p className="text-[8px] opacity-70 font-bold">{g.desc}</p>
+                    <p className="text-[8px] font-black mt-1 opacity-50 uppercase">View customers →</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Churn Alert */}
+            {churnHighList.length > 0 && (
+              <div className="bg-rose-50 border border-rose-200 rounded-[1.5rem] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={15} className="text-rose-500" />
+                    <h3 className="text-[10px] font-black text-rose-700 uppercase tracking-widest">{churnHighCount} Customers at High Churn Risk</h3>
+                  </div>
+                  <button
+                    onClick={() => { setSegmentFilters(f => ({ ...f, churn: 'High' })); setSegmentSubView('customers'); setSegmentPage(1); }}
+                    className="text-[9px] font-black text-rose-600 underline uppercase hover:text-rose-800"
+                  >View All →</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {churnHighList.map((c, i) => (
+                    <div key={i} className="bg-white border border-rose-200 rounded-xl px-3 py-1.5">
+                      <div className="text-[10px] font-black text-rose-800">{c.name}</div>
+                      <div className="text-[8px] text-rose-500">{c.daysSinceLastOrder}d since last order · {formatCurrency(c.totalSpend)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 2: CUSTOMER LIST ── */}
+        {segmentSubView === 'customers' && (
+          <div className="flex flex-col gap-3 flex-1">
+
+            {/* Filters Bar */}
+            <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] p-3 flex flex-wrap gap-2 items-center">
+              <div className="flex-1 min-w-[180px] relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="Name, email, phone, ID..." value={segmentSearch}
+                  onChange={e => { setSegmentSearch(e.target.value); setSegmentPage(1); }}
+                  className="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all" />
+              </div>
+              <select value={segmentFilters.income} onChange={e => { setSegmentFilters(f => ({ ...f, income: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All Incomes</option><option value="Premium">Premium</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>
+              </select>
+              <select value={segmentFilters.orders} onChange={e => { setSegmentFilters(f => ({ ...f, orders: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All Order Types</option><option value="Loyal">Loyal (10+)</option><option value="Repeat">Repeat (4-9)</option><option value="Occasional">Occasional (2-3)</option><option value="First-time">First-time (1)</option>
+              </select>
+              <select value={segmentFilters.region} onChange={e => { setSegmentFilters(f => ({ ...f, region: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All Regions</option><option value="North">North</option><option value="South">South</option><option value="West/Central">West/Central</option><option value="East/North-East">East/North-East</option><option value="Unknown">Unknown</option>
+              </select>
+              <select value={segmentFilters.churn} onChange={e => { setSegmentFilters(f => ({ ...f, churn: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All Churn</option><option value="High">High Risk</option><option value="Medium">Medium Risk</option><option value="Low">Low Risk</option>
+              </select>
+              <select value={segmentFilters.rfm} onChange={e => { setSegmentFilters(f => ({ ...f, rfm: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All RFM</option><option value="Champions">Champions</option><option value="Loyal">Loyal</option><option value="Promising">Promising</option><option value="At Risk">At Risk</option><option value="Dormant">Dormant</option><option value="New">New</option>
+              </select>
+              <select value={segmentFilters.salesRep} onChange={e => { setSegmentFilters(f => ({ ...f, salesRep: e.target.value })); setSegmentPage(1); }} className="px-2.5 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none">
+                <option value="All">All Sales Reps</option>
+                {allSalesRepsFromSegments.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-bold text-slate-500">Min ₹</span>
+                <input type="number" placeholder="0" value={segmentFilters.minSpend}
+                  onChange={e => { setSegmentFilters(f => ({ ...f, minSpend: e.target.value })); setSegmentPage(1); }}
+                  className="w-24 px-2 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-bold text-slate-700 outline-none" />
+              </div>
+              <button onClick={() => { setSegmentFilters({ income: 'All', orders: 'All', region: 'All', churn: 'All', rfm: 'All', salesRep: 'All', minSpend: '' }); setSegmentSearch(''); setSegmentPage(1); }}
+                className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-black text-slate-600 hover:bg-slate-100 transition-all">Reset</button>
+              <button onClick={handleExportSegmentsCSV}
+                className="px-3 py-2 bg-indigo-600 border border-indigo-700 rounded-xl text-[10px] font-black text-white flex items-center gap-1.5 hover:bg-indigo-700 transition-all">
+                <Download size={12} /> Export ({filteredSegments.length})
+              </button>
+            </div>
+
+            {/* Stats strip */}
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 shrink-0">
+              {[
+                { label: 'Customers', value: filteredSegments.length, cls: 'text-slate-800' },
+                { label: 'Total Spend', value: `₹${formatIndianNumber(totalFilteredSpend)}`, cls: 'text-emerald-600' },
+                { label: 'Avg LTV', value: `₹${formatIndianNumber(filteredSegments.length > 0 ? totalFilteredSpend / filteredSegments.length : 0)}`, cls: 'text-indigo-600' },
+                { label: 'Avg Orders', value: filteredSegments.length > 0 ? (filteredSegments.reduce((s,c)=>s+c.totalOrders,0)/filteredSegments.length).toFixed(1) : 0, cls: 'text-amber-600' },
+                { label: 'Champions', value: filteredSegments.filter(c=>c.rfmLabel==='Champions').length, cls: 'text-amber-700' },
+                { label: 'Churn High', value: filteredSegments.filter(c=>c.churnRisk==='High').length, cls: 'text-rose-600' },
+              ].map((k,i) => (
+                <div key={i} className="bg-white p-2 rounded-[1rem] border border-slate-200 text-center">
+                  <div className={`text-[13px] font-black ${k.cls}`}>{k.value}</div>
+                  <div className="text-[8px] font-bold text-slate-400 uppercase">{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="flex-1 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden flex flex-col">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[1200px]">
+                  <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                    <tr>
+                      <th onClick={() => toggleSort('name')}    className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider cursor-pointer hover:text-indigo-600">Customer{sortIcon('name')}</th>
+                      <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Contact</th>
+                      <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Region</th>
+                      <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Tags</th>
+                      <th onClick={() => toggleSort('orders')}  className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right cursor-pointer hover:text-indigo-600">Orders{sortIcon('orders')}</th>
+                      <th onClick={() => toggleSort('spend')}   className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right cursor-pointer hover:text-indigo-600">Spend{sortIcon('spend')}</th>
+                      <th onClick={() => toggleSort('aov')}     className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right cursor-pointer hover:text-indigo-600">AOV{sortIcon('aov')}</th>
+                      <th onClick={() => toggleSort('ltv')}     className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right cursor-pointer hover:text-indigo-600">LTV{sortIcon('ltv')}</th>
+                      <th onClick={() => toggleSort('lastOrder')} className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right cursor-pointer hover:text-indigo-600">Last Order{sortIcon('lastOrder')}</th>
+                      <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Sales Rep</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSegments.map((c, idx) => (
+                      <tr key={idx} className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors cursor-pointer" onClick={() => setSelectedSegmentCustomer(c)}>
+                        <td className="p-3">
+                          <div className="font-black text-[11px] text-slate-800">{c.name}</div>
+                          <div className="text-[8px] text-slate-400">Since {c.customerSince}</div>
+                        </td>
+                        <td className="p-3 text-[10px] text-slate-600"><div>{c.email||'—'}</div><div>{c.phone||'—'}</div></td>
+                        <td className="p-3">
+                          <div className="text-[10px] font-bold text-slate-700">{c.region}</div>
+                          <div className="text-[9px] text-slate-400 truncate max-w-[140px]">{c.location||'—'}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-1">
+                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${incomeBadge(c.incomeCategory)}`}>{c.incomeCategory}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-indigo-50 text-indigo-700">{c.orderCategory}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${rfmBadge(c.rfmLabel)}`}>{c.rfmLabel}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${churnBadge(c.churnRisk)}`}>{c.churnRisk === 'High' ? '🔴' : c.churnRisk === 'Medium' ? '🟡' : '🟢'} {c.churnRisk}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-[11px] font-bold text-slate-700 text-right">{c.totalOrders}</td>
+                        <td className="p-3 text-[11px] font-black text-emerald-700 text-right">₹{formatIndianNumber(c.totalSpend)}</td>
+                        <td className="p-3 text-[10px] font-bold text-slate-600 text-right">₹{formatIndianNumber(c.aov)}</td>
+                        <td className="p-3 text-[10px] font-bold text-indigo-600 text-right">₹{formatIndianNumber(c.ltv)}</td>
+                        <td className="p-3 text-[10px] text-slate-500 text-right">
+                          <div>{c.lastOrderDate}</div>
+                          <div className="text-[8px] text-slate-400">{c.daysSinceLastOrder}d ago</div>
+                        </td>
+                        <td className="p-3 text-[9px] text-slate-600 font-bold">{c.salesRep || '—'}</td>
+                      </tr>
+                    ))}
+                    {paginatedSegments.length === 0 && (
+                      <tr><td colSpan={10} className="p-10 text-center text-slate-400 text-sm font-bold">No customers match the active filters.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                  <span className="text-[10px] font-bold text-slate-500">Showing {(segmentPage-1)*PAGE_SIZE+1}–{Math.min(segmentPage*PAGE_SIZE,filteredSegments.length)} of {filteredSegments.length}</span>
+                  <div className="flex items-center gap-1">
+                    <button disabled={segmentPage===1} onClick={() => setSegmentPage(1)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">«</button>
+                    <button disabled={segmentPage===1} onClick={() => setSegmentPage(p=>p-1)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">‹</button>
+                    <span className="px-3 text-[10px] font-bold text-slate-700">{segmentPage} / {totalPages}</span>
+                    <button disabled={segmentPage===totalPages} onClick={() => setSegmentPage(p=>p+1)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">›</button>
+                    <button disabled={segmentPage===totalPages} onClick={() => setSegmentPage(totalPages)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">»</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 3: PRODUCT BUYERS ── */}
+        {segmentSubView === 'product-buyers' && (
+          <div className="flex flex-col gap-3 flex-1">
+            <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4">
+              <h3 className="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <Package size={13} className="text-indigo-500" /> Select a Product to see all customers who bought it
+              </h3>
+              <div className="flex flex-wrap gap-3 items-center">
+                <select
+                  value={selectedProductFilter}
+                  onChange={e => { setSelectedProductFilter(e.target.value); setProductBuyerSearch(''); setProductBuyerPage(1); }}
+                  className="flex-1 min-w-[260px] px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-[11px] font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all"
+                >
+                  <option value="">— Select a product —</option>
+                  {allProductNamesFromSegments.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                {selectedProductFilter && (
+                  <>
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input type="text" placeholder="Search buyers..." value={productBuyerSearch}
+                        onChange={e => { setProductBuyerSearch(e.target.value); setProductBuyerPage(1); }}
+                        className="pl-8 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-[11px] font-bold text-slate-700 outline-none w-[200px]" />
+                    </div>
+                    <button onClick={handleExportProductBuyersCSV}
+                      className="px-3 py-2 bg-indigo-600 border border-indigo-700 rounded-xl text-[10px] font-black text-white flex items-center gap-1.5 hover:bg-indigo-700 transition-all">
+                      <Download size={12} /> Export Buyers ({productBuyerFiltered.length})
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {selectedProductFilter ? (
+              <div className="flex flex-col gap-3 flex-1">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total Buyers', value: productBuyerFiltered.length },
+                    { label: 'Total Units', value: productBuyerFiltered.reduce((s,c)=>s+c.prodQty,0).toLocaleString('en-IN') },
+                    { label: 'Total Revenue', value: `₹${formatIndianNumber(productBuyerFiltered.reduce((s,c)=>s+c.prodRevenue,0))}` },
+                    { label: 'Avg Rev/Buyer', value: `₹${formatIndianNumber(productBuyerFiltered.length>0 ? productBuyerFiltered.reduce((s,c)=>s+c.prodRevenue,0)/productBuyerFiltered.length : 0)}` },
+                  ].map((k,i) => (
+                    <div key={i} className="bg-white p-3 rounded-[1.5rem] border border-slate-200 shadow-sm text-center">
+                      <div className="text-[14px] font-black text-indigo-600">{k.value}</div>
+                      <div className="text-[9px] font-bold text-slate-400 uppercase">{k.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex-1 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden flex flex-col">
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                      <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Customer</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Email</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Phone</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Region</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider">Segment Tags</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Units</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Revenue</th>
+                          <th className="p-3 text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Last Purchase</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedBuyers.map((c, idx) => (
+                          <tr key={idx} className="border-b border-slate-100 hover:bg-indigo-50/30 transition-colors">
+                            <td className="p-3"><div className="font-black text-[11px] text-slate-800">{c.name}</div><div className="text-[8px] text-slate-400">{c.totalOrders} total orders</div></td>
+                            <td className="p-3 text-[10px] text-slate-600 font-medium">{c.email || '—'}</td>
+                            <td className="p-3 text-[10px] text-slate-700 font-bold">{c.phone || '—'}</td>
+                            <td className="p-3"><div className="text-[10px] font-bold text-slate-700">{c.region}</div><div className="text-[9px] text-slate-400 truncate max-w-[130px]">{c.location||'—'}</div></td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1">
+                                <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${incomeBadge(c.incomeCategory)}`}>{c.incomeCategory}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${rfmBadge(c.rfmLabel)}`}>{c.rfmLabel}</span>
+                              </div>
+                            </td>
+                            <td className="p-3 text-[12px] font-black text-slate-700 text-right">{c.prodQty}</td>
+                            <td className="p-3 text-[12px] font-black text-emerald-700 text-right">₹{formatIndianNumber(c.prodRevenue)}</td>
+                            <td className="p-3 text-[10px] text-slate-500 text-right">{c.prodLastDate}</td>
+                          </tr>
+                        ))}
+                        {paginatedBuyers.length === 0 && <tr><td colSpan={7} className="p-10 text-center text-slate-400 font-bold">No buyers found.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                  {totalPbPages > 1 && (
+                    <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                      <span className="text-[10px] font-bold text-slate-500">{productBuyerFiltered.length} total buyers</span>
+                      <div className="flex items-center gap-1">
+                        <button disabled={productBuyerPage===1} onClick={() => setProductBuyerPage(p=>p-1)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">‹</button>
+                        <span className="px-3 text-[10px] font-bold text-slate-700">{productBuyerPage} / {totalPbPages}</span>
+                        <button disabled={productBuyerPage===totalPbPages} onClick={() => setProductBuyerPage(p=>p+1)} className="px-2 py-1 bg-white border border-slate-300 rounded text-[10px] font-bold disabled:opacity-40">›</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 bg-white border border-slate-200 rounded-[1.5rem] flex items-center justify-center">
+                <div className="text-center">
+                  <Package size={48} className="text-slate-200 mx-auto mb-3" />
+                  <p className="text-[12px] font-black text-slate-400 uppercase">Select a product above to see its buyers</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── CUSTOMER INVOICE MODAL ── */}
+        {selectedSegmentCustomer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSegmentCustomer(null)}>
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col m-4" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-5 border-b border-slate-200">
+                <div>
+                  <h3 className="font-black text-[14px] text-slate-800">{selectedSegmentCustomer.name}</h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="text-[9px] text-slate-400 font-bold">{customerInvoices.length} Invoices</span>
+                    <span className="text-[9px] font-black text-emerald-600">₹{formatIndianNumber(selectedSegmentCustomer.totalSpend)} Total</span>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded ${rfmBadge(selectedSegmentCustomer.rfmLabel)}`}>{selectedSegmentCustomer.rfmLabel}</span>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded ${churnBadge(selectedSegmentCustomer.churnRisk)}`}>{selectedSegmentCustomer.churnRisk === 'High' ? '🔴' : selectedSegmentCustomer.churnRisk === 'Medium' ? '🟡' : '🟢'} Churn: {selectedSegmentCustomer.churnRisk}</span>
+                    <span className="text-[9px] text-slate-400">{selectedSegmentCustomer.daysSinceLastOrder}d since last order</span>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedSegmentCustomer(null)} className="p-2 rounded-xl hover:bg-slate-100 transition-colors"><X size={18} className="text-slate-400" /></button>
+              </div>
+              {(selectedSegmentCustomer.purchasedProductsList || []).length > 0 && (
+                <div className="px-5 pt-4 pb-2 border-b border-slate-100">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Products Purchased</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(selectedSegmentCustomer.purchasedProductsList || []).slice(0, 8).map((p: any, i: number) => (
+                      <span key={i} className="bg-indigo-50 text-indigo-800 px-2 py-1 rounded-lg text-[9px] font-bold">{p.name} <span className="text-indigo-400">×{p.qty} · ₹{formatIndianNumber(p.revenue)}</span></span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="overflow-y-auto flex-1 custom-scrollbar p-5">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Invoice #</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Date</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Status</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerInvoices.map((inv, i) => (
+                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 text-[11px] font-bold text-indigo-600">{inv.invoiceNumber}</td>
+                        <td className="py-2.5 text-[10px] text-slate-600">{inv.date}</td>
+                        <td className="py-2.5">
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${inv.status==='Paid'?'bg-emerald-100 text-emerald-700':inv.status==='Pending'?'bg-yellow-100 text-yellow-700':'bg-slate-100 text-slate-600'}`}>{inv.status}</span>
+                        </td>
+                        <td className="py-2.5 text-[11px] font-black text-emerald-700 text-right">₹{formatIndianNumber(inv.grandTotal)}</td>
+                      </tr>
+                    ))}
+                    {customerInvoices.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold">No invoices found.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // VIEW: TOP PRODUCTS DETAIL PAGE
@@ -1333,6 +2230,53 @@ export const ReportsModule: React.FC = () => {
       ) : (
         /* Detailed Analytics Tab with click-to-zoom sections */
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+
+          {/* Customer Intelligence Card */}
+          <div
+            onClick={() => { setView('customerSegments'); setSegmentSubView('overview'); }}
+            className={getCardClasses('segmentation', 'md:col-span-2 min-h-[350px]')}
+          >
+            <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Customer Intelligence</h3>
+                <p className="text-[7px] text-slate-400 font-bold uppercase">RFM · Churn · Segments</p>
+              </div>
+              <Users size={12} className="text-indigo-400" />
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex-1 min-h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={['Premium','High','Medium','Low'].map((cat,i) => ({ name: cat, value: customerSegmentsData.filter(c => c.incomeCategory === cat).length })).filter(d=>d.value>0)}
+                      cx="50%" cy="50%" innerRadius={38} outerRadius={58} dataKey="value" paddingAngle={2}
+                    >
+                      {['#f59e0b','#10b981','#3b82f6','#94a3b8'].map((col,i) => <Cell key={i} fill={col} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div className="bg-amber-50 rounded-xl p-1.5 text-center">
+                  <div className="text-[12px] font-black text-amber-700">{customerSegmentsData.filter(c=>c.rfmLabel==='Champions').length}</div>
+                  <div className="text-[7px] text-amber-500 font-black uppercase">Champions</div>
+                </div>
+                <div className="bg-rose-50 rounded-xl p-1.5 text-center">
+                  <div className="text-[12px] font-black text-rose-700">{customerSegmentsData.filter(c=>c.churnRisk==='High').length}</div>
+                  <div className="text-[7px] text-rose-500 font-black uppercase">Churn Risk</div>
+                </div>
+                <div className="bg-indigo-50 rounded-xl p-1.5 text-center">
+                  <div className="text-[12px] font-black text-indigo-700">{customerSegmentsData.length}</div>
+                  <div className="text-[7px] text-indigo-500 font-black uppercase">Customers</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                <span className="text-[8px] font-bold text-slate-400">Click to explore →</span>
+                <ChevronRight size={12} className="text-indigo-400" />
+              </div>
+            </div>
+          </div>
           
           {/* 1. Top Clients */}
           <div
@@ -1990,7 +2934,115 @@ export const ReportsModule: React.FC = () => {
               </div>
             )}
           </div>
+ 
+          {/* 9. Dead Stock Inventory */}
+          <div
+            onClick={() => setExpandedSection(expandedSection === 'deadStock' ? null : 'deadStock')}
+            className={getCardClasses('deadStock', 'md:col-span-2 min-h-[350px]')}
+          >
+            <div className="flex justify-between items-center mb-3 pb-2 border-b">
+              <div>
+                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Dead Stock Inventory</h3>
+                <p className="text-[7px] text-slate-400 font-bold uppercase">180+ Days Static Stock</p>
+              </div>
+              <AlertTriangle size={12} className="text-rose-500" />
+            </div>
 
+            {expandedSection !== 'deadStock' ? (
+              <div className="space-y-4 my-auto">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-2xl font-bold tracking-tight text-rose-600">₹{formatIndianNumber(Math.round(deadStockData.totalCostValue))}</span>
+                  <span className="text-[9px] font-black uppercase text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+                    {deadStockData.items.length} Items
+                  </span>
+                </div>
+                <div className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Locked Capital Cost</div>
+                
+                <div className="space-y-2 text-[9px] font-black uppercase">
+                  {deadStockData.items.slice(0, 3).map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0">
+                      <span className="truncate max-w-[130px] text-slate-600">{item.name}</span>
+                      <span className="text-slate-400 font-bold">{item.stock} {item.unit} · {item.daysInactive === 9999 ? 'Never Sold' : `${item.daysInactive}d`}</span>
+                    </div>
+                  ))}
+                  {deadStockData.items.length === 0 && (
+                    <div className="text-center text-slate-400 py-4">Zero Dead Stock in Inventory</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 flex-1 overflow-hidden">
+                <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-50 p-3 rounded-[1.5rem] border border-slate-200">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center bg-rose-50 border border-rose-100 px-4 py-2 rounded-xl">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-rose-600 block">₹{formatIndianNumber(Math.round(filteredDeadStockCostValue))}</span>
+                      <span className="text-[8px] font-bold text-rose-400 uppercase">Locked Capital</span>
+                    </div>
+                    <div className="text-center bg-slate-100 border border-slate-200 px-4 py-2 rounded-xl">
+                      <span className="text-lg font-bold tracking-tight text-slate-700 block">{Math.round(filteredDeadStockItemsCount * 100) / 100}</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">Total Units</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={deadStockCategoryFilter}
+                      onChange={(e) => { e.stopPropagation(); setDeadStockCategoryFilter(e.target.value); }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-[10px] font-black uppercase text-slate-700 outline-none"
+                    >
+                      {deadStockCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleExportDeadStockCSV(); }}
+                      className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm active:scale-95"
+                    >
+                      <Download size={12} className="text-slate-400" /> Export List
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex-1 bg-white border border-slate-200 rounded-[1.5rem] overflow-hidden flex flex-col shadow-inner">
+                  <div className="overflow-y-auto max-h-[300px] custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                        <tr>
+                          <th className="p-3">Product Description</th>
+                          <th className="p-3 text-right">In Stock</th>
+                          <th className="p-3 text-right">Cost Price</th>
+                          <th className="p-3 text-right">Locked Capital</th>
+                          <th className="p-3 text-right">Last Sold</th>
+                          <th className="p-3 text-right">Inactivity</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-[10px] divide-y divide-slate-100 font-bold uppercase">
+                        {filteredDeadStockItems.map((p, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3">
+                              <div className="font-black text-slate-800 text-[11px]">{p.name}</div>
+                              <div className="text-[7px] text-slate-400 font-bold tracking-widest mt-0.5">SKU: {p.sku || '---'} · {p.category}</div>
+                            </td>
+                            <td className="p-3 text-right text-slate-700">{p.stock} {p.unit}</td>
+                            <td className="p-3 text-right text-slate-600">₹{formatIndianNumber(p.purchasePrice || 0)}</td>
+                            <td className="p-3 text-right text-rose-600 font-black">₹{formatIndianNumber(p.totalCostValue)}</td>
+                            <td className="p-3 text-right text-slate-500">{p.lastSaleDate}</td>
+                            <td className="p-3 text-right text-slate-500">{p.daysInactive === 9999 ? 'Never Sold' : `${p.daysInactive} days`}</td>
+                          </tr>
+                        ))}
+                        {filteredDeadStockItems.length === 0 && (
+                          <tr><td colSpan={6} className="p-10 text-center text-slate-400 italic">No dead stock found matching category.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+ 
         </div>
       )}
 

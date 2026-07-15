@@ -884,6 +884,9 @@ export interface LeaveRequest {
 export interface PurchaseItem {
   id: string;
   equipmentName: string;
+  productId?: string;
+  sku?: string;
+  barcode?: string;
   rate: number;
   qty: number;
   unit?: string;

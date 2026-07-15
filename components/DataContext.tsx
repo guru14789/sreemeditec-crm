@@ -795,7 +795,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
-        if (!firebaseUser || !currentUser || activeTab !== TabView.HR) return;
+        if (!firebaseUser || !currentUser || (activeTab !== TabView.HR && activeTab !== TabView.ATTENDANCE)) return;
         const unsub = onSnapshot(query(collection(db, "leave_requests"), orderBy('appliedOn', 'desc'), limit(500)), (s) => setLeaveRequests(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as LeaveRequest)), (err) => console.warn("leave_requests listener:", err));
         return () => unsub();
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
@@ -1147,18 +1147,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addClient = async (c: Client) => { 
-        setClients(prev => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)));
-        await setDoc(doc(db, "clients", c.id), sanitizeData(c)); 
-        await addLog('System', 'Added Client', `New client: ${c.name}`); 
+        setClients(prev => [...prev, c].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setDoc(doc(db, "clients", c.id), sanitizeData(c)).catch(err => console.error("addClient DB error:", err)); 
+        addLog('System', 'Added Client', `New client: ${c.name}`).catch(err => {}); 
         try {
             await ensurePartyLedger(c.name, 'GRP-DEBTORS', { email: c.email, phone: c.phone });
         } catch (err) { console.warn('Ledger auto-create failed for client:', err); }
     };
     const updateClient = async (id: string, c: Partial<Client>) => {
         const existing = clients.find(cl => cl.id === id);
-        if (existing) setClients(prev => prev.map(cl => cl.id === id ? { ...cl, ...c } as Client : cl).sort((a, b) => a.name.localeCompare(b.name)));
-        await updateDoc(doc(db, "clients", id), sanitizeData(c));
-        await addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c });
+        if (existing) setClients(prev => prev.map(cl => cl.id === id ? { ...cl, ...c } as Client : cl).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        updateDoc(doc(db, "clients", id), sanitizeData(c)).catch(err => console.error("updateClient DB error:", err));
+        addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c }).catch(err => {});
         
         if (c.name && existing && c.name !== existing.name) {
             try {
@@ -1169,8 +1169,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const removeClient = async (id: string) => { 
         setClients(prev => prev.filter(c => c.id !== id));
-        await deleteDoc(doc(db, "clients", id)); 
-        await addLog('System', 'Removed Client', `Client deleted: ${id}`); 
+        deleteDoc(doc(db, "clients", id)).catch(err => console.error("removeClient DB error:", err)); 
+        addLog('System', 'Removed Client', `Client deleted: ${id}`).catch(err => {}); 
     };
     
     const addProduct = async (p: Product) => { 
@@ -2357,7 +2357,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const currentProducts = [...products];
             
             const getItems = (rec: PurchaseRecord) => {
-                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number }[] = [];
+                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number, productId?: string, sku?: string, barcode?: string }[] = [];
                 if (rec.items && rec.items.length > 0) {
                     rec.items.forEach(item => {
                         list.push({
@@ -2365,7 +2365,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             qty: Number(item.qty) || 0,
                             rate: Number(item.rate) || 0,
                             unit: item.unit || 'nos',
-                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0),
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
                         });
                     });
                 } else if (rec.equipmentName) {
@@ -2380,78 +2383,67 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return list;
             };
             
+            const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                if (productId) {
+                    const p = currentProducts.find(p => p.id === productId);
+                    if (p) return p;
+                }
+                if (sku) {
+                    const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                    if (p) return p;
+                }
+                if (barcode) {
+                    const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                    if (p) return p;
+                }
+                return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+            };
+
             const newItems = getItems(r);
             const dateSupply = r.dateSupply || new Date().toISOString().split('T')[0];
             
             const productsToUpdate: { ref: any, isNew: boolean, productData: Product }[] = [];
             const stockMovementsToCreate: StockMovement[] = [];
             
-            for (const item of newItems) {
-                if (!item.name) continue;
-                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
-                let ref = null;
-                let dbProduct: Product | null = null;
-                
-                if (masterProduct) {
-                    ref = doc(db, "products", masterProduct.id);
-                    const snap = await tx.get(ref);
-                    if (snap.exists()) {
-                        dbProduct = snap.data() as Product;
+            if (r.status !== 'Draft') {
+                for (const item of newItems) {
+                    if (!item.name) continue;
+                    const masterProduct = findProduct(item.name, item.productId, item.sku, item.barcode);
+                    let ref = null;
+                    let dbProduct: Product | null = null;
+                    
+                    if (masterProduct) {
+                        ref = doc(db, "products", masterProduct.id);
+                        const snap = await tx.get(ref);
+                        if (snap.exists()) {
+                            dbProduct = snap.data() as Product;
+                        }
                     }
-                }
-                
-                if (dbProduct && ref) {
-                    const newStock = Number(dbProduct.stock || 0) + item.qty;
-                    const updatedProduct = {
-                        ...dbProduct,
-                        stock: newStock,
-                        purchasePrice: item.rate,
-                        lastRestocked: dateSupply,
-                        supplier: r.supplier || dbProduct.supplier
-                    };
-                    productsToUpdate.push({ ref, isNew: false, productData: updatedProduct });
                     
-                    stockMovementsToCreate.push({
-                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                        productId: dbProduct.id,
-                        productName: dbProduct.name,
-                        type: 'In',
-                        quantity: item.qty,
-                        date: dateSupply,
-                        reference: `Purchase #${r.invoiceNo || r.id}`,
-                        purpose: 'Restock'
-                    });
-                } else {
-                    const newProdId = masterProduct?.id || `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-                    ref = doc(db, "products", newProdId);
-                    const newProd: Product = {
-                        id: newProdId,
-                        name: item.name.toUpperCase(),
-                        category: 'Equipment',
-                        sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-                        stock: item.qty,
-                        unit: item.unit,
-                        purchasePrice: item.rate,
-                        sellingPrice: item.rate,
-                        minLevel: 5,
-                        location: 'Warehouse',
-                        supplier: r.supplier || '',
-                        lastRestocked: dateSupply,
-                        taxRate: item.gstPercent,
-                        hsn: ''
-                    };
-                    productsToUpdate.push({ ref, isNew: true, productData: newProd });
-                    
-                    stockMovementsToCreate.push({
-                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                        productId: newProdId,
-                        productName: newProd.name,
-                        type: 'In',
-                        quantity: item.qty,
-                        date: dateSupply,
-                        reference: `Purchase #${r.invoiceNo || r.id}`,
-                        purpose: 'Restock'
-                    });
+                    if (dbProduct && ref) {
+                        const newStock = Number(dbProduct.stock || 0) + item.qty;
+                        const updatedProduct = {
+                            ...dbProduct,
+                            stock: newStock,
+                            purchasePrice: item.rate,
+                            lastRestocked: dateSupply,
+                            supplier: r.supplier || dbProduct.supplier
+                        };
+                        productsToUpdate.push({ ref, isNew: false, productData: updatedProduct });
+                        
+                        stockMovementsToCreate.push({
+                            id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                            productId: dbProduct.id,
+                            productName: dbProduct.name,
+                            type: 'In',
+                            quantity: item.qty,
+                            date: dateSupply,
+                            reference: `Purchase #${r.invoiceNo || r.id}`,
+                            purpose: 'Restock'
+                        });
+                    } else {
+                        throw new Error(`Machine "${item.name}" is not in inventory, register the item.`);
+                    }
                 }
             }
             
@@ -2495,7 +2487,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         
         const itemsStr = r.items && r.items.length > 0 ? `${r.items.length} items` : r.equipmentName || 'Unknown items';
-        await addLog('Inventory', 'Purchase Entry', `Entry for ${r.supplier} - ${itemsStr}`);
+        if (r.status === 'Draft') {
+            await addLog('Inventory', 'Draft Saved', `Draft saved for ${r.supplier} - ${itemsStr}`);
+        } else {
+            await addLog('Inventory', 'Purchase Created', `Entry for ${r.supplier} - ${itemsStr}`);
+        }
         
         productsToLog.forEach(({ isNew, productData }) => {
             if (isNew) {
@@ -2509,7 +2505,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (r.supplier) {
             await updateVendorProcurementVolume(r.supplier);
         }
-        await postPurchaseVoucher(r);
+        if (r.status !== 'Draft') {
+            await postPurchaseVoucher(r);
+        }
     };
 
     const updatePurchaseRecord = async (id: string, updates: Partial<PurchaseRecord>) => {
@@ -2518,12 +2516,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         let oldSupplier = existing.supplier;
         let updatedProductsList: Product[] = [];
+        const isDraftTransition = existing.status === 'Draft' && updates.status !== 'Draft';
         
         await runTransaction(db, async (tx) => {
             const currentProducts = [...products];
             
             const getItems = (rec: PurchaseRecord) => {
-                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number }[] = [];
+                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number, productId?: string, sku?: string, barcode?: string }[] = [];
                 if (rec.items && rec.items.length > 0) {
                     rec.items.forEach(item => {
                         list.push({
@@ -2531,7 +2530,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             qty: Number(item.qty) || 0,
                             rate: Number(item.rate) || 0,
                             unit: item.unit || 'nos',
-                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0)
+                            gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0),
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
                         });
                     });
                 } else if (rec.equipmentName) {
@@ -2546,33 +2548,60 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return list;
             };
             
-            const oldItems = getItems(existing);
+            const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                if (productId) {
+                    const p = currentProducts.find(p => p.id === productId);
+                    if (p) return p;
+                }
+                if (sku) {
+                    const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                    if (p) return p;
+                }
+                if (barcode) {
+                    const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                    if (p) return p;
+                }
+                return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+            };
+
+            const oldItems = existing.status === 'Draft' ? [] : getItems(existing);
             const updatedRecord = { ...existing, ...updates } as PurchaseRecord;
-            const newItems = getItems(updatedRecord);
+            const newItems = updatedRecord.status === 'Draft' ? [] : getItems(updatedRecord);
             const dateSupply = updatedRecord.dateSupply || new Date().toISOString().split('T')[0];
             
-            const oldGrouped: Record<string, { qty: number }> = {};
+            const oldGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string }> = {};
             oldItems.forEach(item => {
                 const name = item.name.trim().toLowerCase();
                 if (name) {
-                    oldGrouped[name] = { qty: (oldGrouped[name]?.qty || 0) + item.qty };
-                }
-            });
-            
-            const newGrouped: Record<string, { qty: number, rate: number, unit: string, gstPercent: number }> = {};
-            newItems.forEach(item => {
-                const name = item.name.trim().toLowerCase();
-                if (name) {
-                    newGrouped[name] = {
-                        qty: (newGrouped[name]?.qty || 0) + item.qty,
-                        rate: item.rate,
-                        unit: item.unit,
-                        gstPercent: item.gstPercent
+                    const key = item.productId || item.sku || item.barcode || name;
+                    oldGrouped[key] = {
+                        qty: (oldGrouped[key]?.qty || 0) + item.qty,
+                        productId: item.productId,
+                        sku: item.sku,
+                        barcode: item.barcode
                     };
                 }
             });
             
-            const allProductNames = Array.from(new Set([
+            const newGrouped: Record<string, { qty: number, rate: number, unit: string, gstPercent: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
+            newItems.forEach(item => {
+                const name = item.name.trim().toLowerCase();
+                if (name) {
+                    const key = item.productId || item.sku || item.barcode || name;
+                    newGrouped[key] = {
+                        qty: (newGrouped[key]?.qty || 0) + item.qty,
+                        rate: item.rate,
+                        unit: item.unit,
+                        gstPercent: item.gstPercent,
+                        productId: item.productId,
+                        sku: item.sku,
+                        barcode: item.barcode,
+                        name: item.name
+                    };
+                }
+            });
+            
+            const allProductKeys = Array.from(new Set([
                 ...Object.keys(oldGrouped),
                 ...Object.keys(newGrouped)
             ]));
@@ -2580,8 +2609,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const productsToUpdate: { ref: any, isNew: boolean, productData: Product }[] = [];
             const stockMovementsToCreate: StockMovement[] = [];
             
-            for (const prodName of allProductNames) {
-                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === prodName);
+            for (const key of allProductKeys) {
+                const oldInfo = oldGrouped[key];
+                const newInfo = newGrouped[key];
+                
+                const prodName = newInfo ? newInfo.name : (oldInfo ? oldInfo.productId || key : key);
+                const productId = newInfo ? newInfo.productId : oldInfo?.productId;
+                const sku = newInfo ? newInfo.sku : oldInfo?.sku;
+                const barcode = newInfo ? newInfo.barcode : oldInfo?.barcode;
+
+                const masterProduct = findProduct(prodName, productId, sku, barcode);
                 let ref = null;
                 let dbProduct: Product | null = null;
                 
@@ -2593,8 +2630,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                 }
                 
-                const oldQty = oldGrouped[prodName]?.qty || 0;
-                const newInfo = newGrouped[prodName];
+                const oldQty = oldInfo?.qty || 0;
                 const newQty = newInfo?.qty || 0;
                 
                 if (dbProduct && ref) {
@@ -2633,36 +2669,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         });
                     }
                 } else if (newQty > 0 && newInfo) {
-                    const newProdId = `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-                    ref = doc(db, "products", newProdId);
-                    const newProd: Product = {
-                        id: newProdId,
-                        name: prodName.toUpperCase(),
-                        category: 'Equipment',
-                        sku: `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-                        stock: newQty,
-                        unit: newInfo.unit,
-                        purchasePrice: newInfo.rate,
-                        sellingPrice: newInfo.rate,
-                        minLevel: 5,
-                        location: 'Warehouse',
-                        supplier: updatedRecord.supplier || '',
-                        lastRestocked: dateSupply,
-                        taxRate: newInfo.gstPercent,
-                        hsn: ''
-                    };
-                    productsToUpdate.push({ ref, isNew: true, productData: newProd });
-                    
-                    stockMovementsToCreate.push({
-                        id: `MVT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                        productId: newProdId,
-                        productName: newProd.name,
-                        type: 'In',
-                        quantity: newQty,
-                        date: dateSupply,
-                        reference: `Purchase #${updatedRecord.invoiceNo || updatedRecord.id}`,
-                        purpose: 'Restock'
-                    });
+                    throw new Error(`Machine "${newInfo.name.toUpperCase()}" is not in inventory, register the item.`);
                 }
             }
             
@@ -2704,7 +2711,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
         }
         
-        await addLog('Inventory', 'Updated Purchase Entry', `ID: ${id}`, existing, { ...existing, ...updates });
+        const actionType = isDraftTransition ? 'Draft Submitted' : (updates.status === 'Draft' ? 'Draft Saved' : 'Purchase Edited');
+        await addLog('Inventory', actionType, `ID: ${id}`, existing, { ...existing, ...updates });
         
         if (oldSupplier) {
             await updateVendorProcurementVolume(oldSupplier);
@@ -2719,7 +2727,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 await reverseVoucher(vch.id, `Auto-reversed: Purchase Record ${existing?.invoiceNo} updated`);
             } catch (err) {}
         }
-        await postPurchaseVoucher({ ...existing, ...updates } as PurchaseRecord);
+        if (updates.status !== 'Draft' && existing.status !== 'Draft' && updates.status !== undefined) {
+            await postPurchaseVoucher({ ...existing, ...updates } as PurchaseRecord);
+        } else if (updates.status !== 'Draft' && existing.status === 'Draft') {
+            await postPurchaseVoucher({ ...existing, ...updates } as PurchaseRecord);
+        }
     };
 
     const removePurchaseRecord = async (id: string) => {
@@ -2733,12 +2745,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const currentProducts = [...products];
             
             const getItems = (rec: PurchaseRecord) => {
-                const list: { name: string, qty: number }[] = [];
+                const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
                 if (rec.items && rec.items.length > 0) {
                     rec.items.forEach(item => {
                         list.push({
                             name: item.equipmentName || '',
-                            qty: Number(item.qty) || 0
+                            qty: Number(item.qty) || 0,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
                         });
                     });
                 } else if (rec.equipmentName) {
@@ -2750,26 +2765,49 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return list;
             };
             
-            const oldItems = getItems(existing);
-            const oldGrouped: Record<string, number> = {};
+            const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                if (productId) {
+                    const p = currentProducts.find(p => p.id === productId);
+                    if (p) return p;
+                }
+                if (sku) {
+                    const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                    if (p) return p;
+                }
+                if (barcode) {
+                    const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                    if (p) return p;
+                }
+                return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+            };
+
+            const oldItems = existing.status === 'Draft' ? [] : getItems(existing);
+            const oldGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
             oldItems.forEach(item => {
                 const name = item.name.trim().toLowerCase();
                 if (name) {
-                    oldGrouped[name] = (oldGrouped[name] || 0) + item.qty;
+                    const key = item.productId || item.sku || item.barcode || name;
+                    oldGrouped[key] = {
+                        qty: (oldGrouped[key]?.qty || 0) + item.qty,
+                        productId: item.productId,
+                        sku: item.sku,
+                        barcode: item.barcode,
+                        name: item.name
+                    };
                 }
             });
             
             const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
             const stockMovementsToCreate: StockMovement[] = [];
             
-            for (const [prodName, oldQty] of Object.entries(oldGrouped)) {
-                const masterProduct = currentProducts.find(p => p.name.trim().toLowerCase() === prodName);
+            for (const [key, info] of Object.entries(oldGrouped)) {
+                const masterProduct = findProduct(info.name, info.productId, info.sku, info.barcode);
                 if (masterProduct) {
                     const ref = doc(db, "products", masterProduct.id);
                     const snap = await tx.get(ref);
                     if (snap.exists()) {
                         const dbProduct = snap.data() as Product;
-                        const newStock = Math.max(0, Number(dbProduct.stock || 0) - oldQty);
+                        const newStock = Math.max(0, Number(dbProduct.stock || 0) - info.qty);
                         
                         productsToUpdate.push({ ref, newStock, productData: { ...dbProduct, stock: newStock } });
                         
@@ -2778,7 +2816,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             productId: dbProduct.id,
                             productName: dbProduct.name,
                             type: 'Out',
-                            quantity: oldQty,
+                            quantity: info.qty,
                             date: new Date().toISOString().split('T')[0],
                             reference: `Rev: Purchase #${existing.invoiceNo || existing.id}`,
                             purpose: 'Restock'
@@ -2808,7 +2846,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setProducts(updatedProductsList.sort((a, b) => a.name.localeCompare(b.name)));
         }
         
-        await addLog('Inventory', 'Removed Purchase Entry', `ID: ${id}`);
+        await addLog('Inventory', 'Purchase Deleted', `ID: ${id}`);
         if (supplier) {
             await updateVendorProcurementVolume(supplier);
         }
@@ -3401,6 +3439,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const postPurchaseVoucher = async (r: PurchaseRecord) => {
         try {
+            if (r.status === 'Draft') return;
             const total = r.total || 0;
             if (total <= 0 || !r.supplier) return;
             const creditorId = await ensurePartyLedger(r.supplier, 'GRP-CREDITORS');
@@ -3469,7 +3508,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const alreadyAwarded = pointHistory.some(p => p.category === 'Sales' && p.description.includes(`(${inv.id})`));
         if (alreadyAwarded) return;
 
-        const incentiveAmount = Math.round((inv.grandTotal || 0) * (inv.incentivePercentage / 100));
+        let totalInvoiceProfit = 0;
+        (inv.items || []).forEach(item => {
+            const prod = products.find(p => p.name.trim().toLowerCase() === item.description.trim().toLowerCase());
+            const purchasePrice = prod?.purchasePrice || 0;
+            const sellingPrice = item.unitPrice || 0;
+            const quantity = item.quantity || 0;
+            const itemProfit = (sellingPrice - purchasePrice) * quantity;
+            totalInvoiceProfit += itemProfit;
+        });
+
+        const incentiveAmount = Math.round(totalInvoiceProfit * (inv.incentivePercentage / 100));
         if (incentiveAmount > 0) {
             const matchedEmp = employees.find(e => e.id === inv.closedBy || e.name.trim().toLowerCase() === inv.closedBy.trim().toLowerCase());
             const empId = matchedEmp ? matchedEmp.id : inv.closedBy;
@@ -3477,7 +3526,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await addPoints(
                 incentiveAmount,
                 'Sales',
-                `Sales Incentive for Invoice ${inv.invoiceNumber} (${inv.id}) — closed by ${empName}`,
+                `Sales Incentive for Invoice ${inv.invoiceNumber} (${inv.id}) — closed by ${empName} (Profit: ₹${totalInvoiceProfit})`,
                 empId
             );
             addNotification(

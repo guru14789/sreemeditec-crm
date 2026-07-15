@@ -65,6 +65,7 @@ export const PurchaseRecordModule: React.FC = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [showDraftWarningModal, setShowDraftWarningModal] = useState(false);
 
     const handleNewEntry = () => {
         setNewRecord(INITIAL_RECORD_STATE);
@@ -133,6 +134,9 @@ export const PurchaseRecordModule: React.FC = () => {
                 const updatedItem = { 
                     ...currentItem, 
                     equipmentName: val,
+                    productId: product.id,
+                    sku: product.sku || '',
+                    barcode: product.barcode || '',
                     rate,
                     gstPercent: taxRate, // Ensure gstPercent is set
                     cgstPercent: isInterstate ? 0 : taxRate / 2,
@@ -149,6 +153,15 @@ export const PurchaseRecordModule: React.FC = () => {
                     totalIgst: isInterstate ? taxAmt : 0, 
                     total: basicAmount + taxAmt 
                 });
+                return;
+            } else {
+                setCurrentItem(prev => ({
+                    ...prev,
+                    equipmentName: val,
+                    productId: undefined,
+                    sku: undefined,
+                    barcode: undefined
+                }));
                 return;
             }
         }
@@ -245,6 +258,9 @@ export const PurchaseRecordModule: React.FC = () => {
         const item: PurchaseItem = {
             id: currentItem.id || `PI-${Date.now()}`,
             equipmentName: currentItem.equipmentName || '',
+            productId: currentItem.productId,
+            sku: currentItem.sku,
+            barcode: currentItem.barcode,
             rate: Number(currentItem.rate) || 0,
             qty: Number(currentItem.qty) || 0,
             unit: currentItem.unit || 'nos',
@@ -306,6 +322,9 @@ export const PurchaseRecordModule: React.FC = () => {
                 const item: PurchaseItem = {
                     id: `PI-${Date.now()}`,
                     equipmentName: currentItem.equipmentName || '',
+                    productId: currentItem.productId,
+                    sku: currentItem.sku,
+                    barcode: currentItem.barcode,
                     rate: Number(currentItem.rate) || 0,
                     qty: Number(currentItem.qty) || 0,
                     unit: currentItem.unit || 'nos',
@@ -325,13 +344,28 @@ export const PurchaseRecordModule: React.FC = () => {
                 return;
             }
 
+            // Verify that all items exist in the inventory
+            let hasUnregisteredProduct = false;
+            for (const item of itemsToSave) {
+                const productExists = products.some(p => {
+                    if (item.productId) return p.id === item.productId;
+                    return p.name.trim().toLowerCase() === item.equipmentName?.trim().toLowerCase();
+                });
+                if (!productExists) {
+                    hasUnregisteredProduct = true;
+                }
+            }
+
             const id = editingId || `PR-${Date.now()}`;
             // Re-calculate totals based on items to save
             const finalTotals = calculateTotals({ ...newRecord, items: itemsToSave }, itemsToSave);
             
             const paidAmount = Number(finalTotals.paidAmount) || 0;
             const balance = (finalTotals.total || 0) - paidAmount;
-            const status = balance <= 0 ? 'Completed' : 'Pending';
+            let status: PurchaseRecord['status'] = balance <= 0 ? 'Completed' : 'Pending';
+            if (hasUnregisteredProduct) {
+                status = 'Draft';
+            }
 
             const record: PurchaseRecord = {
                 id,
@@ -356,10 +390,20 @@ export const PurchaseRecordModule: React.FC = () => {
 
             if (editingId) {
                 await updatePurchaseRecord(editingId, record);
-                addNotification('Entry Updated', `Purchase from ${record.supplier} updated.`, 'success');
+                if (hasUnregisteredProduct) {
+                    addNotification('Entry Saved as Draft', `Purchase from ${record.supplier} saved as Draft due to unregistered product.`, 'warning');
+                    setShowDraftWarningModal(true);
+                } else {
+                    addNotification('Entry Updated', `Purchase from ${record.supplier} updated.`, 'success');
+                }
             } else {
                 await addPurchaseRecord(record);
-                addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
+                if (hasUnregisteredProduct) {
+                    addNotification('Entry Saved as Draft', `Purchase from ${record.supplier} saved as Draft due to unregistered product.`, 'warning');
+                    setShowDraftWarningModal(true);
+                } else {
+                    addNotification('Entry Recorded', `Purchase from ${record.supplier} saved.`, 'success');
+                }
             }
 
             setShowAddModal(false);
@@ -495,7 +539,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                 const total = record.total || 0;
                                 const paidAmt = record.paidAmount || 0;
                                 const balance = total - paidAmt;
-                                const displayStatus = balance <= 0 ? 'Completed' : 'Pending';
+                                const displayStatus = record.status || (balance <= 0 ? 'Completed' : 'Pending');
 
                                 return (
                                     <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
@@ -556,9 +600,11 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell">
+                                         <td className="px-4 py-2 text-center hidden sm:table-cell">
                                             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                                                displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                                displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                displayStatus === 'Draft' ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' :
+                                                'bg-indigo-50 text-indigo-700 border-indigo-100'
                                             }`}>
                                                 {displayStatus}
                                             </span>
@@ -714,7 +760,28 @@ export const PurchaseRecordModule: React.FC = () => {
                                                         <AutoSuggest
                                                             value={currentItem.equipmentName || ''}
                                                             onChange={val => handleItemChange('equipmentName', val.toUpperCase())}
-                                                            onSelect={prod => handleItemChange('equipmentName', prod.name.toUpperCase())}
+                                                            onSelect={prod => {
+                                                                const rate = prod.purchasePrice || prod.price || 0;
+                                                                const taxRate = prod.taxRate || 0;
+                                                                const isInterstate = currentItem.taxType === 'Interstate';
+                                                                const basicAmount = rate * (currentItem.qty || 1);
+                                                                const taxAmt = (basicAmount * taxRate) / 100;
+                                                                setCurrentItem({
+                                                                    ...currentItem,
+                                                                    equipmentName: prod.name.toUpperCase(),
+                                                                    productId: prod.id,
+                                                                    sku: prod.sku || '',
+                                                                    barcode: prod.barcode || '',
+                                                                    rate,
+                                                                    gstPercent: taxRate,
+                                                                    cgstPercent: isInterstate ? 0 : taxRate / 2,
+                                                                    sgstPercent: isInterstate ? 0 : taxRate / 2,
+                                                                    igstPercent: isInterstate ? taxRate : 0,
+                                                                    totalGst: isInterstate ? 0 : taxAmt,
+                                                                    totalIgst: isInterstate ? taxAmt : 0,
+                                                                    total: basicAmount + taxAmt
+                                                                });
+                                                            }}
                                                             suggestions={products}
                                                             filterKey="name"
                                                             className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all uppercase"
@@ -1055,6 +1122,33 @@ export const PurchaseRecordModule: React.FC = () => {
                                 className="flex-1 py-3 bg-rose-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"
                             >
                                 {isDeleting ? <RefreshCw className="animate-spin" size={14} /> : "Delete Entry"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Draft Warning Modal */}
+            {showDraftWarningModal && (
+                <div className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full p-8 text-center animate-in zoom-in-95 border border-slate-200">
+                        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-[2rem] flex items-center justify-center mx-auto mb-4 border border-amber-100 animate-bounce">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Product Not Registered</h3>
+                        <div className="text-slate-500 text-xs mt-4 space-y-3 text-left bg-slate-50 p-4 rounded-xl border border-slate-100 leading-relaxed font-bold">
+                            <p>This product is not available in the Inventory.</p>
+                            <p>Please register the product in the Inventory module before completing this purchase.</p>
+                            <p className="text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                                Your purchase entry has been saved as a <b>Draft</b>. Once the product is registered, you can reopen the draft and complete the purchase.
+                            </p>
+                        </div>
+                        <div className="mt-8">
+                            <button 
+                                onClick={() => setShowDraftWarningModal(false)} 
+                                className="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                            >
+                                Understood
                             </button>
                         </div>
                     </div>
