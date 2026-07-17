@@ -142,6 +142,7 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
   showAlert, showConfirm, showPrompt,
   setActiveTab, onNavigateCompanies,
 }) => {
+  const { allowNegativeStock, setAllowNegativeStock, addNotification } = useData();
   return (
     <div className="flex flex-col items-center py-2 md:py-6 animate-in fade-in duration-[250ms]">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full max-w-2xl mx-auto">
@@ -222,6 +223,23 @@ const GeneralTab: React.FC<GeneralTabProps> = ({
           shadow="rgba(4,84,46,0.3)"
           onClick={() => {}}
           className="cursor-default opacity-60"
+        />
+        <ConfigCard
+          icon={<ShieldCheck size={16} />}
+          label="Inventory Settings"
+          value={allowNegativeStock ? "Negative Stock Allowed" : "Prevent Negative Stock"}
+          gradient="bg-gradient-to-br from-[#10B981] to-[#059669]"
+          shadow="rgba(16,185,129,0.3)"
+          onClick={() => {
+            if (!isAdmin) {
+              showAlert("Administrative privileges required to modify Inventory Settings.", "Access Denied");
+              return;
+            }
+            const newVal = !allowNegativeStock;
+            setAllowNegativeStock(newVal);
+            localStorage.setItem('crm-allow-negative-stock', String(newVal));
+            addNotification('Inventory Config', `Negative stock has been ${newVal ? 'ENABLED' : 'DISABLED'}.`, 'success');
+          }}
         />
       </div>
     </div>

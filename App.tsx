@@ -38,6 +38,7 @@ import { ArchiveModule } from './components/ArchiveModule';
 import { AccountingModule } from './components/AccountingModule';
 import { ComplianceModule } from './components/ComplianceModule';
 import { ServiceTaskModule } from './components/ServiceTaskModule';
+import { EodReportsModule } from './components/EodReportsModule';
 import { BarcodeCreatorModule } from './components/BarcodeCreatorModule';
 import { PublicServiceForm } from './components/PublicServiceForm';
 import { WinnerPopup } from './components/WinnerPopup';
@@ -165,6 +166,7 @@ const AppContent: React.FC<{
   } = props;
   
   const { showAlert, showConfirm, showPrompt } = useData();
+  const [isAdminShowingEmployeeDashboard, setIsAdminShowingEmployeeDashboard] = React.useState(false);
 
       const render = () => {
     if (!hasAccess(activeTab)) return (
@@ -201,7 +203,39 @@ const AppContent: React.FC<{
 
     switch (activeTab) {
       case TabView.DASHBOARD:
-        return tabRole === 'Admin' ? <Dashboard /> : <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
+        if (tabRole === 'Admin') {
+          return (
+            <div className="h-full flex flex-col relative">
+              {/* Toggle switch for Admin to toggle view */}
+              <div className="absolute top-4 right-4 z-[100] flex items-center gap-2 bg-white border border-slate-200 shadow-md px-3 py-1.5 rounded-full">
+                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
+                  {isAdminShowingEmployeeDashboard ? 'My Employee Dashboard' : 'Admin Dashboard'}
+                </span>
+                <button
+                  onClick={() => setIsAdminShowingEmployeeDashboard(!isAdminShowingEmployeeDashboard)}
+                  className={`w-8 h-4 rounded-full transition-colors relative flex items-center ${
+                    isAdminShowingEmployeeDashboard ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full bg-white transition-transform shadow absolute ${
+                      isAdminShowingEmployeeDashboard ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              
+              <div className="flex-1 h-full overflow-hidden">
+                {isAdminShowingEmployeeDashboard ? (
+                  <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />
+                ) : (
+                  <Dashboard />
+                )}
+              </div>
+            </div>
+          );
+        }
+        return <EmployeeDashboard currentUser={currentUserName} tasks={tasks} />;
       case TabView.LEADS: return <LeadsModule />;
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
@@ -223,6 +257,7 @@ const AppContent: React.FC<{
       case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
       case TabView.PERFORMANCE: return <PerformanceModule />;
       case TabView.SERVICE_TASK: return <ServiceTaskModule userRole={tabRole} />;
+      case TabView.EOD_REPORTS: return <EodReportsModule userRole={tabRole} />;
       case TabView.BILLING: return <BillingModule variant="billing" />;
       case TabView.CATALOG: return <CatalogModule />;
       case TabView.BARCODE_CREATOR: return <BarcodeCreatorModule />;
@@ -368,6 +403,7 @@ export const App: React.FC = () => {
         addNotification, expenseStats, updateEmployee, activeTab, setActiveTab,
         showAlert, showConfirm, showPrompt
     } = useData();
+
 
     const [uiState, dispatchUI] = useReducer(uiReducer, {
         isSidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
@@ -648,7 +684,7 @@ export const App: React.FC = () => {
     if (isSuperAdmin) return true;
     // SYSTEM_ADMIN always has full sidebar access
     if (currentUser.role === 'SYSTEM_ADMIN') return true;
-    if (tab === TabView.DASHBOARD || tab === TabView.PROFILE) return true;
+    if (tab === TabView.DASHBOARD || tab === TabView.PROFILE || tab === TabView.EOD_REPORTS) return true;
     return !!(currentUser.permissions?.[tab]);
   };
 
@@ -684,6 +720,7 @@ export const App: React.FC = () => {
       items: [
         { tab: TabView.TASKS, icon: CheckSquare, label: 'Task Manager' },
         { tab: TabView.ATTENDANCE, icon: Clock, label: 'Check-in/Out' },
+        { tab: TabView.EOD_REPORTS, icon: ClipboardList, label: 'EOD Reports' },
         { tab: TabView.PAYROLL, icon: Receipt, label: 'Payroll portal' },
         { tab: TabView.EXPENSES, icon: Receipt, label: 'Vouchers' },
         { tab: TabView.PERFORMANCE, icon: Trophy, label: 'Leaderboard' },

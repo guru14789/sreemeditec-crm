@@ -22,6 +22,7 @@ const MODULE_OPTIONS = [
     { value: TabView.DELIVERY, label: 'Delivery Challan' },
     { value: TabView.TASKS, label: 'Task Manager' },
     { value: TabView.ATTENDANCE, label: 'Check-in/Out' },
+    { value: TabView.EOD_REPORTS, label: 'EOD Reports' },
     { value: TabView.EXPENSES, label: 'Vouchers' },
     { value: TabView.PERFORMANCE, label: 'Leaderboard' },
     { value: TabView.HR, label: 'Staff Management' },

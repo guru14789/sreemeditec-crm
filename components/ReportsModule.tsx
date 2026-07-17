@@ -29,6 +29,48 @@ const GRADIENT_COLORS = [
   'url(#grad-5)', 'url(#grad-6)', 'url(#grad-7)', 'url(#grad-8)', 'url(#grad-9)'
 ];
 
+const CardFilterAndClose: React.FC<{
+  dateRange: string;
+  setDateRange: (val: string) => void;
+  onClose: () => void;
+}> = ({ dateRange, setDateRange, onClose }) => {
+  return (
+    <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
+      <select
+        onClick={(e) => e.stopPropagation()}
+        className="px-3 py-1.5 bg-slate-50 border border-slate-300 text-slate-700 text-[10px] font-black uppercase rounded-xl outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+        value={dateRange}
+        onChange={(e) => setDateRange(e.target.value)}
+      >
+        <option>Today</option>
+        <option>This Week</option>
+        <option>This Month</option>
+        <option>This Quarter</option>
+        <option>This Year</option>
+        <option disabled>── Months ──</option>
+        <option>January</option>
+        <option>February</option>
+        <option>March</option>
+        <option>April</option>
+        <option>May</option>
+        <option>June</option>
+        <option>July</option>
+        <option>August</option>
+        <option>September</option>
+        <option>October</option>
+        <option>November</option>
+        <option>December</option>
+      </select>
+      <button 
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all bg-white shadow-sm"
+      >
+        <X size={20} />
+      </button>
+    </div>
+  );
+};
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -190,15 +232,12 @@ export const ReportsModule: React.FC = () => {
 
   const getCardClasses = (sectionId: string, defaultSpan: string) => {
     const isExpanded = expandedSection === sectionId;
-    const hasExpanded = expandedSection !== null;
 
     if (isExpanded) {
-      return `col-span-full md:col-span-6 bg-white p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] border-2 border-medical-500 shadow-lg ring-4 ring-medical-500/5 flex flex-col min-h-[300px] md:min-h-[420px] transition-all duration-300 transform scale-[1.005] cursor-pointer`;
+      return `fixed inset-4 md:inset-10 z-[90] bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl flex flex-col overflow-y-auto animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default`;
     }
-    if (hasExpanded) {
-      return `col-span-full md:col-span-2 bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-200 shadow-sm flex flex-col h-[140px] md:h-[180px] overflow-hidden opacity-50 hover:opacity-95 transition-all duration-300 cursor-pointer`;
-    }
-    return `col-span-full ${defaultSpan} bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md`;
+    const collapsedSpan = defaultSpan.replace(/min-h-\[\d+px\]/g, '');
+    return `col-span-full ${collapsedSpan} bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md relative`;
   };
 
   const filterByDateRange = (dateStr: string) => {
@@ -225,6 +264,11 @@ export const ReportsModule: React.FC = () => {
     }
     if (dateRange === 'This Year') {
       return d.getFullYear() === now.getFullYear();
+    }
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    if (months.includes(dateRange)) {
+      const monthIdx = months.indexOf(dateRange);
+      return d.getMonth() === monthIdx && d.getFullYear() === now.getFullYear();
     }
     return true;
   };
@@ -1567,7 +1611,7 @@ export const ReportsModule: React.FC = () => {
 
         {/* ── CUSTOMER INVOICE MODAL ── */}
         {selectedSegmentCustomer && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSegmentCustomer(null)}>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSegmentCustomer(null)}>
             <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col m-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b border-slate-200">
                 <div>
@@ -1971,6 +2015,19 @@ export const ReportsModule: React.FC = () => {
                     <option>This Month</option>
                     <option>This Quarter</option>
                     <option>This Year</option>
+                    <option disabled>── Months ──</option>
+                    <option>January</option>
+                    <option>February</option>
+                    <option>March</option>
+                    <option>April</option>
+                    <option>May</option>
+                    <option>June</option>
+                    <option>July</option>
+                    <option>August</option>
+                    <option>September</option>
+                    <option>October</option>
+                    <option>November</option>
+                    <option>December</option>
                     </select>
                 </div>
                 <button
@@ -2236,54 +2293,28 @@ export const ReportsModule: React.FC = () => {
             onClick={() => { setView('customerSegments'); setSegmentSubView('overview'); }}
             className={getCardClasses('segmentation', 'md:col-span-2 min-h-[350px]')}
           >
-            <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+            <div className="flex justify-between items-center">
               <div>
                 <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Customer Intelligence</h3>
                 <p className="text-[7px] text-slate-400 font-bold uppercase">RFM · Churn · Segments</p>
               </div>
               <Users size={12} className="text-indigo-400" />
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex-1 min-h-[160px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={['Premium','High','Medium','Low'].map((cat,i) => ({ name: cat, value: customerSegmentsData.filter(c => c.incomeCategory === cat).length })).filter(d=>d.value>0)}
-                      cx="50%" cy="50%" innerRadius={38} outerRadius={58} dataKey="value" paddingAngle={2}
-                    >
-                      {['#f59e0b','#10b981','#3b82f6','#94a3b8'].map((col,i) => <Cell key={i} fill={col} />)}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <div className="bg-amber-50 rounded-xl p-1.5 text-center">
-                  <div className="text-[12px] font-black text-amber-700">{customerSegmentsData.filter(c=>c.rfmLabel==='Champions').length}</div>
-                  <div className="text-[7px] text-amber-500 font-black uppercase">Champions</div>
-                </div>
-                <div className="bg-rose-50 rounded-xl p-1.5 text-center">
-                  <div className="text-[12px] font-black text-rose-700">{customerSegmentsData.filter(c=>c.churnRisk==='High').length}</div>
-                  <div className="text-[7px] text-rose-500 font-black uppercase">Churn Risk</div>
-                </div>
-                <div className="bg-indigo-50 rounded-xl p-1.5 text-center">
-                  <div className="text-[12px] font-black text-indigo-700">{customerSegmentsData.length}</div>
-                  <div className="text-[7px] text-indigo-500 font-black uppercase">Customers</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                <span className="text-[8px] font-bold text-slate-400">Click to explore →</span>
-                <ChevronRight size={12} className="text-indigo-400" />
-              </div>
-            </div>
           </div>
           
           {/* 1. Top Clients */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'clients' ? null : 'clients')}
+            onClick={() => { if (expandedSection !== 'clients') setExpandedSection('clients'); }}
             className={getCardClasses('clients', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'clients' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'clients' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Top Clients</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Share of Sales Revenue</p>
@@ -2291,26 +2322,7 @@ export const ReportsModule: React.FC = () => {
                 <Users size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'clients' ? (
-                <div className="space-y-2 flex-1 overflow-hidden">
-                  {analyticsData.topCustomers.slice(0, 3).map((cust, idx) => (
-                    <div key={idx} className="flex flex-col gap-0.5">
-                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600">
-                        <span className="truncate max-w-[120px] md:max-w-[100px]">{cust.name}</span>
-                        <span>{formatCurrency(cust.total)}</span>
-                      </div>
-                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${cust.percentage}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                  {analyticsData.topCustomers.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No client data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'clients' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
@@ -2344,10 +2356,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 1b. Sales Leaderboard */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'employees' ? null : 'employees')}
+            onClick={() => { if (expandedSection !== 'employees') setExpandedSection('employees'); }}
             className={getCardClasses('employees', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'employees' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'employees' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Employee Performance</p>
@@ -2355,33 +2374,7 @@ export const ReportsModule: React.FC = () => {
                 <Users size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'employees' ? (
-                <div className="space-y-2 flex-1 overflow-hidden">
-                  {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => (
-                    <div 
-                      key={idx} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
-                      }}
-                      className="flex flex-col gap-0.5 cursor-pointer group"
-                    >
-                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-600 group-hover:text-indigo-600 transition-colors">
-                        <span className="truncate max-w-[120px] md:max-w-[100px] group-hover:underline">{emp.name}</span>
-                        <span>{formatCurrency(emp.total)}</span>
-                      </div>
-                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${emp.percentage}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                  {analyticsData.topEmployees.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No employee sales data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'employees' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
@@ -2423,10 +2416,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 2. Expense Breakdown */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'expenses' ? null : 'expenses')}
+            onClick={() => { if (expandedSection !== 'expenses') setExpandedSection('expenses'); }}
             className={getCardClasses('expenses', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'expenses' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'expenses' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Expense Breakdown</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Outflow categories</p>
@@ -2434,21 +2434,7 @@ export const ReportsModule: React.FC = () => {
                 <DollarSign size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'expenses' ? (
-                <div className="space-y-2 flex-1 overflow-hidden">
-                  {analyticsData.expenseCategories.slice(0, 3).map((exp, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
-                      <span>{exp.name}</span>
-                      <span className="text-rose-600">{formatCurrency(exp.value)}</span>
-                    </div>
-                  ))}
-                  {analyticsData.expenseCategories.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No expense data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'expenses' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.expenseCategories.map((exp, idx) => (
@@ -2484,10 +2470,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 3. Freight Charges */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'freight' ? null : 'freight')}
+            onClick={() => { if (expandedSection !== 'freight') setExpandedSection('freight'); }}
             className={getCardClasses('freight', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'freight' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'freight' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Freight Charges</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Collected</p>
@@ -2495,31 +2488,7 @@ export const ReportsModule: React.FC = () => {
                 <Truck size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'freight' ? (
-                <div className="space-y-2 flex-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-amber-50 rounded-[2rem] p-2 text-center">
-                      <span className="text-[16px] font-black text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
-                      <span className="text-[7px] font-bold text-amber-500 uppercase">Freight Amount</span>
-                    </div>
-                    <div className="bg-amber-50 rounded-[2rem] p-2 text-center">
-                      <span className="text-[16px] font-black text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
-                      <span className="text-[7px] font-bold text-amber-500 uppercase">GST Collected</span>
-                    </div>
-                  </div>
-                  {analyticsData.topFreightCustomers.slice(0, 3).map((cust, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
-                      <span className="truncate max-w-[120px] md:max-w-[100px]">{cust.name}</span>
-                      <span className="text-amber-700">{formatCurrency(cust.freight)}</span>
-                    </div>
-                  ))}
-                  {analyticsData.totalFreightAmount === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No freight data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'freight' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     <div className="grid grid-cols-2 gap-2">
@@ -2575,10 +2544,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 4. Supplier Volume */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'suppliers' ? null : 'suppliers')}
+            onClick={() => { if (expandedSection !== 'suppliers') setExpandedSection('suppliers'); }}
             className={getCardClasses('suppliers', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'suppliers' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'suppliers' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Supplier Volume</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Procurement Totals</p>
@@ -2586,21 +2562,7 @@ export const ReportsModule: React.FC = () => {
                 <ShoppingCart size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'suppliers' ? (
-                <div className="space-y-2 flex-1 overflow-hidden">
-                  {analyticsData.topSuppliers.slice(0, 3).map((sup, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50 cursor-pointer hover:text-violet-700" onClick={(e) => { e.stopPropagation(); setSelectedSupplier({ name: sup.name, transactions: supplierTransactions[sup.name] || [] }); }}>
-                      <span className="truncate max-w-[100px]">{sup.name}</span>
-                      <span className="text-violet-600">{formatCurrency(sup.total)}</span>
-                    </div>
-                  ))}
-                  {analyticsData.topSuppliers.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No supplier data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'suppliers' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.topSuppliers.map((sup, idx) => (
@@ -2634,10 +2596,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 5. Procurement Overview */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'procurement' ? null : 'procurement')}
+            onClick={() => { if (expandedSection !== 'procurement') setExpandedSection('procurement'); }}
             className={getCardClasses('procurement', 'md:col-span-2 min-h-[350px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'procurement' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'procurement' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Procurement</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Purchase Overview</p>
@@ -2645,31 +2614,7 @@ export const ReportsModule: React.FC = () => {
                 <Package size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'procurement' ? (
-                <div className="space-y-2 flex-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-slate-50 rounded-[2rem] p-2 text-center">
-                      <span className="text-[16px] font-black text-slate-800 block">{formatCurrency(totalPurchaseRecords)}</span>
-                      <span className="text-[7px] font-bold text-slate-400 uppercase">Total Procurement</span>
-                    </div>
-                    <div className="bg-slate-50 rounded-[2rem] p-2 text-center">
-                      <span className="text-[16px] font-black text-slate-800 block">{filteredPurchaseRecords.length}</span>
-                      <span className="text-[7px] font-bold text-slate-400 uppercase">Transactions</span>
-                    </div>
-                  </div>
-                  {procurementMonthly.filter(m => m.total > 0).slice(0, 3).map((m, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
-                      <span>{m.label}</span>
-                      <span className="text-indigo-600">{formatCurrency(m.total)}</span>
-                    </div>
-                  ))}
-                  {filteredPurchaseRecords.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No procurement data</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'procurement' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     <div className="grid grid-cols-2 gap-2">
@@ -2714,10 +2659,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 6. Product Line Analysis */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'products' ? null : 'products')}
+            onClick={() => { if (expandedSection !== 'products') setExpandedSection('products'); }}
             className={getCardClasses('products', 'md:col-span-3 min-h-[250px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'products' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'products' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Product Line Analysis</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Units and revenue</p>
@@ -2725,21 +2677,7 @@ export const ReportsModule: React.FC = () => {
                 <Package size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'products' ? (
-                <div className="space-y-2 flex-1 overflow-hidden">
-                  {analyticsData.topProducts.slice(0, 2).map((prod, idx) => (
-                    <div key={idx} className="flex justify-between text-[8px] font-black uppercase text-slate-600 py-0.5 border-b border-slate-50">
-                      <span className="truncate max-w-[140px] md:max-w-[130px]">{prod.name}</span>
-                      <span>{formatCurrency(prod.total)} ({prod.qty} units)</span>
-                    </div>
-                  ))}
-                  {analyticsData.topProducts.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center">
-                      <p className="text-[8px] text-slate-300 font-black uppercase">No product sales</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {expandedSection === 'products' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.topProducts.map((prod, idx) => (
@@ -2768,10 +2706,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 7. Receivables Aging */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'aging' ? null : 'aging')}
+            onClick={() => { if (expandedSection !== 'aging') setExpandedSection('aging'); }}
             className={getCardClasses('aging', 'md:col-span-3 min-h-[250px]')}
           >
-              <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'aging' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+              <div className={`flex justify-between items-center ${expandedSection === 'aging' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Receivables Aging (Sales Ledger)</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Outstanding Ledger Terms</p>
@@ -2779,16 +2724,7 @@ export const ReportsModule: React.FC = () => {
                 <Calendar size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection !== 'aging' ? (
-                <div className="grid grid-cols-4 gap-2 text-center my-auto">
-                  {analyticsData.agingBuckets.map((bucket, idx) => (
-                    <div key={idx} className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                      <p className="text-[7px] text-slate-400 font-black uppercase tracking-widest mb-1">{bucket.name.split(' ')[0]}</p>
-                      <span className="text-[9px] font-black text-slate-700">{formatCurrency(bucket.value)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              {expandedSection === 'aging' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     {analyticsData.agingBuckets.map((bucket, idx) => (
@@ -2827,10 +2763,17 @@ export const ReportsModule: React.FC = () => {
 
           {/* 8. Filing Status Tracker */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'filing' ? null : 'filing')}
+            onClick={() => { if (expandedSection !== 'filing') setExpandedSection('filing'); }}
             className={getCardClasses('filing', 'md:col-span-2 min-h-[350px]')}
           >
-            <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'filing' && (
+              <CardFilterAndClose 
+                dateRange={dateRange} 
+                setDateRange={setDateRange} 
+                onClose={() => setExpandedSection(null)} 
+              />
+            )}
+            <div className={`flex justify-between items-center ${expandedSection === 'filing' ? 'mb-3 pb-2 border-b' : ''}`}>
               <div>
                 <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Document Filing Tracker</h3>
                 <p className="text-[7px] text-slate-400 font-bold uppercase">Physical Archive Audits</p>
@@ -2937,10 +2880,18 @@ export const ReportsModule: React.FC = () => {
  
           {/* 9. Dead Stock Inventory */}
           <div
-            onClick={() => setExpandedSection(expandedSection === 'deadStock' ? null : 'deadStock')}
+            onClick={() => { if (expandedSection !== 'deadStock') setExpandedSection('deadStock'); }}
             className={getCardClasses('deadStock', 'md:col-span-2 min-h-[350px]')}
           >
-            <div className="flex justify-between items-center mb-3 pb-2 border-b">
+            {expandedSection === 'deadStock' && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); setExpandedSection(null); }}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all z-50 bg-white shadow-sm"
+              >
+                <X size={20} />
+              </button>
+            )}
+            <div className={`flex justify-between items-center ${expandedSection === 'deadStock' ? 'mb-3 pb-2 border-b' : ''}`}>
               <div>
                 <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Dead Stock Inventory</h3>
                 <p className="text-[7px] text-slate-400 font-bold uppercase">180+ Days Static Stock</p>
@@ -2948,29 +2899,7 @@ export const ReportsModule: React.FC = () => {
               <AlertTriangle size={12} className="text-rose-500" />
             </div>
 
-            {expandedSection !== 'deadStock' ? (
-              <div className="space-y-4 my-auto">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-2xl font-bold tracking-tight text-rose-600">₹{formatIndianNumber(Math.round(deadStockData.totalCostValue))}</span>
-                  <span className="text-[9px] font-black uppercase text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                    {deadStockData.items.length} Items
-                  </span>
-                </div>
-                <div className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Locked Capital Cost</div>
-                
-                <div className="space-y-2 text-[9px] font-black uppercase">
-                  {deadStockData.items.slice(0, 3).map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0">
-                      <span className="truncate max-w-[130px] text-slate-600">{item.name}</span>
-                      <span className="text-slate-400 font-bold">{item.stock} {item.unit} · {item.daysInactive === 9999 ? 'Never Sold' : `${item.daysInactive}d`}</span>
-                    </div>
-                  ))}
-                  {deadStockData.items.length === 0 && (
-                    <div className="text-center text-slate-400 py-4">Zero Dead Stock in Inventory</div>
-                  )}
-                </div>
-              </div>
-            ) : (
+            {expandedSection === 'deadStock' && (
               <div className="flex flex-col gap-3 flex-1 overflow-hidden">
                 <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-50 p-3 rounded-[1.5rem] border border-slate-200">
                   <div className="flex items-center gap-4">
@@ -3047,7 +2976,7 @@ export const ReportsModule: React.FC = () => {
       )}
 
       {selectedEmployeeForClosures && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedEmployeeForClosures(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedEmployeeForClosures(null)}>
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
               <div>
@@ -3099,7 +3028,7 @@ export const ReportsModule: React.FC = () => {
       )}
 
       {selectedSupplier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSupplier(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSupplier(null)}>
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
               <div>

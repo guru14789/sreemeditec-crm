@@ -5,6 +5,8 @@ import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+import { EodSubmissionModal } from './EodSubmissionModal';
+
 interface AttendanceModuleProps {
     tasks: Task[];
     userRole?: 'Admin' | 'Employee'; // Controlled by HR Access Grid via tabRole
@@ -21,6 +23,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const [currentTime, setCurrentTime] = useState(new Date());
 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showEodModal, setShowEodModal] = useState(false);
 
     const [workMode, setWorkMode] = useState<WorkMode>('Office');
     const [filterStatus, setFilterStatus] = useState<string>('All');
@@ -117,29 +120,6 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const isOfficeHoursComplete = totalWorkedHours >= REQUIRED_OFFICE_HOURS;
 
 
-    // AUTO-CLOSE LOGIC: automatically close mark attendance after 7 hours
-    useEffect(() => {
-        if (workMode === 'Office' && isCheckedIn && isOfficeHoursComplete && !isLocked) {
-            const autoClose = async () => {
-                const recordId = `${me?.id}_${todayStr}`;
-                await updateAttendance({
-                    id: recordId,
-                    userId: me!.id,
-                    userName: me!.name,
-                    date: todayStr,
-                    totalWorkedMs: totalWorkedMs,
-                    lastSessionStartTime: null,
-                    status: 'Completed',
-                    workMode: workMode,
-                    checkInTime: todayRecord?.checkInTime || new Date().toISOString(),
-                    checkOutTime: new Date().toISOString()
-                });
-                addPoints(50, 'Attendance', 'Daily Shift Completed (Auto-Logged)');
-                addNotification('Shift Completed', 'Your 8-hour office shift has been automatically logged.', 'success');
-            };
-            autoClose();
-        }
-    }, [isOfficeHoursComplete, isCheckedIn, isLocked, workMode, me, todayStr]);
 
     const logActualDeparture = async () => {
         if (!me) return;
@@ -157,6 +137,15 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const formatTime = (isoString: string | null | undefined) => {
         if (!isoString) return '--:--';
         return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    const formatTime12h = (isoString: string | null | undefined) => {
+        if (!isoString) return '';
+        try {
+            const date = new Date(isoString);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+        } catch (e) {
+            return '';
+        }
     };
 
     const handleAdminOverwriteAttendance = async () => {
@@ -383,7 +372,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         });
 
         addPoints(50, 'Attendance', 'Daily Shift Completed');
+        addNotification('Attendance Locked', 'Daily shift attendance has been locked successfully.', 'success');
         setShowConfirmModal(false);
+        setShowEodModal(true);
     };
 
     const getEmpAttendanceDisplay = (emp: Employee) => {
@@ -859,16 +850,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 card3Value = todayHoliday?.name || "Holiday";
                                 card3Icon = <Calendar size={15} />;
                             } else if (isLocked) {
-                                if (!isAfter7PM) {
-                                    card3Title = "Optional Action";
-                                    card3Value = "Log Departure";
-                                    card3Icon = <CheckCircle size={15} />;
-                                    card3Action = logActualDeparture;
-                                } else {
-                                    card3Title = "System Status";
-                                    card3Value = "Closed (7PM)";
-                                    card3Icon = <Lock size={15} />;
-                                }
+                                card3Title = "System Status";
+                                const formattedOutTime = todayRecord?.checkOutTime ? formatTime12h(todayRecord.checkOutTime) : '7PM';
+                                card3Value = `Closed (${formattedOutTime})`;
+                                card3Icon = <Lock size={15} />;
                             } else {
                                 card3Action = handleCheckInOut;
                                 card3Title = "Quick Action";
@@ -1655,6 +1640,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                         </div>
                     </div>
                 </div>
+            )}
+            {showEodModal && (
+                <EodSubmissionModal onClose={() => setShowEodModal(false)} />
             )}
         </div>
     );

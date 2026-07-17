@@ -1,12 +1,13 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CheckCircle2, Clock, Zap, Target, 
   Calendar, ArrowRight, ClipboardList, 
-  Star, TrendingUp, Timer, MapPin
+  Star, TrendingUp, Timer, MapPin, AlertCircle
 } from 'lucide-react';
 import { useData } from './DataContext';
-import { Task } from '../types';
+import { Task, TabView } from '../types';
+import { EodSubmissionModal } from './EodSubmissionModal';
 
 interface EmployeeDashboardProps {
   currentUser: string;
@@ -14,7 +15,36 @@ interface EmployeeDashboardProps {
 }
 
 export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUser, tasks }) => {
-  const { pointHistory, currentUser: authUser, invoices, userStats } = useData();
+  const { pointHistory, currentUser: authUser, invoices, userStats, eodReports, attendanceRecords, setActiveTab } = useData();
+
+  const [showEodModal, setShowEodModal] = useState(false);
+  const todayStr = React.useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayReport = React.useMemo(() => 
+    (eodReports || []).find(r => r.userId === authUser?.id && r.date === todayStr),
+    [eodReports, authUser?.id, todayStr]
+  );
+
+  const todayRecord = React.useMemo(() => 
+    (attendanceRecords || []).find(r => r.userId === authUser?.id && r.date === todayStr),
+    [attendanceRecords, authUser?.id, todayStr]
+  );
+
+  const hoursWorkedToday = React.useMemo(() => {
+    if (!todayRecord) return 0;
+    if (todayRecord.status === 'Completed' || todayRecord.checkOutTime) {
+      return todayRecord.totalWorkedMs ? todayRecord.totalWorkedMs / 3600000 : 0;
+    }
+    if (todayRecord.checkInTime) {
+      const checkIn = new Date(todayRecord.checkInTime);
+      const diffMs = new Date().getTime() - checkIn.getTime();
+      return ((todayRecord.totalWorkedMs || 0) + diffMs) / 3600000;
+    }
+    return 0;
+  }, [todayRecord]);
+
+  const hasWorkedEightHours = hoursWorkedToday >= 8 && todayRecord?.status !== 'Completed';
+  
+  const showEodPrompt = !todayReport || todayReport.reportStatus === 'Draft';
 
   const myPointHistory = React.useMemo(() => 
     pointHistory.filter(p => p.userId === authUser?.id),
@@ -28,24 +58,11 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
     ).length;
   }, [myPointHistory]);
 
-  const myInvoices = React.useMemo(() => {
-    return invoices.filter(inv => 
-      inv.createdBy === authUser?.name &&
-      (inv.documentType === 'Invoice' || !inv.documentType) &&
-      inv.status !== 'Draft' &&
-      inv.status !== 'Cancelled'
-    );
-  }, [invoices, authUser?.name]);
 
-  const salesImpact = React.useMemo(() => {
-    return myInvoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-  }, [myInvoices]);
-  
   const totalPoints = React.useMemo(() => 
     myPointHistory.reduce((sum, p) => sum + (p.points || 0), 0),
   [myPointHistory]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
   const myTasksToday = tasks.filter(t => 
     (t.assignedTo || '').toLowerCase() === (currentUser || '').toLowerCase() && 
     t.dueDate === todayStr
@@ -98,8 +115,45 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
         </div>
       </div>
 
+      {hasWorkedEightHours && (
+        <div className="bg-gradient-to-r from-rose-500/10 to-red-500/10 border border-rose-500/20 p-5 mx-1 md:mx-3 lg:mx-4 rounded-[1.5rem] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+          <div>
+            <h4 className="text-xs font-black text-rose-800 uppercase tracking-widest flex items-center gap-1.5">
+              <AlertCircle size={14} className="text-rose-600" />
+              8 Hour Shift Completed
+            </h4>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">You have worked for {hoursWorkedToday.toFixed(1)} hours today. Please check out and submit your EOD report.</p>
+          </div>
+          <button 
+            onClick={() => setActiveTab(TabView.ATTENDANCE)}
+            className="px-6 py-2.5 bg-rose-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-rose-700 active:scale-95 transition-all w-full sm:w-auto text-center"
+          >
+            Check Out Now
+          </button>
+        </div>
+      )}
+
+      {showEodPrompt && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-5 mx-1 md:mx-3 lg:mx-4 rounded-[1.5rem] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+          <div>
+            <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest">Complete Today's Activity Report</h4>
+            <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Please review and submit your EOD activities before checking out.</p>
+          </div>
+          <button 
+            onClick={() => setShowEodModal(true)}
+            className="px-6 py-2.5 bg-amber-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-amber-700 active:scale-95 transition-all w-full sm:w-auto"
+          >
+            Review Report
+          </button>
+        </div>
+      )}
+
+      {showEodModal && (
+        <EodSubmissionModal onClose={() => setShowEodModal(false)} />
+      )}
+
       {/* Personal KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <div className="bg-gradient-to-br from-emerald-950 to-green-900 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 bg-emerald-900/50 text-emerald-100 rounded-[2rem] group-hover:scale-110 transition-transform">
@@ -108,7 +162,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             <TrendingUp size={18} className="text-emerald-400" />
           </div>
           <p className="text-[10px] font-black text-emerald-100/80 uppercase tracking-[0.15em]">Total Points</p>
- <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{totalPoints}</h3>
+          <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{totalPoints}</h3>
         </div>
 
         <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300">
@@ -119,19 +173,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ currentUse
             <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest bg-emerald-100/80 px-2 py-0.5 rounded-lg">Best</span>
           </div>
           <p className="text-[10px] font-black text-emerald-100/80 uppercase tracking-[0.15em]">Tasks Completed</p>
- <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
-        </div>
-
-        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-amber-900/10 text-amber-950 rounded-[2rem] group-hover:scale-110 transition-transform">
-              <TrendingUp size={22} />
-            </div>
-          </div>
-          <p className="text-[10px] font-black text-amber-950/80 uppercase tracking-[0.15em]">Sales Impact</p>
-          <h3 className="text-4xl font-playfair font-bold tracking-tight text-amber-950 mt-1 tracking-tighter">
-            ₹{(salesImpact / 100000).toFixed(1)}L
-          </h3>
+          <h3 className="text-4xl font-bold tracking-tight text-white mt-1 tracking-tighter">{tasksCompletedMonthly}</h3>
         </div>
 
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 m-1 md:m-3 lg:m-4 p-7 rounded-[2.5rem] text-white shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] relative overflow-hidden group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300">

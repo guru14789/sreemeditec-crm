@@ -341,9 +341,11 @@ Email: sreemeditec@gmail.com`;
                     return false;
                 }
                 if (parsed.type === 'INSUFFICIENT_STOCK') {
-                    const productDetails = parsed.items.map((item: any) => `- ${item.name} (Requested: ${item.requested}, Available: ${item.available})`).join('\n');
+                    const productDetails = parsed.items.map((item: any) => 
+                        `Insufficient Stock\n\nThe requested quantity exceeds the available inventory.\n\nProduct: ${item.name}\nAvailable Stock: ${item.available}\nRequested Quantity: ${item.requested}\n\nPlease reduce the quantity or replenish stock before creating the invoice.`
+                    ).join('\n\n---\n\n');
                     await showAlert(
-                        `Insufficient stock available for the selected product(s). Please raise a Purchase Order.\n\n${productDetails}`,
+                        productDetails,
                         "Insufficient Stock"
                     );
                     return false;
@@ -367,7 +369,10 @@ Email: sreemeditec@gmail.com`;
             taxRate: prod?.taxRate || 18,
             amount: prod?.sellingPrice || 0,
             gstValue: (prod?.sellingPrice || 0) * 0.18,
-            priceWithGst: (prod?.sellingPrice || 0) * 1.18
+            priceWithGst: (prod?.sellingPrice || 0) * 1.18,
+            productId: prod?.id,
+            sku: prod?.sku || '',
+            barcode: prod?.barcode || ''
         };
         setInvoice(prev => {
             const current = prev.items || [];
@@ -395,6 +400,13 @@ Email: sreemeditec@gmail.com`;
                             updated.hsn = masterProd.hsn || '';
                             updated.features = masterProd.description || '';
                             updated.taxRate = masterProd.taxRate || 18;
+                            updated.productId = masterProd.id;
+                            updated.sku = masterProd.sku || '';
+                            updated.barcode = masterProd.barcode || '';
+                        } else {
+                            updated.productId = undefined;
+                            updated.sku = undefined;
+                            updated.barcode = undefined;
                         }
                     }
                     // Calculations work with strings automatically in JS math

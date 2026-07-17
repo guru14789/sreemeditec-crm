@@ -52,7 +52,8 @@ export enum TabView {
   ACCOUNTING = 'ACCOUNTING',
   COMPLIANCE = 'COMPLIANCE',
   COMPANIES = 'COMPANIES',
-  SERVICE_TASK = 'SERVICE_TASK'
+  SERVICE_TASK = 'SERVICE_TASK',
+  EOD_REPORTS = 'EOD_REPORTS'
 }
 
 export enum LeadStatus {
@@ -413,6 +414,9 @@ export interface InvoiceItem {
   model?: string;
   features?: string;
   unit?: string;
+  productId?: string;
+  sku?: string;
+  barcode?: string;
 }
 
 export interface Invoice {
@@ -928,5 +932,72 @@ export interface PurchaseRecord {
   status?: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
   filedStatus?: 'Not Updated' | 'Filed' | 'Not Filed';
   filedHistory?: FiledHistoryEntry[];
+}
+
+export interface EodActivityTimelineItem {
+  time: string;
+  type: 'CheckIn' | 'CheckOut' | 'LeadUpdate' | 'Quotation' | 'Invoice' | 'Task' | 'Service' | 'Payment' | 'EodSubmit';
+  title: string;
+  description: string;
+}
+
+export interface EodReport {
+  id: string;
+  userId: string;
+  userName: string;
+  date: string; // YYYY-MM-DD
+  timestamp: string; // ISO
+  reportStatus: 'Draft' | 'Submitted' | 'Reviewed' | 'Approved' | 'Returned' | 'Locked';
+  approvedBy?: string;
+  approvedOn?: string;
+  managerComments?: string;
+  managerRating?: number; // 1-5
+  
+  // Auto-populated aggregates
+  attendanceSummary: {
+    checkInTime?: string;
+    checkOutTime?: string;
+    workingHours?: number;
+    workMode?: string;
+    gpsLocation?: string;
+  };
+  crmSummary: {
+    leadsAssigned: number;
+    leadsContacted: number;
+    newLeadsAdded: number;
+    followUpsCompleted: number;
+  };
+  salesSummary: {
+    quotationsCreated: number;
+    invoicesCreated: number;
+    totalSalesValue: number;
+  };
+  taskSummary: {
+    assigned: number;
+    completed: number;
+    pending: number;
+  };
+  serviceSummary: {
+    installationsCompleted: number;
+    serviceCallsClosed: number;
+  };
+  activityTimeline: EodActivityTimelineItem[];
+  
+  // User Input Sections
+  customerUpdates: {
+    leadId: string;
+    leadName: string;
+    status: string;
+    notes: string;
+  }[];
+  completedTasks?: {
+    taskId: string;
+    taskTitle: string;
+    comments: string;
+    completedAt?: string;
+  }[];
+  challengesFaced: string;
+  tomorrowPlan: string;
+  additionalComments?: string;
 }
 

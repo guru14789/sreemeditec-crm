@@ -48,6 +48,9 @@ export interface DataContextType {
     monthlyWinners: MonthlyWinner[];
     purchaseRecords: PurchaseRecord[];
     serviceTasks: ServiceTask[];
+    eodReports: EodReport[];
+    addEodReport: (report: EodReport) => Promise<void>;
+    updateEodReport: (id: string, updates: Partial<EodReport>) => Promise<void>;
     
     // New Accounting States
     ledgers: Ledger[];
@@ -216,6 +219,8 @@ export interface DataContextType {
     searchRecords: <T>(collectionName: string, field: string, value: string) => Promise<T[]>;
     fetchMoreData: (collectionName: string, orderByField?: string) => Promise<void>;
     isSystemAdmin: boolean;
+    allowNegativeStock: boolean;
+    setAllowNegativeStock: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -258,6 +263,12 @@ const sanitizeData = (data: any): any => {
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     // 1. STATE INITIALIZATION
     const [clients, setClients] = useState<Client[]>([]);
+    const [allowNegativeStock, setAllowNegativeStock] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('crm-allow-negative-stock') === 'true';
+        }
+        return false;
+    });
     const [currentUser, setCurrentUser] = useState<Employee | null>(null);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [authInitialized, setAuthInitialized] = useState(false);
@@ -310,6 +321,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
     const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
     const [serviceTasks, setServiceTasks] = useState<ServiceTask[]>([]);
+    const [eodReports, setEodReports] = useState<EodReport[]>([]);
     
     // Accounting States
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
@@ -807,6 +819,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
+        if (!firebaseUser || !currentUser) return;
+        const q = query(collection(db, "eodReports"), orderBy('date', 'desc'), limit(1000));
+        const unsub = onSnapshot(q, (s) => {
+            setEodReports(s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id }) as EodReport));
+        }, (err) => console.warn("eodReports listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id]);
+
+    useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.ACCOUNTING) return;
         const unsubLedgers = onSnapshot(collection(db, "ledgers"), (s) => setLedgers(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Ledger)), (err) => console.warn("ledgers listener:", err));
         const unsubGroups = onSnapshot(collection(db, "accountGroups"), (s) => setAccountGroups(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AccountGroup)), (err) => console.warn("accountGroups listener:", err));
@@ -816,6 +837,102 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubBankStatements = onSnapshot(collection(db, "bankStatements"), (s) => setBankStatements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankStatementEntry)), (err) => console.warn("bankStatements listener:", err));
         return () => { unsubLedgers(); unsubGroups(); unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements(); };
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!currentUser || attendanceRecords.length === 0) return;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const unclosedRecords = attendanceRecords.filter(r => 
+            r.userId === currentUser.id && 
+            r.date < todayStr && 
+            (!r.checkOutTime || r.status !== 'Completed')
+        );
+
+        if (unclosedRecords.length > 0) {
+            unclosedRecords.forEach(async (rec) => {
+                try {
+                    const checkInDate = new Date(rec.checkInTime || rec.date + 'T09:30:00.000Z');
+                    let checkOutDate = new Date(rec.date + 'T19:00:00.000Z');
+                    if (checkOutDate.getTime() <= checkInDate.getTime()) {
+                        checkOutDate = new Date(checkInDate.getTime() + 8 * 60 * 60 * 1000);
+                    }
+                    const checkOutTimeStr = checkOutDate.toISOString();
+                    const totalWorkedMs = checkOutDate.getTime() - checkInDate.getTime();
+
+                    const updatedRecord = {
+                        ...rec,
+                        checkOutTime: checkOutTimeStr,
+                        status: 'Completed',
+                        totalWorkedMs: totalWorkedMs
+                    };
+                    await setDoc(doc(db, "attendance", rec.id), sanitizeData(updatedRecord));
+
+                    const eodReportId = `EOD-${currentUser.id}-${rec.date}`;
+                    const existingEod = eodReports.find(e => e.id === eodReportId);
+                    if (!existingEod || existingEod.reportStatus !== 'Approved') {
+                        const autoReport = {
+                            id: eodReportId,
+                            userId: currentUser.id,
+                            userName: currentUser.name,
+                            date: rec.date,
+                            timestamp: new Date().toISOString(),
+                            reportStatus: 'Submitted',
+                            attendanceSummary: {
+                                checkInTime: rec.checkInTime || '',
+                                checkOutTime: checkOutTimeStr,
+                                workingHours: 8,
+                                workMode: rec.workMode || 'Office'
+                            },
+                            crmSummary: {
+                                leadsAssigned: 0,
+                                leadsContacted: 0,
+                                newLeadsAdded: 0,
+                                followUpsCompleted: 0
+                            },
+                            salesSummary: {
+                                quotationsCreated: 0,
+                                invoicesCreated: 0,
+                                totalSalesValue: 0
+                            },
+                            taskSummary: {
+                                assigned: 0,
+                                completed: 0,
+                                pending: 0
+                            },
+                            serviceSummary: {
+                                installationsCompleted: 0,
+                                serviceCallsClosed: 0
+                            },
+                            activityTimeline: [
+                                {
+                                    time: rec.checkInTime || '',
+                                    type: 'CheckIn',
+                                    title: 'Check In',
+                                    description: `Checked in via ${rec.workMode || 'Office'}`
+                                },
+                                {
+                                    time: checkOutTimeStr,
+                                    type: 'CheckOut',
+                                    title: 'Check Out',
+                                    description: 'Automatically checked out by system (Forgot to check out)'
+                                }
+                            ],
+                            customerUpdates: [],
+                            completedTasks: [],
+                            challengesFaced: 'Employee forgot to check out. Automatically checked out and EOD report submitted by system.',
+                            tomorrowPlan: 'N/A',
+                            additionalComments: 'System Auto-Submission: Employee forgot to check out.'
+                        };
+
+                        await setDoc(doc(db, "eodReports", eodReportId), sanitizeData(autoReport));
+                    }
+                } catch (e) {
+                    console.error("Failed to auto-close attendance:", e);
+                }
+            });
+        }
+    }, [currentUser?.id, attendanceRecords, eodReports]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.PERFORMANCE) return;
@@ -1389,40 +1506,87 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await runTransaction(db, async (tx) => {
                 const currentProducts = [...products];
                 
-                // Group new items
-                const newGrouped: Record<string, number> = {};
-                if (isInventoryAffecting) {
-                    const finalItems = u.items !== undefined ? u.items : existing.items;
-                    (finalItems || []).forEach(item => {
-                        const name = (item.description || '').toUpperCase();
-                        if (name) {
-                            newGrouped[name] = (newGrouped[name] || 0) + (Number(item.quantity) || 0);
-                        }
+                const getItems = (inv: Invoice) => {
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    (inv.items || []).forEach(item => {
+                        list.push({
+                            name: (item.description || '').toUpperCase(),
+                            qty: Number(item.quantity) || 0,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
+                        });
                     });
-                }
+                    return list;
+                };
+
+                const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                    if (productId) {
+                        const p = currentProducts.find(p => p.id === productId);
+                        if (p) return p;
+                    }
+                    if (sku) {
+                        const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    if (barcode) {
+                        const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+                };
+
+                const oldItems = wasInventoryAffecting ? getItems(existing) : [];
+                const updatedRecord = { ...existing, ...u } as Invoice;
+                const newItems = isInventoryAffecting ? getItems(updatedRecord) : [];
+                const dateSupply = updatedRecord.date || new Date().toISOString().split('T')[0];
                 
-                // Group old items
-                const oldGrouped: Record<string, number> = {};
-                if (wasInventoryAffecting) {
-                    (existing.items || []).forEach(item => {
-                        const name = (item.description || '').toUpperCase();
-                        if (name) {
-                            oldGrouped[name] = (oldGrouped[name] || 0) + (Number(item.quantity) || 0);
-                        }
-                    });
-                }
+                const oldGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
+                oldItems.forEach(item => {
+                    if (item.name) {
+                        const key = item.productId || item.sku || item.barcode || item.name;
+                        oldGrouped[key] = {
+                            qty: (oldGrouped[key]?.qty || 0) + item.qty,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode,
+                            name: item.name
+                        };
+                    }
+                });
                 
-                // Collect all product names
-                const allProductNames = Array.from(new Set([
-                    ...Object.keys(newGrouped),
-                    ...Object.keys(oldGrouped)
+                const newGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
+                newItems.forEach(item => {
+                    if (item.name) {
+                        const key = item.productId || item.sku || item.barcode || item.name;
+                        newGrouped[key] = {
+                            qty: (newGrouped[key]?.qty || 0) + item.qty,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode,
+                            name: item.name
+                        };
+                    }
+                });
+                
+                const allProductKeys = Array.from(new Set([
+                    ...Object.keys(oldGrouped),
+                    ...Object.keys(newGrouped)
                 ]));
                 
                 const insufficientItems: any[] = [];
                 const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
                 
-                for (const prodName of allProductNames) {
-                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                for (const key of allProductKeys) {
+                    const oldInfo = oldGrouped[key];
+                    const newInfo = newGrouped[key];
+                    
+                    const prodName = newInfo ? newInfo.name : (oldInfo ? oldInfo.name : key);
+                    const productId = newInfo ? newInfo.productId : oldInfo?.productId;
+                    const sku = newInfo ? newInfo.sku : oldInfo?.sku;
+                    const barcode = newInfo ? newInfo.barcode : oldInfo?.barcode;
+
+                    const masterProduct = findProduct(prodName, productId, sku, barcode);
                     let dbProduct: Product | null = null;
                     let ref = null;
                     if (masterProduct) {
@@ -1434,12 +1598,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                     
                     const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
-                    const oldQty = oldGrouped[prodName] || 0;
-                    const newQty = newGrouped[prodName] || 0;
+                    const oldQty = oldInfo?.qty || 0;
+                    const newQty = newInfo?.qty || 0;
                     
                     const availableStock = dbStock + oldQty;
                     
-                    if (newQty > availableStock) {
+                    if (newQty > availableStock && !allowNegativeStock) {
                         insufficientItems.push({
                             name: prodName,
                             requested: newQty,
@@ -1461,7 +1625,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 productName: dbProduct.name,
                                 type: 'In',
                                 quantity: netChange,
-                                date: u.date || existing.date || new Date().toISOString().split('T')[0],
+                                date: dateSupply,
                                 reference: `Rev/Mod: Invoice #${existing.invoiceNumber || existing.id}`,
                                 purpose: 'Restock'
                             });
@@ -1472,13 +1636,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 productName: dbProduct.name,
                                 type: 'Out',
                                 quantity: Math.abs(netChange),
-                                date: u.date || existing.date || new Date().toISOString().split('T')[0],
+                                date: dateSupply,
                                 reference: `Invoice #${existing.invoiceNumber || existing.id}`,
                                 purpose: 'Sale'
                             });
                         }
                     } else {
-                        if (newQty > 0) {
+                        if (newQty > 0 && !allowNegativeStock) {
                             insufficientItems.push({
                                 name: prodName,
                                 requested: newQty,
@@ -2106,6 +2270,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), sanitizeData(h)); await addLog('System', 'Added Holiday', h.name); };
     const removeHoliday = async (id: string) => { await deleteDoc(doc(db, "holidays", id)); await addLog('System', 'Removed Holiday', id); };
+
+    const addEodReport = async (report: EodReport) => {
+        await setDoc(doc(db, "eodReports", report.id), sanitizeData(report));
+        await addLog('System', 'Submitted EOD Report', `${report.userName} for ${report.date}`);
+    };
+    const updateEodReport = async (id: string, updates: Partial<EodReport>) => {
+        await updateDoc(doc(db, "eodReports", id), sanitizeData(updates));
+        await addLog('System', 'Updated EOD Report', `Report ID ${id}`);
+    };
 
     const addPoints = async (amount: number, cat: PointHistory['category'], desc: string, target?: string) => {
         const id = `PT-${Date.now()}`;
@@ -3552,20 +3725,57 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await runTransaction(db, async (tx) => {
                 const currentProducts = [...products];
                 
-                // Group new items
-                const newGrouped: Record<string, number> = {};
-                (i.items || []).forEach(item => {
-                    const name = (item.description || '').toUpperCase();
-                    if (name) {
-                        newGrouped[name] = (newGrouped[name] || 0) + (Number(item.quantity) || 0);
+                const getItems = (inv: Invoice) => {
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    (inv.items || []).forEach(item => {
+                        list.push({
+                            name: (item.description || '').toUpperCase(),
+                            qty: Number(item.quantity) || 0,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
+                        });
+                    });
+                    return list;
+                };
+
+                const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                    if (productId) {
+                        const p = currentProducts.find(p => p.id === productId);
+                        if (p) return p;
                     }
+                    if (sku) {
+                        const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    if (barcode) {
+                        const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+                };
+
+                const newItems = getItems(i);
+                
+                // Group new items by unique match key
+                const newGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string }> = {};
+                newItems.forEach(item => {
+                    if (!item.name) return;
+                    const key = item.productId || item.sku || item.barcode || item.name;
+                    newGrouped[key] = {
+                        qty: (newGrouped[key]?.qty || 0) + item.qty,
+                        name: item.name,
+                        productId: item.productId,
+                        sku: item.sku,
+                        barcode: item.barcode
+                    };
                 });
                 
                 const insufficientItems: any[] = [];
                 const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
                 
-                for (const [prodName, newQty] of Object.entries(newGrouped)) {
-                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                for (const [key, info] of Object.entries(newGrouped)) {
+                    const masterProduct = findProduct(info.name, info.productId, info.sku, info.barcode);
                     let dbProduct: Product | null = null;
                     let ref = null;
                     if (masterProduct) {
@@ -3579,14 +3789,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
                     const availableStock = dbStock; // New invoice, so oldQty is 0
                     
-                    if (newQty > availableStock) {
+                    if (info.qty > availableStock && !allowNegativeStock) {
                         insufficientItems.push({
-                            name: prodName,
-                            requested: newQty,
+                            name: info.name,
+                            requested: info.qty,
                             available: availableStock
                         });
                     } else if (ref && dbProduct) {
-                        const newStock = dbStock - newQty;
+                        const newStock = dbStock - info.qty;
                         productsToUpdate.push({
                             ref,
                             newStock,
@@ -3598,17 +3808,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             productId: dbProduct.id,
                             productName: dbProduct.name,
                             type: 'Out',
-                            quantity: newQty,
+                            quantity: info.qty,
                             date: i.date || new Date().toISOString().split('T')[0],
                             reference: `Invoice #${i.invoiceNumber || i.id}`,
                             purpose: 'Sale'
                         });
                     } else {
-                        insufficientItems.push({
-                            name: prodName,
-                            requested: newQty,
-                            available: 0
-                        });
+                        if (!allowNegativeStock) {
+                            insufficientItems.push({
+                                name: info.name,
+                                requested: info.qty,
+                                available: 0
+                            });
+                        }
                     }
                 }
                 
@@ -3643,7 +3855,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             await addLog('Billing', 'Invoice Generated', i.invoiceNumber);
             productsToLog.forEach(productData => {
-                const qty = newGrouped[productData.name.toUpperCase()];
+                const itemKey = productData.id || productData.sku || productData.barcode || productData.name.toUpperCase();
+                const qty = newGrouped[itemKey]?.qty || newGrouped[productData.name.toUpperCase()]?.qty || 0;
                 addLog('Inventory', 'Invoice Deduction', `Subtracted ${qty} units of ${productData.name} due to invoice sale`);
             });
         } else {
@@ -3678,25 +3891,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             await runTransaction(db, async (tx) => {
                 const currentProducts = [...products];
-                const oldGrouped: Record<string, number> = {};
-                existing.items.forEach(item => {
-                    const name = (item.description || '').toUpperCase();
-                    if (name) {
-                        oldGrouped[name] = (oldGrouped[name] || 0) + (Number(item.quantity) || 0);
+                
+                const getItems = (rec: Invoice) => {
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    (rec.items || []).forEach(item => {
+                        list.push({
+                            name: (item.description || '').toUpperCase(),
+                            qty: Number(item.quantity) || 0,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
+                        });
+                    });
+                    return list;
+                };
+
+                const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
+                    if (productId) {
+                        const p = currentProducts.find(p => p.id === productId);
+                        if (p) return p;
+                    }
+                    if (sku) {
+                        const p = currentProducts.find(p => p.sku && p.sku.trim().toLowerCase() === sku.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    if (barcode) {
+                        const p = currentProducts.find(p => p.barcode && p.barcode.trim().toLowerCase() === barcode.trim().toLowerCase());
+                        if (p) return p;
+                    }
+                    return currentProducts.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+                };
+
+                const oldItems = getItems(existing);
+                const oldGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string }> = {};
+                oldItems.forEach(item => {
+                    if (item.name) {
+                        const key = item.productId || item.sku || item.barcode || item.name;
+                        oldGrouped[key] = {
+                            qty: (oldGrouped[key]?.qty || 0) + item.qty,
+                            name: item.name,
+                            productId: item.productId,
+                            sku: item.sku,
+                            barcode: item.barcode
+                        };
                     }
                 });
                 
                 const productsToUpdate: { ref: any, newStock: number, productData: Product }[] = [];
                 
-                for (const [prodName, oldQty] of Object.entries(oldGrouped)) {
-                    const masterProduct = currentProducts.find(p => p.name.toUpperCase() === prodName);
+                for (const [key, info] of Object.entries(oldGrouped)) {
+                    const masterProduct = findProduct(info.name, info.productId, info.sku, info.barcode);
                     if (masterProduct) {
                         const ref = doc(db, "products", masterProduct.id);
                         const snap = await tx.get(ref);
                         if (snap.exists()) {
                             const dbProduct = snap.data() as Product;
                             const dbStock = Number(dbProduct.stock || 0);
-                            const newStock = dbStock + oldQty;
+                            const newStock = dbStock + info.qty;
                             
                             productsToUpdate.push({
                                 ref,
@@ -3709,7 +3960,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 productId: dbProduct.id,
                                 productName: dbProduct.name,
                                 type: 'In',
-                                quantity: oldQty,
+                                quantity: info.qty,
                                 date: new Date().toISOString().split('T')[0],
                                 reference: `Rev/Del: Invoice #${existing.invoiceNumber || existing.id}`,
                                 purpose: 'Restock'
@@ -3932,6 +4183,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return (
         <DataContext.Provider value={{
             clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
+            eodReports, addEodReport, updateEodReport,
             pendingQuoteData, setPendingQuoteData,
             pendingInvoiceData, setPendingInvoiceData,
             pendingServiceReportData, setPendingServiceReportData,
@@ -3965,7 +4217,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addCostCentre, updateCostCentre, removeCostCentre,
             addFixedAsset, updateFixedAsset, removeFixedAsset, computeDepreciation, postDepreciationEntry,
             uploadBankStatement, autoMatchBankEntries, postAutoVouchers,
-            isSystemAdmin
+            isSystemAdmin,
+            allowNegativeStock,
+            setAllowNegativeStock
         }}>
             {children}
             

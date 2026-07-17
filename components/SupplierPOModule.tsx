@@ -258,7 +258,7 @@ export const SupplierPOModule: React.FC = () => {
         });
     };
 
-    const handleSave = (status: 'Draft' | 'Finalized') => {
+    const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!order.customerName || !order.items?.length) {
             addNotification('Invalid Data', 'Fill vendor details and items.', 'alert');
             return;
@@ -278,11 +278,32 @@ export const SupplierPOModule: React.FC = () => {
             createdBy: currentUser?.name || 'System',
             ...(order.selectedBank ? { selectedBank: order.selectedBank } : {})
         };
-        if (editingId) updateInvoice(editingId, finalData);
-        else addInvoice(finalData);
-        setViewState('history');
-        setEditingId(null);
-        addNotification('Registry Updated', `Supplier PO ${finalData.invoiceNumber} saved.`, 'success');
+
+        try {
+            if (editingId) {
+                await updateInvoice(editingId, finalData);
+            } else {
+                await addInvoice(finalData);
+            }
+            addNotification('Registry Updated', `Supplier PO ${finalData.invoiceNumber} saved.`, 'success');
+            
+            if (status === 'Finalized') {
+                await handleDownloadPDF(finalData);
+            }
+            
+            setViewState('history');
+            setEditingId(null);
+        } catch (error: any) {
+            console.error('Save Supplier PO failed:', error);
+            let message = 'Failed to save Supplier PO.';
+            try {
+                const parsed = JSON.parse(error.message);
+                if (parsed.type === 'DUPLICATE_INVOICE') {
+                    message = `Duplicate PO Number: ${parsed.invoiceNumber} already exists.`;
+                }
+            } catch (_) {}
+            addNotification('Save Error', message, 'alert');
+        }
     };
 
     const totals = useMemo(() => calculateDetailedTotals(order), [order]);
@@ -842,7 +863,7 @@ export const SupplierPOModule: React.FC = () => {
                                             Save Draft
                                         </button>
                                         <button 
-                                            onClick={() => { handleSave('Finalized'); handleDownloadPDF(order); }}
+                                            onClick={() => handleSave('Finalized')}
                                             className="flex-1 px-6 py-3 bg-gradient-to-r from-medical-600 to-teal-500 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:from-medical-700 hover:to-teal-600 transition-all shadow-xl shadow-medical-500/30 active:scale-95 flex items-center justify-center gap-2"
                                         >
                                             Finalize & Download

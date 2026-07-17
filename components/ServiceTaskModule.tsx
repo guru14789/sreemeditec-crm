@@ -18,8 +18,8 @@ const STATUS_CONFIG: Record<ServiceTaskStatus, { label: string; color: string; d
   'Claimed': { label: 'Claimed', color: 'bg-indigo-600', dotColor: 'bg-indigo-600' },
   'In Progress': { label: 'In Progress', color: 'bg-indigo-500', dotColor: 'bg-indigo-500' },
   'Completed': { label: 'Completed', color: 'bg-emerald-500', dotColor: 'bg-emerald-500' },
-  'On Hold': { label: 'On Hold', color: 'bg-amber-500', dotColor: 'bg-amber-500' },
-  'Waiting for Customer': { label: 'Waiting', color: 'bg-purple-500', dotColor: 'bg-purple-500' },
+  'On Hold': { label: 'Company Hold', color: 'bg-amber-500', dotColor: 'bg-amber-500' },
+  'Waiting for Customer': { label: 'Service Finished Waiting', color: 'bg-purple-500', dotColor: 'bg-purple-500' },
   'Cancelled': { label: 'Cancelled', color: 'bg-rose-500', dotColor: 'bg-rose-500' },
   'Reopened': { label: 'Reopened', color: 'bg-orange-500', dotColor: 'bg-orange-500' },
 };
