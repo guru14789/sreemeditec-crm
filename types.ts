@@ -458,6 +458,8 @@ export interface Invoice {
   contactPerson?: string;
   freightAmount?: number;
   freightTaxRate?: number;
+  refQuotationNo?: string;
+  refQuotationId?: string;
   paymentTerms?: string;
   deliveryTerms?: string;
   buyerName?: string;

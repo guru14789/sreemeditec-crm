@@ -1494,10 +1494,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const existing = invoices.find(i => i.id === id);
         if (!existing) return;
 
-        const wasInventoryAffecting = existing.documentType === 'Invoice' && existing.status !== 'Draft' && existing.status !== 'Cancelled';
+        const wasInventoryAffecting = existing.documentType === 'Invoice' && existing.status !== 'Draft' && existing.status !== 'Cancelled' && !existing.refQuotationNo && !!u.items;
         const isInventoryAffecting = (u.documentType || existing.documentType) === 'Invoice' && 
                                      (u.status || existing.status) !== 'Draft' && 
-                                     (u.status || existing.status) !== 'Cancelled';
+                                     (u.status || existing.status) !== 'Cancelled' &&
+                                     !(u.refQuotationNo || existing.refQuotationNo) &&
+                                     !!u.items;
 
         if (wasInventoryAffecting || isInventoryAffecting) {
             let updatedProductsList: Product[] = [];
@@ -1688,6 +1690,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await updateDoc(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
             await addLog('Billing', 'Updated Doc', `${existing?.invoiceNumber || id}`, existing, { ...existing, ...u });
         }
+
+        // Optimistically update local states immediately so UI updates without Firestore delay
+        setInvoiceSnap(prev => prev.map(inv => inv.id === id ? { ...inv, ...u } as Invoice : inv));
+        setPushedInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...u } as Invoice : inv));
 
         const updatedRecord = { ...existing, ...u } as Invoice;
         await checkAndAddInvoiceIncentive(updatedRecord);
@@ -3715,7 +3721,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (dup) {
             throw new Error(JSON.stringify({ type: 'DUPLICATE_INVOICE', invoiceNumber: i.invoiceNumber }));
         }
-        const isInventoryAffecting = (i.documentType || 'Invoice') === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled';
+        const isInventoryAffecting = (i.documentType || 'Invoice') === 'Invoice' && i.status !== 'Draft' && i.status !== 'Cancelled' && !i.refQuotationNo;
         
         if (isInventoryAffecting) {
             let updatedProductsList: Product[] = [];
@@ -3864,6 +3870,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
             await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
         }
+
+        // Optimistically add to local state immediately so UI updates without Firestore delay
+        setPushedInvoices(prev => [i, ...prev]);
 
         await checkAndAddInvoiceIncentive(i);
 
@@ -4226,27 +4235,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             {/* Custom Dialog Overlay */}
             {dialogConfig && dialogConfig.isOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl p-6 text-slate-100">
- <h3 className="text-xl font-bold tracking-tight text-teal-400 mb-2">{dialogConfig.title}</h3>
-                        <p className="text-slate-300 text-sm mb-6 whitespace-pre-wrap">{dialogConfig.message}</p>
+                    <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl text-slate-100 overflow-hidden">
+                        <div className="p-6 pb-2 shrink-0 border-b border-slate-800/40">
+                            <h3 className="text-xl font-bold tracking-tight text-teal-400">{dialogConfig.title}</h3>
+                        </div>
                         
-                        {dialogConfig.type === 'prompt' && (
-                            <input
-                                key={dialogConfig.message + '_' + (dialogConfig.defaultValue || '')}
-                                id="custom-dialog-input"
-                                type="text"
-                                defaultValue={dialogConfig.defaultValue}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] px-4 py-3 text-slate-100 focus:outline-none focus:border-teal-500 mb-6 text-sm"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        dialogConfig.resolve((e.target as HTMLInputElement).value);
-                                    }
-                                }}
-                            />
-                        )}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 py-4">
+                            <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{dialogConfig.message}</p>
+                            
+                            {dialogConfig.type === 'prompt' && (
+                                <input
+                                    key={dialogConfig.message + '_' + (dialogConfig.defaultValue || '')}
+                                    id="custom-dialog-input"
+                                    type="text"
+                                    defaultValue={dialogConfig.defaultValue}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-[2rem] px-4 py-3 text-slate-100 focus:outline-none focus:border-teal-500 mt-4 text-sm"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            dialogConfig.resolve((e.target as HTMLInputElement).value);
+                                        }
+                                    }}
+                                />
+                            )}
+                        </div>
                         
-                        <div className="flex justify-end gap-3">
+                        <div className="p-6 pt-2 shrink-0 flex justify-end gap-3 border-t border-slate-800/40">
                             {dialogConfig.type !== 'alert' && (
                                 <button
                                     onClick={() => dialogConfig.resolve(null)}

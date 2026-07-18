@@ -12,6 +12,41 @@ import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+
+const PaidAmountInput = ({ inv, onUpdate }: { inv: Invoice, onUpdate: (val: number, status: string) => void }) => {
+    const [val, setVal] = useState<string>(String(inv.paidAmount ?? 0));
+
+    useEffect(() => {
+        setVal(String(inv.paidAmount ?? 0));
+    }, [inv.paidAmount]);
+
+    const handleApply = (inputVal: string) => {
+        const numVal = Number(inputVal) || 0;
+        const balance = (inv.grandTotal || 0) - numVal;
+        const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
+            ? (balance <= 0 ? 'Completed' : 'Pending')
+            : inv.status;
+        onUpdate(numVal, expectedStatus);
+    };
+
+    return (
+        <input 
+            type="number"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={() => handleApply(val)}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                    handleApply(val);
+                    e.currentTarget.blur();
+                }
+            }}
+            className="w-20 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-right outline-none focus:border-emerald-500 focus:bg-white transition-all"
+        />
+    );
+};
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -204,14 +239,21 @@ Email: sreemeditec@gmail.com`;
                 customerAddress: pendingInvoiceData.customerAddress || '',
                 phone: pendingInvoiceData.phone || '',
                 email: pendingInvoiceData.email || '',
-                items: pendingInvoiceData.items || [],
+                items: (pendingInvoiceData.items || []).map(item => ({
+                    ...item,
+                    productId: undefined,
+                    sku: undefined,
+                    barcode: undefined
+                })),
                 discount: pendingInvoiceData.discount || 0,
                 freight: pendingInvoiceData.freight || 0,
                 freightTaxRate: pendingInvoiceData.freightTaxRate || 0,
                 isRoundOff: pendingInvoiceData.isRoundOff || false,
                 remarks: pendingInvoiceData.remarks || '',
                 subject: pendingInvoiceData.subject || '',
-                selectedBank: pendingInvoiceData.selectedBank || prev.selectedBank
+                selectedBank: pendingInvoiceData.selectedBank || prev.selectedBank,
+                refQuotationNo: pendingInvoiceData.refQuotationNo || '',
+                refQuotationId: pendingInvoiceData.refQuotationId || ''
             }));
             setEditingId(null);
             setViewState('builder');
@@ -284,8 +326,31 @@ Email: sreemeditec@gmail.com`;
         addLog('Billing', 'Downloaded PDF', `Exported document ${data.invoiceNumber || 'New'} as PDF`);
         try {
             const isQuotation = data.documentType === 'Quotation';
-            const blob = await PDFService.generateInvoicePDF(data, isQuotation, data.selectedBank);
-            previewPDF(blob, `${data.invoiceNumber || 'Document'}.pdf`);
+            const compiledTotals = calculateDetailedTotals(data);
+            const fullInvoiceData: Partial<Invoice> = {
+                ...data,
+                subtotal: data.subtotal ?? compiledTotals.taxableValue,
+                taxTotal: data.taxTotal ?? compiledTotals.taxTotal,
+                grandTotal: data.grandTotal ?? compiledTotals.grandTotal,
+                items: (data.items || []).map(item => {
+                    const qty = Number(item.quantity) || 0;
+                    const price = Number(item.unitPrice) || 0;
+                    const gst = Number(item.taxRate) || 0;
+                    const taxableVal = qty * price;
+                    const gstVal = taxableVal * (gst / 100);
+                    return {
+                        ...item,
+                        quantity: qty,
+                        unitPrice: price,
+                        taxRate: gst,
+                        amount: item.amount ?? taxableVal,
+                        gstValue: item.gstValue ?? gstVal,
+                        priceWithGst: item.priceWithGst ?? (price * (1 + gst / 100))
+                    };
+                })
+            };
+            const blob = await PDFService.generateInvoicePDF(fullInvoiceData, isQuotation, fullInvoiceData.selectedBank);
+            previewPDF(blob, `${fullInvoiceData.invoiceNumber || 'Document'}.pdf`);
         } catch (err) {
             console.error("Failed to download PDF", err);
             await showAlert("Error generating PDF.", "Error");
@@ -302,15 +367,21 @@ Email: sreemeditec@gmail.com`;
         const finalData: Invoice = {
             ...invoice as Invoice,
             id: editingId || `INV-${Date.now()}`,
-            items: (invoice.items || []).map(item => ({
-                ...item,
-                quantity: Number(item.quantity) || 0,
-                unitPrice: Number(item.unitPrice) || 0,
-                taxRate: Number(item.taxRate) || 0,
-                amount: Number(item.amount) || 0,
-                gstValue: Number(item.gstValue) || 0,
-                priceWithGst: Number(item.priceWithGst) || 0
-            })),
+            items: (invoice.items || []).map(item => {
+                const isConverted = !!invoice.refQuotationNo;
+                return {
+                    ...item,
+                    quantity: Number(item.quantity) || 0,
+                    unitPrice: Number(item.unitPrice) || 0,
+                    taxRate: Number(item.taxRate) || 0,
+                    amount: Number(item.amount) || 0,
+                    gstValue: Number(item.gstValue) || 0,
+                    priceWithGst: Number(item.priceWithGst) || 0,
+                    productId: isConverted ? undefined : item.productId,
+                    sku: isConverted ? undefined : item.sku,
+                    barcode: isConverted ? undefined : item.barcode
+                };
+            }),
             freightAmount: Number(invoice.freightAmount) || 0,
             freightTaxRate: Number(invoice.freightTaxRate) || 0,
             subtotal: invTotals.taxableValue,
@@ -318,7 +389,9 @@ Email: sreemeditec@gmail.com`;
             grandTotal: invTotals.grandTotal,
             status: status === 'Draft' ? 'Draft' : (invTotals.grandTotal - (Number(invoice.paidAmount) || 0) <= 0 ? 'Completed' : 'Pending'),
             documentType: variant === 'billing' ? 'Invoice' : 'Quotation',
-            createdBy: currentUser?.name || 'System'
+            createdBy: currentUser?.name || 'System',
+            refQuotationId: invoice.refQuotationId,
+            refQuotationNo: invoice.refQuotationNo
         };
 
         try {
@@ -331,7 +404,34 @@ Email: sreemeditec@gmail.com`;
             setViewState('history');
             setEditingId(null);
             addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
-            return true;
+
+            // Update source quotation status AFTER closing the form — in its own block
+            // so any error here never prevents the form from closing
+            if (!editingId && finalData.documentType === 'Invoice') {
+                const refId = (finalData.refQuotationId || '') as string;
+                const refNo = (finalData.refQuotationNo || '') as string;
+
+                if (refId) {
+                    // Direct Firestore update by document ID — most reliable
+                    updateDoc(doc(db, 'invoices', refId), { status: 'Completed' })
+                        .then(() => updateInvoice(refId, { status: 'Completed' }))
+                        .catch(e => console.warn('Quotation status update failed:', e));
+                } else if (refNo) {
+                    // Fallback: lookup by invoice number
+                    const sourceQuote = invoices.find(i =>
+                        i.invoiceNumber &&
+                        i.invoiceNumber.trim() === refNo.trim() &&
+                        i.documentType === 'Quotation'
+                    );
+                    if (sourceQuote) {
+                        updateDoc(doc(db, 'invoices', sourceQuote.id), { status: 'Completed' })
+                            .then(() => updateInvoice(sourceQuote.id, { status: 'Completed' }))
+                            .catch(e => console.warn('Quotation status update (fallback) failed:', e));
+                    }
+                }
+            }
+
+            return finalData;
         } catch (err: any) {
             console.error("Save error:", err);
             try {
@@ -607,32 +707,22 @@ Email: sreemeditec@gmail.com`;
                                             </div>
                                         </td>
                                         <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-4 py-2 hidden sm:table-cell">
-                                            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                                <input 
-                                                    type="number"
-                                                    key={`${inv.id}-${inv.paidAmount}`}
-                                                    defaultValue={inv.paidAmount || 0}
-                                                    onBlur={(e) => {
-                                                        const val = Number(e.target.value);
-                                                        const balance = (inv.grandTotal || 0) - val;
-                                                        const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
-                                                            ? (balance <= 0 ? 'Completed' : 'Pending')
-                                                            : inv.status;
-                                                        
-                                                        if (val !== inv.paidAmount || expectedStatus !== inv.status) {
-                                                            updateInvoice(inv.id, { paidAmount: val, status: expectedStatus });
-                                                            addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to ₹${val}`, 'success');
-                                                        }
-                                                    }}
-                                                    className="w-20 p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-black text-right outline-none focus:border-emerald-500 focus:bg-white transition-all"
-                                                />
+                                        <td className="px-4 py-2 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                <PaidAmountInput 
+                                                     inv={inv} 
+                                                     onUpdate={(val, status) => {
+                                                         updateInvoice(inv.id, { paidAmount: val, status: status });
+                                                         setServerInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, paidAmount: val, status: status } : i));
+                                                     }} 
+                                                 />
                                                 <button 
                                                     onClick={() => {
                                                         const total = inv.grandTotal || 0;
                                                         if ((inv.paidAmount || 0) !== total) {
                                                             const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled') ? 'Completed' : inv.status;
                                                             updateInvoice(inv.id, { paidAmount: total, status: expectedStatus });
+                                                            setServerInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, paidAmount: total, status: expectedStatus } : i));
                                                             addNotification('Updated', `Paid amount for ${inv.invoiceNumber} set to full amount ₹${total}`, 'success');
                                                         }
                                                     }}
@@ -655,7 +745,7 @@ Email: sreemeditec@gmail.com`;
                                                 <span className="text-slate-300 text-center block">-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">₹{((inv.grandTotal || 0) - (inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">₹{(Number(inv.grandTotal || 0) - Number(inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
                                         <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
@@ -833,6 +923,11 @@ Email: sreemeditec@gmail.com`;
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-2">1. Registry Metadata</h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                         <FormRow label="Invoice No."><input type="text" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-inter font-black outline-none focus:ring-4 focus:ring-medical-500/5 transition-all text-center" value={invoice.invoiceNumber || ''} onChange={e => setInvoice({...invoice, invoiceNumber: e.target.value})} /></FormRow>
+                                        {invoice.refQuotationNo && (
+                                            <FormRow label="Ref Quotation">
+                                                <input type="text" className="w-full h-[46px] bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-inter font-black outline-none text-slate-500 text-center cursor-not-allowed" value={invoice.refQuotationNo} readOnly />
+                                            </FormRow>
+                                        )}
                                         <FormRow label="Dated"><input type="date" className="w-full h-[46px] bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm outline-none font-bold" value={invoice.date || ''} onChange={e => setInvoice({...invoice, date: e.target.value})} /></FormRow>
                                         <FormRow label="Buyer Order #">
                                             <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5.5 text-sm font-bold outline-none cursor-pointer appearance-none" value={invoice.smcpoNumber || ''} onChange={e => setInvoice({...invoice, smcpoNumber: e.target.value})}>
@@ -1126,7 +1221,12 @@ Email: sreemeditec@gmail.com`;
                                 <div className="flex flex-col sm:flex-row gap-4 p-6 md:px-12 md:py-8 shrink-0 bg-white border-t border-slate-200 shadow-[0_-15px_40px_-15px_rgba(0,0,0,0.05)] z-30 relative">
                                     <button onClick={() => setViewState('history')} className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-200">Discard</button>
                                     <button onClick={() => handleSave('Draft')} className="w-full sm:flex-1 py-4 bg-white border-2 border-medical-500 text-medical-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-50 transition-all">Save Draft</button>
-                                    <button onClick={async () => { const ok = await handleSave('Finalized'); if (ok) handleDownloadPDF(invoice); }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
+                                    <button onClick={async () => {
+                                        const saved = await handleSave('Finalized');
+                                        if (saved) {
+                                            await handleDownloadPDF(saved);
+                                        }
+                                    }} className="w-full sm:flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-3 transition-all active:scale-95">
                                         <Save size={20} /> Finalize & PDF
                                     </button>
                                 </div>

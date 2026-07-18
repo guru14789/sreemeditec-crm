@@ -1,6 +1,6 @@
 import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem } from '../types';
+import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart
@@ -131,7 +131,12 @@ export const SupplierPOModule: React.FC = () => {
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !order.invoiceNumber) {
             const currentYearPOs = invoices.filter(i => i.documentType === 'SupplierPO' && i.invoiceNumber && i.invoiceNumber.includes(`/${financialYear}/`));
-            const nextNum = currentYearPOs.length + 1;
+            const maxNum = currentYearPOs.reduce((max, i) => {
+                const parts = (i.invoiceNumber || '').split('/');
+                const num = parseInt(parts[parts.length - 1], 10);
+                return isNaN(num) ? max : Math.max(max, num);
+            }, 0);
+            const nextNum = maxNum + 1;
             setOrder(prev => ({
                 ...prev,
                 invoiceNumber: `SMPOC/${financialYear}/${nextNum}`
@@ -516,7 +521,7 @@ export const SupplierPOModule: React.FC = () => {
                                     .filter(i => {
                                         if (poSearch) {
                                             const low = poSearch.toLowerCase();
-                                            return i.invoiceNumber.toLowerCase().includes(low) || 
+                                            return (i.invoiceNumber || '').toLowerCase().includes(low) || 
                                                    (i.customerName || '').toLowerCase().includes(low) ||
                                                    (i.items || []).some(item => (item.description || '').toLowerCase().includes(low));
                                         }
@@ -527,7 +532,11 @@ export const SupplierPOModule: React.FC = () => {
                                         if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
                                         return i.filedStatus === filingFilter;
                                     })
-                                    .sort((a, b) => (b.invoiceNumber || '').localeCompare(a.invoiceNumber || '', undefined, { numeric: true }))
+                                    .sort((a, b) => {
+                                        const numA = a.invoiceNumber || '';
+                                        const numB = b.invoiceNumber || '';
+                                        return numB.localeCompare(numA, undefined, { numeric: true });
+                                    })
                                     .map(inv => (
                                     <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <td className="px-4 py-3">

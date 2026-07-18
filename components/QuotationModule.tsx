@@ -465,6 +465,18 @@ Sree Meditec`;
                             </p>
                         </div>
                     </div>
+
+                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-emerald-600 to-indigo-500 border border-emerald-500/20 shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
+                        <div className="p-1.5 bg-white/10 text-white rounded-full shadow-inner shrink-0">
+                            <ArrowUpRight size={16} />
+                        </div>
+                        <div className="flex flex-col truncate">
+                            <p className="text-[8px] font-black text-emerald-100/80 uppercase tracking-widest leading-none mb-1 truncate">Converted Quotes</p>
+                            <p className="text-lg font-playfair font-bold tracking-tight text-white leading-none tabular-nums">
+                                {invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationNo).length}
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Bottom Row: Actions & Search */}
@@ -561,7 +573,15 @@ Sree Meditec`;
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell">
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                                inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
+                                                inv.status === 'Completed' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' :
+                                                'bg-emerald-50 text-emerald-700'
+                                            }`}>
+                                                {inv.status === 'Completed' ? '✓ Invoiced' : inv.status}
+                                            </span>
+                                        </td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button 
@@ -576,6 +596,21 @@ Sree Meditec`;
                                                 
                                                 {activeMenuId === inv.id && (
                                                     <div className="absolute right-0 top-12 bg-white border border-slate-200 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 border-slate-300">
+                                                        <button 
+                                                            onClick={async (e) => { 
+                                                                e.stopPropagation(); 
+                                                                const confirmed = await showConfirm('Mark this quotation as Invoiced manually?');
+                                                                if (confirmed) {
+                                                                    await updateInvoice(inv.id, { status: 'Completed' });
+                                                                    addNotification('Status Updated', `Quotation ${inv.invoiceNumber} marked as Completed.`, 'success');
+                                                                }
+                                                                setActiveMenuId(null); 
+                                                            }} 
+                                                            className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-[2rem] transition-all"
+                                                            title="Mark as Invoiced"
+                                                        >
+                                                            <CheckCircle size={18} />
+                                                        </button>
                                                         <button 
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
@@ -592,7 +627,9 @@ Sree Meditec`;
                                                                     isRoundOff: inv.isRoundOff,
                                                                     remarks: `Converted from Quotation ${inv.invoiceNumber}`,
                                                                     subject: inv.subject,
-                                                                    selectedBank: inv.selectedBank
+                                                                    selectedBank: inv.selectedBank,
+                                                                    refQuotationNo: inv.invoiceNumber,
+                                                                    refQuotationId: inv.id
                                                                 });
                                                                 setActiveTab(TabView.BILLING);
                                                                 setActiveMenuId(null); 
