@@ -573,14 +573,24 @@ Sree Meditec`;
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell">
-                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                                                inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
-                                                inv.status === 'Completed' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' :
-                                                'bg-emerald-50 text-emerald-700'
-                                            }`}>
-                                                {inv.status === 'Completed' ? '✓ Invoiced' : inv.status}
-                                            </span>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                             <select 
+                                                 value={inv.status || 'Pending'} 
+                                                 onChange={async (e) => {
+                                                     const nextStatus = e.target.value;
+                                                     await updateInvoice(inv.id, { status: nextStatus as any });
+                                                     addNotification('Status Updated', `Quotation ${inv.invoiceNumber} status set to ${nextStatus}`, 'success');
+                                                 }}
+                                                 className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-transparent transition-all hover:border-slate-300 ${
+                                                     inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
+                                                     inv.status === 'Completed' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' :
+                                                     'bg-emerald-50 text-emerald-700'
+                                                 }`}
+                                             >
+                                                 <option value="Draft">Draft</option>
+                                                 <option value="Pending">Pending</option>
+                                                 <option value="Completed">Invoiced</option>
+                                             </select>
                                         </td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
