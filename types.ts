@@ -509,17 +509,25 @@ export interface StockBatch {
   createdDate: string;
 }
 
+export interface ClaimItem {
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Salary Advance' | 'Daily Allowance' | 'Outstation Allowance' | 'Company' | 'Other' | 'Stay / room' | 'Courier Charges' | 'Petrol / diesel' | 'Transport';
+  amount: number;
+  description: string;
+  receiptUrl?: string;
+}
+
 export interface ExpenseRecord {
   id: string;
   employeeName: string;
   date: string;
-  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Salary Advance' | 'Daily Allowance' | 'Outstation Allowance' | 'Company' | 'Other';
+  category: 'Travel' | 'Food' | 'Lodging' | 'Supplies' | 'Salary Advance' | 'Daily Allowance' | 'Outstation Allowance' | 'Company' | 'Other' | 'Stay / room' | 'Courier Charges' | 'Petrol / diesel' | 'Transport';
   amount: number;
   description: string;
   status: 'Pending' | 'Approved' | 'Rejected';
   receiptUrl?: string;
   rejectionReason?: string;
   editHistory?: AuditLogEntry[];
+  items?: ClaimItem[];
 }
 
 export interface Employee {

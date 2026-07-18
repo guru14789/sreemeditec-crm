@@ -32,6 +32,19 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
     const [selectedEmployeeName, setSelectedEmployeeName] = useState(userRole === 'Admin' ? 'ALL' : currentUser);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [showKpiCards, setShowKpiCards] = useState(true);
+
+    interface ClaimItemInput {
+        category: ExpenseRecord['category'];
+        amount: number;
+        description: string;
+        receiptPreview: string | null;
+    }
+
+    const [claimItems, setClaimItems] = useState<ClaimItemInput[]>([
+        { category: 'Food', amount: 0, description: '', receiptPreview: null }
+    ]);
+    const [formValidationError, setFormValidationError] = useState<string | null>(null);
 
     // Sync selectedEmployeeName if currentUser prop changes
     useEffect(() => {
@@ -84,11 +97,41 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                 e.date.startsWith(currentYearMonth)
             );
 
-            const claimedDaily = employeeExpenses.filter(e => e.category === 'Daily Allowance').reduce((sum, curr) => sum + (curr.amount || 0), 0);
-            const claimedOutstation = employeeExpenses.filter(e => e.category === 'Outstation Allowance').reduce((sum, curr) => sum + (curr.amount || 0), 0);
+            const claimedDaily = employeeExpenses.reduce((sum, e) => {
+                if (e.items && e.items.length > 0) {
+                    const itemSum = e.items
+                        .filter(item => 
+                            item.category === 'Daily Allowance' || 
+                            item.category === 'Food' || 
+                            item.category === 'Stay / room' || 
+                            item.category === 'Petrol / diesel' || 
+                            item.category === 'Transport'
+                        )
+                        .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+                    return sum + itemSum;
+                } else {
+                    const isDailyCategory = 
+                        e.category === 'Daily Allowance' || 
+                        e.category === 'Food' || 
+                        e.category === 'Stay / room' || 
+                        e.category === 'Petrol / diesel' || 
+                        e.category === 'Transport';
+                    return sum + (isDailyCategory ? (e.amount || 0) : 0);
+                }
+            }, 0);
+            const claimedOutstation = employeeExpenses.reduce((sum, e) => {
+                if (e.items && e.items.length > 0) {
+                    const itemSum = e.items
+                        .filter(item => item.category === 'Outstation Allowance')
+                        .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+                    return sum + itemSum;
+                } else {
+                    return sum + (e.category === 'Outstation Allowance' ? (e.amount || 0) : 0);
+                }
+            }, 0);
 
-            const dailyAvailable = Math.max(0, totalDailyAllowance - claimedDaily);
-            const outstationAvailable = Math.max(0, totalOutstationAllowance - claimedOutstation);
+            const dailyAvailable = totalDailyAllowance - claimedDaily;
+            const outstationAvailable = totalOutstationAllowance - claimedOutstation;
             
             return {
                 dailyAvailable, outstationAvailable, totalClaimable: dailyAvailable + outstationAvailable,
@@ -150,7 +193,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
     const DEFAULT_EXPENSE: Partial<ExpenseRecord> = {
         date: new Date().toISOString().split('T')[0],
-        category: 'Daily Allowance',
+        category: 'Food',
         amount: 0,
         description: '',
         status: 'Pending'
@@ -228,47 +271,149 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
         }
     };
 
+    const handleItemFileChange = async (idx: number, file: File) => {
+        setIsCompressing(true);
+        try {
+            const compressed = await compressImage(file);
+            setClaimItems(prev => prev.map((item, i) => i === idx ? { ...item, receiptPreview: compressed } : item));
+        } catch (err) {
+            console.error("Compression failed:", err);
+            addNotification('Upload Error', 'Failed to process snapshot.', 'alert');
+        } finally {
+            setIsCompressing(false);
+        }
+    };
+
     const handleSave = async () => {
-        if (!expense.amount || !expense.description) {
-            addNotification('Validation Error', 'Amount and Description are mandatory.', 'alert');
-            return;
+        setFormValidationError(null);
+        if (builderMode === 'add') {
+            if (claimItems.length === 0) {
+                setFormValidationError('Please add at least one item.');
+                addNotification('Validation Error', 'Please add at least one item.', 'alert');
+                return;
+            }
+            if (claimItems.some(item => !item.amount || !item.description)) {
+                setFormValidationError('Amount and Purpose/Narrative are mandatory for all items.');
+                addNotification('Validation Error', 'Amount and Purpose/Narrative are mandatory for all items.', 'alert');
+                return;
+            }
+        } else {
+            if (!expense.amount || !expense.description) {
+                setFormValidationError('Amount and Description are mandatory.');
+                addNotification('Validation Error', 'Amount and Description are mandatory.', 'alert');
+                return;
+            }
         }
 
         setIsSaving(true);
         try {
             if (builderMode === 'add') {
+                const nowMs = Date.now();
+                const fallbackEmp = selectedEmployeeName !== 'ALL' ? selectedEmployeeName : (employees[0]?.name || currentUser);
+                
+                const totalAmount = claimItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+                const consolidatedDescription = claimItems.map((item, index) => `${index + 1}. [${item.category}] ${item.description}`).join(' | ');
+                
                 const record: ExpenseRecord = {
-                    ...expense as ExpenseRecord,
-                    id: `EXP-${Date.now()}`,
-                    employeeName: expense.employeeName || selectedEmployeeName || currentUser,
-                    receiptUrl: receiptPreview || undefined,
-                    status: 'Pending'
+                    id: `EXP-${nowMs}`,
+                    employeeName: expense.employeeName || fallbackEmp,
+                    date: expense.date || new Date().toISOString().split('T')[0],
+                    category: claimItems.length === 1 ? claimItems[0].category : 'Other',
+                    amount: totalAmount,
+                    description: claimItems.length === 1 ? claimItems[0].description : consolidatedDescription,
+                    status: 'Pending',
+                    items: claimItems.map(item => ({
+                        category: item.category,
+                        amount: item.amount,
+                        description: item.description,
+                        receiptUrl: item.receiptPreview || undefined
+                    }))
                 };
+                
+                // Backwards compatibility for receipt preview and category on root level
+                if (claimItems.length === 1) {
+                    record.receiptUrl = claimItems[0].receiptPreview || undefined;
+                } else {
+                    const firstWithReceipt = claimItems.find(item => item.receiptPreview);
+                    if (firstWithReceipt) {
+                        record.receiptUrl = firstWithReceipt.receiptPreview || undefined;
+                    }
+                }
+                
                 await addExpense(record);
+                addNotification('Claim Submitted', `Claim containing ${claimItems.length} items submitted successfully.`, 'success');
                 setShowSubmitSuccess(true);
-                // Modal remains visible until explicitly confirmed by user
             } else {
+                const totalAmount = claimItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+                const consolidatedDescription = claimItems.map((item, index) => `${index + 1}. [${item.category}] ${item.description}`).join(' | ');
+
                 const updates: Partial<ExpenseRecord> = {
                     ...expense,
-                    receiptUrl: receiptPreview || expense.receiptUrl
+                    category: claimItems.length === 1 ? claimItems[0].category : 'Other',
+                    amount: totalAmount,
+                    description: claimItems.length === 1 ? claimItems[0].description : consolidatedDescription,
+                    items: claimItems.map(item => ({
+                        category: item.category,
+                        amount: item.amount,
+                        description: item.description,
+                        receiptUrl: item.receiptPreview || undefined
+                    }))
                 };
+                
+                if (claimItems.length === 1) {
+                    updates.receiptUrl = claimItems[0].receiptPreview || undefined;
+                } else {
+                    const firstWithReceipt = claimItems.find(item => item.receiptPreview);
+                    updates.receiptUrl = firstWithReceipt ? (firstWithReceipt.receiptPreview || undefined) : undefined;
+                }
+
                 await updateExpense(expense.id!, updates);
                 addNotification('Voucher Updated', `Changes saved.`, 'info');
-                setViewState('stock'); // Navigate back to console after edit
+                setViewState('stock');
             }
             
             if (builderMode === 'add') {
-                // Keep view as builder if they want to submit another, 
-                // but reset the form. Actually reset happens in handleAnother.
+                setClaimItems([{ category: 'Food', amount: 0, description: '', receiptPreview: null }]);
             } else {
                 setExpense(DEFAULT_EXPENSE);
                 setReceiptPreview(null);
             }
+            setFormValidationError(null);
         } catch (err: any) {
+            console.error("Voucher submission error:", err);
             setSubmitError(err.message || 'Voucher submission failed. Please try again.');
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleOpenAdd = () => {
+        setViewState('builder');
+        setBuilderMode('add');
+        setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName });
+        setReceiptPreview(null);
+        setClaimItems([{ category: 'Food', amount: 0, description: '', receiptPreview: null }]);
+        setFormValidationError(null);
+    };
+
+    const handleOpenEdit = (exp: ExpenseRecord) => {
+        setExpense(exp);
+        const initialItems = exp.items && exp.items.length > 0 
+            ? exp.items.map(item => ({
+                category: item.category,
+                amount: item.amount,
+                description: item.description,
+                receiptPreview: item.receiptUrl || null
+              }))
+            : [{
+                category: exp.category,
+                amount: exp.amount,
+                description: exp.description,
+                receiptPreview: exp.receiptUrl || null
+              }];
+        setClaimItems(initialItems);
+        setViewState('builder');
+        setBuilderMode('edit');
     };
 
     const handleApprove = async (id: string) => {
@@ -415,17 +560,23 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
 
                 {/* Bottom Row: Actions */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                    <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex items-center gap-1">
                         <button onClick={() => setViewState('stock')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'stock' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <List size={12} /> Console
                         </button>
-                        <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' && builderMode === 'add' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                        <button onClick={handleOpenAdd} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' && builderMode === 'add' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <Plus size={12} /> Claim
                         </button>
+                        {userRole === 'Admin' && (
+                            <button onClick={() => setShowKpiCards(!showKpiCards)} className={`p-2 rounded-full transition-all flex items-center justify-center ${!showKpiCards ? 'bg-rose-600 text-white shadow-[0_10px_20px_-5px_rgba(225,29,72,0.5)]' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50'}`} title="Toggle Stats Cards">
+                                <Info size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
                        {/* Vouchers/Expenses Header Snapshot */}
+            {showKpiCards && (
             <div className="space-y-3 mb-2 w-full px-2 md:px-0">
                 <div className="flex md:grid md:grid-cols-3 gap-3 md:gap-4 w-full overflow-x-auto custom-scrollbar pb-2 snap-x snap-mandatory">
                     {/* Card 1: Approved */}
@@ -477,6 +628,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                     </div>
                 </div>
             </div>
+            )}
 
 
             {viewState === 'stock' ? (
@@ -489,7 +641,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 
                                 <div className="hidden sm:flex bg-slate-100 p-1 md:p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 gap-1 ml-4 md:ml-6">
                                     <button onClick={() => setViewState('stock')} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={12} className="md:w-3.5 md:h-3.5" /> Console</button>
-                                    <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
+                                    <button onClick={handleOpenAdd} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
                                 </div>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
@@ -579,7 +731,9 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                             <td className="block md:table-cell px-2 py-2 md:px-6 md:py-3 align-middle">
                                                 <div className="flex flex-col gap-1.5 md:gap-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${e.category === 'Company' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-indigo-600 bg-indigo-50 border-indigo-100'}`}>{e.category}</span>
+                                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${e.category === 'Company' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-indigo-600 bg-indigo-50 border-indigo-100'}`}>
+                                                            {e.items && e.items.length > 1 ? 'Multiple' : e.category}
+                                                        </span>
                                                         <span className="font-bold text-slate-700 uppercase truncate max-w-[200px] md:max-w-[250px]">{e.description}</span>
                                                         {e.category === 'Company' && <span className="text-[7.5px] font-black text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-tighter hidden md:inline-block">Not Deducted</span>}
                                                     </div>
@@ -605,7 +759,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                                     {e.status === 'Pending' && (userRole === 'Admin' || e.employeeName?.trim().toLowerCase() === currentUser?.trim().toLowerCase()) ? (
                                                         <>
                                                             <button 
-                                                                onClick={(ev) => { ev.stopPropagation(); setExpense(e); setViewState('builder'); setBuilderMode('edit'); }}
+                                                                onClick={(ev) => { ev.stopPropagation(); handleOpenEdit(e); }}
                                                                 className="w-8 h-8 flex items-center justify-center text-indigo-500 bg-indigo-50 border border-indigo-100 rounded-[2rem] transition-all hover:bg-indigo-100 hover:scale-110 shadow-sm active:scale-95"
                                                                 title="Edit Pending Expense"
                                                             >
@@ -687,6 +841,31 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                     )}
                                 </section>
 
+                                {selectedExpense.items && selectedExpense.items.length > 0 && (
+                                    <section className="space-y-3">
+                                        <h4 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1"><List size={12} /> Claimed Items</h4>
+                                        <div className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+                                            {selectedExpense.items.map((item, idx) => (
+                                                <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-[1.5rem] space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">{item.category}</span>
+                                                        <span className="text-[10px] font-black text-emerald-600">₹{item.amount.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-600 font-semibold leading-relaxed italic">"{item.description}"</p>
+                                                    {item.receiptUrl && (
+                                                        <button 
+                                                            onClick={(ev) => { ev.stopPropagation(); setViewReceiptModal(item.receiptUrl!); setZoomScale(1); setZoomRotation(0); setIsHighClarity(false); }}
+                                                            className="flex items-center gap-1 text-[8px] font-black text-medical-600 uppercase tracking-widest hover:text-medical-800 transition-colors"
+                                                        >
+                                                            <ImageIcon size={10} /> View Proof
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+
                                 <section className="space-y-3">
                                     <h4 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1"><Info size={12} /> Voucher Memo</h4>
                                     <p className="p-4 md:p-5 bg-slate-50 border border-slate-200 rounded-[2rem] md:rounded-[2rem] text-[11px] md:text-[13px] font-bold text-slate-600 leading-relaxed italic">"{selectedExpense.description}"</p>
@@ -719,7 +898,7 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                                 ) : (
                                     <>
                                         {selectedExpense.status === 'Pending' && (userRole === 'Admin' || selectedExpense.employeeName?.trim().toLowerCase() === currentUser?.trim().toLowerCase()) && (
-                                            <button onClick={() => { setExpense(selectedExpense); setViewState('builder'); setBuilderMode('edit'); }} className="flex-1 py-3 md:py-4 bg-slate-800 text-white rounded-[2rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 md:gap-3"><Edit2 size={14}/> Modify</button>
+                                            <button onClick={() => handleOpenEdit(selectedExpense)} className="flex-1 py-3 md:py-4 bg-slate-800 text-white rounded-[2rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 md:gap-3"><Edit2 size={14}/> Modify</button>
                                         )}
                                         {selectedExpense.status === 'Pending' && (userRole === 'Admin' || selectedExpense.employeeName === currentUser) && (
                                             <button 
@@ -743,81 +922,171 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                             <div className="flex flex-col"><h3 className="text-lg md:text-2xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">{builderMode === 'add' ? 'Claim Intake' : 'Voucher Edit'}</h3><p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Synchronizing with enterprise ledger</p></div>
                             <div className="hidden sm:flex bg-slate-100 p-1 md:p-1.5 rounded-[2.5rem] border border-slate-200 shadow-inner w-fit shrink-0 gap-1 ml-4 md:ml-6">
                                 <button onClick={() => setViewState('stock')} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'stock'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><List size={12} className="md:w-3.5 md:h-3.5" /> Console</button>
-                                <button onClick={() => { setViewState('builder'); setBuilderMode('add'); setExpense({ ...DEFAULT_EXPENSE, employeeName: selectedEmployeeName }); setReceiptPreview(null); }} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
+                                <button onClick={handleOpenAdd} className={`px-4 md:px-6 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center gap-1.5 md:gap-2 ${viewState === 'builder' && builderMode === 'add'  ? 'bg-emerald-900 text-white shadow-[0_10px_20px_-5px_rgba(6,78,59,0.5)] scale-100' : 'text-slate-400 hover:text-emerald-700 scale-95'}`}><Plus size={12} className="md:w-3.5 md:h-3.5" /> Claim</button>
                             </div>
                         </div>
                         <button onClick={() => setViewState('stock')} className="p-2 md:p-3 bg-white text-slate-400 rounded-[2rem] md:rounded-[2rem] hover:text-slate-600 transition-all border border-slate-200 shadow-sm"><X size={20}/></button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-5 md:space-y-12 custom-scrollbar pb-32">
-                        <section className="space-y-4 md:space-y-4">
-                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><PieChart size={12} className="text-medical-500" />1. Valuation Logic</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                                {userRole === 'Admin' && (
-                                    <div className="sm:col-span-1">
-                                        <FormRow label="Personnel / Employee">
-                                            <select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer appearance-none" 
-                                                value={expense.employeeName || selectedEmployeeName} 
-                                                onChange={e => setExpense({...expense, employeeName: e.target.value})}
-                                            >
-                                                {employees.map(emp => (
-                                                    <option key={emp.id} value={emp.name}>{emp.name}</option>
-                                                ))}
-                                            </select>
+                    <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 custom-scrollbar pb-32">
+                                <section className="space-y-4 md:space-y-4">
+                                    <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><User size={12} className="text-medical-500" />1. Personnel & Date</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                                        {userRole === 'Admin' && (
+                                            <FormRow label="Personnel / Employee">
+                                                <select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer appearance-none" 
+                                                    value={expense.employeeName || selectedEmployeeName} 
+                                                    onChange={e => setExpense({...expense, employeeName: e.target.value})}
+                                                >
+                                                    {employees.map(emp => (
+                                                        <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                                    ))}
+                                                </select>
+                                            </FormRow>
+                                        )}
+                                        <FormRow label="Voucher Date">
+                                            <input type="date" className="w-full h-[36px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={expense.date} onChange={e => setExpense({...expense, date: e.target.value})} />
                                         </FormRow>
                                     </div>
-                                )}
-                                <div className="sm:col-span-1"><FormRow label="Voucher Date"><input type="date" className="w-full h-[36px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-sm font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={expense.date} onChange={e => setExpense({...expense, date: e.target.value})} /></FormRow></div>
-                                <FormRow label="Expense Category"><select className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-[11px] md:text-xs font-black uppercase cursor-pointer appearance-none" value={expense.category} onChange={e => setExpense({...expense, category: e.target.value as any})}><option value="Daily Allowance">Daily Allowance</option><option value="Outstation Allowance">Outstation Allowance</option><option value="Salary Advance">Advance Payment</option><option value="Company">Company</option></select></FormRow>
- <div className={userRole === 'Admin' ? "sm:col-span-1" : "sm:col-span-2"}><FormRow label="Settlement Value (₹) *"><input type="number" className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 text-lg md:text-xl font-bold tracking-tight text-emerald-600 tracking-tighter" placeholder="0.00" value={expense.amount || ''} onChange={e => setExpense({...expense, amount: Number(e.target.value)})} /></FormRow></div>
-                            </div>
-                        </section>
+                                </section>
 
-                        <section className="space-y-4 md:space-y-4">
-                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><Info size={12} className="text-medical-500" />2. Purpose & Context</h3>
-                            <FormRow label="Narrative *"><textarea className="w-full min-h-[100px] md:min-h-[120px] bg-white border border-slate-300 rounded-[2rem] md:rounded-[2rem] px-4 md:px-5 py-3 md:py-4 text-[13px] md:text-sm font-bold outline-none focus:border-medical-500" placeholder="DESCRIBE PURPOSE..." value={expense.description || ''} onChange={e => setExpense({...expense, description: e.target.value})} /></FormRow>
-                        </section>
+                                <section className="space-y-5">
+                                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                        <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] flex items-center gap-2">
+                                            <PieChart size={12} className="text-medical-500" />
+                                            2. Claimed Items ({claimItems.length})
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => setClaimItems(prev => [...prev, { category: 'Food', amount: 0, description: '', receiptPreview: null }])}
+                                            className="px-4 py-1.5 bg-emerald-950 text-white rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1 transition-all"
+                                        >
+                                            <Plus size={10} /> Add Expense Item
+                                        </button>
+                                    </div>
 
-                        <section className="space-y-4 md:space-y-4">
-                            <h3 className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] border-b border-slate-100 pb-2 flex items-center gap-2"><ImageIcon size={12} className="text-medical-500" />3. Digital Proof</h3>
-                            <div className="max-w-xl">
-                                {isCompressing ? (
-                                    <div className="p-8 md:p-12 border-2 border-dashed border-medical-500 bg-medical-50/20 rounded-[2rem] md:rounded-[2.5rem] flex flex-col items-center justify-center gap-3 md:gap-4 shadow-inner">
-                                        <RefreshCw size={32} className="animate-spin text-medical-600" />
-                                        <p className="text-[10px] font-black text-medical-600 uppercase tracking-[0.2em]">Optimizing...</p>
-                                    </div>
-                                ) : receiptPreview || expense.receiptUrl ? (
-                                    <div className="p-4 md:p-6 bg-emerald-50 border-2 border-emerald-200 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-between shadow-xl shadow-emerald-500/10">
-                                        <div className="flex items-center gap-4 md:gap-6">
-                                            <div className="w-16 h-16 md:w-24 md:h-24 rounded-[2rem] md:rounded-3xl bg-white border-2 md:border-4 border-white shadow-2xl overflow-hidden ring-1 ring-emerald-100"><img src={receiptPreview || expense.receiptUrl} alt="Evidence" className="w-full h-full object-cover" /></div>
-                                            <div><p className="text-xs md:text-sm font-black text-emerald-800 uppercase tracking-tight">Synchronized</p><p className="text-[9px] md:text-[10px] font-bold text-emerald-600/60 uppercase tracking-widest mt-0.5 md:mt-1 italic">Proof Logged</p></div>
-                                        </div>
-                                        <button onClick={() => { setReceiptPreview(null); setExpense({...expense, receiptUrl: undefined}); }} className="p-3 md:p-4 bg-white text-rose-500 rounded-[2rem] md:rounded-[2rem] hover:bg-rose-50 transition-all shadow-sm border border-rose-100"><X size={18}/></button>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-4 md:gap-6">
-                                        <label className="flex flex-col items-center justify-center p-6 md:p-12 border-2 border-dashed border-slate-300 rounded-[2rem] md:rounded-[2.5rem] hover:border-indigo-500 hover:bg-indigo-50/30 transition-all text-slate-400 group cursor-pointer shadow-inner">
-                                            <input type="file" onChange={handleFileChange} accept="image/*" capture="environment" className="hidden" />
-                                            <Camera size={32} className="mb-2 md:mb-4 opacity-20 group-hover:opacity-100 group-hover:text-indigo-500 transition-all" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest group-hover:text-indigo-600">Snap</span>
-                                        </label>
-                                        <label className="flex flex-col items-center justify-center p-6 md:p-12 border-2 border-dashed border-slate-300 rounded-[2rem] md:rounded-[2.5rem] hover:border-emerald-500 hover:bg-emerald-50/30 transition-all text-slate-400 group cursor-pointer shadow-inner">
-                                            <input type="file" onChange={handleFileChange} accept="image/*" className="hidden" />
-                                            <Upload size={32} className="mb-2 md:mb-4 opacity-20 group-hover:opacity-100 group-hover:text-emerald-500 transition-all" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest group-hover:text-emerald-600">Pick</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </div>
+                                    <div className="space-y-6">
+                                        {claimItems.map((item, idx) => (
+                                            <div key={idx} className="bg-slate-50/50 p-4 md:p-6 rounded-[2rem] border border-slate-200 relative space-y-4">
+                                                {claimItems.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setClaimItems(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="absolute top-4 right-4 p-2 text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                                                        title="Remove Item"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                                
+                                                <div className="text-[10px] font-black text-emerald-800 uppercase tracking-widest bg-emerald-50 w-fit px-3 py-1 rounded-full border border-emerald-100 mb-2">
+                                                    Item #{idx + 1}
+                                                </div>
 
-                    <div className="sticky bottom-0 left-0 right-0 p-4 md:p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-end gap-3 md:gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-6 md:px-10">
-                        <button onClick={() => { setViewState('stock'); setExpense(DEFAULT_EXPENSE); }} className="px-6 md:px-10 py-3 md:py-4 bg-slate-100 text-slate-500 rounded-[2rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 shadow-inner">Abort</button>
-                        <button onClick={handleSave} disabled={isCompressing || isSaving} className="px-10 md:px-16 py-3 md:py-4 bg-gradient-to-r from-emerald-600 to-indigo-500 text-white rounded-[2rem] md:rounded-[2rem] font-black text-[9px] uppercase tracking-widest shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50 flex items-center gap-2">
-                            {isSaving && <RotateCw size={14} className="animate-spin" />}
-                            {builderMode === 'add' ? 'Authorize Claim' : 'Save Changes'}
-                        </button>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                    <FormRow label="Expense Category">
+                                                        <select 
+                                                            className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] px-4 text-xs font-black uppercase cursor-pointer appearance-none" 
+                                                            value={item.category} 
+                                                            onChange={e => setClaimItems(prev => prev.map((c, i) => i === idx ? { ...c, category: e.target.value as any } : c))}
+                                                        >
+                                                            <option value="Food">Food</option>
+                                                            <option value="Stay / room">Stay / room</option>
+                                                            <option value="Company">Company</option>
+                                                            <option value="Courier Charges">Courier Charges</option>
+                                                            <option value="Petrol / diesel">Petrol / diesel</option>
+                                                            <option value="Transport">Transport</option>
+                                                        </select>
+                                                    </FormRow>
+
+                                                    <FormRow label="Settlement Value (₹) *">
+                                                        <input 
+                                                            type="number" 
+                                                            className="w-full h-[36px] md:h-[48px] bg-white border border-slate-300 rounded-[2rem] px-4 text-sm font-bold text-emerald-600" 
+                                                            placeholder="0.00" 
+                                                            value={item.amount || ''} 
+                                                            onChange={e => setClaimItems(prev => prev.map((c, i) => i === idx ? { ...c, amount: Number(e.target.value) } : c))} 
+                                                        />
+                                                    </FormRow>
+
+                                                    <div className="sm:col-span-2 lg:col-span-1">
+                                                        <FormRow label="Digital Proof / Receipt">
+                                                            {item.receiptPreview ? (
+                                                                <div className="flex items-center justify-between bg-white border border-slate-200 rounded-[2rem] p-1.5 pl-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <img src={item.receiptPreview} alt="Evidence" className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Logged</span>
+                                                                    </div>
+                                                                    <button 
+                                                                        type="button" 
+                                                                        onClick={() => setClaimItems(prev => prev.map((c, i) => i === idx ? { ...c, receiptPreview: null } : c))}
+                                                                        className="p-1.5 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-all"
+                                                                    >
+                                                                        <X size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex gap-2">
+                                                                    <label className="flex-1 h-[36px] md:h-[48px] flex items-center justify-center gap-1 bg-white border border-slate-300 rounded-[2rem] text-[9px] font-black uppercase text-slate-500 hover:bg-slate-50 cursor-pointer transition-all">
+                                                                        <input 
+                                                                            type="file" 
+                                                                            onChange={e => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (file) handleItemFileChange(idx, file);
+                                                                            }} 
+                                                                            accept="image/*" 
+                                                                            capture="environment" 
+                                                                            className="hidden" 
+                                                                        />
+                                                                        <Camera size={12} /> Snap
+                                                                    </label>
+                                                                    <label className="flex-1 h-[36px] md:h-[48px] flex items-center justify-center gap-1 bg-white border border-slate-300 rounded-[2rem] text-[9px] font-black uppercase text-slate-500 hover:bg-slate-50 cursor-pointer transition-all">
+                                                                        <input 
+                                                                            type="file" 
+                                                                            onChange={e => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (file) handleItemFileChange(idx, file);
+                                                                            }} 
+                                                                            accept="image/*" 
+                                                                            className="hidden" 
+                                                                        />
+                                                                        <Upload size={12} /> Pick
+                                                                    </label>
+                                                                </div>
+                                                            )}
+                                                        </FormRow>
+                                                    </div>
+                                                </div>
+
+                                                <FormRow label="Narrative / Purpose *">
+                                                    <textarea 
+                                                        className="w-full min-h-[60px] bg-white border border-slate-300 rounded-[1.5rem] px-4 py-2 text-xs font-semibold outline-none focus:border-medical-500" 
+                                                        placeholder="DESCRIBE PURPOSE..." 
+                                                        value={item.description || ''} 
+                                                        onChange={e => setClaimItems(prev => prev.map((c, i) => i === idx ? { ...c, description: e.target.value } : c))} 
+                                                    />
+                                                </FormRow>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>                </div>
+
+                    <div className="sticky bottom-0 left-0 right-0 p-4 md:p-6 bg-white/95 backdrop-blur-md border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 shadow-[0_-15px_30px_rgba(0,0,0,0.06)] z-30 shrink-0 px-6 md:px-10">
+                        <div className="flex-1">
+                            {formValidationError && (
+                                <div className="text-rose-600 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 animate-in fade-in">
+                                    <AlertCircle size={12} className="text-rose-500 shrink-0" />
+                                    <span>{formValidationError}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-3 md:gap-4 w-full sm:w-auto">
+                            <button onClick={() => { setViewState('stock'); setExpense(DEFAULT_EXPENSE); setFormValidationError(null); }} className="px-6 md:px-10 py-3 md:py-4 bg-slate-100 text-slate-500 rounded-[2rem] md:rounded-[2rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all border border-slate-200 shadow-inner">Abort</button>
+                            <button onClick={handleSave} disabled={isCompressing || isSaving} className="px-10 md:px-16 py-3 md:py-4 bg-gradient-to-r from-emerald-600 to-indigo-500 text-white rounded-[2rem] md:rounded-[2rem] font-black text-[9px] uppercase tracking-widest shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all hover:brightness-110 disabled:opacity-50 flex items-center gap-2">
+                                {isSaving && <RotateCw size={14} className="animate-spin" />}
+                                {builderMode === 'add' ? 'Authorize Claim' : 'Save Changes'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -950,13 +1219,24 @@ export const ExpenseModule: React.FC<ExpenseModuleProps> = ({ currentUser, userR
                         </div>
                         <div className="p-8 bg-slate-50/50 flex flex-col gap-3 border-t border-slate-100">
                             <button 
-                                onClick={() => { setShowSubmitSuccess(false); setViewState('stock'); setExpense(DEFAULT_EXPENSE); setReceiptPreview(null); }} 
+                                onClick={() => { 
+                                    setShowSubmitSuccess(false); 
+                                    setViewState('stock'); 
+                                    setExpense(DEFAULT_EXPENSE); 
+                                    setReceiptPreview(null); 
+                                    setClaimItems([{ category: 'Food', amount: 0, description: '', receiptPreview: null }]);
+                                }} 
                                 className="w-full py-4 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all"
                             >
                                 OK
                             </button>
                             <button 
-                                onClick={() => { setShowSubmitSuccess(false); setExpense(DEFAULT_EXPENSE); setReceiptPreview(null); }} 
+                                onClick={() => { 
+                                    setShowSubmitSuccess(false); 
+                                    setExpense(DEFAULT_EXPENSE); 
+                                    setReceiptPreview(null); 
+                                    setClaimItems([{ category: 'Food', amount: 0, description: '', receiptPreview: null }]);
+                                }} 
                                 className="w-full py-4 bg-emerald-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
                             >
                                 <Plus size={14} /> Submit Another Expense
