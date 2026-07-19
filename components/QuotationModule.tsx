@@ -207,6 +207,8 @@ Sree Meditec`;
     // Handle conversion from Lead
     useEffect(() => {
         if (pendingQuoteData) {
+            // Bug 12: Reset editingId to prevent accidentally overwriting an existing quote
+            setEditingId(null);
             setViewState('builder');
             setBuilderTab('form');
             setQuote(prev => ({
@@ -318,8 +320,11 @@ Sree Meditec`;
         if (parts[1] && parts[1].startsWith('R')) {
             // It's already a revision, e.g. SMQ/R1/25-26/14
             baseRef = parts.slice(2).join('/');
-            // Count total revisions existing for this baseRef to get next number
-            nextRevNumber = invoices.filter(i => i.invoiceNumber.includes(`/${baseRef}`) && i.invoiceNumber.includes('/R')).length + 1;
+            // Bug 16: Use exact regex match on the baseRef to avoid partial string collisions
+            // e.g. searching "25-26/1" must not match "25-26/10"
+            const baseRefEscaped = baseRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactRevPattern = new RegExp(`^SMQ\/R\\d+\/${baseRefEscaped}$`);
+            nextRevNumber = invoices.filter(i => exactRevPattern.test(i.invoiceNumber)).length + 1;
         } else {
             // It's the original quote, e.g. SMQ/25-26/14
             baseRef = parts.slice(1).join('/');
@@ -332,7 +337,13 @@ Sree Meditec`;
             invoiceNumber: `SMQ/R${nextRevNumber}/${baseRef}`,
             date: new Date().toISOString().split('T')[0],
             status: 'Draft',
-            createdBy: currentUser?.name || 'System'
+            createdBy: currentUser?.name || 'System',
+            // Bug 18: Reset payment and filing fields — a revision is a fresh document
+            paidAmount: 0,
+            filedStatus: 'Not Updated',
+            filedHistory: [],
+            refQuotationNo: undefined,
+            refQuotationId: undefined
         };
         
         setQuote(revisedQuote);
@@ -342,9 +353,10 @@ Sree Meditec`;
         addNotification('Revision Initialized', `Created revised draft ${revisedQuote.invoiceNumber} based on existing data.`, 'info');
     };
 
-    const handleSave = (status: 'Draft' | 'Finalized') => {
+    const handleSave = async (status: 'Draft' | 'Finalized') => {
         if (!quote.customerName || !quote.items?.length) {
-            alert("Fill customer details and items.");
+            // Bug 17: Use styled showAlert instead of raw browser alert()
+            await showAlert("Please fill customer details and add at least one item.", "Validation Error");
             return null;
         }
         const totals = calculateDetailedTotals(quote);
@@ -358,12 +370,27 @@ Sree Meditec`;
             documentType: 'Quotation',
             createdBy: currentUser?.name || 'System'
         };
-        if (editingId) updateInvoice(editingId, finalData);
-        else addInvoice(finalData);
-        setViewState('history');
-        setEditingId(null);
-        addNotification('Registry Updated', `Quotation ${finalData.invoiceNumber} saved as ${status}.` , 'success');
-        return finalData;
+        try {
+            if (editingId) await updateInvoice(editingId, finalData);
+            else await addInvoice(finalData);
+            setViewState('history');
+            setEditingId(null);
+            addNotification('Registry Updated', `Quotation ${finalData.invoiceNumber} saved as ${status}.`, 'success');
+            return finalData;
+        } catch (err: any) {
+            console.error("Save error:", err);
+            try {
+                const parsed = JSON.parse(err.message);
+                if (parsed.type === 'DUPLICATE_INVOICE') {
+                    await showAlert(`Quotation #${parsed.invoiceNumber} already exists. Please use a different number.`, "Duplicate Number");
+                } else {
+                    await showAlert("Failed to save quotation. Please try again.", "Save Error");
+                }
+            } catch {
+                await showAlert("Failed to save quotation. Please try again.", "Save Error");
+            }
+            return null;
+        }
     };
 
     const handleDelete = async (id: string, ref: string) => {
@@ -846,7 +873,7 @@ Sree Meditec`;
                                     </div>
                                     <div className="flex-1 flex gap-3 order-1 sm:order-2">
                                         <button onClick={() => handleSave('Draft')} className="flex-1 px-8 py-3.5 bg-slate-800 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 transition-all shadow-xl shadow-slate-500/20 active:scale-95">Save Draft</button>
-                                        <button onClick={() => { const finalData = handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="flex-1 px-8 py-3.5 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">Finalize & PDF</button>
+                                        <button onClick={async () => { const finalData = await handleSave('Finalized'); if (finalData) handleDownloadPDF(finalData); }} className="flex-1 px-8 py-3.5 bg-medical-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-medical-700 shadow-xl shadow-medical-500/30 flex items-center justify-center gap-2 transition-all active:scale-95">Finalize & PDF</button>
                                     </div>
                                 </div>
                             </div>

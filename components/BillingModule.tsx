@@ -235,10 +235,16 @@ Email: sreemeditec@gmail.com`;
             setInvoice(prev => ({
                 ...prev,
                 customerName: pendingInvoiceData.customerName || '',
+                customerHospital: pendingInvoiceData.customerHospital || '',
                 customerGstin: pendingInvoiceData.customerGstin || '',
                 customerAddress: pendingInvoiceData.customerAddress || '',
+                // Bug 18: Also copy buyerName/buyerAddress/buyerGstin for correct GST invoicing
+                buyerName: pendingInvoiceData.buyerName || pendingInvoiceData.customerName || '',
+                buyerAddress: pendingInvoiceData.buyerAddress || pendingInvoiceData.customerAddress || '',
+                buyerGstin: pendingInvoiceData.buyerGstin || pendingInvoiceData.customerGstin || '',
                 phone: pendingInvoiceData.phone || '',
                 email: pendingInvoiceData.email || '',
+                contactPerson: pendingInvoiceData.contactPerson || '',
                 items: (pendingInvoiceData.items || []).map(item => ({
                     ...item,
                     productId: undefined,
@@ -247,6 +253,7 @@ Email: sreemeditec@gmail.com`;
                 })),
                 discount: pendingInvoiceData.discount || 0,
                 freight: pendingInvoiceData.freight || 0,
+                freightAmount: pendingInvoiceData.freightAmount || 0,
                 freightTaxRate: pendingInvoiceData.freightTaxRate || 0,
                 isRoundOff: pendingInvoiceData.isRoundOff || false,
                 remarks: pendingInvoiceData.remarks || '',
@@ -270,7 +277,13 @@ Email: sreemeditec@gmail.com`;
                 const num = parseInt(parts[parts.length - 1], 10);
                 return isNaN(num) ? max : Math.max(max, num);
             }, 0);
-            const nextNum = maxNum + 1;
+            // Bug 8: Also check localStorage for the max number seen in this session.
+            // This prevents two simultaneous users from generating the same number
+            // before either has synced with Firestore.
+            const lsKey = `crm-inv-max-${financialYear}`;
+            const lsMax = parseInt(localStorage.getItem(lsKey) || '0', 10);
+            const nextNum = Math.max(maxNum, lsMax) + 1;
+            localStorage.setItem(lsKey, String(nextNum));
             setInvoice(prev => ({
                 ...prev,
                 invoiceNumber: `SM/${financialYear}/${String(nextNum).padStart(4, '0')}`
