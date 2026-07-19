@@ -473,7 +473,16 @@ Sree Meditec`;
                         <div className="flex flex-col truncate">
                             <p className="text-[8px] font-black text-emerald-100/80 uppercase tracking-widest leading-none mb-1 truncate">Converted Quotes</p>
                             <p className="text-lg font-playfair font-bold tracking-tight text-white leading-none tabular-nums">
-                                {invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationNo).length}
+                                {(() => {
+                                    // Count unique quotation IDs that have been invoiced (either manually updated or via invoice link)
+                                    const quoteIdsWithInvoice = new Set(
+                                        invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationId).map(i => i.refQuotationId)
+                                    );
+                                    const manualCompletedQuotes = invoices.filter(
+                                        i => i.documentType === 'Quotation' && i.status === 'Completed' && !quoteIdsWithInvoice.has(i.id)
+                                    );
+                                    return quoteIdsWithInvoice.size + manualCompletedQuotes.length;
+                                })()}
                             </p>
                         </div>
                     </div>
