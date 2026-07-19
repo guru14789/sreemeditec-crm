@@ -74,13 +74,42 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
     return leads.filter(l => l.assignedTo === currentUser?.name && l.lastContact === todayStr);
   }, [leads, currentUser?.name, todayStr]);
 
-  const tasksToday = useMemo(() => {
-    return tasks.filter(t => (t.assignedTo || '').toLowerCase() === (currentUser?.name || '').toLowerCase() && t.dueDate === todayStr);
-  }, [tasks, currentUser?.name, todayStr]);
+  // All tasks assigned to me that are relevant to today's report:
+  // 1. Tasks due today (regardless of status)
+  // 2. Tasks completed today (completedAt or status=Done with today in logs)
+  // 3. Overdue tasks still not done (dueDate < today)
+  const allMyTasks = useMemo(() => {
+    return tasks.filter(t =>
+      (t.assignedTo || '').toLowerCase() === (currentUser?.name || '').toLowerCase()
+    );
+  }, [tasks, currentUser?.name]);
+
+  const tasksDueToday = useMemo(() => {
+    return allMyTasks.filter(t => t.dueDate === todayStr);
+  }, [allMyTasks, todayStr]);
+
+  const overdueTasks = useMemo(() => {
+    return allMyTasks.filter(t => t.dueDate < todayStr && t.status !== 'Done');
+  }, [allMyTasks, todayStr]);
 
   const completedTasksToday = useMemo(() => {
-    return tasksToday.filter(t => t.status === 'Done');
-  }, [tasksToday]);
+    // Tasks marked Done with dueDate today or overdue tasks that got done
+    return allMyTasks.filter(t => t.status === 'Done' && t.dueDate <= todayStr);
+  }, [allMyTasks, todayStr]);
+
+  // Combined unique list for the EOD task section
+  const eodTaskList = useMemo(() => {
+    const seen = new Set<string>();
+    const combined = [...tasksDueToday, ...overdueTasks, ...completedTasksToday];
+    return combined.filter(t => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+  }, [tasksDueToday, overdueTasks, completedTasksToday]);
+
+  // Legacy compat: tasksToday used for summary counts
+  const tasksToday = tasksDueToday;
 
   const myInvoicesToday = useMemo(() => {
     return invoices.filter(inv => inv.createdBy === currentUser?.name && inv.date === todayStr && inv.status !== 'Cancelled');
@@ -165,10 +194,11 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
   }), [myInvoicesToday]);
 
   const taskSummary = useMemo(() => ({
-    assigned: tasksToday.length,
+    assigned: tasksToday.length + overdueTasks.length,
     completed: completedTasksToday.length,
-    pending: tasksToday.filter(t => t.status !== 'Done').length
-  }), [tasksToday, completedTasksToday]);
+    pending: eodTaskList.filter(t => t.status !== 'Done').length,
+    overdue: overdueTasks.length
+  }), [tasksToday, overdueTasks, completedTasksToday, eodTaskList]);
 
   const serviceSummary = useMemo(() => ({
     installationsCompleted: myServiceTasksToday.filter(s => (s.subject || '').toLowerCase().includes('install')).length,
@@ -216,18 +246,21 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
   // Main Save Handler
   const handleSave = async (status: 'Draft' | 'Submitted') => {
 
+    // Build completedTasks list (tasks marked Done)
     const completedTasksList = completedTasksToday.map(t => {
       let timeStr = '';
-      if (t.completedAt) {
+      const doneLog = t.logs?.find(l => l.action.toLowerCase().includes('done') || l.action.toLowerCase().includes('complet'));
+      const rawTime = doneLog?.timestamp;
+      if (rawTime) {
         try {
-          const date = new Date(t.completedAt);
+          const date = new Date(rawTime);
           if (!isNaN(date.getTime())) {
             timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
           } else {
-            timeStr = t.completedAt;
+            timeStr = rawTime;
           }
-        } catch (e) {
-          timeStr = t.completedAt;
+        } catch {
+          timeStr = rawTime;
         }
       }
       return {
@@ -237,6 +270,20 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
         completedAt: timeStr || 'N/A'
       };
     });
+
+    // Build permanent taskSnapshot — includes ALL tasks (done, pending, overdue)
+    const taskSnapshot = eodTaskList.map(t => ({
+      taskId: t.id,
+      taskTitle: t.title,
+      status: t.status,
+      dueDate: t.dueDate,
+      priority: t.priority,
+      isOverdue: t.status !== 'Done' && t.dueDate < todayStr,
+      completedAt: t.status === 'Done'
+        ? (t.logs?.find(l => l.action.toLowerCase().includes('done') || l.action.toLowerCase().includes('complet'))?.timestamp)
+        : undefined,
+      comments: taskComments[t.id] || ''
+    }));
 
     const userId = currentUser?.id || 'anonymous';
     const userName = currentUser?.name || 'Staff Member';
@@ -256,6 +303,7 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
       activityTimeline,
       customerUpdates,
       completedTasks: completedTasksList,
+      taskSnapshot,
       challengesFaced: challenges,
       tomorrowPlan,
       additionalComments
@@ -397,39 +445,59 @@ export const EodSubmissionModal: React.FC<EodSubmissionModalProps> = ({ onClose,
             )}
           </div>
 
-          {/* Section 2: Completed Tasks & Comments */}
+          {/* Section 2: All Tasks (Completed + Pending + Overdue) */}
           <div className="space-y-3">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Today's Completed Tasks & Comments</h3>
-            {completedTasksToday.length > 0 ? (
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Today's Tasks (All)</h3>
+            {eodTaskList.length > 0 ? (
               <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                {completedTasksToday.map((task) => (
-                  <div key={task.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 bg-white rounded-xl border border-slate-100">
-                    <div className="flex items-start gap-2 max-w-[50%]">
-                      <CheckCircle className="text-emerald-500 shrink-0 mt-0.5" size={14} />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-black text-slate-700 uppercase leading-snug">{task.title}</span>
-                        {task.completedAt && (
-                          <span className="text-[8px] font-bold text-indigo-600 mt-0.5">
-                            Completed: {formatTime(task.completedAt)}
-                          </span>
-                        )}
+                {eodTaskList.map((task) => {
+                  const isDone = task.status === 'Done';
+                  const isOverdue = task.status !== 'Done' && task.dueDate < todayStr;
+                  const isDueToday = task.dueDate === todayStr && !isDone;
+                  return (
+                    <div key={task.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-100">
+                      <div className="flex items-start gap-2 min-w-0 max-w-[55%]">
+                        <div className={`shrink-0 mt-0.5 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                          isDone ? 'bg-emerald-500 border-emerald-500' :
+                          isOverdue ? 'border-rose-400 bg-rose-50' :
+                          'border-amber-400 bg-amber-50'
+                        }`}>
+                          {isDone && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-black text-slate-700 uppercase leading-snug truncate">{task.title}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[7.5px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${
+                              isDone ? 'bg-emerald-100 text-emerald-700' :
+                              isOverdue ? 'bg-rose-100 text-rose-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {isDone ? 'Completed' : isOverdue ? `Overdue · Due ${task.dueDate}` : 'Pending Today'}
+                            </span>
+                            <span className={`text-[7px] font-bold uppercase px-1 py-0.5 rounded ${
+                              task.priority === 'High' ? 'bg-rose-50 text-rose-600' :
+                              task.priority === 'Medium' ? 'bg-amber-50 text-amber-600' :
+                              'bg-slate-100 text-slate-500'
+                            }`}>{task.priority}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex-1 flex flex-col gap-1">
+                        <input
+                          type="text"
+                          className="w-full h-[32px] bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs font-semibold outline-none focus:bg-white"
+                          placeholder={isDone ? 'Add completion notes...' : isOverdue ? 'Why pending? Add notes...' : 'Add progress notes...'}
+                          value={taskComments[task.id] || ''}
+                          onChange={e => setTaskComments(prev => ({ ...prev, [task.id]: e.target.value }))}
+                        />
                       </div>
                     </div>
-                    <div className="flex-1 flex flex-col gap-1">
-                      <input 
-                        type="text" 
-                        className="w-full h-[32px] bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs font-semibold outline-none focus:bg-white"
-                        placeholder="Add comments/achievements for this task..."
-                        value={taskComments[task.id] || ''}
-                        onChange={e => setTaskComments(prev => ({ ...prev, [task.id]: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center">
-                <p className="text-[9px] font-bold text-slate-400 uppercase">No tasks marked as completed today.</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase">No tasks assigned to you today or overdue.</p>
               </div>
             )}
           </div>

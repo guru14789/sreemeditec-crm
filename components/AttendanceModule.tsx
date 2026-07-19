@@ -129,7 +129,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             userId: me.id,
             userName: me.name,
             date: todayStr,
-            checkOutTime: new Date().toISOString() // Only update checkout time, not MS worked
+            checkOutTime: new Date().toISOString(), // Only update checkout time, not MS worked
+            isManualCheckOut: true // Protect from auto-close overwrite
         });
         addNotification('Departure Logged', 'Your final departure time has been updated.', 'success');
     };
@@ -368,7 +369,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             status: 'Completed',
             workMode: workMode,
             checkInTime: todayRecord?.checkInTime || now.toISOString(),
-            checkOutTime: now.toISOString()
+            checkOutTime: now.toISOString(),
+            isManualCheckOut: true // Protect from auto-close overwrite
         });
 
         addPoints(50, 'Attendance', 'Daily Shift Completed');

@@ -573,6 +573,9 @@ export interface AttendanceRecord {
   lat?: number;
   lng?: number;
   accuracy?: number;
+  // If true, checkout was done manually — auto-close must NOT overwrite it
+  isManualCheckOut?: boolean;
+  checkInLocation?: string;
   editHistory?: {
     editedAt: string;
     editedBy: string;
@@ -1005,6 +1008,18 @@ export interface EodReport {
     taskTitle: string;
     comments: string;
     completedAt?: string;
+  }[];
+  // Permanent snapshot of all tasks at report-submission time.
+  // This ensures admin can always see what tasks existed even after task records are modified.
+  taskSnapshot?: {
+    taskId: string;
+    taskTitle: string;
+    status: 'To Do' | 'In Progress' | 'Review' | 'Done';
+    dueDate: string;
+    priority: 'Low' | 'Medium' | 'High';
+    isOverdue: boolean;
+    completedAt?: string;
+    comments?: string;
   }[];
   challengesFaced: string;
   tomorrowPlan: string;

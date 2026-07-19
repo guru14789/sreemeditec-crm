@@ -846,11 +846,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unclosedRecords = attendanceRecords.filter(r => 
             r.userId === currentUser.id && 
             r.date < todayStr && 
+            // Never overwrite if employee manually checked out
+            !r.isManualCheckOut &&
             (!r.checkOutTime || r.status !== 'Completed')
         );
 
         if (unclosedRecords.length > 0) {
-            unclosedRecords.forEach(async (rec) => {
+            (async () => {
+            for (const rec of unclosedRecords) {
+
                 try {
                     const checkInDate = new Date(rec.checkInTime || rec.date + 'T09:30:00.000Z');
                     let checkOutDate = new Date(rec.date + 'T19:00:00.000Z');
@@ -864,13 +868,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         ...rec,
                         checkOutTime: checkOutTimeStr,
                         status: 'Completed',
-                        totalWorkedMs: totalWorkedMs
+                        totalWorkedMs: totalWorkedMs,
+                        isManualCheckOut: false
                     };
                     await setDoc(doc(db, "attendance", rec.id), sanitizeData(updatedRecord));
 
                     const eodReportId = `EOD-${currentUser.id}-${rec.date}`;
                     const existingEod = eodReports.find(e => e.id === eodReportId);
                     if (!existingEod || existingEod.reportStatus !== 'Approved') {
+                        // Build a permanent task snapshot for this past day
+                        const myTasks = tasks.filter(t =>
+                            (t.assignedTo || '').toLowerCase() === currentUser.name.toLowerCase()
+                        );
+                        const taskSnap = myTasks.map(t => ({
+                            taskId: t.id,
+                            taskTitle: t.title,
+                            status: t.status,
+                            dueDate: t.dueDate,
+                            priority: t.priority,
+                            isOverdue: t.status !== 'Done' && t.dueDate < rec.date,
+                            completedAt: t.status === 'Done'
+                                ? (t.logs?.find(l => l.action.toLowerCase().includes('done') || l.action.toLowerCase().includes('complet'))?.timestamp)
+                                : undefined,
+                            comments: ''
+                        }));
+
                         const autoReport = {
                             id: eodReportId,
                             userId: currentUser.id,
@@ -896,9 +918,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 totalSalesValue: 0
                             },
                             taskSummary: {
-                                assigned: 0,
-                                completed: 0,
-                                pending: 0
+                                assigned: taskSnap.length,
+                                completed: taskSnap.filter(t => t.status === 'Done').length,
+                                pending: taskSnap.filter(t => t.status !== 'Done').length
                             },
                             serviceSummary: {
                                 installationsCompleted: 0,
@@ -919,7 +941,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                 }
                             ],
                             customerUpdates: [],
-                            completedTasks: [],
+                            completedTasks: taskSnap
+                                .filter(t => t.status === 'Done')
+                                .map(t => ({
+                                    taskId: t.taskId,
+                                    taskTitle: t.taskTitle,
+                                    comments: '',
+                                    completedAt: t.completedAt || ''
+                                })),
+                            taskSnapshot: taskSnap,
                             challengesFaced: 'Employee forgot to check out. Automatically checked out and EOD report submitted by system.',
                             tomorrowPlan: 'N/A',
                             additionalComments: 'System Auto-Submission: Employee forgot to check out.'
@@ -930,9 +960,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 } catch (e) {
                     console.error("Failed to auto-close attendance:", e);
                 }
-            });
+            }
+            })();
         }
-    }, [currentUser?.id, attendanceRecords, eodReports]);
+
+    }, [currentUser?.id, attendanceRecords, eodReports, tasks]);
+
+
+
 
     useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.PERFORMANCE) return;

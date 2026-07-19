@@ -232,8 +232,41 @@ export const EodReportsModule: React.FC<EodReportsModuleProps> = ({ userRole }) 
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Completed Tasks & Comments</h4>
-                    {myTodayReport.completedTasks && myTodayReport.completedTasks.length > 0 ? (
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Task Report (All Tasks)</h4>
+                    {(myTodayReport.taskSnapshot && myTodayReport.taskSnapshot.length > 0) ? (
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                        {myTodayReport.taskSnapshot.map((t, idx) => {
+                          const isDone = t.status === 'Done';
+                          const isOverdue = t.isOverdue;
+                          return (
+                            <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                              <div className="flex items-start gap-2 min-w-0 max-w-[55%]">
+                                <div className={`shrink-0 mt-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center ${
+                                  isDone ? 'bg-emerald-500 border-emerald-500' :
+                                  isOverdue ? 'border-rose-400 bg-rose-50' :
+                                  'border-amber-400 bg-amber-50'
+                                }`}>
+                                  {isDone && <div className="w-1 h-1 rounded-full bg-white" />}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] font-black text-slate-800 uppercase truncate">{t.taskTitle}</span>
+                                  <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full mt-0.5 w-fit ${
+                                    isDone ? 'bg-emerald-100 text-emerald-700' :
+                                    isOverdue ? 'bg-rose-100 text-rose-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {isDone ? 'Done' : isOverdue ? `Overdue · Due ${t.dueDate}` : 'Pending'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1 rounded-lg border border-slate-100 flex-1 sm:max-w-[45%] text-right">
+                                {t.comments || '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : myTodayReport.completedTasks && myTodayReport.completedTasks.length > 0 ? (
                       <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
                         {myTodayReport.completedTasks.map((t, idx) => (
                           <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -255,9 +288,10 @@ export const EodReportsModule: React.FC<EodReportsModuleProps> = ({ userRole }) 
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">No completed tasks logged today.</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">No tasks recorded for today.</p>
                     )}
                   </div>
+
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -485,8 +519,49 @@ export const EodReportsModule: React.FC<EodReportsModuleProps> = ({ userRole }) 
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Completed Tasks & Comments</h4>
-                    {activeReport.completedTasks && activeReport.completedTasks.length > 0 ? (
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-1">2. Task Report (All Tasks at Submission)</h4>
+                    {(activeReport.taskSnapshot && activeReport.taskSnapshot.length > 0) ? (
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                        {activeReport.taskSnapshot.map((t, idx) => {
+                          const isDone = t.status === 'Done';
+                          const isOverdue = t.isOverdue;
+                          return (
+                            <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                              <div className="flex items-start gap-2 min-w-0 max-w-[55%]">
+                                <div className={`shrink-0 mt-0.5 w-3 h-3 rounded-full border-2 flex items-center justify-center ${
+                                  isDone ? 'bg-emerald-500 border-emerald-500' :
+                                  isOverdue ? 'border-rose-400 bg-rose-50' :
+                                  'border-amber-400 bg-amber-50'
+                                }`}>
+                                  {isDone && <div className="w-1 h-1 rounded-full bg-white" />}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[10px] font-black text-slate-800 uppercase truncate">{t.taskTitle}</span>
+                                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                    <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${
+                                      isDone ? 'bg-emerald-100 text-emerald-700' :
+                                      isOverdue ? 'bg-rose-100 text-rose-700' :
+                                      'bg-amber-100 text-amber-700'
+                                    }`}>
+                                      {isDone ? 'Done' : isOverdue ? `Overdue · Due ${t.dueDate}` : 'Pending'}
+                                    </span>
+                                    <span className={`text-[7px] font-bold uppercase px-1 py-0.5 rounded ${
+                                      t.priority === 'High' ? 'bg-rose-50 text-rose-600' :
+                                      t.priority === 'Medium' ? 'bg-amber-50 text-amber-600' :
+                                      'bg-slate-100 text-slate-500'
+                                    }`}>{t.priority}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-600 bg-white px-3 py-1 rounded-lg border border-slate-100 flex-1 sm:max-w-[45%] text-right">
+                                {t.comments || '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : activeReport.completedTasks && activeReport.completedTasks.length > 0 ? (
+                      // Fallback for older reports that only have completedTasks (no snapshot)
                       <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
                         {activeReport.completedTasks.map((t, idx) => (
                           <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -508,9 +583,10 @@ export const EodReportsModule: React.FC<EodReportsModuleProps> = ({ userRole }) 
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">No completed tasks logged today.</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">No tasks recorded for this day.</p>
                     )}
                   </div>
+
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
