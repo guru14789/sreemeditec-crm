@@ -136,10 +136,13 @@ export const SupplierPOModule: React.FC = () => {
                 const num = parseInt(parts[parts.length - 1], 10);
                 return isNaN(num) ? max : Math.max(max, num);
             }, 0);
-            const nextNum = maxNum + 1;
+            const lsKey = `crm-spoc-max-${financialYear}`;
+            const lsMax = parseInt(localStorage.getItem(lsKey) || '0', 10);
+            const nextNum = Math.max(maxNum, lsMax) + 1;
+            localStorage.setItem(lsKey, String(nextNum));
             setOrder(prev => ({
                 ...prev,
-                invoiceNumber: `SMPOC/${financialYear}/${nextNum}`
+                invoiceNumber: `SMPOC/${financialYear}/${String(nextNum).padStart(4, '0')}`
             }));
         }
     }, [viewState, editingId, invoices, financialYear, order.invoiceNumber]);

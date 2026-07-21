@@ -134,11 +134,19 @@ Sree Meditec`;
 
     useEffect(() => {
         if (viewState === 'builder' && !editingId && !order.invoiceNumber) {
-            const currentYearPOs = invoices.filter(i => i.invoiceNumber && i.invoiceNumber.includes(`SMCPO/${financialYear}/`));
-            const nextNum = currentYearPOs.length + 1;
+            const currentYearPOs = invoices.filter(i => (i.documentType === 'PO' || (i.invoiceNumber && i.invoiceNumber.startsWith('SMCPO'))) && i.invoiceNumber && i.invoiceNumber.includes(`/${financialYear}/`));
+            const maxNum = currentYearPOs.reduce((max, i) => {
+                const parts = (i.invoiceNumber || '').split('/');
+                const num = parseInt(parts[parts.length - 1], 10);
+                return isNaN(num) ? max : Math.max(max, num);
+            }, 0);
+            const lsKey = `crm-cpo-max-${financialYear}`;
+            const lsMax = parseInt(localStorage.getItem(lsKey) || '0', 10);
+            const nextNum = Math.max(maxNum, lsMax) + 1;
+            localStorage.setItem(lsKey, String(nextNum));
             setOrder(prev => ({
                 ...prev,
-                invoiceNumber: `SMCPO/${financialYear}/${nextNum}`
+                invoiceNumber: `SMCPO/${financialYear}/${String(nextNum).padStart(4, '0')}`
             }));
         }
     }, [viewState, editingId, invoices, financialYear, order.invoiceNumber]);
@@ -391,7 +399,7 @@ Sree Meditec`;
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Purchase Order Registry</h2>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => (i.invoiceNumber || '').startsWith('SMCPO')).length} Total Orders</p>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'PO' || (i.invoiceNumber || '').startsWith('SMCPO')).length} Total Orders</p>
                         </div>
                     </div>
 
@@ -403,7 +411,7 @@ Sree Meditec`;
                             <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Order Value</p>
                             <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
                                 ₹{invoices
-                                    .filter(i => (i.invoiceNumber || '').startsWith('SMCPO'))
+                                    .filter(i => i.documentType === 'PO' || (i.invoiceNumber || '').startsWith('SMCPO'))
                                     .reduce((sum, i) => sum + (i.grandTotal || 0), 0)
                                     .toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </p>
@@ -470,7 +478,7 @@ Sree Meditec`;
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {invoices
-                                    .filter(i => (i.invoiceNumber || '').startsWith('SMCPO'))
+                                    .filter(i => i.documentType === 'PO' || (i.invoiceNumber || '').startsWith('SMCPO'))
                                     .filter(i => {
                                         if (poSearch) {
                                             const low = poSearch.toLowerCase();
