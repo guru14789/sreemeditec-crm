@@ -1,6 +1,6 @@
 import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
-import { ServiceReport, ServiceReportItem } from '../types';
+import { ServiceReport, ServiceReportItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, 
     History, Download, Edit, Eye, List as ListIcon, Save, Clock, User, Settings, CreditCard, DollarSign, MoreVertical, Shield, Wrench, Activity, MessageSquare, Printer

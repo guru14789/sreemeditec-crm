@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ServiceReport } from '../types';
+import { ServiceReport, TabView } from '../types';
 import { 
     History, Download, Edit, Eye, PenTool, MoreVertical, Building2, Calendar, ClipboardCheck, User, Shield, Info, CheckCircle2, Save, Trash2, Search
 } from 'lucide-react';
