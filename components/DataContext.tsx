@@ -139,6 +139,11 @@ export interface DataContextType {
     addStockBatch: (batch: StockBatch) => Promise<void>;
     updateStockBatch: (id: string, updates: Partial<StockBatch>) => Promise<void>;
 
+    serviceTemplates: ServiceTemplate[];
+    addServiceTemplate: (template: ServiceTemplate) => Promise<void>;
+    updateServiceTemplate: (id: string, updates: Partial<ServiceTemplate>) => Promise<void>;
+    removeServiceTemplate: (id: string) => Promise<void>;
+
 
     addTask: (task: Task) => Promise<void>;
     removeTask: (id: string) => Promise<void>;
@@ -332,6 +337,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [depreciationSchedule, setDepreciationSchedule] = useState<DepreciationScheduleEntry[]>([]);
     const [bankStatements, setBankStatements] = useState<BankStatementEntry[]>([]);
     const [bankRules, setBankRules] = useState<BankRule[]>([]);
+    const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
     const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
 
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
@@ -730,7 +736,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loadRegistries();
 
         // Dynamic Collections (High Growth): Initial small batch, then paginated
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(500)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
         
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
@@ -740,13 +746,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setter(snap.docs.map((d: any) => ({...sanitizeData(d.data()), id: d.id})));
         };
 
-        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(500)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
-        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(500)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
+        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
+        const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(100)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
-        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(500)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
+        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
         const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
-        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(500)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
-        const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(500)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
+        const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(100)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
+        const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(100)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
+        
+        const unsubServiceTemplates = onSnapshot(collection(db, "serviceTemplates"), (s) => setServiceTemplates(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTemplate)), (err) => console.warn("serviceTemplates listener:", err));
         
         const qStats = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration') 
             ? query(collection(db, "expenses"))
@@ -767,6 +775,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
+            unsubServiceTemplates();
             unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
@@ -1374,6 +1383,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const updateAttendance = async (rec: Partial<AttendanceRecord> & { id: string }) => { await setDoc(doc(db, "attendance", rec.id), sanitizeData(rec), { merge: true }); await addLog('Attendance', 'Updated Record', `ID: ${rec.id}`); };
+    const addServiceTemplate = async (template: ServiceTemplate) => { await setDoc(doc(db, "serviceTemplates", template.id), sanitizeData(template)); await addLog('Inventory', 'New Template', `${template.name}`); };
+    const updateServiceTemplate = async (id: string, u: Partial<ServiceTemplate>) => { await updateDoc(doc(db, "serviceTemplates", id), sanitizeData(u)); await addLog('Inventory', 'Updated Template', `${id}`); };
+    const removeServiceTemplate = async (id: string) => { await deleteDoc(doc(db, "serviceTemplates", id)); await addLog('Inventory', 'Deleted Template', id); };
     const removeAttendance = async (id: string) => { await deleteDoc(doc(db, "attendance", id)); await addLog('Attendance', 'Deleted Record', `ID: ${id}`); };
     const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), sanitizeData(l)); await addLog('Leads', 'New Lead', `${l.name}`); };
     const updateLead = async (id: string, u: Partial<Lead>) => {
@@ -1458,13 +1470,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const getItems = (inv: Invoice) => {
                     const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
                     (inv.items || []).forEach(item => {
-                        list.push({
-                            name: (item.description || '').toUpperCase(),
-                            qty: Number(item.quantity) || 0,
-                            productId: item.productId,
-                            sku: item.sku,
-                            barcode: item.barcode
-                        });
+                        if (item.inventoryMappings && item.inventoryMappings.length > 0) {
+                            // Composite / General item with mapped inventory items
+                            item.inventoryMappings.forEach(mapping => {
+                                list.push({
+                                    name: (mapping.productName || '').toUpperCase(),
+                                    // Total consumed = item line quantity * quantity used per unit
+                                    qty: (Number(item.quantity) || 1) * (Number(mapping.quantityUsed) || 0),
+                                    productId: mapping.inventoryProductId,
+                                    sku: mapping.sku,
+                                    barcode: mapping.barcode
+                                });
+                            });
+                        } else {
+                            // Direct single product line item
+                            list.push({
+                                name: (item.description || '').toUpperCase(),
+                                qty: Number(item.quantity) || 0,
+                                productId: item.productId,
+                                sku: item.sku,
+                                barcode: item.barcode
+                            });
+                        }
                     });
                     return list;
                 };
@@ -4151,6 +4178,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
             serviceTasks, addServiceTask, updateServiceTask,
+            serviceTemplates, addServiceTemplate, updateServiceTemplate, removeServiceTemplate,
             addInvoice, updateInvoice, removeInvoice, recordStockMovement, addExpense, updateExpense, removeExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
             addTask, removeTask, updateTaskRemote,

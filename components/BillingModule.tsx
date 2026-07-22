@@ -12,6 +12,7 @@ import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
+import { InventoryMappingPanel } from './InventoryMappingPanel';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
@@ -1152,6 +1153,20 @@ Email: sreemeditec@gmail.com`;
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
                                                             <textarea rows={2} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-[11px] font-bold outline-none resize-none" placeholder="Detailed specifications..." value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} />
                                                         </div>
+                                                        <div className="col-span-2 sm:col-span-12">
+                                                            <InventoryMappingPanel
+                                                                parentItemDescription={item.description || ''}
+                                                                parentUnitPrice={item.unitPrice || 0}
+                                                                parentQuantity={item.quantity || 1}
+                                                                mappings={item.inventoryMappings || []}
+                                                                onChange={(newMappings) => updateItem(item.id, 'inventoryMappings', newMappings)}
+                                                                onApplyTemplateData={(tplData) => {
+                                                                    if (tplData.defaultUnitPrice) updateItem(item.id, 'unitPrice', tplData.defaultUnitPrice);
+                                                                    if (tplData.hsn) updateItem(item.id, 'hsn', tplData.hsn);
+                                                                    if (tplData.taxRate) updateItem(item.id, 'taxRate', tplData.taxRate);
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
@@ -1339,6 +1354,17 @@ Email: sreemeditec@gmail.com`;
                                                             <td className="border-r border-black p-1.5 text-left flex flex-col justify-center overflow-hidden">
                                                                 <span className="font-bold uppercase truncate text-[9px]">{it.description}</span>
                                                                 {it.features && <span className="text-[7px] italic text-slate-500 whitespace-pre-wrap mt-0.5 leading-tight">{it.features}</span>}
+                                                                {it.inventoryMappings && it.inventoryMappings.length > 0 && (
+                                                                     <div className="mt-1 p-1 bg-slate-100/80 rounded border border-slate-200 text-[7px] text-slate-600 space-y-0.5">
+                                                                         <span className="font-bold text-slate-700 block uppercase">Internal Assembly Breakdown:</span>
+                                                                         {it.inventoryMappings.map((m, mIdx) => (
+                                                                             <div key={mIdx} className="flex justify-between items-center font-mono">
+                                                                                 <span>• {m.productName}</span>
+                                                                                 <span className="font-bold">{m.quantityUsed * (it.quantity || 1)} {m.unit || 'Nos'}</span>
+                                                                             </div>
+                                                                         ))}
+                                                                     </div>
+                                                                 )}
                                                              </td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.hsn}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.taxRate}%</td>

@@ -60,7 +60,7 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
 
 
 export const PDFService = {
-    async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false, bankDetails?: BankDetails) {
+    async generateInvoicePDF(data: Partial<Invoice>, isQuotation: boolean = false, bankDetails?: BankDetails, isInternalCopy: boolean = false) {
         const doc = new jsPDF();
         doc.setTextColor(0, 0, 0);
         const docTotals = calculateDetailedTotals(data);
@@ -150,9 +150,19 @@ export const PDFService = {
             const price = Number(it.unitPrice) || 0;
             const tax = Number(it.taxRate) || 0;
             const base = qty * price;
+            
+            let descText = it.description;
+            if (it.features) descText += `\n${it.features}`;
+            if (isInternalCopy && it.inventoryMappings && it.inventoryMappings.length > 0) {
+                descText += `\n[Internal Assembly Components:]`;
+                it.inventoryMappings.forEach(m => {
+                    descText += `\n • ${m.productName}: ${(m.quantityUsed || 1) * qty} ${m.unit || 'Nos'}`;
+                });
+            }
+
             return [
                 idx + 1, 
-                { content: it.features ? `${it.description}\n${it.features}` : it.description, styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
+                { content: descText, styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 it.hsn || '', 
                 `${tax}%`, 
                 `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, 

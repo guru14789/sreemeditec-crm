@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
+import { InventoryMappingPanel } from './InventoryMappingPanel';
 import { PDFService } from '../services/PDFService';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
@@ -829,6 +830,21 @@ Sree Meditec`;
                                                         <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
                                                         <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString('en-IN')}</div></div>
                                                         <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
+                                                        
+                                                        <div className="md:col-span-12">
+                                                            <InventoryMappingPanel
+                                                                parentItemDescription={item.description || ''}
+                                                                parentUnitPrice={item.unitPrice || 0}
+                                                                parentQuantity={item.quantity || 1}
+                                                                mappings={item.inventoryMappings || []}
+                                                                onChange={(newMappings) => updateItem(item.id, 'inventoryMappings', newMappings)}
+                                                                onApplyTemplateData={(tplData) => {
+                                                                    if (tplData.defaultUnitPrice) updateItem(item.id, 'unitPrice', tplData.defaultUnitPrice);
+                                                                    if (tplData.hsn) updateItem(item.id, 'hsn', tplData.hsn);
+                                                                    if (tplData.taxRate) updateItem(item.id, 'taxRate', tplData.taxRate);
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">

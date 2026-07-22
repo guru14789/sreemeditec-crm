@@ -398,6 +398,35 @@ export interface TdsTcsRecord {
   referenceVoucherId: string;
 }
 
+export interface InvoiceItemInventoryMapping {
+  id: string;
+  inventoryProductId: string;
+  productName: string;
+  sku?: string;
+  barcode?: string;
+  quantityUsed: number;
+  unit?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+}
+
+export interface ServiceTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  defaultUnitPrice?: number;
+  hsn?: string;
+  taxRate?: number;
+  mappings: {
+    inventoryProductId: string;
+    productName: string;
+    quantityUsed: number;
+    unit?: string;
+  }[];
+  createdAt: string;
+  createdBy?: string;
+}
+
 export interface InvoiceItem {
   id: string;
   description: string;
@@ -417,6 +446,10 @@ export interface InvoiceItem {
   productId?: string;
   sku?: string;
   barcode?: string;
+  isGeneralService?: boolean;
+  inventoryMappings?: InvoiceItemInventoryMapping[];
+  totalComponentCost?: number;
+  lineProfit?: number;
 }
 
 export interface Invoice {
