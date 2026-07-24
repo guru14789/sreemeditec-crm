@@ -703,11 +703,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Static/Low-Churn Registries: Use one-time fetches with native cache fallback
         const loadRegistries = async () => {
             try {
-                const [vSnap, cSnap, hSnap, pSnap, sSnap] = await Promise.all([
+                const [vSnap, cSnap, hSnap, sSnap] = await Promise.all([
                     getDocs(query(collection(db, "vendors"), orderBy('name', 'asc'))),
                     getDocs(query(collection(db, "clients"), orderBy('name', 'asc'))),
                     getDocs(collection(db, "holidays")),
-                    getDocs(query(collection(db, "products"), orderBy('name', 'asc'))),
                     getDoc(doc(db, "settings", "system"))
                 ]);
 
@@ -727,13 +726,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
                 }
 
-                setProducts(pSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
                 setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
                 setVendors(loadedVendors);
                 setHolidays(hSnap.docs.map(d => ({...d.data(), id: d.id}) as Holiday));
             } catch (err) { console.error("Registry load failed", err); }
         };
         loadRegistries();
+
+        // Real-time listener for products to ensure instant sync on mobile and desktop
+        const unsubProducts = onSnapshot(query(collection(db, "products"), orderBy('name', 'asc')), (s) => {
+            setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
+        }, (err) => console.warn("products listener:", err));
 
         // Dynamic Collections (High Growth): Initial small batch, then paginated
         const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
@@ -776,6 +779,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
             unsubServiceTemplates();
+            unsubProducts();
             unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
