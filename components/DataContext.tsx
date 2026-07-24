@@ -738,9 +738,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setProducts(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Product));
         }, (err) => console.warn("products listener:", err));
 
-        // Dynamic Collections (High Growth): Initial small batch, then paginated
-        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
-        
         // Save last pointers for pagination
         const handleSnap = (name: string, snap: any, setter: any) => {
             if (!snap.empty) {
@@ -749,6 +746,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setter(snap.docs.map((d: any) => ({...sanitizeData(d.data()), id: d.id})));
         };
 
+        // Dynamic Collections (High Growth): Initial small batch, then paginated
+        const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
         const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(100)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));

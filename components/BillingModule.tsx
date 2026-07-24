@@ -305,6 +305,19 @@ Email: sreemeditec@gmail.com`;
     }, [viewState, editingId, bankDetailsList, invoice.selectedBank]);
 
     useEffect(() => {
+        const queryText = searchQuery.trim();
+        if (!queryText) {
+            setServerInvoices([]);
+            return;
+        }
+        const delayDebounceFn = setTimeout(() => {
+            handleDeepSearch();
+        }, 600);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery]);
+
+    useEffect(() => {
         const handleGlobalClick = () => setActiveMenuId(null);
         window.addEventListener('click', handleGlobalClick);
         return () => window.removeEventListener('click', handleGlobalClick);
@@ -647,21 +660,24 @@ Email: sreemeditec@gmail.com`;
                                     </div>
                                     <input 
                                         type="text" 
-                                        placeholder="Deep search in history..." 
+                                        placeholder="Search invoice number, client, items, specs..." 
                                         value={searchQuery}
                                         onChange={(e) => {
-                                            setSearchQuery(e.target.value);
-                                            if (!e.target.value) setServerInvoices([]);
+                                            const val = e.target.value;
+                                            setSearchQuery(val);
+                                            if (!val) {
+                                                setServerInvoices([]);
+                                            }
                                         }}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleDeepSearch()}
                                         className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 pl-9 pr-10 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all shadow-inner"
                                     />
                                     {searchQuery && (
                                         <button 
                                             onClick={handleDeepSearch}
-                                            className="absolute right-1 top-1/2 -translate-y-1/2 bg-emerald-700 text-white p-1.5 rounded-full hover:bg-emerald-600 transition-colors shadow-sm"
+                                            className="absolute right-1 top-1/2 -translate-y-1/2 bg-emerald-700 text-white p-1.5 rounded-full hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center"
+                                            title="Run deep database search"
                                         >
-                                            <ArrowUpRight size={10} />
+                                            <Search size={10} />
                                         </button>
                                     )}
                                 </div>
