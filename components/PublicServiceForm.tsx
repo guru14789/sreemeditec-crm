@@ -30,7 +30,7 @@ export const PublicServiceForm: React.FC = () => {
 
   const [form, setForm] = useState({
     customerName: '', companyName: '', customerPhone: '', customerEmail: '',
-    subject: '', equipment: '', serviceCategory: '', issue: '', location: '',
+    subject: '', equipment: '', serialNo: '', serviceCategory: '', issue: '', location: '',
     priority: 'Medium' as ServiceTask['priority']
   });
 
@@ -102,6 +102,7 @@ export const PublicServiceForm: React.FC = () => {
     section('Service Details');
     row('Subject', f.subject);
     row('Equipment', f.equipment);
+    row('Serial No', f.serialNo);
     row('Category', f.serviceCategory);
     row('Priority', f.priority);
     row('Location', f.location);
@@ -125,8 +126,8 @@ export const PublicServiceForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.customerName.trim() || !form.customerPhone.trim() || !form.equipment.trim() || !form.issue.trim()) {
-      setErrorMsg('Please fill in all required fields.'); return;
+    if (!form.customerName.trim() || !form.customerPhone.trim() || !form.equipment.trim() || !form.serialNo.trim() || !form.issue.trim()) {
+      setErrorMsg('Please fill in all required fields (including Serial No).'); return;
     }
     setStep('submitting'); setErrorMsg('');
     try {
@@ -144,6 +145,7 @@ export const PublicServiceForm: React.FC = () => {
         customerName: form.customerName.trim(), companyName: form.companyName.trim() || undefined,
         customerPhone: form.customerPhone.trim(), customerEmail: form.customerEmail.trim() || undefined,
         subject: form.subject.trim() || undefined, equipment: form.equipment.trim(),
+        serialNo: form.serialNo.trim(),
         serviceCategory: form.serviceCategory || undefined, issue: form.issue.trim(),
         priority: form.priority, status: 'New', createdAt: new Date().toISOString(),
         location: form.location.trim() || undefined, source: 'public_form',
@@ -262,6 +264,12 @@ export const PublicServiceForm: React.FC = () => {
                     <input type="text" required placeholder="e.g. Ventilator, MRI" className={inputClass} value={form.equipment} onChange={e => handleChange('equipment', e.target.value)} />
                   </div>
                   <div>
+                    <label className={labelClass}>Serial No <span className="text-rose-400">*</span></label>
+                    <input type="text" required placeholder="e.g. SN12345678" className={`${inputClass} uppercase`} value={form.serialNo} onChange={e => handleChange('serialNo', e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
                     <label className={labelClass}>Service Category</label>
                     <div className="relative">
                       <select className={`${inputClass} pr-10`} value={form.serviceCategory} onChange={e => handleChange('serviceCategory', e.target.value)}>
@@ -271,8 +279,6 @@ export const PublicServiceForm: React.FC = () => {
                       <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelClass}>Priority</label>
                     <div className="relative">
@@ -282,12 +288,12 @@ export const PublicServiceForm: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                  <div>
-                    <label className={labelClass}>Location / Address</label>
-                    <div className="relative">
-                      <MapPin size={15} className={inputIconClass} />
-                      <input type="text" placeholder="Full address or landmark" className={`${inputClass} pl-10`} value={form.location} onChange={e => handleChange('location', e.target.value)} />
-                    </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Location / Address</label>
+                  <div className="relative">
+                    <MapPin size={15} className={inputIconClass} />
+                    <input type="text" placeholder="Full address or landmark" className={`${inputClass} pl-10`} value={form.location} onChange={e => handleChange('location', e.target.value)} />
                   </div>
                 </div>
                 <div>
