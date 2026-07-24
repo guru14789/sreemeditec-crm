@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, X,
-    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart
+    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart, ChevronDown, RotateCcw
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
@@ -50,7 +50,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const SupplierPOModule: React.FC = () => {
-    const { vendors, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, pendingSupplierPOData, setPendingSupplierPOData, showConfirm, showPrompt, previewPDF, bankDetailsList = [] } = useData();
+    const { vendors, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, pendingSupplierPOData, setPendingSupplierPOData, showConfirm, showPrompt, previewPDF, bankDetailsList = [], fetchMoreData } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SUPPLIER_PO] === 'Admin';
 
     const handleWhatsAppSend = async (inv: Invoice) => {
@@ -75,6 +75,7 @@ export const SupplierPOModule: React.FC = () => {
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [poSearch, setPoSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [order, setOrder] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -599,6 +600,20 @@ export const SupplierPOModule: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
+                        <div className="p-8 flex justify-center border-t border-slate-100 bg-slate-50/20">
+                            <button 
+                                onClick={async () => {
+                                    setIsLoadingMore(true);
+                                    await fetchMoreData('invoices', 'date');
+                                    setIsLoadingMore(false);
+                                }}
+                                disabled={isLoadingMore}
+                                className="px-8 py-3 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                            >
+                                {isLoadingMore ? <RotateCcw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                                Load Older Documents
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : (

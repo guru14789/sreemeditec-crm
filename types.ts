@@ -836,6 +836,7 @@ export interface ServiceTask {
   completionAttachments?: ServiceTaskAttachment[];
   overdueAt?: string;
   reopenedAt?: string;
+  serialNo?: string;
 }
 
 export interface SupportMessage {

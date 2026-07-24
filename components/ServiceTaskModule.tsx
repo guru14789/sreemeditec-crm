@@ -57,7 +57,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({
     customerName: '', companyName: '', customerPhone: '', customerEmail: '',
-    subject: '', equipment: '', serviceCategory: '', issue: '', location: '',
+    subject: '', equipment: '', serialNo: '', serviceCategory: '', issue: '', location: '',
     priority: 'Medium' as ServiceTask['priority']
   });
 
@@ -162,8 +162,8 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
   const handleCreateTask = async () => {
     const f = newTaskForm;
-    if (!f.customerName.trim() || !f.customerPhone.trim() || !f.equipment.trim() || !f.issue.trim()) {
-      addNotification('Validation', 'Please fill in all required fields.', 'error');
+    if (!f.customerName.trim() || !f.customerPhone.trim() || !f.equipment.trim() || !f.serialNo.trim() || !f.issue.trim()) {
+      addNotification('Validation', 'Please fill in all required fields (including Serial No).', 'error');
       return;
     }
     const timestamp = Date.now();
@@ -175,6 +175,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
       customerName: f.customerName.trim(), companyName: f.companyName.trim() || undefined,
       customerPhone: f.customerPhone.trim(), customerEmail: f.customerEmail.trim() || undefined,
       subject: f.subject.trim() || undefined, equipment: f.equipment.trim(),
+      serialNo: f.serialNo.trim(),
       serviceCategory: f.serviceCategory || undefined, issue: f.issue.trim(),
       priority: f.priority, status: 'New', createdAt: new Date().toISOString(),
       location: f.location.trim() || undefined, source: 'manual',
@@ -190,7 +191,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     await addServiceTask(task);
     addNotification('Task Created', `Service task ${taskNumber} created for ${f.customerName}.`, 'success');
     setShowCreateModal(false);
-    setNewTaskForm({ customerName: '', companyName: '', customerPhone: '', customerEmail: '', subject: '', equipment: '', serviceCategory: '', issue: '', location: '', priority: 'Medium' });
+    setNewTaskForm({ customerName: '', companyName: '', customerPhone: '', customerEmail: '', subject: '', equipment: '', serialNo: '', serviceCategory: '', issue: '', location: '', priority: 'Medium' });
   };
 
   const handleAddComment = async () => {
@@ -861,6 +862,10 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment <span className="text-rose-400">*</span></label>
                   <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="X-Ray Machine" value={newTaskForm.equipment} onChange={e => setNewTaskForm(p => ({ ...p, equipment: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Serial No <span className="text-rose-400">*</span></label>
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all uppercase" placeholder="SN12345678" value={newTaskForm.serialNo} onChange={e => setNewTaskForm(p => ({ ...p, serialNo: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Category</label>
