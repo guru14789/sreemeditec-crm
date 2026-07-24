@@ -311,20 +311,47 @@ Email: sreemeditec@gmail.com`;
     }, []);
 
     const handleDeepSearch = async () => {
-        if (!searchQuery.trim()) {
+        const queryText = searchQuery.trim().toLowerCase();
+        if (!queryText) {
             setServerInvoices([]);
             return;
         }
         setIsSearching(true);
         try {
-            // First try searching by Invoice Number
-            let results = await searchRecords<Invoice>("invoices", "invoiceNumber", searchQuery);
-            // If nothing, try searching by Customer Name
+            // Fetch potential matches from firestore by invoice number
+            let results = await searchRecords<Invoice>("invoices", "invoiceNumber", searchQuery.trim().toUpperCase());
+            
+            // If nothing, search by customerName
             if (results.length === 0) {
-                results = await searchRecords<Invoice>("invoices", "customerName", searchQuery);
+                // Since firestore doesn't support case-insensitive prefix natively, search by capitalized prefix
+                const capitalizedVal = searchQuery.trim().charAt(0).toUpperCase() + searchQuery.trim().slice(1);
+                results = await searchRecords<Invoice>("invoices", "customerName", capitalizedVal);
+                if (results.length === 0) {
+                    results = await searchRecords<Invoice>("invoices", "customerName", searchQuery.trim().toUpperCase());
+                }
             }
-            setServerInvoices(results);
-            if (results.length === 0) {
+
+            // Fallback: check all loaded invoices locally for descriptions, specs, or serial numbers
+            const localMatches = invoices.filter(i => 
+                (i.invoiceNumber || '').toLowerCase().includes(queryText) ||
+                (i.customerName || '').toLowerCase().includes(queryText) ||
+                (i.customerHospital || '').toLowerCase().includes(queryText) ||
+                (i.items || []).some(item => 
+                    (item.description || '').toLowerCase().includes(queryText) ||
+                    (item.features || '').toLowerCase().includes(queryText) ||
+                    (item.hsn || '').toLowerCase().includes(queryText)
+                )
+            );
+
+            // Merge unique matches
+            const mergedResultsMap = new Map<string, Invoice>();
+            [...results, ...localMatches].forEach(inv => {
+                if (inv.id) mergedResultsMap.set(inv.id, inv);
+            });
+            const mergedResults = Array.from(mergedResultsMap.values());
+
+            setServerInvoices(mergedResults);
+            if (mergedResults.length === 0) {
                 addNotification('No Records', 'No matching invoices found in history.', 'info');
             }
         } catch (err) {
