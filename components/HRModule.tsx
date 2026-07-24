@@ -36,6 +36,9 @@ const MODULE_OPTIONS = [
     { value: TabView.PROFILE, label: 'My Profile' },
     { value: TabView.ACCOUNTING, label: 'Accounting Terminal' },
     { value: TabView.COMPLIANCE, label: 'Compliance Terminal' },
+    { value: TabView.BARCODE_CREATOR, label: 'Barcode Maker' },
+    { value: TabView.COMPANIES, label: 'Company Settings' },
+    { value: TabView.SERVICE_TASK, label: 'Service Operations' },
 ];
 
 const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
