@@ -34,7 +34,7 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
   isSuperAdmin, userRole, currentUser,
   showAlert, showConfirm, showPrompt, setActiveTab,
 }) => {
-  const [subTab, setSubTab] = useState<'General' | 'Bank' | 'Companies'>('General');
+  const [subTab, setSubTab] = useState<'General' | 'Bank' | 'Companies' | 'Designations'>('General');
   const isAdmin = userRole === 'Admin';
 
   return (
@@ -71,7 +71,7 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
             {/* Bottom Row: Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
                 <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                    {(['General', 'Bank', 'Companies'] as const).map(tab => (
+                    {(['General', 'Bank', 'Companies', 'Designations'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setSubTab(tab)}
@@ -86,6 +86,7 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
                         {tab === 'General' && 'System Terminal'}
                         {tab === 'Bank' && 'Bank Details'}
                         {tab === 'Companies' && 'Company Profiles'}
+                        {tab === 'Designations' && 'Positions & Incentives'}
                     </button>
                     ))}
                 </div>
@@ -111,6 +112,7 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
         )}
         {subTab === 'Bank' && <BankTab />}
         {subTab === 'Companies' && <CompaniesTab />}
+        {subTab === 'Designations' && <DesignationsTab isAdmin={isAdmin} showAlert={showAlert} />}
       </div>
     </div>
   );
@@ -782,6 +784,243 @@ const CompaniesTab: React.FC = () => {
           <div className="flex gap-3 mt-8">
             <Button variant="secondary" size="md" className="flex-1" onClick={() => setPendingDelete(null)}>Cancel</Button>
             <Button variant="danger" size="md" className="flex-1" loading={isDeleting} onClick={performDelete}>Purge Now</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+/* ============================================================
+   DESIGNATIONS TAB Component
+   ============================================================ */
+import { useEffect as useDesignationsEffect } from 'react';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { Award, Percent, DollarSign, Target, Plus as PlusIcon } from 'lucide-react';
+
+interface DesignationsTabProps {
+  isAdmin: boolean;
+  showAlert: (msg: string) => Promise<void>;
+}
+
+const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert }) => {
+  const [rules, setRules] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingRule, setEditingRule] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Form states
+  const [position, setPosition] = useState('');
+  const [department, setDepartment] = useState<'Sales' | 'Service' | 'Admin' | 'Finance'>('Sales');
+  const [monthlySalary, setMonthlySalary] = useState(25000);
+  const [monthlyTarget, setMonthlyTarget] = useState(0);
+  const [incentiveThreshold, setIncentiveThreshold] = useState(0);
+  const [incentivePercentageAboveTarget, setIncentivePercentageAboveTarget] = useState(0); // in percent e.g. 2 for 2%
+  const [incentiveOnTargetAchievement, setIncentiveOnTargetAchievement] = useState(0);
+
+  useDesignationsEffect(() => {
+    const unsub = onSnapshot(collection(db, "salaryScaleRules"), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setRules(data);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("salaryScaleRules listener error:", err);
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleOpenAdd = () => {
+    if (!isAdmin) {
+      showAlert("Admin access required to modify designations.");
+      return;
+    }
+    setEditingRule(null);
+    setPosition('');
+    setDepartment('Sales');
+    setMonthlySalary(25000);
+    setMonthlyTarget(0);
+    setIncentiveThreshold(0);
+    setIncentivePercentageAboveTarget(0);
+    setIncentiveOnTargetAchievement(0);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (rule: any) => {
+    if (!isAdmin) {
+      showAlert("Admin access required to modify designations.");
+      return;
+    }
+    setEditingRule(rule);
+    setPosition(rule.position);
+    setDepartment(rule.department);
+    setMonthlySalary(rule.monthlySalary || 0);
+    setMonthlyTarget(rule.monthlyTarget || 0);
+    setIncentiveThreshold(rule.incentiveThreshold || 0);
+    setIncentivePercentageAboveTarget((rule.incentivePercentageAboveTarget || 0) * 100);
+    setIncentiveOnTargetAchievement(rule.incentiveOnTargetAchievement || 0);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!position.trim()) {
+      showAlert("Position designation name is required.");
+      return;
+    }
+    try {
+      const docId = editingRule?.id || position.trim().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const payload = {
+        position: position.trim(),
+        department,
+        monthlySalary: Number(monthlySalary) || 0,
+        annualCtc: (Number(monthlySalary) || 0) * 12 + (Number(incentiveOnTargetAchievement) || 0) * 12, // rough estimation
+        monthlyTarget: Number(monthlyTarget) || 0,
+        incentiveThreshold: Number(incentiveThreshold) || 0,
+        incentivePercentageAboveTarget: (Number(incentivePercentageAboveTarget) || 0) / 100, // stored as decimal fraction
+        incentiveOnTargetAchievement: Number(incentiveOnTargetAchievement) || 0,
+      };
+
+      await setDoc(doc(db, "salaryScaleRules", docId), payload, { merge: true });
+      setIsModalOpen(false);
+    } catch (e: any) {
+      showAlert("Failed to save designation rule: " + e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!isAdmin) {
+      showAlert("Admin access required to modify designations.");
+      return;
+    }
+    if (window.confirm("Are you sure you want to delete this designation rule?")) {
+      try {
+        await deleteDoc(doc(db, "salaryScaleRules", id));
+      } catch (e: any) {
+        showAlert("Failed to delete: " + e.message);
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-800" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 max-w-6xl mx-auto p-2">
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Designations Settings</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Configure positions, targets, flat bonuses, and commissions</p>
+        </div>
+        {isAdmin && (
+          <Button variant="primary" size="sm" onClick={handleOpenAdd} className="flex items-center gap-1.5 rounded-full px-4">
+            <PlusIcon size={14} /> Add Position
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {rules.map((rule) => (
+          <Card key={rule.id} className="p-5 border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all flex flex-col justify-between rounded-[1.5rem] bg-white relative overflow-hidden group">
+            <div>
+              <div className="flex justify-between items-start mb-3">
+                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                  rule.department === 'Sales' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  rule.department === 'Service' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                  rule.department === 'Finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  'bg-slate-50 text-slate-700 border-slate-200'
+                }`}>
+                  {rule.department}
+                </span>
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <button onClick={() => handleOpenEdit(rule)} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => handleDelete(rule.id)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight group-hover:text-emerald-800 transition-colors leading-snug mb-4">{rule.position}</h4>
+
+              <div className="space-y-2 border-t border-slate-50 pt-3">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><DollarSign size={11} /> Base Salary</span>
+                  <span className="text-slate-800 font-black">₹{rule.monthlySalary?.toLocaleString('en-IN')}/mo</span>
+                </div>
+                {(rule.department === 'Sales' || rule.department === 'Service') && (
+                  <>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Target size={11} /> Target</span>
+                      <span className="text-slate-800 font-black">₹{rule.monthlyTarget?.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Award size={11} /> Flat Bonus</span>
+                      <span className="text-emerald-700 font-black">₹{rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Percent size={11} /> Commission</span>
+                      <span className="text-indigo-700 font-black">{(rule.incentivePercentageAboveTarget * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">Threshold</span>
+                      <span className="text-slate-800 font-black">₹{rule.incentiveThreshold?.toLocaleString('en-IN')}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} size="md">
+        <div className="space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">
+              {editingRule ? 'Modify Designation Rule' : 'New Designation Rule'}
+            </h3>
+            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Specify salary scale metrics and incentive criteria</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label="Position Designation Name *" value={position} onChange={(e: any) => setPosition(e.target.value)} placeholder="e.g. Sales Executive" />
+              <Select label="Department *" value={department} onChange={(e: any) => setDepartment(e.target.value)}>
+                <option value="Sales">Sales</option>
+                <option value="Service">Service</option>
+                <option value="Admin">Admin</option>
+                <option value="Finance">Finance</option>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label="Base Monthly Salary (₹) *" type="number" value={monthlySalary} onChange={(e: any) => setMonthlySalary(Number(e.target.value))} />
+              {(department === 'Sales' || department === 'Service') && (
+                <Input label="Monthly Target (₹)" type="number" value={monthlyTarget} onChange={(e: any) => setMonthlyTarget(Number(e.target.value))} />
+              )}
+            </div>
+
+            {(department === 'Sales' || department === 'Service') && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+                <Input label="Incentive Threshold (₹)" type="number" value={incentiveThreshold} onChange={(e: any) => setIncentiveThreshold(Number(e.target.value))} />
+                <Input label="Flat Bonus on Completion (₹)" type="number" value={incentiveOnTargetAchievement} onChange={(e: any) => setIncentiveOnTargetAchievement(Number(e.target.value))} />
+                <Input label="Commission Rate (%)" type="number" step="0.01" value={incentivePercentageAboveTarget} onChange={(e: any) => setIncentivePercentageAboveTarget(Number(e.target.value))} placeholder="e.g. 3 for 3%" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button variant="secondary" size="md" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" size="md" onClick={handleSave}>Save Rule</Button>
           </div>
         </div>
       </Modal>
