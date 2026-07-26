@@ -321,31 +321,36 @@ export const PayrollModule: React.FC = () => {
             const doc = new jsPDF('p', 'mm', 'a4');
             const docTitle = `SALARY SLIP - ${monthName.toUpperCase()} ${selectedSalaryYear}`;
 
-            // Header Banner
-            doc.setFillColor(16, 185, 129); // Emerald-600
-            doc.rect(0, 0, 210, 40, 'F');
+            // Premium Header Banner
+            doc.setFillColor(11, 27, 22); // Premium deep forest green
+            doc.rect(0, 0, 210, 48, 'F');
+
+            // Top accents
+            doc.setFillColor(197, 160, 89); // Gold accent line
+            doc.rect(0, 48, 210, 2, 'F');
 
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(24);
-            doc.setFont('helvetica', 'bold');
-            doc.text("Sree Meditec Enterprise", 14, 20);
+            doc.setFontSize(22);
+            doc.setFont('times', 'bold');
+            doc.text("Sreemeditec", 14, 18);
 
-            doc.setFontSize(10);
+            doc.setFontSize(8.5);
             doc.setFont('helvetica', 'normal');
-            doc.text("Kochi, Kerala | Contact: +91 98848 18398", 14, 28);
-            doc.text("GSTIN: 32XXXXX1234X1Z1", 14, 33);
+            doc.setTextColor(220, 220, 220);
+            doc.text("No:18 , bajanai koil street, Rajakilpakkam, Chennai-73, Tamilnadu", 14, 26);
+            doc.text("GSTIN: 33APGPS4675G2ZL", 14, 32);
 
             // Title
-            doc.setTextColor(30, 41, 59); // Slate-800
-            doc.setFontSize(16);
-            doc.setFont('helvetica', 'bold');
-            doc.text(docTitle, 105, 55, { align: 'center' });
+            doc.setTextColor(11, 27, 22); // Deep forest green
+            doc.setFontSize(14);
+            doc.setFont('times', 'bold');
+            doc.text(docTitle, 105, 62, { align: 'center' });
 
             // Employee Information Table
             const empInfo = [
                 ['Employee Name', targetEmployee.name, 'Employee ID', targetEmployee.id || 'EMP-001'],
-                ['Department', targetEmployee.department, 'Designation', targetEmployee.role === 'SYSTEM_ADMIN' ? 'Administrator' : 'Sales Representative'],
-                ['Month/Year', `${monthName} ${selectedSalaryYear}`, 'Bank Name', 'HDFC Bank'],
+                ['Department', targetEmployee.department, 'Designation', targetEmployee.position || 'Representative'],
+                ['Month/Year', `${monthName} ${selectedSalaryYear}`, 'Bank Name', 'KVB Bank'],
                 ['Working Days', salaryDetails.daysInMonth.toString(), 'Absent Days', salaryDetails.absentDays.toString()],
             ];
             if (salaryDetails.outstationDays > 0) {
@@ -353,22 +358,22 @@ export const PayrollModule: React.FC = () => {
             }
 
             autoTable(doc, {
-                startY: 65,
+                startY: 70,
                 body: empInfo,
                 theme: 'plain',
-                styles: { fontSize: 9, cellPadding: 2.5 },
+                styles: { fontSize: 8.5, cellPadding: 2, font: 'helvetica' },
                 columnStyles: {
-                    0: { fontStyle: 'bold', textColor: [100, 116, 139] },
-                    2: { fontStyle: 'bold', textColor: [100, 116, 139] }
+                    0: { fontStyle: 'bold', textColor: [120, 130, 140] },
+                    2: { fontStyle: 'bold', textColor: [120, 130, 140] }
                 }
             });
 
              // Earnings & Deductions Table
             const financeData = [
-                ['Basic Salary', salaryDetails.basic.toLocaleString('en-IN'), 'Salary Advance', salaryDetails.salaryAdvance.toLocaleString('en-IN')],
-                ['Sales Incentive', salaryDetails.salesIncentive.toLocaleString('en-IN'), '', ''],
-                ['Daily Allowance', salaryDetails.totalDailyAllowance.toLocaleString('en-IN'), '', ''],
-                ['Outstation Allowance', salaryDetails.totalOutstationAllowance.toLocaleString('en-IN'), '', ''],
+                ['Basic Salary', `₹${salaryDetails.basic.toLocaleString('en-IN')}`, 'Salary Advance', `₹${salaryDetails.salaryAdvance.toLocaleString('en-IN')}`],
+                ['Sales Incentive', `₹${salaryDetails.salesIncentive.toLocaleString('en-IN')}`, '', ''],
+                ['Daily Allowance', `₹${salaryDetails.totalDailyAllowance.toLocaleString('en-IN')}`, '', ''],
+                ['Outstation Allowance', `₹${salaryDetails.totalOutstationAllowance.toLocaleString('en-IN')}`, '', ''],
                 [
                     { content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
                     { content: `₹${salaryDetails.totalEarnings.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
@@ -379,25 +384,25 @@ export const PayrollModule: React.FC = () => {
 
             autoTable(doc, {
                 startY: (doc as any).lastAutoTable.finalY + 8,
-                head: [['EARNINGS', 'AMOUNT (INR)', 'DEDUCTIONS', 'AMOUNT (INR)']],
+                head: [['EARNINGS', 'AMOUNT', 'DEDUCTIONS', 'AMOUNT']],
                 body: financeData as any,
                 theme: 'grid',
-                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
-                styles: { fontSize: 9 }
+                headStyles: { fillColor: [11, 27, 22], textColor: [255, 255, 255], fontStyle: 'bold', font: 'times' },
+                styles: { fontSize: 8.5, font: 'helvetica' }
             });
 
             // Net Pay Container
             const finalY = (doc as any).lastAutoTable.finalY + 12;
-            doc.setFillColor(240, 253, 244); // Emerald-50
+            doc.setFillColor(243, 244, 246); // Light gray
             doc.rect(14, finalY, 182, 18, 'F');
-            doc.setDrawColor(16, 185, 129);
+            doc.setDrawColor(197, 160, 89); // Gold border
             doc.setLineWidth(0.5);
             doc.rect(14, finalY, 182, 18);
 
-            doc.setTextColor(16, 185, 129);
-            doc.setFontSize(13);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`NET PAYABLE:  INR ${salaryDetails.netPay.toLocaleString('en-IN')}/-`, 105, finalY + 11, { align: 'center' });
+            doc.setTextColor(11, 27, 22);
+            doc.setFontSize(12);
+            doc.setFont('times', 'bold');
+            doc.text(`NET PAYABLE:  ₹${salaryDetails.netPay.toLocaleString('en-IN')}/-`, 105, finalY + 11, { align: 'center' });
 
             // Footer disclaimer
             doc.setTextColor(148, 163, 184);
