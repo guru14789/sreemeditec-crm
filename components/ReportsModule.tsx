@@ -279,8 +279,8 @@ export const ReportsModule: React.FC = () => {
     const customerMap: Record<string, number> = {};
     let totalSales = 0;
     invoices.forEach((inv) => {
-      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
       const amt = inv.grandTotal || 0;
@@ -309,8 +309,8 @@ export const ReportsModule: React.FC = () => {
     });
 
     invoices.forEach((inv) => {
-      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
       
       const closedById = inv.closedBy || '';
@@ -384,7 +384,8 @@ export const ReportsModule: React.FC = () => {
     // 4. Product Line Analysis
     const productMap: Record<string, { qty: number; total: number }> = {};
     invoices.forEach((inv) => {
-      if (!(inv.invoiceNumber || '').startsWith('SM/') || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
       (inv.items || []).forEach((item: any) => {
         const name = item.description || 'Unknown Product';
@@ -403,7 +404,7 @@ export const ReportsModule: React.FC = () => {
 
     // 5. Receivables Aging
     const outstandingInvoices = invoices.filter(inv => 
-      (inv.documentType === 'Invoice' || (inv.invoiceNumber || '').startsWith('SM/')) &&
+      (inv.documentType === 'Invoice') &&
       inv.status !== 'Cancelled' && inv.status !== 'Draft' &&
       (inv.grandTotal - (inv.paidAmount || 0)) > 1
     );
@@ -586,8 +587,8 @@ export const ReportsModule: React.FC = () => {
     };
 
     invoices.forEach(inv => {
-      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
 
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
@@ -714,8 +715,8 @@ export const ReportsModule: React.FC = () => {
   const employeeClosuresList = useMemo(() => {
     if (!selectedEmployeeForClosures) return [];
     return invoices.filter(inv => {
-      if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return false;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+      if (inv.documentType && inv.documentType !== 'Invoice') return false;
       if (!filterByDateRange(inv.date)) return false;
       if (!inv.closedBy || inv.closedBy === 'Direct') return false;
       
@@ -919,7 +920,8 @@ export const ReportsModule: React.FC = () => {
     const prodMap: Record<string, ProductDetail> = {};
 
     invoices.forEach((inv) => {
-      if (!(inv.invoiceNumber || '').startsWith('SM/') || inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       const invId = (inv as any).invoiceNumber || inv.id || '';
       const monthKey = (inv.date || '').substring(0, 7);
 
@@ -973,7 +975,8 @@ export const ReportsModule: React.FC = () => {
   const filteredPurchaseRecords = (purchaseRecords || []).filter((rec: any) => filterByDateRange(rec.dateSupply || rec.materialReceivedDate));
 
   const totalRevenue = filteredInvoices.reduce((sum, inv) => {
-    if (inv.status === 'Draft' || (inv as any).documentType === 'Quotation' || (inv as any).documentType === 'PO' || (inv as any).documentType === 'SupplierPO') return sum;
+    if (inv.status === 'Draft' || inv.status === 'Cancelled') return sum;
+    if (inv.documentType && inv.documentType !== 'Invoice') return sum;
     return sum + (inv.grandTotal || 0);
   }, 0);
   const totalPurchaseRecords = filteredPurchaseRecords.reduce((sum: number, rec: any) => sum + (rec.total || 0), 0);
@@ -1214,8 +1217,7 @@ export const ReportsModule: React.FC = () => {
     const customerInvoices = selectedSegmentCustomer
       ? invoices.filter(inv =>
           (inv.customerName === selectedSegmentCustomer.name || (inv as any).clientName === selectedSegmentCustomer.name) &&
-          inv.documentType === 'Invoice' && inv.status !== 'Draft' && inv.status !== 'Cancelled' &&
-          (inv.invoiceNumber || '').startsWith('SM/')
+          inv.documentType === 'Invoice' && inv.status !== 'Draft' && inv.status !== 'Cancelled'
         ).sort((a, b) => b.date.localeCompare(a.date))
       : [];
 
