@@ -308,7 +308,7 @@ export const ReportsModule: React.FC = () => {
       employeeSalesMap[emp.id] = { total: 0, invoices: 0, name: emp.name, target: targetVal, department: dept };
     });
 
-    invoices.forEach((inv) => {
+    (allSmInvoicesKpi || []).forEach((inv) => {
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
       if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
@@ -465,7 +465,7 @@ export const ReportsModule: React.FC = () => {
       totalFreightGst,
       topFreightCustomers,
     };
-  }, [invoices, expenses, purchaseRecords, dateRange]);
+  }, [invoices, allSmInvoicesKpi, expenses, purchaseRecords, dateRange]);
  
   const deadStockData = useMemo(() => {
     const today = new Date();
