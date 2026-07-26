@@ -810,6 +810,7 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
   const [isLoading, setIsLoading] = useState(true);
   const [editingRule, setEditingRule] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<'All' | 'Sales' | 'Service' | 'Admin' | 'Finance'>('All');
 
   // Form states
   const [position, setPosition] = useState('');
@@ -922,16 +923,30 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto p-2">
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Designations Settings</h3>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Configure positions, targets, flat bonuses, and commissions</p>
         </div>
-        {isAdmin && (
-          <Button variant="primary" size="sm" onClick={handleOpenAdd} className="flex items-center gap-1.5 rounded-full px-4">
-            <PlusIcon size={14} /> Add Position
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <Select
+            value={selectedDeptFilter}
+            onChange={(e: any) => setSelectedDeptFilter(e.target.value as any)}
+            wrapperClassName="w-full sm:w-[180px]"
+            options={[
+              { value: 'All', label: 'All Departments' },
+              { value: 'Sales', label: 'Sales' },
+              { value: 'Service', label: 'Service' },
+              { value: 'Admin', label: 'Admin' },
+              { value: 'Finance', label: 'Finance' }
+            ]}
+          />
+          {isAdmin && (
+            <Button variant="primary" size="sm" onClick={handleOpenAdd} className="flex items-center gap-1.5 rounded-full px-4 shrink-0">
+              <PlusIcon size={14} /> Add Position
+            </Button>
+          )}
+        </div>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -950,18 +965,22 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {['Sales', 'Service', 'Admin', 'Finance'].map((dept) => {
-                const deptRules = rules.filter(r => r.department === dept);
-                if (deptRules.length === 0) return null;
-                return (
-                  <React.Fragment key={dept}>
-                    {/* Department Section Header Row */}
-                    <tr className="bg-slate-100/50">
-                      <td colSpan={9} className="px-4 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-50">
-                        {dept} Department ({deptRules.length} positions)
-                      </td>
-                    </tr>
-                    {deptRules.map((rule) => {
+              {['Sales', 'Service', 'Admin', 'Finance']
+                .filter(d => selectedDeptFilter === 'All' || d === selectedDeptFilter)
+                .map((dept) => {
+                  const deptRules = rules
+                    .filter(r => r.department === dept)
+                    .sort((a, b) => (b.monthlySalary || 0) - (a.monthlySalary || 0)); // Sorted based on salary descending
+                  if (deptRules.length === 0) return null;
+                  return (
+                    <React.Fragment key={dept}>
+                      {/* Department Section Header Row */}
+                      <tr className="bg-slate-100/50">
+                        <td colSpan={9} className="px-4 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-50">
+                          {dept} Department ({deptRules.length} positions)
+                        </td>
+                      </tr>
+                      {deptRules.map((rule) => {
                       const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
                       const isSalesOrService = rule.department === 'Sales' || rule.department === 'Service';
                       return (
