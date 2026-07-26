@@ -3,6 +3,7 @@ import { Download, Timer, CreditCard, ShieldCheck, User, Users, TrendingUp, Land
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { SALARY_SCALE } from '../types';
 
 export const PayrollModule: React.FC = () => {
     const { 
@@ -12,7 +13,9 @@ export const PayrollModule: React.FC = () => {
         holidays, 
         expenses = [], 
         employees = [], 
-        pointHistory = [] 
+        pointHistory = [],
+        invoices = [],
+        serviceTasks = []
     } = useData();
 
     const [selectedSalaryMonth, setSelectedSalaryMonth] = useState(new Date().getMonth());
@@ -81,7 +84,9 @@ export const PayrollModule: React.FC = () => {
             }
         }
 
-        const baseSalary = targetEmployee.baseSalary || 25000;
+        // Resolve position rules and lookup default salary or custom overrides
+        const scaleRule = SALARY_SCALE.find(s => s.position === targetEmployee.position);
+        const baseSalary = targetEmployee.baseSalary || scaleRule?.monthlySalary || 25000;
         const dailyRate = baseSalary / daysInMonth;
         const absenceDeduction = Math.floor(absentDays * dailyRate);
         const grossSalary = baseSalary - absenceDeduction;
@@ -108,10 +113,57 @@ export const PayrollModule: React.FC = () => {
             .filter(e => e.employeeName === targetEmployee.name && e.category === 'Salary Advance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
             .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-        // Fetch sales incentives from Point History
-        const salesIncentive = pointHistory
-            .filter(p => p.userId === targetEmployee.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
-            .reduce((acc, curr) => acc + (curr.points || 0), 0);
+        // Fetch target achievement and commissions based on department rules
+        let salesIncentive = 0;
+        if (scaleRule && (scaleRule.department === 'Sales' || scaleRule.department === 'Service')) {
+            const monthlyTarget = scaleRule.monthlyTarget || 0;
+            const threshold = scaleRule.incentiveThreshold || 0;
+            const flatBonus = scaleRule.incentiveOnTargetAchievement || 0;
+            const commissionRate = scaleRule.incentivePercentageAboveTarget || 0;
+
+            let totalAchievedAmount = 0;
+
+            if (scaleRule.department === 'Sales') {
+                // Sum the actual subtotals (pre-tax taxable amounts) of all finalized Invoices closed by this employee in the month
+                const empInvoices = invoices.filter(inv => {
+                    if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+                    if (!inv.date.startsWith(yearMonthStr)) return false;
+                    return inv.closedBy === targetEmployee.id || 
+                           inv.closedBy === targetEmployee.name ||
+                           inv.createdBy === targetEmployee.name;
+                });
+                totalAchievedAmount = empInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
+            } else if (scaleRule.department === 'Service') {
+                // Sum the parts / service billing values associated with completed tasks closed by this engineer in the month
+                const empTasks = serviceTasks.filter(t => {
+                    if (t.status !== 'Completed' || !t.completedAt) return false;
+                    if (!t.completedAt.startsWith(yearMonthStr)) return false;
+                    return t.assignedToId === targetEmployee.id || t.assignedTo === targetEmployee.name;
+                });
+                // Look up matching invoices for service/parts closed by this task ID
+                const taskInvoices = invoices.filter(inv => {
+                    if (inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+                    if (!inv.date.startsWith(yearMonthStr)) return false;
+                    return empTasks.some(t => inv.refQuotationNo === t.taskNumber || (inv.specialNote || '').includes(t.taskNumber));
+                });
+                totalAchievedAmount = taskInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
+            }
+
+            // 1. Flat bonus on target achievement
+            if (totalAchievedAmount >= monthlyTarget && flatBonus > 0) {
+                salesIncentive += flatBonus;
+            }
+
+            // 2. Percentage commission on excess amount achieved above threshold
+            if (totalAchievedAmount > threshold && commissionRate > 0) {
+                salesIncentive += Math.round((totalAchievedAmount - threshold) * commissionRate);
+            }
+        } else {
+            // Default to point history incentives if no specific position rule exists
+            salesIncentive = pointHistory
+                .filter(p => p.userId === targetEmployee.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
+                .reduce((acc, curr) => acc + (curr.points || 0), 0);
+        }
 
         const totalEarnings = grossSalary + salesIncentive + totalDailyAllowance + totalOutstationAllowance;
         const totalDeductions = salaryAdvance;
@@ -190,7 +242,9 @@ export const PayrollModule: React.FC = () => {
                 }
             }
 
-            const baseSalary = emp.baseSalary || 25000;
+            // Resolve position rules and lookup default salary or custom overrides
+            const scaleRule = SALARY_SCALE.find(s => s.position === emp.position);
+            const baseSalary = emp.baseSalary || scaleRule?.monthlySalary || 25000;
             const dailyRate = baseSalary / daysInMonth;
             const absenceDeduction = Math.floor(absentDays * dailyRate);
             const grossSalary = baseSalary - absenceDeduction;
@@ -212,9 +266,57 @@ export const PayrollModule: React.FC = () => {
                 .filter(e => e.employeeName === emp.name && e.category === 'Salary Advance' && e.status === 'Approved' && e.date.startsWith(yearMonthStr))
                 .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-            const salesIncentive = pointHistory
-                .filter(p => p.userId === emp.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
-                .reduce((acc, curr) => acc + (curr.points || 0), 0);
+            // Fetch target achievement and commissions based on department rules
+            let salesIncentive = 0;
+            if (scaleRule && (scaleRule.department === 'Sales' || scaleRule.department === 'Service')) {
+                const monthlyTarget = scaleRule.monthlyTarget || 0;
+                const threshold = scaleRule.incentiveThreshold || 0;
+                const flatBonus = scaleRule.incentiveOnTargetAchievement || 0;
+                const commissionRate = scaleRule.incentivePercentageAboveTarget || 0;
+
+                let totalAchievedAmount = 0;
+
+                if (scaleRule.department === 'Sales') {
+                    // Sum the actual subtotals (pre-tax taxable amounts) of all finalized Invoices closed by this employee in the month
+                    const empInvoices = invoices.filter(inv => {
+                        if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+                        if (!inv.date.startsWith(yearMonthStr)) return false;
+                        return inv.closedBy === emp.id || 
+                               inv.closedBy === emp.name ||
+                               inv.createdBy === emp.name;
+                    });
+                    totalAchievedAmount = empInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
+                } else if (scaleRule.department === 'Service') {
+                    // Sum the parts / service billing values associated with completed tasks closed by this engineer in the month
+                    const empTasks = serviceTasks.filter(t => {
+                        if (t.status !== 'Completed' || !t.completedAt) return false;
+                        if (!t.completedAt.startsWith(yearMonthStr)) return false;
+                        return t.assignedToId === emp.id || t.assignedTo === emp.name;
+                    });
+                    // Look up matching invoices for service/parts closed by this task ID
+                    const taskInvoices = invoices.filter(inv => {
+                        if (inv.status === 'Draft' || inv.status === 'Cancelled') return false;
+                        if (!inv.date.startsWith(yearMonthStr)) return false;
+                        return empTasks.some(t => inv.refQuotationNo === t.taskNumber || (inv.specialNote || '').includes(t.taskNumber));
+                    });
+                    totalAchievedAmount = taskInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
+                }
+
+                // 1. Flat bonus on target achievement
+                if (totalAchievedAmount >= monthlyTarget && flatBonus > 0) {
+                    salesIncentive += flatBonus;
+                }
+
+                // 2. Percentage commission on excess amount achieved above threshold
+                if (totalAchievedAmount > threshold && commissionRate > 0) {
+                    salesIncentive += Math.round((totalAchievedAmount - threshold) * commissionRate);
+                }
+            } else {
+                // Default to point history incentives if no specific position rule exists
+                salesIncentive = pointHistory
+                    .filter(p => p.userId === emp.id && p.category === 'Sales' && p.date.startsWith(yearMonthStr))
+                    .reduce((acc, curr) => acc + (curr.points || 0), 0);
+            }
 
             const totalEarnings = grossSalary + salesIncentive + totalDailyAllowance + totalOutstationAllowance;
             const totalDeductions = salaryAdvance;
@@ -237,7 +339,7 @@ export const PayrollModule: React.FC = () => {
                 netPay
             };
         });
-    }, [isAdmin, employees, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, yearMonthStr]);
+    }, [isAdmin, employees, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, invoices, serviceTasks, yearMonthStr]);
 
     const handleDownloadSalarySlip = () => {
         if (!targetEmployee || !salaryDetails) return;

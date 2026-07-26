@@ -582,6 +582,7 @@ export interface Employee {
   isLoginEnabled: boolean;
   lastSeenWinnerMonth?: string; // Format: YYYY-MM
   hideFromLeaderboard?: boolean;
+  position?: string;
 }
 
 export interface UserStats {
@@ -1059,4 +1060,55 @@ export interface EodReport {
   tomorrowPlan: string;
   additionalComments?: string;
 }
+
+export interface SalaryScaleRule {
+  position: string;
+  department: 'Sales' | 'Service' | 'Admin' | 'Finance';
+  monthlySalary: number;
+  annualCtc: number;
+  monthlyTarget?: number;
+  incentiveThreshold?: number;
+  incentivePercentageAboveTarget?: number; // In percentage decimal (e.g. 0.02 for 2%)
+  incentiveOnTargetAchievement?: number; // Flat bonus amount
+}
+
+export const SALARY_SCALE: SalaryScaleRule[] = [
+  // --- SALES DEPARTMENT ---
+  { position: 'Managing Director (MD) / CEO', department: 'Sales', monthlySalary: 300000, annualCtc: 2448000, monthlyTarget: 1440000, incentiveThreshold: 1440000, incentivePercentageAboveTarget: 0.005, incentiveOnTargetAchievement: 100000 },
+  { position: 'Director – Sales & Business Development', department: 'Sales', monthlySalary: 250000, annualCtc: 2040000, monthlyTarget: 2050000, incentiveThreshold: 1200000, incentivePercentageAboveTarget: 0.0075, incentiveOnTargetAchievement: 50000 },
+  { position: 'National Sales Head / GM – Sales', department: 'Sales', monthlySalary: 175000, annualCtc: 1416000, monthlyTarget: 1425000, incentiveThreshold: 830000, incentivePercentageAboveTarget: 0.01, incentiveOnTargetAchievement: 35000 },
+  { position: 'Regional Sales Manager', department: 'Sales', monthlySalary: 100000, annualCtc: 804000, monthlyTarget: 820000, incentiveThreshold: 470000, incentivePercentageAboveTarget: 0.0125, incentiveOnTargetAchievement: 20000 },
+  { position: 'Area Sales Manager', department: 'Sales', monthlySalary: 75000, annualCtc: 600000, monthlyTarget: 600000, incentiveThreshold: 350000, incentivePercentageAboveTarget: 0.015, incentiveOnTargetAchievement: 12000 },
+  { position: 'Territory Sales Manager', department: 'Sales', monthlySalary: 50000, annualCtc: 402000, monthlyTarget: 400000, incentiveThreshold: 235000, incentivePercentageAboveTarget: 0.02, incentiveOnTargetAchievement: 8000 },
+  { position: 'Senior Sales Executive', department: 'Sales', monthlySalary: 35000, annualCtc: 282000, monthlyTarget: 300000, incentiveThreshold: 165000, incentivePercentageAboveTarget: 0.025, incentiveOnTargetAchievement: 6000 },
+  { position: 'Sales Executive', department: 'Sales', monthlySalary: 24000, annualCtc: 198000, monthlyTarget: 200000, incentiveThreshold: 115500, incentivePercentageAboveTarget: 0.03, incentiveOnTargetAchievement: 5000 },
+  { position: 'Junior Sales Executive / Sales Trainee', department: 'Sales', monthlySalary: 22000, annualCtc: 180000, monthlyTarget: 180000, incentiveThreshold: 105000, incentivePercentageAboveTarget: 0.03, incentiveOnTargetAchievement: 4000 },
+
+  // --- SERVICE / OPERATIONS DEPARTMENT ---
+  { position: 'Director – Service / Operations', department: 'Service', monthlySalary: 200000, annualCtc: 1650000, monthlyTarget: 1650000, incentiveThreshold: 960000, incentivePercentageAboveTarget: 0.0075, incentiveOnTargetAchievement: 40000 },
+  { position: 'National Service Manager', department: 'Service', monthlySalary: 125000, annualCtc: 1032000, monthlyTarget: 1030000, incentiveThreshold: 600000, incentivePercentageAboveTarget: 0.01, incentiveOnTargetAchievement: 25000 },
+  { position: 'Regional Service Manager', department: 'Service', monthlySalary: 80000, annualCtc: 660000, monthlyTarget: 650000, incentiveThreshold: 385000, incentivePercentageAboveTarget: 0.0125, incentiveOnTargetAchievement: 15000 },
+  { position: 'Area Service Manager', department: 'Service', monthlySalary: 60000, annualCtc: 480000, monthlyTarget: 485000, incentiveThreshold: 280000, incentivePercentageAboveTarget: 0.015, incentiveOnTargetAchievement: 10000 },
+  { position: 'Service Team Leader / Supervisor', department: 'Service', monthlySalary: 45000, annualCtc: 360000, monthlyTarget: 365000, incentiveThreshold: 210000, incentivePercentageAboveTarget: 0.02, incentiveOnTargetAchievement: 7500 },
+  { position: 'Senior Biomedical Service Engineer', department: 'Service', monthlySalary: 35000, annualCtc: 282000, monthlyTarget: 275000, incentiveThreshold: 165000, incentivePercentageAboveTarget: 0.025, incentiveOnTargetAchievement: 6000 },
+  { position: 'Biomedical Service Engineer', department: 'Service', monthlySalary: 22000, annualCtc: 180000, monthlyTarget: 180000, incentiveThreshold: 105000, incentivePercentageAboveTarget: 0.03, incentiveOnTargetAchievement: 5000 },
+  { position: 'Junior Service Engineer / Trainee', department: 'Service', monthlySalary: 18000, annualCtc: 144000, monthlyTarget: 150000, incentiveThreshold: 84000, incentivePercentageAboveTarget: 0.03, incentiveOnTargetAchievement: 3000 },
+
+  // --- ADMIN DEPARTMENT ---
+  { position: 'Chief Operating Officer (COO) / General Manager', department: 'Admin', monthlySalary: 120000, annualCtc: 1440000 },
+  { position: 'Administration Manager', department: 'Admin', monthlySalary: 60000, annualCtc: 720000 },
+  { position: 'Senior Administrative Executive', department: 'Admin', monthlySalary: 35000, annualCtc: 420000 },
+  { position: 'Administrative Executive', department: 'Admin', monthlySalary: 22000, annualCtc: 264000 },
+  { position: 'Junior Administrative Executive', department: 'Admin', monthlySalary: 18000, annualCtc: 216000 },
+  { position: 'Administrative Assistant / Office Assistant', department: 'Admin', monthlySalary: 15000, annualCtc: 180000 },
+
+  // --- FINANCE DEPARTMENT ---
+  { position: 'Chief Financial Officer (CFO) / Finance Director', department: 'Finance', monthlySalary: 150000, annualCtc: 1800000 },
+  { position: 'Finance & Accounts Manager', department: 'Finance', monthlySalary: 60000, annualCtc: 720000 },
+  { position: 'Senior Accountant', department: 'Finance', monthlySalary: 40000, annualCtc: 480000 },
+  { position: 'Accounts Executive', department: 'Finance', monthlySalary: 25000, annualCtc: 300000 },
+  { position: 'Junior Accounts Executive', department: 'Finance', monthlySalary: 18000, annualCtc: 216000 },
+  { position: 'Accounts Assistant', department: 'Finance', monthlySalary: 15000, annualCtc: 180000 },
+];
+
 

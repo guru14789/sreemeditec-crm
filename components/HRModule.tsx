@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Employee, TabView, EnterpriseRole } from '../types';
+import { Employee, TabView, EnterpriseRole, SALARY_SCALE } from '../types';
 import {
     Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw
 } from 'lucide-react';
@@ -75,7 +75,8 @@ export const HRModule: React.FC = () => {
             role: 'SYSTEM_STAFF',
             department: 'Sales',
             status: 'Active',
-            baseSalary: 30000,
+            position: SALARY_SCALE.filter(s => s.department === 'Sales')[0]?.position || '',
+            baseSalary: SALARY_SCALE.filter(s => s.department === 'Sales')[0]?.monthlySalary || 30000,
             joinDate: new Date().toISOString().split('T')[0],
             permissions: { [TabView.DASHBOARD]: 'Employee' },
             isLoginEnabled: true,
@@ -133,7 +134,8 @@ export const HRModule: React.FC = () => {
                 status: 'Active',
                 permissions: employeeFormData.permissions || {},
                 password: employeeFormData.password,
-                isLoginEnabled: true
+                isLoginEnabled: true,
+                position: employeeFormData.position || ''
             };
             addEmployee(emp);
             addNotification('Staff Registered', `${emp.name} added to enterprise registry.`, 'success');
@@ -299,6 +301,10 @@ export const HRModule: React.FC = () => {
                                         <span className={`text-[8px] md:text-[10px] font-black ${g.textLight} uppercase tracking-widest`}>{emp.department}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
+                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Position</span>
+                                        <span className={`text-[8px] md:text-[10px] font-black ${g.textLight} uppercase tracking-widest truncate max-w-[150px]`}>{emp.position || '—'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
                                         <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Password</span>
                                         <span className={`text-[8px] md:text-[10px] font-mono font-bold ${g.textLight}`}>{emp.password}</span>
                                     </div>
@@ -459,10 +465,55 @@ export const HRModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
-                                    <select className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" value={employeeFormData.department} onChange={(e) => setEmployeeFormData({ ...employeeFormData, department: e.target.value })}>
+                                    <select 
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" 
+                                        value={employeeFormData.department} 
+                                        onChange={(e) => {
+                                            const newDept = e.target.value;
+                                            const mapDept: Record<string, string> = { 'Administration': 'Admin', 'Sales': 'Sales', 'Service': 'Service', 'Support': 'Admin' };
+                                            const targetDept = mapDept[newDept] || 'Admin';
+                                            const positionOptions = SALARY_SCALE.filter(s => s.department === targetDept);
+                                            const defaultPos = positionOptions[0]?.position || '';
+                                            const defaultSal = positionOptions[0]?.monthlySalary || 0;
+                                            setEmployeeFormData({ 
+                                                ...employeeFormData, 
+                                                department: newDept,
+                                                position: defaultPos,
+                                                baseSalary: defaultSal
+                                            });
+                                        }}
+                                    >
                                         <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
                                     </select>
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Position</label>
+                                    <select 
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 transition-all appearance-none"
+                                        value={employeeFormData.position || ''} 
+                                        onChange={(e) => {
+                                            const newPos = e.target.value;
+                                            const rule = SALARY_SCALE.find(s => s.position === newPos);
+                                            setEmployeeFormData({ 
+                                                ...employeeFormData, 
+                                                position: newPos,
+                                                baseSalary: rule ? rule.monthlySalary : employeeFormData.baseSalary
+                                            });
+                                        }}
+                                    >
+                                        <option value="">Select Designation...</option>
+                                        {SALARY_SCALE.filter(s => {
+                                            const mapDept: Record<string, string> = { 'Administration': 'Admin', 'Sales': 'Sales', 'Service': 'Service', 'Support': 'Admin' };
+                                            const currentDept = mapDept[employeeFormData.department || 'Administration'] || 'Admin';
+                                            return s.department === currentDept;
+                                        }).map(rule => (
+                                            <option key={rule.position} value={rule.position}>{rule.position}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Base Salary (₹)</label>
                                     <input type="number" className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none" value={employeeFormData.baseSalary || ''} onChange={(e) => setEmployeeFormData({ ...employeeFormData, baseSalary: Number(e.target.value) })} />
