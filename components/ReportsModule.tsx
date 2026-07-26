@@ -974,15 +974,83 @@ export const ReportsModule: React.FC = () => {
   const filteredExpenses = expenses.filter(exp => filterByDateRange(exp.date));
   const filteredPurchaseRecords = (purchaseRecords || []).filter((rec: any) => filterByDateRange(rec.dateSupply || rec.materialReceivedDate));
 
+  // Total Sales = sum of SM invoice subtotals (pre-tax, excluding GST)
   const totalRevenue = filteredInvoices.reduce((sum, inv) => {
     if (inv.status === 'Draft' || inv.status === 'Cancelled') return sum;
     if (inv.documentType && inv.documentType !== 'Invoice') return sum;
-    return sum + (inv.grandTotal || 0);
+    if (!(inv.invoiceNumber || '').startsWith('SM/')) return sum;
+    return sum + (inv.subtotal || inv.grandTotal || 0);
   }, 0);
+
   const totalPurchaseRecords = filteredPurchaseRecords.reduce((sum: number, rec: any) => sum + (rec.total || 0), 0);
   const totalExpenses = filteredExpenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0);
+  // Net profit uses subtotals (pre-tax) so GST is excluded on both sides
   const totalProfit = totalRevenue - (totalExpenses + totalPurchaseRecords);
-  const growthRate = 24.5;
+
+  // ── Previous period revenue for real growth / trend computation ──────────
+  const getPrevFilterByDateRange = (dateStr: string): boolean => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const now = new Date();
+    if (dateRange === 'Today') {
+      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+      return d.toDateString() === yesterday.toDateString();
+    }
+    if (dateRange === 'This Week') {
+      const startOfThisWeek = new Date(now); startOfThisWeek.setDate(now.getDate() - now.getDay()); startOfThisWeek.setHours(0,0,0,0);
+      const startOfLastWeek = new Date(startOfThisWeek); startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+      return d >= startOfLastWeek && d < startOfThisWeek;
+    }
+    if (dateRange === 'This Month') {
+      const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    }
+    if (dateRange === 'This Quarter') {
+      const currentQuarter = Math.floor(now.getMonth() / 3);
+      const prevQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
+      const prevQuarterYear = currentQuarter === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const itemQuarter = Math.floor(d.getMonth() / 3);
+      return itemQuarter === prevQuarter && d.getFullYear() === prevQuarterYear;
+    }
+    if (dateRange === 'This Year') {
+      return d.getFullYear() === now.getFullYear() - 1;
+    }
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    if (months.includes(dateRange)) {
+      const monthIdx = months.indexOf(dateRange);
+      const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
+      const prevYear = monthIdx === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      return d.getMonth() === prevMonthIdx && d.getFullYear() === prevYear;
+    }
+    return false;
+  };
+
+  const prevRevenue = invoices.reduce((sum, inv) => {
+    if (!getPrevFilterByDateRange(inv.date)) return sum;
+    if (inv.status === 'Draft' || inv.status === 'Cancelled') return sum;
+    if (inv.documentType && inv.documentType !== 'Invoice') return sum;
+    if (!(inv.invoiceNumber || '').startsWith('SM/')) return sum;
+    return sum + (inv.subtotal || inv.grandTotal || 0);
+  }, 0);
+  const prevExpenses = expenses.reduce((sum, exp) => {
+    if (!getPrevFilterByDateRange(exp.date)) return sum;
+    return exp.status === 'Approved' ? sum + (exp.amount || 0) : sum;
+  }, 0);
+  const prevPurchaseRecords = (purchaseRecords || []).reduce((sum: number, rec: any) => {
+    if (!getPrevFilterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return sum;
+    return sum + (rec.total || 0);
+  }, 0);
+  const prevProfit = prevRevenue - (prevExpenses + prevPurchaseRecords);
+
+  const calcTrend = (curr: number, prev: number) => {
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  };
+  const salesTrend = calcTrend(totalRevenue, prevRevenue);
+  const profitTrend = calcTrend(totalProfit, prevProfit);
+  const expenseTrend = calcTrend(totalExpenses, prevExpenses);
+  const growthRate = salesTrend;
 
   // ── Filtered & Sorted Products for Detail Page ──────────────────────────
   const filteredProducts = useMemo(() => {
@@ -1997,10 +2065,11 @@ export const ReportsModule: React.FC = () => {
                     <TrendingUp size={16} />
                 </div>
                 <div className="flex flex-col truncate">
-                    <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Revenue</p>
+                    <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-0.5 truncate">Total Sales (SM)</p>
                     <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
                         {formatCurrency(totalRevenue)}
                     </p>
+                    <p className="text-[6px] font-bold text-amber-900/50 uppercase tracking-wider mt-0.5">Excl. GST · Pre-tax</p>
                 </div>
             </div>
         </div>
@@ -2062,19 +2131,25 @@ export const ReportsModule: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-3 md:gap-4 shrink-0 pb-2 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
-        {/* Card 1: Total Sales */}
+        {/* Card 1: Total Sales (SM invoices, pre-tax subtotals) */}
         <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
           <div className="flex justify-between items-start mb-2">
             <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
               <DollarSign size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              <TrendingUp size={8} /> +12.5%
+            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+              salesTrend >= 0
+                ? 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
+                : 'bg-rose-500/20 text-rose-300 border-rose-500/20'
+            }`}>
+              {salesTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+              {salesTrend >= 0 ? '+' : ''}{salesTrend.toFixed(1)}%
             </span>
           </div>
           <div>
             <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
             <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
+            <p className="text-[6px] text-emerald-400/60 font-bold mt-0.5 uppercase tracking-wider">Pre-tax (excl. GST)</p>
           </div>
         </div>
 
@@ -2084,13 +2159,18 @@ export const ReportsModule: React.FC = () => {
             <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
               <TrendingUp size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-emerald-300/20 text-emerald-100 border border-emerald-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              <TrendingUp size={8} /> +8.2%
+            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+              profitTrend >= 0
+                ? 'bg-emerald-300/20 text-emerald-100 border-emerald-400/20'
+                : 'bg-rose-500/25 text-rose-200 border-rose-400/30'
+            }`}>
+              {profitTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+              {profitTrend >= 0 ? '+' : ''}{profitTrend.toFixed(1)}%
             </span>
           </div>
           <div>
             <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
-            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalProfit)}</h3>
+            <h3 className={`text-sm md:text-base font-black mt-1 ${totalProfit < 0 ? 'text-rose-300' : 'text-white'}`}>₹{formatIndianNumber(totalProfit)}</h3>
           </div>
         </div>
 
@@ -2100,8 +2180,13 @@ export const ReportsModule: React.FC = () => {
             <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
               <ArrowDownRight size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
-            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              <TrendingDown size={8} /> -2.4%
+            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+              expenseTrend > 0
+                ? 'bg-rose-500/25 text-rose-300 border-rose-500/30'
+                : 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
+            }`}>
+              {expenseTrend > 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+              {expenseTrend >= 0 ? '+' : ''}{expenseTrend.toFixed(1)}%
             </span>
           </div>
           <div>
@@ -2117,7 +2202,7 @@ export const ReportsModule: React.FC = () => {
               <ShoppingCart size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
             <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              <Package size={8} /> {filteredPurchaseRecords.length}
+              <Package size={8} /> {filteredPurchaseRecords.length} Bills
             </span>
           </div>
           <div>
@@ -2126,19 +2211,24 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 5: Growth */}
+        {/* Card 5: Sales Growth (real, vs previous period) */}
         <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
           <div className="flex justify-between items-start mb-2">
             <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
               <PieChartIcon size={14} className="md:w-[15px] md:h-[15px]" />
             </div>
             <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-amber-950/25 text-amber-950 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              Annual
+              vs prev period
             </span>
           </div>
           <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Growth</p>
-            <h3 className="text-sm md:text-base font-black text-amber-950 mt-1">{growthRate}%</h3>
+            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Sales Growth</p>
+            <h3 className={`text-sm md:text-base font-black mt-1 ${growthRate >= 0 ? 'text-amber-950' : 'text-red-900'}`}>
+              {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
+            </h3>
+            {prevRevenue > 0 && (
+              <p className="text-[6px] text-amber-900/60 font-bold mt-0.5">prev: ₹{formatIndianNumber(prevRevenue)}</p>
+            )}
           </div>
         </div>
       </div>
