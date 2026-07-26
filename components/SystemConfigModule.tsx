@@ -950,61 +950,75 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rules.map((rule) => {
-                const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
-                const isSalesOrService = rule.department === 'Sales' || rule.department === 'Service';
+              {['Sales', 'Service', 'Admin', 'Finance'].map((dept) => {
+                const deptRules = rules.filter(r => r.department === dept);
+                if (deptRules.length === 0) return null;
                 return (
-                  <tr key={rule.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4 text-xs font-black text-slate-800 uppercase tracking-tight leading-snug">{rule.position}</td>
-                    <td className="p-4">
-                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                        rule.department === 'Sales' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                        rule.department === 'Service' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                        rule.department === 'Finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                        'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}>
-                        {rule.department}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs font-bold text-slate-800">₹{rule.monthlySalary?.toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-xs font-bold text-slate-600">
-                      {isSalesOrService ? `₹${rule.monthlyTarget?.toLocaleString('en-IN')}` : '—'}
-                    </td>
-                    <td className="p-4 text-xs font-bold text-slate-600">
-                      {isSalesOrService ? `₹${rule.incentiveThreshold?.toLocaleString('en-IN')}` : '—'}
-                    </td>
-                    <td className="p-4 text-xs font-extrabold text-emerald-700">
-                      {isSalesOrService ? `₹${rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}` : '—'}
-                    </td>
-                    <td className="p-4 text-xs font-extrabold text-indigo-700">
-                      {isSalesOrService ? `${((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%` : '—'}
-                    </td>
-                    <td className="p-4">
-                      {assignedEmployees.length > 0 ? (
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {assignedEmployees.map(emp => (
-                            <span key={emp.id} className="text-[8px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap">
-                              {emp.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">None</span>
-                      )}
-                    </td>
-                    {isAdmin && (
-                      <td className="p-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => handleOpenEdit(rule)} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
-                            <Edit2 size={13} />
-                          </button>
-                          <button onClick={() => handleDelete(rule.id)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors">
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                  <React.Fragment key={dept}>
+                    {/* Department Section Header Row */}
+                    <tr className="bg-slate-100/50">
+                      <td colSpan={9} className="px-4 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-50">
+                        {dept} Department ({deptRules.length} positions)
                       </td>
-                    )}
-                  </tr>
+                    </tr>
+                    {deptRules.map((rule) => {
+                      const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
+                      const isSalesOrService = rule.department === 'Sales' || rule.department === 'Service';
+                      return (
+                        <tr key={rule.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 text-xs font-black text-slate-800 uppercase tracking-tight leading-snug">{rule.position}</td>
+                          <td className="p-4">
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                              rule.department === 'Sales' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              rule.department === 'Service' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                              rule.department === 'Finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              'bg-slate-50 text-slate-700 border-slate-200'
+                            }`}>
+                              {rule.department}
+                            </span>
+                          </td>
+                          <td className="p-4 text-xs font-bold text-slate-800">₹{rule.monthlySalary?.toLocaleString('en-IN')}</td>
+                          <td className="p-4 text-xs font-bold text-slate-600">
+                            {isSalesOrService ? `₹${rule.monthlyTarget?.toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td className="p-4 text-xs font-bold text-slate-600">
+                            {isSalesOrService ? `₹${rule.incentiveThreshold?.toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td className="p-4 text-xs font-extrabold text-emerald-700">
+                            {isSalesOrService ? `₹${rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}` : '—'}
+                          </td>
+                          <td className="p-4 text-xs font-extrabold text-indigo-700">
+                            {isSalesOrService ? `${((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%` : '—'}
+                          </td>
+                          <td className="p-4">
+                            {assignedEmployees.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {assignedEmployees.map(emp => (
+                                  <span key={emp.id} className="text-[8px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                    {emp.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-[9px] text-slate-400 font-bold uppercase">None</span>
+                            )}
+                          </td>
+                          {isAdmin && (
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => handleOpenEdit(rule)} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
+                                  <Edit2 size={13} />
+                                </button>
+                                <button onClick={() => handleDelete(rule.id)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
             </tbody>
