@@ -14,6 +14,7 @@ import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestor
 import { db } from '../firebase';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
+import { SALARY_SCALE } from '../types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatIndianNumber = (num: number) => {
@@ -296,18 +297,31 @@ export const ReportsModule: React.FC = () => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
-    // 1b. Employee Sales Performance (based on closedBy)
-    const employeeSalesMap: Record<string, { total: number; invoices: number; name: string }> = {};
+    // 1b. Employee Sales & Service Performance against targets (GST-excluded pre-tax subtotal)
+    const employeeSalesMap: Record<string, { total: number; invoices: number; name: string; target: number; department: string }> = {};
+    
+    // Initialize map with active employees' target parameters
+    (employees || []).forEach(emp => {
+      const scaleRule = SALARY_SCALE.find(s => s.position === emp.position);
+      const targetVal = scaleRule?.monthlyTarget || 0;
+      const dept = scaleRule?.department || 'Sales';
+      employeeSalesMap[emp.id] = { total: 0, invoices: 0, name: emp.name, target: targetVal, department: dept };
+    });
+
     invoices.forEach((inv) => {
       if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return;
       if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       if (!filterByDateRange(inv.date)) return;
-      if (inv.closedBy && inv.closedBy !== 'Direct') {
-        const emp = (employees || []).find(e => e.id === inv.closedBy || e.name === inv.closedBy);
-        const name = emp ? emp.name : inv.closedBy;
-        const id = emp ? emp.id : inv.closedBy;
-        const amt = inv.grandTotal || 0;
-        if (!employeeSalesMap[id]) employeeSalesMap[id] = { total: 0, invoices: 0, name };
+      
+      const closedById = inv.closedBy || '';
+      const matchedEmp = (employees || []).find(e => e.id === closedById || e.name.trim().toLowerCase() === closedById.trim().toLowerCase());
+      if (matchedEmp) {
+        const id = matchedEmp.id;
+        const amt = inv.subtotal || 0; // Actual pre-tax taxable amount (GST excluded)
+        if (!employeeSalesMap[id]) {
+          const scaleRule = SALARY_SCALE.find(s => s.position === matchedEmp.position);
+          employeeSalesMap[id] = { total: 0, invoices: 0, name: matchedEmp.name, target: scaleRule?.monthlyTarget || 0, department: scaleRule?.department || 'Sales' };
+        }
         employeeSalesMap[id].total += amt;
         employeeSalesMap[id].invoices += 1;
       }
@@ -318,9 +332,12 @@ export const ReportsModule: React.FC = () => {
         id,
         name: data.name,
         total: data.total,
+        target: data.target,
         invoices: data.invoices,
+        department: data.department,
         percentage: totalSales > 0 ? (data.total / totalSales) * 100 : 0
       }))
+      .filter(item => item.total > 0 || item.target > 0)
       .sort((a, b) => b.total - a.total);
 
     // 2. Expenses Breakdown
@@ -2382,19 +2399,29 @@ export const ReportsModule: React.FC = () => {
                         <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px]">{emp.name}</span>
+                            <div>
+                              <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px] block">{emp.name}</span>
+                              <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider block">Target: {emp.target > 0 ? `₹${formatIndianNumber(emp.target)}` : 'N/A'}</span>
+                            </div>
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
-                              }}
-                              className="block text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
-                            >
-                              {emp.invoices} Closures
-                            </span>
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <span 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
+                                }}
+                                className="text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
+                              >
+                                {emp.invoices} Closures
+                              </span>
+                              {emp.target > 0 && (
+                                <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= emp.target ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                  {Math.round((emp.total / emp.target) * 100)}%
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -2406,7 +2433,9 @@ export const ReportsModule: React.FC = () => {
                         <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[0, 6, 6, 0]} barSize={12} />
+                        <Legend verticalAlign="top" height={24} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase' }} />
+                        <Bar dataKey="total" name="Achieved (Pre-Tax)" fill="url(#colorProfit)" radius={[0, 4, 4, 0]} barSize={8} />
+                        <Bar dataKey="target" name="Monthly Target" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
