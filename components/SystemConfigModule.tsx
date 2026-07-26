@@ -957,7 +957,6 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Department</th>
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Base Salary</th>
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Target</th>
-                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Threshold</th>
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Flat Bonus</th>
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Comm %</th>
                 <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Employees</th>
@@ -976,7 +975,7 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
                     <React.Fragment key={dept}>
                       {/* Department Section Header Row */}
                       <tr className="bg-slate-100/50">
-                        <td colSpan={9} className="px-4 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-50">
+                        <td colSpan={8} className="px-4 py-2 text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-50">
                           {dept} Department ({deptRules.length} positions)
                         </td>
                       </tr>
@@ -999,9 +998,6 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
                           <td className="p-4 text-xs font-bold text-slate-800">₹{rule.monthlySalary?.toLocaleString('en-IN')}</td>
                           <td className="p-4 text-xs font-bold text-slate-600">
                             {isSalesOrService ? `₹${rule.monthlyTarget?.toLocaleString('en-IN')}` : '—'}
-                          </td>
-                          <td className="p-4 text-xs font-bold text-slate-600">
-                            {isSalesOrService ? `₹${rule.incentiveThreshold?.toLocaleString('en-IN')}` : '—'}
                           </td>
                           <td className="p-4 text-xs font-extrabold text-emerald-700">
                             {isSalesOrService ? `₹${rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}` : '—'}
@@ -1077,8 +1073,7 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
             </div>
 
             {(department === 'Sales' || department === 'Service') && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
-                <Input label="Incentive Threshold (₹)" type="number" value={incentiveThreshold} onChange={(e: any) => setIncentiveThreshold(Number(e.target.value))} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
                 <Input label="Flat Bonus on Completion (₹)" type="number" value={incentiveOnTargetAchievement} onChange={(e: any) => setIncentiveOnTargetAchievement(Number(e.target.value))} />
                 <Input label="Commission Rate (%)" type="number" step="0.01" value={incentivePercentageAboveTarget} onChange={(e: any) => setIncentivePercentageAboveTarget(Number(e.target.value))} placeholder="e.g. 3 for 3%" />
               </div>
