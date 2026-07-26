@@ -123,7 +123,7 @@ export const PayrollModule: React.FC = () => {
 
             let totalAchievedAmount = 0;
 
-            if (scaleRule.department === 'Sales') {
+            if (scaleRule.department === 'Sales' || scaleRule.department === 'Service') {
                 // Sum the actual subtotals (pre-tax taxable amounts) of all finalized Invoices closed by this employee in the month
                 const empInvoices = invoices.filter(inv => {
                     if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
@@ -133,20 +133,6 @@ export const PayrollModule: React.FC = () => {
                            inv.createdBy === targetEmployee.name;
                 });
                 totalAchievedAmount = empInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
-            } else if (scaleRule.department === 'Service') {
-                // Sum the parts / service billing values associated with completed tasks closed by this engineer in the month
-                const empTasks = serviceTasks.filter(t => {
-                    if (t.status !== 'Completed' || !t.completedAt) return false;
-                    if (!t.completedAt.startsWith(yearMonthStr)) return false;
-                    return t.assignedToId === targetEmployee.id || t.assignedTo === targetEmployee.name;
-                });
-                // Look up matching invoices for service/parts closed by this task ID
-                const taskInvoices = invoices.filter(inv => {
-                    if (inv.status === 'Draft' || inv.status === 'Cancelled') return false;
-                    if (!inv.date.startsWith(yearMonthStr)) return false;
-                    return empTasks.some(t => inv.refQuotationNo === t.taskNumber || (inv.specialNote || '').includes(t.taskNumber));
-                });
-                totalAchievedAmount = taskInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
             }
 
             // 1. Flat bonus on target achievement
