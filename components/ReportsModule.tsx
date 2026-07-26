@@ -970,87 +970,200 @@ export const ReportsModule: React.FC = () => {
     return Object.entries(sourceMap).map(([source, stats]) => ({ source, ...stats }));
   }, [leads]);
 
-  const filteredInvoices = invoices.filter(inv => filterByDateRange(inv.date));
-  const filteredExpenses = expenses.filter(exp => filterByDateRange(exp.date));
-  const filteredPurchaseRecords = (purchaseRecords || []).filter((rec: any) => filterByDateRange(rec.dateSupply || rec.materialReceivedDate));
+  const kpiData = useMemo(() => {
+    // ── helpers ──────────────────────────────────────────────────────────────
+    const now = new Date();
 
-  // Total Sales = sum of SM invoice subtotals (pre-tax, excluding GST)
-  const totalRevenue = filteredInvoices.reduce((sum, inv) => {
-    if (inv.status === 'Draft' || inv.status === 'Cancelled') return sum;
-    if (inv.documentType && inv.documentType !== 'Invoice') return sum;
-    if (!(inv.invoiceNumber || '').startsWith('SM/')) return sum;
-    return sum + (inv.subtotal || inv.grandTotal || 0);
-  }, 0);
+    const inRange = (dateStr: string): boolean => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (dateRange === 'Today') return d.toDateString() === now.toDateString();
+      if (dateRange === 'This Week') {
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        return d >= startOfWeek;
+      }
+      if (dateRange === 'This Month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (dateRange === 'This Quarter') {
+        const cq = Math.floor(now.getMonth() / 3);
+        return Math.floor(d.getMonth() / 3) === cq && d.getFullYear() === now.getFullYear();
+      }
+      if (dateRange === 'This Year') return d.getFullYear() === now.getFullYear();
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      if (months.includes(dateRange)) {
+        return d.getMonth() === months.indexOf(dateRange) && d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    };
 
-  const totalPurchaseRecords = filteredPurchaseRecords.reduce((sum: number, rec: any) => sum + (rec.total || 0), 0);
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => exp.status === 'Approved' ? sum + (exp.amount || 0) : sum, 0);
-  // Net profit uses subtotals (pre-tax) so GST is excluded on both sides
-  const totalProfit = totalRevenue - (totalExpenses + totalPurchaseRecords);
+    const inPrevRange = (dateStr: string): boolean => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (dateRange === 'Today') {
+        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+        return d.toDateString() === yesterday.toDateString();
+      }
+      if (dateRange === 'This Week') {
+        const startOfThisWeek = new Date(now);
+        startOfThisWeek.setDate(now.getDate() - now.getDay());
+        startOfThisWeek.setHours(0, 0, 0, 0);
+        const startOfLastWeek = new Date(startOfThisWeek);
+        startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
+        return d >= startOfLastWeek && d < startOfThisWeek;
+      }
+      if (dateRange === 'This Month') {
+        const prevM = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+        const prevY = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        return d.getMonth() === prevM && d.getFullYear() === prevY;
+      }
+      if (dateRange === 'This Quarter') {
+        const cq = Math.floor(now.getMonth() / 3);
+        const pq = cq === 0 ? 3 : cq - 1;
+        const py = cq === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        return Math.floor(d.getMonth() / 3) === pq && d.getFullYear() === py;
+      }
+      if (dateRange === 'This Year') return d.getFullYear() === now.getFullYear() - 1;
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      if (months.includes(dateRange)) {
+        const idx = months.indexOf(dateRange);
+        const pm = idx === 0 ? 11 : idx - 1;
+        const py = idx === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        return d.getMonth() === pm && d.getFullYear() === py;
+      }
+      return false;
+    };
 
-  // ── Previous period revenue for real growth / trend computation ──────────
-  const getPrevFilterByDateRange = (dateStr: string): boolean => {
-    if (!dateStr) return false;
+    // ── Current period ────────────────────────────────────────────────────────
+    // Total Sales = SM/ invoice subtotals (pre-tax, excl. GST) within date range
+    let totalRevenue = 0;
+    invoices.forEach(inv => {
+      if (!inRange(inv.date)) return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      totalRevenue += (inv.subtotal || inv.grandTotal || 0);
+    });
+
+    let totalExpenses = 0;
+    expenses.forEach(exp => {
+      if (!inRange(exp.date)) return;
+      if (exp.status === 'Approved') totalExpenses += exp.amount || 0;
+    });
+
+    let totalPurchaseRecords = 0;
+    let filteredPurchaseCount = 0;
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!inRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      totalPurchaseRecords += rec.total || 0;
+      filteredPurchaseCount += 1;
+    });
+
+    const totalProfit = totalRevenue - (totalExpenses + totalPurchaseRecords);
+
+    // ── Previous period ───────────────────────────────────────────────────────
+    let prevRevenue = 0;
+    invoices.forEach(inv => {
+      if (!inPrevRange(inv.date)) return;
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
+      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
+      prevRevenue += (inv.subtotal || inv.grandTotal || 0);
+    });
+
+    let prevExpenses = 0;
+    expenses.forEach(exp => {
+      if (!inPrevRange(exp.date)) return;
+      if (exp.status === 'Approved') prevExpenses += exp.amount || 0;
+    });
+
+    let prevPurchaseRecords = 0;
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!inPrevRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      prevPurchaseRecords += rec.total || 0;
+    });
+
+    const prevProfit = prevRevenue - (prevExpenses + prevPurchaseRecords);
+
+    const calcTrend = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return ((curr - prev) / prev) * 100;
+    };
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      totalPurchaseRecords,
+      filteredPurchaseCount,
+      totalProfit,
+      prevRevenue,
+      salesTrend: calcTrend(totalRevenue, prevRevenue),
+      profitTrend: calcTrend(totalProfit, prevProfit),
+      expenseTrend: calcTrend(totalExpenses, prevExpenses),
+    };
+  }, [invoices, expenses, purchaseRecords, dateRange]);
+
+  const { totalRevenue, totalExpenses, totalPurchaseRecords, filteredPurchaseCount, totalProfit, prevRevenue, salesTrend, profitTrend, expenseTrend } = kpiData;
+  const growthRate = salesTrend;
+
+  // filteredInvoices / filteredExpenses / filteredPurchaseRecords kept for downstream use
+  const filteredInvoices = useMemo(() => invoices.filter(inv => {
+    const d = new Date(inv.date || '');
+    const now = new Date();
+    if (dateRange === 'Today') return d.toDateString() === now.toDateString();
+    if (dateRange === 'This Week') {
+      const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0,0,0,0);
+      return d >= s;
+    }
+    if (dateRange === 'This Month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (dateRange === 'This Quarter') {
+      const cq = Math.floor(now.getMonth() / 3);
+      return Math.floor(d.getMonth() / 3) === cq && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === 'This Year') return d.getFullYear() === now.getFullYear();
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    if (months.includes(dateRange)) return d.getMonth() === months.indexOf(dateRange) && d.getFullYear() === now.getFullYear();
+    return !!inv.date;
+  }), [invoices, dateRange]);
+
+  const filteredExpenses = useMemo(() => expenses.filter(exp => {
+    const d = new Date(exp.date || '');
+    const now = new Date();
+    if (dateRange === 'Today') return d.toDateString() === now.toDateString();
+    if (dateRange === 'This Week') {
+      const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0,0,0,0);
+      return d >= s;
+    }
+    if (dateRange === 'This Month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (dateRange === 'This Quarter') {
+      const cq = Math.floor(now.getMonth() / 3);
+      return Math.floor(d.getMonth() / 3) === cq && d.getFullYear() === now.getFullYear();
+    }
+    if (dateRange === 'This Year') return d.getFullYear() === now.getFullYear();
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    if (months.includes(dateRange)) return d.getMonth() === months.indexOf(dateRange) && d.getFullYear() === now.getFullYear();
+    return !!exp.date;
+  }), [expenses, dateRange]);
+
+  const filteredPurchaseRecords = useMemo(() => (purchaseRecords || []).filter((rec: any) => {
+    const dateStr = rec.dateSupply || rec.materialReceivedDate || '';
     const d = new Date(dateStr);
     const now = new Date();
-    if (dateRange === 'Today') {
-      const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-      return d.toDateString() === yesterday.toDateString();
-    }
+    if (dateRange === 'Today') return d.toDateString() === now.toDateString();
     if (dateRange === 'This Week') {
-      const startOfThisWeek = new Date(now); startOfThisWeek.setDate(now.getDate() - now.getDay()); startOfThisWeek.setHours(0,0,0,0);
-      const startOfLastWeek = new Date(startOfThisWeek); startOfLastWeek.setDate(startOfThisWeek.getDate() - 7);
-      return d >= startOfLastWeek && d < startOfThisWeek;
+      const s = new Date(now); s.setDate(now.getDate() - now.getDay()); s.setHours(0,0,0,0);
+      return d >= s;
     }
-    if (dateRange === 'This Month') {
-      const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-      const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-      return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
-    }
+    if (dateRange === 'This Month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     if (dateRange === 'This Quarter') {
-      const currentQuarter = Math.floor(now.getMonth() / 3);
-      const prevQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
-      const prevQuarterYear = currentQuarter === 0 ? now.getFullYear() - 1 : now.getFullYear();
-      const itemQuarter = Math.floor(d.getMonth() / 3);
-      return itemQuarter === prevQuarter && d.getFullYear() === prevQuarterYear;
+      const cq = Math.floor(now.getMonth() / 3);
+      return Math.floor(d.getMonth() / 3) === cq && d.getFullYear() === now.getFullYear();
     }
-    if (dateRange === 'This Year') {
-      return d.getFullYear() === now.getFullYear() - 1;
-    }
+    if (dateRange === 'This Year') return d.getFullYear() === now.getFullYear();
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    if (months.includes(dateRange)) {
-      const monthIdx = months.indexOf(dateRange);
-      const prevMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
-      const prevYear = monthIdx === 0 ? now.getFullYear() - 1 : now.getFullYear();
-      return d.getMonth() === prevMonthIdx && d.getFullYear() === prevYear;
-    }
-    return false;
-  };
-
-  const prevRevenue = invoices.reduce((sum, inv) => {
-    if (!getPrevFilterByDateRange(inv.date)) return sum;
-    if (inv.status === 'Draft' || inv.status === 'Cancelled') return sum;
-    if (inv.documentType && inv.documentType !== 'Invoice') return sum;
-    if (!(inv.invoiceNumber || '').startsWith('SM/')) return sum;
-    return sum + (inv.subtotal || inv.grandTotal || 0);
-  }, 0);
-  const prevExpenses = expenses.reduce((sum, exp) => {
-    if (!getPrevFilterByDateRange(exp.date)) return sum;
-    return exp.status === 'Approved' ? sum + (exp.amount || 0) : sum;
-  }, 0);
-  const prevPurchaseRecords = (purchaseRecords || []).reduce((sum: number, rec: any) => {
-    if (!getPrevFilterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return sum;
-    return sum + (rec.total || 0);
-  }, 0);
-  const prevProfit = prevRevenue - (prevExpenses + prevPurchaseRecords);
-
-  const calcTrend = (curr: number, prev: number) => {
-    if (prev === 0) return curr > 0 ? 100 : 0;
-    return ((curr - prev) / prev) * 100;
-  };
-  const salesTrend = calcTrend(totalRevenue, prevRevenue);
-  const profitTrend = calcTrend(totalProfit, prevProfit);
-  const expenseTrend = calcTrend(totalExpenses, prevExpenses);
-  const growthRate = salesTrend;
+    if (months.includes(dateRange)) return d.getMonth() === months.indexOf(dateRange) && d.getFullYear() === now.getFullYear();
+    return !!dateStr;
+  }), [purchaseRecords, dateRange]);
 
   // ── Filtered & Sorted Products for Detail Page ──────────────────────────
   const filteredProducts = useMemo(() => {
