@@ -104,7 +104,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
+    const { clients, products, invoices, allSmInvoicesKpi, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
@@ -601,8 +601,8 @@ Email: sreemeditec@gmail.com`;
                         <div className="flex flex-col truncate">
                             <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Outstanding</p>
                             <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
-                                ₹{invoices
-                                    .filter(i => (i.invoiceNumber || '').startsWith('SM/') && i.status === 'Pending')
+                                ₹{(allSmInvoicesKpi || [])
+                                    .filter(i => i.status === 'Pending')
                                     .reduce((sum, i) => sum + ((i.grandTotal || 0) - (i.paidAmount || 0)), 0)
                                     .toLocaleString('en-IN')}
                             </p>

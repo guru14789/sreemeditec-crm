@@ -174,7 +174,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
+  const { invoices, allSmInvoicesKpi, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -1035,13 +1035,11 @@ export const ReportsModule: React.FC = () => {
     };
 
     // ── Current period ────────────────────────────────────────────────────────
-    // Total Sales = SM/ invoice subtotals (pre-tax, excl. GST) within date range
+    // Total Sales = ALL SM/ invoice subtotals (pre-tax, excl. GST) from complete Firestore dataset
     let totalRevenue = 0;
-    invoices.forEach(inv => {
+    allSmInvoicesKpi.forEach(inv => {
       if (!inRange(inv.date)) return;
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (inv.documentType && inv.documentType !== 'Invoice') return;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       totalRevenue += (inv.subtotal || inv.grandTotal || 0);
     });
 
@@ -1063,11 +1061,9 @@ export const ReportsModule: React.FC = () => {
 
     // ── Previous period ───────────────────────────────────────────────────────
     let prevRevenue = 0;
-    invoices.forEach(inv => {
+    allSmInvoicesKpi.forEach(inv => {
       if (!inPrevRange(inv.date)) return;
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (inv.documentType && inv.documentType !== 'Invoice') return;
-      if (!(inv.invoiceNumber || '').startsWith('SM/')) return;
       prevRevenue += (inv.subtotal || inv.grandTotal || 0);
     });
 
@@ -1101,7 +1097,7 @@ export const ReportsModule: React.FC = () => {
       profitTrend: calcTrend(totalProfit, prevProfit),
       expenseTrend: calcTrend(totalExpenses, prevExpenses),
     };
-  }, [invoices, expenses, purchaseRecords, dateRange]);
+  }, [allSmInvoicesKpi, expenses, purchaseRecords, dateRange]);
 
   const { totalRevenue, totalExpenses, totalPurchaseRecords, filteredPurchaseCount, totalProfit, prevRevenue, salesTrend, profitTrend, expenseTrend } = kpiData;
   const growthRate = salesTrend;

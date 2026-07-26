@@ -31,6 +31,8 @@ export interface DataContextType {
     vendors: Vendor[];
     products: Product[];
     invoices: Invoice[];
+    // All SM invoices (no pagination limit) - used purely for KPI/report aggregation
+    allSmInvoicesKpi: Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[];
     stockMovements: StockMovement[];
     stockBatches: StockBatch[];
     expenses: ExpenseRecord[];
@@ -281,6 +283,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [products, setProducts] = useState<Product[]>([]);
     const [invoiceSnap, setInvoiceSnap] = useState<Invoice[]>([]);
     const [pushedInvoices, setPushedInvoices] = useState<Invoice[]>([]);
+    const [allSmInvoicesKpi, setAllSmInvoicesKpi] = useState<Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[]>([]);
     const invoices = useMemo(() => {
         const ids = new Set(invoiceSnap.map(i => i.id));
         return [...invoiceSnap, ...pushedInvoices.filter(i => !ids.has(i.id))].sort((a,b) => b.date.localeCompare(a.date));
@@ -749,6 +752,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Dynamic Collections (High Growth): Initial small batch, then paginated
         const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
         const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
+
+        // ── Unlimited SM invoice listener for KPI totals (no pagination) ──────
+        // Fetches only lightweight fields needed for aggregation
+        const unsubSmKpi = onSnapshot(
+            query(collection(db, "invoices"), where("documentType", "==", "Invoice"), orderBy('date', 'desc')),
+            (snap) => {
+                setAllSmInvoicesKpi(
+                    snap.docs
+                        .map(d => {
+                            const data = d.data();
+                            return {
+                                id: d.id,
+                                invoiceNumber: data.invoiceNumber || '',
+                                date: data.date || '',
+                                status: data.status,
+                                documentType: data.documentType,
+                                subtotal: data.subtotal || 0,
+                                grandTotal: data.grandTotal || 0,
+                                paidAmount: data.paidAmount || 0,
+                                closedBy: data.closedBy || '',
+                                customerName: data.customerName || '',
+                            } as any;
+                        })
+                        .filter(inv => (inv.invoiceNumber as string).startsWith('SM/'))
+                );
+            },
+            (err) => console.warn("allSmKpi listener:", err)
+        );
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(100)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
         const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
@@ -777,7 +808,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
-            unsubServiceTemplates();
+            unsubServiceTemplates(); unsubSmKpi();
             unsubProducts();
             unsubStats();
         };
@@ -4168,7 +4199,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return (
         <DataContext.Provider value={{
-            clients, vendors, products, invoices, stockMovements, expenses, employees, notifications, tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
+            clients, vendors, products, invoices, allSmInvoicesKpi, stockMovements, expenses, employees, notifications, tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
             eodReports, addEodReport, updateEodReport,
             pendingQuoteData, setPendingQuoteData,
             pendingInvoiceData, setPendingInvoiceData,
