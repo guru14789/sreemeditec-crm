@@ -994,12 +994,17 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label="Position Designation Name *" value={position} onChange={(e: any) => setPosition(e.target.value)} placeholder="e.g. Sales Executive" />
-              <Select label="Department *" value={department} onChange={(e: any) => setDepartment(e.target.value)}>
-                <option value="Sales">Sales</option>
-                <option value="Service">Service</option>
-                <option value="Admin">Admin</option>
-                <option value="Finance">Finance</option>
-              </Select>
+              <Select 
+                label="Department *" 
+                value={department} 
+                onChange={(e: any) => setDepartment(e.target.value as any)}
+                options={[
+                  { value: 'Sales', label: 'Sales' },
+                  { value: 'Service', label: 'Service' },
+                  { value: 'Admin', label: 'Admin' },
+                  { value: 'Finance', label: 'Finance' }
+                ]}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
