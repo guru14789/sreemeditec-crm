@@ -933,84 +933,84 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
           </Button>
         )}
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {rules.map((rule) => {
-          const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
-          return (
-            <Card key={rule.id} className="p-5 border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all flex flex-col justify-between rounded-[1.5rem] bg-white relative overflow-hidden group">
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                    rule.department === 'Sales' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                    rule.department === 'Service' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                    rule.department === 'Finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    'bg-slate-50 text-slate-700 border-slate-200'
-                  }`}>
-                    {rule.department}
-                  </span>
-                  {isAdmin && (
-                    <div className="flex gap-2">
-                      <button onClick={() => handleOpenEdit(rule)} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => handleDelete(rule.id)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight group-hover:text-emerald-800 transition-colors leading-snug mb-4">{rule.position}</h4>
-
-                <div className="space-y-2 border-t border-slate-50 pt-3">
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><DollarSign size={11} /> Base Salary</span>
-                    <span className="text-slate-800 font-black">₹{rule.monthlySalary?.toLocaleString('en-IN')}/mo</span>
-                  </div>
-                  {(rule.department === 'Sales' || rule.department === 'Service') && (
-                    <>
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Target size={11} /> Target</span>
-                        <span className="text-slate-800 font-black">₹{rule.monthlyTarget?.toLocaleString('en-IN')}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Award size={11} /> Flat Bonus</span>
-                        <span className="text-emerald-700 font-black">₹{rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Percent size={11} /> Commission</span>
-                        <span className="text-indigo-700 font-black">{((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">Threshold</span>
-                        <span className="text-slate-800 font-black">₹{rule.incentiveThreshold?.toLocaleString('en-IN')}</span>
-                      </div>
-                    </>
-                  )}
-                  
-                  {/* Assigned Users list */}
-                  <div className="border-t border-slate-50 pt-2 mt-2">
-                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned Employees ({assignedEmployees.length})</p>
-                    {assignedEmployees.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {assignedEmployees.map(emp => (
-                          <span key={emp.id} className="text-[8px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
-                            {emp.name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[8px] text-slate-400 italic">No employees assigned</p>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Position</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Department</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Base Salary</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Target</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Threshold</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Flat Bonus</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Comm %</th>
+                <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider">Employees</th>
+                {isAdmin && <th className="p-4 text-[9px] font-black uppercase text-slate-500 tracking-wider text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rules.map((rule) => {
+                const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
+                const isSalesOrService = rule.department === 'Sales' || rule.department === 'Service';
+                return (
+                  <tr key={rule.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4 text-xs font-black text-slate-800 uppercase tracking-tight leading-snug">{rule.position}</td>
+                    <td className="p-4">
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                        rule.department === 'Sales' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        rule.department === 'Service' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                        rule.department === 'Finance' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        'bg-slate-50 text-slate-700 border-slate-200'
+                      }`}>
+                        {rule.department}
+                      </span>
+                    </td>
+                    <td className="p-4 text-xs font-bold text-slate-800">₹{rule.monthlySalary?.toLocaleString('en-IN')}</td>
+                    <td className="p-4 text-xs font-bold text-slate-600">
+                      {isSalesOrService ? `₹${rule.monthlyTarget?.toLocaleString('en-IN')}` : '—'}
+                    </td>
+                    <td className="p-4 text-xs font-bold text-slate-600">
+                      {isSalesOrService ? `₹${rule.incentiveThreshold?.toLocaleString('en-IN')}` : '—'}
+                    </td>
+                    <td className="p-4 text-xs font-extrabold text-emerald-700">
+                      {isSalesOrService ? `₹${rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}` : '—'}
+                    </td>
+                    <td className="p-4 text-xs font-extrabold text-indigo-700">
+                      {isSalesOrService ? `${((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%` : '—'}
+                    </td>
+                    <td className="p-4">
+                      {assignedEmployees.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {assignedEmployees.map(emp => (
+                            <span key={emp.id} className="text-[8px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap">
+                              {emp.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">None</span>
+                      )}
+                    </td>
+                    {isAdmin && (
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleOpenEdit(rule)} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
+                            <Edit2 size={13} />
+                          </button>
+                          <button onClick={() => handleDelete(rule.id)} className="p-1 text-slate-400 hover:text-rose-600 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
                     )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} size="md">
         <div className="space-y-5">
           <div className="border-b border-slate-100 pb-3">
