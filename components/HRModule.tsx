@@ -278,7 +278,7 @@ export const HRModule: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {activeTab === 'employees' ? (
+                {activeTab === 'employees' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 pb-6">
                         {filteredEmployees.map((emp, idx) => {
                             const gradients = [
@@ -297,33 +297,23 @@ export const HRModule: React.FC = () => {
                                             <p className={`text-[7px] md:text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest leading-none`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
                                         </div>
                                     </div>
-                                    <span className={`px-2 py-0.5 md:px-2.5 md:py-1 rounded-full text-[7px] md:text-[9px] font-black uppercase border tracking-wider ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</span>
+                                    <div className={`border text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[2rem] shadow-sm shrink-0 ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</div>
                                 </div>
-                                <div className={`space-y-1 md:space-y-3 pt-2 md:pt-4 border-t ${g.divider}`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Department</span>
-                                        <span className={`text-[8px] md:text-[10px] font-black ${g.textLight} uppercase tracking-widest`}>{emp.department}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Position</span>
-                                        <span className={`text-[8px] md:text-[10px] font-black ${g.textLight} uppercase tracking-widest truncate max-w-[150px]`}>{emp.position || '—'}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Password</span>
-                                        <span className={`text-[8px] md:text-[10px] font-mono font-bold ${g.textLight}`}>{emp.password}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[7px] md:text-[9px] font-black ${g.label} uppercase`}>Access Status</span>
-                                        <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-tight ${emp.role === 'SYSTEM_ADMIN' ? 'text-indigo-300' : g.accent}`}>
-                                            {emp.role === 'SYSTEM_ADMIN' ? 'Full Unrestricted' : `${Object.keys(emp.permissions || {}).length} Modules Grant`}
-                                        </span>
-                                    </div>
+                                <div className={`h-px w-full my-3 md:my-4 ${g.divider}`}></div>
+                                <div className="space-y-1.5 md:space-y-3.5 text-[10px] md:text-xs">
+                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Division</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.department}</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Designation</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.position || '—'}</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Base Salary</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>₹{emp.baseSalary ? emp.baseSalary.toLocaleString('en-IN') : '0'}</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Allowance</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>₹{emp.dailyAllowance ? emp.dailyAllowance.toLocaleString('en-IN') : '0'} (Out: ₹{emp.outstationAllowance ? emp.outstationAllowance.toLocaleString('en-IN') : '0'})</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Joined</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.joinDate}</span></div>
                                 </div>
                             </div>
                             );
                         })}
                     </div>
-                ) : (
+                )}
+
+                {activeTab === 'permissions' && (
                     <React.Fragment>
                     {/* Access Grid Legend */}
                     <div className="flex flex-wrap items-center gap-3 p-4 mb-3 bg-white rounded-[2rem] border border-slate-200 shadow-sm">
@@ -339,7 +329,7 @@ export const HRModule: React.FC = () => {
                             <div className="w-3 h-3 rounded bg-white border border-slate-300"></div>
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">None — Module locked</span>
                         </div>
-                        <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-[2rem] px-3 py-1.5">
+                        <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-[2rem] px-3 py-1.5 ml-auto">
                             <ShieldAlert size={12} className="text-amber-500" />
                             <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Admin access here ≠ System Admin. Change Enterprise Role for full admin.</span>
                         </div>
