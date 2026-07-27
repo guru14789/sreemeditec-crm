@@ -1253,11 +1253,27 @@ export const InventoryModule: React.FC = () => {
                                                                                                 <option key={v.id} value={v.id}>{v.name}</option>
                                                                                             ))}
                                                                                         </select>
-                                                                                        <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
-                                                                                            const updated = [...hierarchicalBrands];
-                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
-                                                                                            setHierarchicalBrands(updated);
-                                                                                        }} />
+                                                                                        <div className="relative">
+                                                                                            <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 pr-8 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    let random8 = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                                                                    const updated = [...hierarchicalBrands];
+                                                                                                    updated[bIdx].models[mIdx].vendors[vIdx].sku = random8;
+                                                                                                    setHierarchicalBrands(updated);
+                                                                                                    addNotification('SKU Generated', `New Vendor SKU ${random8} generated.`, 'success');
+                                                                                                }}
+                                                                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded-full p-1 transition-colors"
+                                                                                                title="Generate SKU Sequence"
+                                                                                            >
+                                                                                                <ScanBarcode size={10} />
+                                                                                            </button>
+                                                                                        </div>
                                                                                         <input type="number" placeholder="Warranty (Months)" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white" value={vendor.warrantyMonths} onChange={e => {
                                                                                             const updated = [...hierarchicalBrands];
                                                                                             updated[bIdx].models[mIdx].vendors[vIdx].warrantyMonths = Number(e.target.value);
@@ -1614,11 +1630,27 @@ export const InventoryModule: React.FC = () => {
                                                                                                 <option key={v.id} value={v.id}>{v.name}</option>
                                                                                             ))}
                                                                                         </select>
-                                                                                        <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
-                                                                                            const updated = [...hierarchicalBrands];
-                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
-                                                                                            setHierarchicalBrands(updated);
-                                                                                        }} />
+                                                                                        <div className="relative">
+                                                                                            <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 pr-8 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    let random8 = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                                                                    const updated = [...hierarchicalBrands];
+                                                                                                    updated[bIdx].models[mIdx].vendors[vIdx].sku = random8;
+                                                                                                    setHierarchicalBrands(updated);
+                                                                                                    addNotification('SKU Generated', `New Vendor SKU ${random8} generated.`, 'success');
+                                                                                                }}
+                                                                                                className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 rounded-full p-1 transition-colors"
+                                                                                                title="Generate SKU Sequence"
+                                                                                            >
+                                                                                                <ScanBarcode size={10} />
+                                                                                            </button>
+                                                                                        </div>
                                                                                         <input type="number" placeholder="Warranty (Months)" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white" value={vendor.warrantyMonths} onChange={e => {
                                                                                             const updated = [...hierarchicalBrands];
                                                                                             updated[bIdx].models[mIdx].vendors[vIdx].warrantyMonths = Number(e.target.value);
