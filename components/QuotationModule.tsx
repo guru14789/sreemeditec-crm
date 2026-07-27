@@ -112,6 +112,49 @@ import { AutoSuggest } from './AutoSuggest';
 export const QuotationModule: React.FC = () => {
     const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
+    const flatProducts = useMemo(() => {
+        const list: any[] = [];
+        products.forEach(p => {
+            // Push base product
+            list.push({
+                id: p.id,
+                name: p.name,
+                sku: p.sku || '',
+                barcode: p.barcode || '',
+                sellingPrice: p.sellingPrice || 0,
+                hsn: p.hsn || '',
+                taxRate: p.taxRate || 12,
+                features: p.description || ''
+            });
+
+            // Push all brand and model options
+            if (p.brands && p.brands.length > 0) {
+                p.brands.forEach(b => {
+                    if (b.models && b.models.length > 0) {
+                        b.models.forEach(m => {
+                            const primaryVendor = m.vendors && m.vendors[0];
+                            const cost = primaryVendor ? primaryVendor.purchasePrice : p.purchasePrice;
+                            const selling = primaryVendor ? primaryVendor.sellingPrice : p.sellingPrice;
+                            const sku = primaryVendor ? primaryVendor.sku : p.sku;
+                            const gst = primaryVendor ? primaryVendor.gstRate : (p.taxRate || 12);
+
+                            list.push({
+                                id: `${p.id}::${b.name}::${m.name}`,
+                                name: `${p.name} (${b.name} - ${m.name})`,
+                                sku: sku || '',
+                                barcode: m.barcode || '',
+                                sellingPrice: selling || 0,
+                                hsn: p.hsn || '',
+                                taxRate: gst || 12,
+                                features: m.specs ? m.specs.map(sp => `${sp.key}: ${sp.value}`).join(', ') : (p.description || '')
+                            });
+                        });
+                    }
+                });
+            }
+        });
+        return list;
+    }, [products]);
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
@@ -295,12 +338,17 @@ Sree Meditec`;
                 if (item.id === id) {
                     const updated = { ...item, [field]: value };
                     if (field === 'description') {
-                        const masterProd = products.find(p => p.name.toUpperCase() === value.toUpperCase());
-                        if (masterProd) {
-                            updated.unitPrice = masterProd.sellingPrice; // USE sellingPrice
-                            updated.taxRate = masterProd.taxRate || 12;
-                            updated.model = masterProd.model || '';
-                            updated.features = masterProd.description || '';
+                        const matched = flatProducts.find(p => p.name.toUpperCase() === value.toUpperCase());
+                        if (matched) {
+                            updated.unitPrice = matched.sellingPrice;
+                            updated.taxRate = matched.taxRate || 12;
+                            updated.features = matched.features || '';
+                            if (matched.id.includes('::')) {
+                                const parts = matched.id.split('::');
+                                updated.model = parts[2];
+                            } else {
+                                updated.model = '';
+                            }
                         }
                     }
                     updated.amount = updated.quantity * updated.unitPrice;
@@ -803,25 +851,61 @@ Sree Meditec`;
                                                 <div className="p-4 sm:p-5 bg-slate-50 border border-slate-300 rounded-[1.5rem] sm:rounded-[2rem] relative hover:bg-white hover:border-medical-200 transition-all">
                                                     <button onClick={() => setQuote({...quote, items: (quote.items || []).filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 transition-opacity opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
                                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-                                                        <div className="md:col-span-6 space-y-1">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Product Name</label>
-                                                            <AutoSuggest
-                                                                value={item.description || ''}
-                                                                onChange={val => updateItem(item.id, 'description', val.toUpperCase())}
-                                                                onSelect={prod => {
-                                                                    updateItem(item.id, 'description', prod.name.toUpperCase());
-                                                                    if (prod.hsn) updateItem(item.id, 'hsn', prod.hsn);
-                                                                    if (prod.taxRate) updateItem(item.id, 'taxRate', prod.taxRate);
-                                                                    if (prod.sellingPrice) updateItem(item.id, 'unitPrice', prod.sellingPrice);
-                                                                    if (prod.features) updateItem(item.id, 'features', prod.features);
-                                                                }}
-                                                                suggestions={products}
-                                                                filterKey="name"
-                                                                className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold uppercase"
-                                                                placeholder="Item Name"
-                                                            />
-                                                        </div>
-                                                        <div className="md:col-span-6 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label><input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold uppercase" value={item.model || ''} onChange={e => updateItem(item.id, 'model', e.target.value.toUpperCase())} /></div>
+                                                         {/* Product Selection */}
+                                                         <div className="md:col-span-4 space-y-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Product Name</label>
+                                                             <AutoSuggest
+                                                                 value={item.description || ''}
+                                                                 onChange={val => updateItem(item.id, 'description', val.toUpperCase())}
+                                                                 onSelect={prod => {
+                                                                     const baseProdName = prod.name.split(' (')[0];
+                                                                     updateItem(item.id, 'description', baseProdName.toUpperCase());
+                                                                 }}
+                                                                 suggestions={products}
+                                                                 filterKey="name"
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold uppercase"
+                                                                 placeholder="Item Name"
+                                                             />
+                                                         </div>
+
+                                                         {/* Brand Selection (filtered by product) */}
+                                                         <div className="md:col-span-4 space-y-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Brand</label>
+                                                             <select
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none h-[38px] outline-none"
+                                                                 value={item.brand || ''}
+                                                                 onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                 disabled={!item.description}
+                                                             >
+                                                                 <option value="">Select Brand</option>
+                                                                 {(() => {
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     return matchedProd?.brands?.map(b => (
+                                                                         <option key={b.id} value={b.name}>{b.name}</option>
+                                                                     ));
+                                                                 })()}
+                                                             </select>
+                                                         </div>
+
+                                                         {/* Model Selection (filtered by brand) */}
+                                                         <div className="md:col-span-4 space-y-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label>
+                                                             <select
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none h-[38px] outline-none"
+                                                                 value={item.model || ''}
+                                                                 onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 disabled={!item.brand}
+                                                             >
+                                                                 <option value="">Select Model</option>
+                                                                 {(() => {
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                     return matchedBrand?.models?.map(m => (
+                                                                         <option key={m.id} value={m.name}>{m.name}</option>
+                                                                     ));
+                                                                 })()}
+                                                             </select>
+                                                         </div>
                                                         <div className="grid grid-cols-2 md:col-span-4 gap-4">
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option></select></div>

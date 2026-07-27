@@ -590,19 +590,38 @@ Email: sreemeditec@gmail.com`;
                     
                     const updated = { ...item, [field]: finalVal };
                     if (field === 'description') {
-                        const masterProd = products.find(p => p.name.toUpperCase() === value.toUpperCase());
-                        if (masterProd) {
-                            updated.unitPrice = masterProd.sellingPrice;
-                            updated.hsn = masterProd.hsn || '';
-                            updated.features = masterProd.description || '';
-                            updated.taxRate = masterProd.taxRate || 18;
-                            updated.productId = masterProd.id;
-                            updated.sku = masterProd.sku || '';
-                            updated.barcode = masterProd.barcode || '';
-                        } else {
-                            updated.productId = undefined;
-                            updated.sku = undefined;
-                            updated.barcode = undefined;
+                        const matchedProduct = products.find(p => p.name.toUpperCase() === value.toUpperCase());
+                        updated.brand = '';
+                        updated.model = '';
+                        if (matchedProduct) {
+                            updated.productId = matchedProduct.id;
+                            updated.hsn = matchedProduct.hsn || '';
+                            updated.taxRate = matchedProduct.taxRate || 18;
+                            updated.unitPrice = matchedProduct.sellingPrice || 0;
+                            updated.features = matchedProduct.description || '';
+                            updated.sku = matchedProduct.sku || '';
+                            updated.barcode = matchedProduct.barcode || '';
+                        }
+                    } else if (field === 'brand') {
+                        updated.model = '';
+                    } else if (field === 'model') {
+                        const matchedProduct = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                        if (matchedProduct) {
+                            const brandObj = matchedProduct.brands?.find(b => b.name === item.brand);
+                            const modelObj = brandObj?.models?.find(m => m.name === value);
+                            if (modelObj) {
+                                // Default specs and pricing
+                                updated.features = modelObj.specs ? modelObj.specs.map(s => `${s.key}: ${s.value}`).join(', ') : (matchedProduct.description || '');
+                                if (modelObj.vendors && modelObj.vendors.length > 0) {
+                                    const primaryVendor = modelObj.vendors[0];
+                                    updated.unitPrice = primaryVendor.sellingPrice || matchedProduct.sellingPrice || 0;
+                                    updated.taxRate = primaryVendor.gstRate || matchedProduct.taxRate || 18;
+                                    updated.sku = primaryVendor.sku || matchedProduct.sku || '';
+                                }
+                                if (modelObj.barcode) {
+                                    updated.barcode = modelObj.barcode;
+                                }
+                            }
                         }
                     }
                     // Calculations work with strings automatically in JS math
@@ -1200,24 +1219,62 @@ Email: sreemeditec@gmail.com`;
                                                 <div className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative hover:bg-white hover:border-medical-200 transition-all">
                                                     <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
                                                     <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 sm:gap-6">
-                                                        <div className="col-span-2 sm:col-span-5">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Description</label>
-                                                            <AutoSuggest
-                                                                value={item.description || ''}
-                                                                onChange={val => updateItem(item.id, 'description', val)}
-                                                                onSelect={prod => {
-                                                                    updateItem(item.id, 'description', prod.name);
-                                                                    if (prod.hsn) updateItem(item.id, 'hsn', prod.hsn);
-                                                                    if (prod.taxRate) updateItem(item.id, 'taxRate', prod.taxRate);
-                                                                    if (prod.sellingPrice) updateItem(item.id, 'unitPrice', prod.sellingPrice);
-                                                                    if (prod.features) updateItem(item.id, 'features', prod.features);
-                                                                }}
-                                                                suggestions={flatProducts}
-                                                                filterKey="name"
-                                                                className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black"
-                                                                placeholder="Item Name"
-                                                            />
-                                                        </div>
+                                                        {/* Product Selection */}
+                                                         <div className="col-span-2 sm:col-span-3">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Product Name</label>
+                                                             <AutoSuggest
+                                                                 value={item.description || ''}
+                                                                 onChange={val => updateItem(item.id, 'description', val)}
+                                                                 onSelect={prod => {
+                                                                     // Handle selection of base product (only matching unique name)
+                                                                     const baseProdName = prod.name.split(' (')[0];
+                                                                     updateItem(item.id, 'description', baseProdName);
+                                                                 }}
+                                                                 suggestions={products}
+                                                                 filterKey="name"
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black"
+                                                                 placeholder="Item Name"
+                                                             />
+                                                         </div>
+
+                                                         {/* Brand Selection (filtered by product) */}
+                                                         <div className="col-span-1 sm:col-span-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Brand</label>
+                                                             <select
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none appearance-none"
+                                                                 value={item.brand || ''}
+                                                                 onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                 disabled={!item.description}
+                                                             >
+                                                                 <option value="">Select Brand</option>
+                                                                 {(() => {
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     return matchedProd?.brands?.map(b => (
+                                                                         <option key={b.id} value={b.name}>{b.name}</option>
+                                                                     ));
+                                                                 })()}
+                                                             </select>
+                                                         </div>
+
+                                                         {/* Model Selection (filtered by brand) */}
+                                                         <div className="col-span-1 sm:col-span-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Model</label>
+                                                             <select
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none appearance-none"
+                                                                 value={item.model || ''}
+                                                                 onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 disabled={!item.brand}
+                                                             >
+                                                                 <option value="">Select Model</option>
+                                                                 {(() => {
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                     return matchedBrand?.models?.map(m => (
+                                                                         <option key={m.id} value={m.name}>{m.name}</option>
+                                                                     ));
+                                                                 })()}
+                                                             </select>
+                                                         </div>
                                                         <div className="col-span-1 sm:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
                                                             <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />

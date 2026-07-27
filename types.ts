@@ -478,6 +478,7 @@ export interface InvoiceItem {
   gstValue: number;
   priceWithGst: number;
   model?: string;
+  brand?: string;
   features?: string;
   unit?: string;
   productId?: string;
