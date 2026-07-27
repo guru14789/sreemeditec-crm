@@ -852,8 +852,8 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Email</label>
-                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Email <span className="text-[9px] text-slate-400 font-normal">(Optional)</span></label>
+                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com (optional)" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Subject</label>
