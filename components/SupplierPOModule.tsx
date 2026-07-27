@@ -512,10 +512,10 @@ export const SupplierPOModule: React.FC = () => {
                                 <tr>
                                     <th className="px-4 py-2 font-inter">PO / Date</th>
                                     <th className="px-4 py-2">Vendor</th>
-                                    <th className="px-4 py-2 hidden md:table-cell">Author</th>
-                                    <th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th>
-                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
-                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
+                                    <th className="px-4 py-2">Author</th>
+                                    <th className="px-4 py-2 text-right">Grand Total</th>
+                                    <th className="px-4 py-2 text-center">Filed Status</th>
+                                    <th className="px-4 py-2 text-center">Status</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
@@ -548,13 +548,13 @@ export const SupplierPOModule: React.FC = () => {
                                             <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{inv.date || '—'}</div>
                                         </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-4 py-2 hidden md:table-cell">
+                                        <td className="px-4 py-2">
                                             <div title={inv.createdBy || 'System'} className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200">
                                                 {inv.createdBy?.charAt(0) || 'S'}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-right font-black text-teal-700">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
                                                 filedStatus={inv.filedStatus} 
@@ -565,7 +565,7 @@ export const SupplierPOModule: React.FC = () => {
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
