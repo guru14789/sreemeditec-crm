@@ -714,7 +714,7 @@ export const ReportsModule: React.FC = () => {
 
   const employeeClosuresList = useMemo(() => {
     if (!selectedEmployeeForClosures) return [];
-    return invoices.filter(inv => {
+    return (allSmInvoicesKpi || []).filter(inv => {
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return false;
       if (inv.documentType && inv.documentType !== 'Invoice') return false;
       if (!filterByDateRange(inv.date)) return false;
@@ -726,10 +726,10 @@ export const ReportsModule: React.FC = () => {
       
       return id === selectedEmployeeForClosures.id || name === selectedEmployeeForClosures.name;
     }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [selectedEmployeeForClosures, invoices, dateRange, employees]);
+  }, [selectedEmployeeForClosures, allSmInvoicesKpi, dateRange, employees]);
 
   const handleViewInvoicePDF = async (invId: string) => {
-    const fullInvoice = invoices.find(i => i.id === invId || i.invoiceNumber === invId);
+    const fullInvoice = (allSmInvoicesKpi || []).find(i => i.id === invId || i.invoiceNumber === invId);
     if (fullInvoice) {
       try {
         const isQuotation = fullInvoice.documentType === 'Quotation';
