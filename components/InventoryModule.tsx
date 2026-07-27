@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, ProductVendorInfo } from '../types';
-import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw } from 'lucide-react';
+import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw, FileText, Eye, EyeOff, ChevronDown, ChevronRight, Barcode } from 'lucide-react';
 import { useData } from './DataContext';
 import { AutoSuggest } from './AutoSuggest';
 
@@ -161,10 +161,24 @@ export const InventoryModule: React.FC = () => {
         setEditProductVendors(editProductVendors.filter((_, i) => i !== index));
     };
 
+    // Advanced Hierarchical Form States
+    const [hierarchicalSubcategory, setHierarchicalSubcategory] = useState('');
+    const [hierarchicalBrands, setHierarchicalBrands] = useState<any[]>([]); // Array of BrandDetail
+    const [expandedBrands, setExpandedBrands] = useState<Record<string, boolean>>({});
+    const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
+    const [expandedProductsTree, setExpandedProductsTree] = useState<Record<string, boolean>>({});
+
+    // Dynamic autocomplete helper states
+    const [categoriesIndex, setCategoriesIndex] = useState<string[]>(['Equipment', 'Consumable', 'Spare Part', 'Pipe Line', 'Furniture']);
+
     useEffect(() => {
         if (showAddProductModal) {
             setNewSpecs([]);
             setNewProductVendors([]);
+            setHierarchicalSubcategory('');
+            setHierarchicalBrands([]);
+            setExpandedBrands({});
+            setExpandedModels({});
         }
     }, [showAddProductModal]);
 
@@ -242,10 +256,30 @@ export const InventoryModule: React.FC = () => {
     }, [showScanModal, scanStatus]);
 
     const handleSaveProduct = async () => {
-        if (!newProduct.name || !newProduct.sku || newProduct.sellingPrice === undefined) {
-            alert("Please fill Name, SKU and Selling Price.");
+        if (!newProduct.name || !newProduct.sku) {
+            alert("Please fill Name and SKU.");
             return;
         }
+
+        // Validate duplicates
+        if (hierarchicalBrands && hierarchicalBrands.length > 0) {
+            for (const brand of hierarchicalBrands) {
+                for (const model of brand.models || []) {
+                    const isDup = products.some(p => 
+                        p.name.trim().toLowerCase() === newProduct.name!.trim().toLowerCase() &&
+                        (p.brands || []).some(b => 
+                            b.name.trim().toLowerCase() === brand.name.trim().toLowerCase() &&
+                            (b.models || []).some(m => m.name.trim().toLowerCase() === model.name.trim().toLowerCase())
+                        )
+                    );
+                    if (isDup) {
+                        alert(`Duplicate Entry Warning: The combination of Product "${newProduct.name}", Brand "${brand.name}", and Model "${model.name}" already exists!`);
+                        return;
+                    }
+                }
+            }
+        }
+
         const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
         
         const specsRecord: Record<string, string> = {};
@@ -255,19 +289,48 @@ export const InventoryModule: React.FC = () => {
             }
         });
 
+        // Compute aggregate stock/prices from all nested model-vendors
+        let totalStock = Number(newProduct.stock) || 0;
+        let avgPurchasePrice = Number(newProduct.purchasePrice) || 0;
+        let avgSellingPrice = Number(newProduct.sellingPrice) || 0;
+
+        if (hierarchicalBrands && hierarchicalBrands.length > 0) {
+            let modelVendorCount = 0;
+            let stockSum = 0;
+            let purchaseSum = 0;
+            let sellingSum = 0;
+
+            hierarchicalBrands.forEach(b => {
+                (b.models || []).forEach((m: any) => {
+                    (m.vendors || []).forEach((v: any) => {
+                        stockSum += Number(v.stock || 0);
+                        purchaseSum += Number(v.purchasePrice || 0);
+                        sellingSum += Number(v.sellingPrice || 0);
+                        modelVendorCount++;
+                    });
+                });
+            });
+
+            if (modelVendorCount > 0) {
+                totalStock = stockSum;
+                avgPurchasePrice = Math.round(purchaseSum / modelVendorCount);
+                avgSellingPrice = Math.round(sellingSum / modelVendorCount);
+            }
+        }
+
         const validVendors = newProductVendors.filter(v => v.vendorName.trim() !== '');
         const primarySupplier = validVendors.length > 0 ? validVendors[0].vendorName : (newProduct.supplier || '');
-        const primaryPurchasePrice = validVendors.length > 0 ? Number(validVendors[0].purchasePrice || 0) : Number(newProduct.purchasePrice || 0);
 
         const productToAdd: Product = {
             id: `P-${Date.now()}-${shortId}`,
             name: newProduct.name!,
             category: newProduct.category as 'Equipment' | 'Consumable' | 'Spare Part' | 'Pipe Line' | 'Furniture' || 'Equipment',
+            subcategory: hierarchicalSubcategory || '',
             sku: newProduct.sku!,
-            stock: Number(newProduct.stock) || 0,
+            stock: totalStock,
             unit: newProduct.unit || 'nos',
-            purchasePrice: primaryPurchasePrice,
-            sellingPrice: Number(newProduct.sellingPrice) || 0,
+            purchasePrice: avgPurchasePrice || newProduct.purchasePrice || 0,
+            sellingPrice: avgSellingPrice || newProduct.sellingPrice || 0,
             minLevel: Number(newProduct.minLevel) || 5,
             location: newProduct.location || 'Unassigned',
             hsn: newProduct.hsn || '',
@@ -277,18 +340,20 @@ export const InventoryModule: React.FC = () => {
             specs: specsRecord,
             supplier: primarySupplier,
             vendors: validVendors,
-            lastRestocked: (newProduct.stock || 0) > 0 ? new Date().toISOString().split('T')[0] : ''
+            lastRestocked: totalStock > 0 ? new Date().toISOString().split('T')[0] : '',
+            brands: hierarchicalBrands || []
         };
+
         await addProduct(productToAdd);
         await addLog('Inventory', 'Product Initialization', `New product master record created: ${productToAdd.name} (${productToAdd.sku}) with initial stock of ${productToAdd.stock} ${productToAdd.unit}.`);
 
-        if ((newProduct.stock || 0) > 0) {
+        if (totalStock > 0) {
             await recordStockMovement({
                 id: `MOV-INIT-${Date.now()}`,
                 productId: productToAdd.id,
                 productName: productToAdd.name,
                 type: 'In',
-                quantity: productToAdd.stock,
+                quantity: totalStock,
                 date: new Date().toISOString().split('T')[0],
                 reference: 'Opening Stock',
                 purpose: 'Restock'
@@ -300,6 +365,8 @@ export const InventoryModule: React.FC = () => {
         setNewProduct({ category: 'Equipment', stock: 0, unit: 'nos', minLevel: 5, location: 'Warehouse A', name: '', sku: '', purchasePrice: 0, sellingPrice: 0, hsn: '', taxRate: 18, model: '', description: '', supplier: '' });
         setNewSpecs([]);
         setNewProductVendors([]);
+        setHierarchicalSubcategory('');
+        setHierarchicalBrands([]);
     };
 
     const handleOpenEdit = (product: Product) => {
@@ -322,6 +389,8 @@ export const InventoryModule: React.FC = () => {
         } else {
             setEditProductVendors([]);
         }
+        setHierarchicalSubcategory(product.subcategory || '');
+        setHierarchicalBrands(product.brands || []);
         setShowEditProductModal(true);
     };
 
@@ -333,7 +402,6 @@ export const InventoryModule: React.FC = () => {
         }
 
         const originalProduct = products.find(p => p.id === editingProduct.id);
-        const stockDiff = (editingProduct.stock || 0) - (originalProduct?.stock || 0);
 
         const specsRecord: Record<string, string> = {};
         editSpecs.forEach(item => {
@@ -342,20 +410,51 @@ export const InventoryModule: React.FC = () => {
             }
         });
 
+        // Compute aggregate stock/prices from all nested model-vendors
+        let totalStock = Number(editingProduct.stock) || 0;
+        let avgPurchasePrice = Number(editingProduct.purchasePrice) || 0;
+        let avgSellingPrice = Number(editingProduct.sellingPrice) || 0;
+
+        if (hierarchicalBrands && hierarchicalBrands.length > 0) {
+            let modelVendorCount = 0;
+            let stockSum = 0;
+            let purchaseSum = 0;
+            let sellingSum = 0;
+
+            hierarchicalBrands.forEach(b => {
+                (b.models || []).forEach((m: any) => {
+                    (m.vendors || []).forEach((v: any) => {
+                        stockSum += Number(v.stock || 0);
+                        purchaseSum += Number(v.purchasePrice || 0);
+                        sellingSum += Number(v.sellingPrice || 0);
+                        modelVendorCount++;
+                    });
+                });
+            });
+
+            if (modelVendorCount > 0) {
+                totalStock = stockSum;
+                avgPurchasePrice = Math.round(purchaseSum / modelVendorCount);
+                avgSellingPrice = Math.round(sellingSum / modelVendorCount);
+            }
+        }
+
+        const stockDiff = totalStock - (originalProduct?.stock || 0);
         const validVendors = editProductVendors.filter(v => v.vendorName.trim() !== '');
         const primarySupplier = validVendors.length > 0 ? validVendors[0].vendorName : (editingProduct.supplier || '');
-        const primaryPurchasePrice = validVendors.length > 0 ? Number(validVendors[0].purchasePrice || 0) : Number(editingProduct.purchasePrice || 0);
 
         await updateProduct(editingProduct.id, {
             ...editingProduct,
-            stock: Number(editingProduct.stock || 0),
-            purchasePrice: primaryPurchasePrice,
-            sellingPrice: Number(editingProduct.sellingPrice || 0),
+            stock: totalStock,
+            purchasePrice: avgPurchasePrice || editingProduct.purchasePrice || 0,
+            sellingPrice: avgSellingPrice || editingProduct.sellingPrice || 0,
             minLevel: Number(editingProduct.minLevel || 0),
             description: editSpecs.map(s => `${s.key}: ${s.value}`).join('\n') || editingProduct.description || '',
             specs: specsRecord,
             supplier: primarySupplier,
-            vendors: validVendors
+            vendors: validVendors,
+            subcategory: hierarchicalSubcategory || '',
+            brands: hierarchicalBrands || []
         });
 
         if (stockDiff !== 0) {
@@ -373,6 +472,8 @@ export const InventoryModule: React.FC = () => {
 
         setShowEditProductModal(false);
         setEditingProduct(null);
+        setHierarchicalSubcategory('');
+        setHierarchicalBrands([]);
         addNotification('Record Updated', `"${editingProduct.name}" modified successfully.`, 'success');
     };
 
@@ -641,148 +742,167 @@ export const InventoryModule: React.FC = () => {
                             <tbody className="divide-y divide-slate-100 relative z-10">
                                 {filteredProducts.map((product) => {
                                     const stock = product.stock || 0;
-
                                     const purchasePrice = product.purchasePrice || 0;
                                     const sellingPrice = product.sellingPrice || 0;
+                                    const isExpanded = !!expandedProductsTree[product.id];
 
                                     return (
-                                        <tr key={product.id} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
-                                            <td className="px-3 py-1.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'name' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'name' ? (
-                                                    <InlineInput value={product.name} onSave={(v) => handleQuickUpdate(product.id, 'name', v)} onCancel={() => setInlineEdit(null)} />
-                                                ) : (
-                                                    <div className="font-black text-slate-800 truncate text-[11px]" title={product.name}>{product.name}</div>
-                                                )}
-                                                <div 
-                                                    className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 truncate cursor-text"
-                                                    onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'model' }); }}
-                                                >
-                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'model' ? (
-                                                        <InlineInput value={product.model || ''} onSave={(v) => handleQuickUpdate(product.id, 'model', v)} onCancel={() => setInlineEdit(null)} className="text-[11px]" />
-                                                    ) : (
-                                                        product.model || 'Standard Model'
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'category' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'category' ? (
-                                                    <InlineInput value={product.category} onSave={(v) => handleQuickUpdate(product.id, 'category', v)} onCancel={() => setInlineEdit(null)} className="text-indigo-600" />
-                                                ) : (
-                                                    <div className="text-[11px] font-black text-indigo-600 uppercase truncate">{product.category}</div>
-                                                )}
-                                                <div 
-                                                    className="text-[9px] font-mono text-slate-400 mt-0.5 truncate cursor-text"
-                                                    onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sku' }); }}
-                                                >
-                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'sku' ? (
-                                                        <InlineInput value={product.sku} onSave={(v) => handleQuickUpdate(product.id, 'sku', v)} onCancel={() => setInlineEdit(null)} className="text-[11px] font-mono" />
-                                                    ) : (
-                                                        product.sku
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5">
-                                                <div className="flex flex-col gap-1 max-w-[200px]">
-                                                    {product.vendors && product.vendors.length > 0 ? (
-                                                        product.vendors.map((pv, idx) => (
-                                                            <div key={idx} className="flex items-center gap-1 text-[11px] font-bold text-slate-600 truncate bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800/80">
-                                                                <Building2 size={8} className="text-slate-400 shrink-0" />
-                                                                <span className="truncate">{pv.vendorName}</span>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 w-full overflow-hidden">
-                                                            <Building2 size={10} className="shrink-0" />
-                                                            <span className="truncate">{product.supplier || 'Not set'}</span>
+                                        <React.Fragment key={product.id}>
+                                            <tr className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0" onClick={() => setExpandedProductsTree({ ...expandedProductsTree, [product.id]: !isExpanded })}>
+                                                <td className="px-3 py-1.5 editable-cell">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-slate-400">
+                                                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                        </span>
+                                                        <div>
+                                                            <div className="font-black text-slate-800 truncate text-[11px]" title={product.name}>{product.name}</div>
+                                                            {product.subcategory && (
+                                                                <div className="text-[8px] text-indigo-500 font-bold uppercase">{product.subcategory}</div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right font-black text-slate-800 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'stock' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'stock' ? (
-                                                    <InlineInput type="number" value={stock} onSave={(v) => handleQuickUpdate(product.id, 'stock', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
-                                                ) : (
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-1.5">
+                                                    <div className="text-[11px] font-black text-indigo-600 uppercase truncate">{product.category}</div>
+                                                    <div className="text-[9px] font-mono text-slate-400 mt-0.5 truncate">{product.sku}</div>
+                                                </td>
+                                                <td className="px-3 py-1.5">
+                                                    <div className="flex flex-col gap-1 max-w-[200px]">
+                                                        {product.brands && product.brands.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.brands.map((b, idx) => (
+                                                                    <span key={idx} className="text-[8px] font-black uppercase bg-slate-100 text-slate-600 px-1 py-0.5 rounded">{b.name}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : product.vendors && product.vendors.length > 0 ? (
+                                                            product.vendors.map((pv, idx) => (
+                                                                <div key={idx} className="flex items-center gap-1 text-[11px] font-bold text-slate-600 truncate bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800/80">
+                                                                    <Building2 size={8} className="text-slate-400 shrink-0" />
+                                                                    <span className="truncate">{pv.vendorName}</span>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 w-full overflow-hidden">
+                                                                <Building2 size={10} className="shrink-0" />
+                                                                <span className="truncate">{product.supplier || 'Not set'}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right font-black text-slate-800">
                                                     <div className="flex flex-col items-end">
                                                         <span className="text-[11px]">{stock}</span>
                                                         <span className="text-[9px] text-slate-400 uppercase leading-none">{product.unit || 'nos'}</span>
                                                     </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right font-black text-slate-400 italic">
-                                                <div className="flex flex-col gap-1 items-end">
-                                                    {product.vendors && product.vendors.length > 0 ? (
-                                                        product.vendors.map((pv, idx) => (
-                                                            <div key={idx} className="text-[11px] font-black text-rose-600/80">
-                                                                ₹{pv.purchasePrice.toLocaleString('en-IN')}
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-[11px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right font-black text-teal-700 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'sellingPrice' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'sellingPrice' ? (
-                                                    <InlineInput type="number" value={product.sellingPrice || 0} onSave={(v) => handleQuickUpdate(product.id, 'sellingPrice', Number(v))} onCancel={() => setInlineEdit(null)} className="text-right" />
-                                                ) : (
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right font-black text-slate-400 italic">
+                                                    <span className="text-[11px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right font-black text-teal-700">
                                                     <span className="text-[11px]">₹{sellingPrice.toLocaleString('en-IN')}</span>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-center editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'taxRate' }); }}>
-                                                {inlineEdit?.id === product.id && inlineEdit.field === 'taxRate' ? (
-                                                    <InlineInput type="number" value={product.taxRate || 0} onSave={(v) => handleQuickUpdate(product.id, 'taxRate', Number(v))} onCancel={() => setInlineEdit(null)} className="text-center" />
-                                                ) : (
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center">
                                                     <div className="flex flex-col items-center">
                                                         <span className="font-black text-slate-700 text-[11px]">{product.taxRate || 0}%</span>
-                                                        <span className="text-[9px] text-slate-400 font-bold">₹{((sellingPrice * (product.taxRate || 0)) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                                     </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right font-black text-medical-800 bg-medical-50/10 text-[11px]">
-                                                ₹{(stock * (product.purchasePrice || 0)).toLocaleString('en-IN')}
-                                            </td>
-                                            <td className="px-3 py-1.5 editable-cell" onClick={(e) => { e.stopPropagation(); setInlineEdit({ id: product.id, field: 'location' }); }}>
-                                                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate">
-                                                    <MapPin size={10} className="shrink-0" />
-                                                    {inlineEdit?.id === product.id && inlineEdit.field === 'location' ? (
-                                                        <InlineInput value={product.location || ''} onSave={(v) => handleQuickUpdate(product.id, 'location', v)} onCancel={() => setInlineEdit(null)} className="text-[11px]" />
-                                                    ) : (
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right font-black text-medical-800 bg-medical-50/10 text-[11px]">
+                                                    ₹{(stock * purchasePrice).toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="px-3 py-1.5">
+                                                    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate">
+                                                        <MapPin size={10} className="shrink-0" />
                                                         <span className="truncate">{product.location}</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5">
-                                                <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] md:text-[11px] font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 w-fit">
-                                                    <CheckCircle size={10} className="shrink-0" /> <span className="hidden sm:inline">Optimal</span><span className="sm:hidden">OK</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right">
-                                                <div className="relative flex justify-end menu-container">
-                                                    <button 
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            setActiveMenuId(activeMenuId === product.id ? null : product.id); 
-                                                        }} 
-                                                        className={`p-1.5 md:p-2 rounded-[2rem] transition-all ${activeMenuId === product.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-                                                    >
-                                                        <RefreshCw size={14} className={activeMenuId === product.id ? 'animate-spin-slow' : ''} />
-                                                    </button>
-                                                    
-                                                    {activeMenuId === product.id && (
-                                                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-[2rem] shadow-xl border border-slate-200 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                                            <div className="p-2 space-y-1">
-                                                                <button onClick={() => { handleOpenEdit(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-[2rem] transition-colors">
-                                                                    <Edit2 size={14} className="text-indigo-500" /> Edit Product
-                                                                </button>
-                                                                <button onClick={() => { setPendingDelete({ id: product.id, name: product.name }); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-[2rem] transition-colors">
-                                                                    <Trash2 size={14} className="text-rose-500" /> Delete Product
-                                                                </button>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-1.5">
+                                                    <div className="flex items-center gap-1.5 text-emerald-600 text-[9px] md:text-[11px] font-black uppercase bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 w-fit">
+                                                        <CheckCircle size={10} className="shrink-0" /> <span className="hidden sm:inline">Optimal</span><span className="sm:hidden">OK</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="relative flex justify-end menu-container">
+                                                        <button 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                setActiveMenuId(activeMenuId === product.id ? null : product.id); 
+                                                            }} 
+                                                            className={`p-1.5 md:p-2 rounded-[2rem] transition-all ${activeMenuId === product.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
+                                                        >
+                                                            <RefreshCw size={14} className={activeMenuId === product.id ? 'animate-spin-slow' : ''} />
+                                                        </button>
+                                                        
+                                                        {activeMenuId === product.id && (
+                                                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-[2rem] shadow-xl border border-slate-200 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                                <div className="p-2 space-y-1">
+                                                                    <button onClick={() => { handleOpenEdit(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-[2rem] transition-colors">
+                                                                        <Edit2 size={14} className="text-indigo-500" /> Edit Product
+                                                                    </button>
+                                                                    <button onClick={() => { setPendingDelete({ id: product.id, name: product.name }); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-[2rem] transition-colors">
+                                                                        <Trash2 size={14} className="text-rose-500" /> Delete Product
+                                                                    </button>
+                                                                </div>
                                                             </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* Expandable Hierarchical Brand → Model → Vendor Tree */}
+                                            {isExpanded && product.brands && product.brands.length > 0 && (
+                                                <tr className="bg-slate-50/50">
+                                                    <td colSpan={11} className="p-3 pl-8">
+                                                        <div className="space-y-4 border-l-2 border-indigo-100 pl-4 py-2">
+                                                            <h5 className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">Brands & Models Registry</h5>
+                                                            {product.brands.map((brand: any) => (
+                                                                <div key={brand.id} className="space-y-2">
+                                                                    <div className="text-[11px] font-black text-slate-800 uppercase">Brand: {brand.name || 'Generic'}</div>
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
+                                                                        {(brand.models || []).map((model: any) => (
+                                                                            <div key={model.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                                                                                <div className="flex justify-between items-center border-b border-slate-100 pb-1">
+                                                                                    <span className="font-black text-xs text-indigo-600">Model: {model.name}</span>
+                                                                                </div>
+                                                                                
+                                                                                {/* Specs */}
+                                                                                {model.specs && model.specs.length > 0 && (
+                                                                                    <div className="text-[10px] space-y-0.5">
+                                                                                        <span className="font-bold text-slate-400">Specifications:</span>
+                                                                                        <div className="grid grid-cols-2 gap-1 bg-slate-50 p-1.5 rounded">
+                                                                                            {model.specs.map((spec: any, idx: number) => (
+                                                                                                <div key={idx} className="truncate"><span className="font-bold text-slate-500">{spec.key}:</span> {spec.value}</div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Vendors pricing details */}
+                                                                                {model.vendors && model.vendors.length > 0 && (
+                                                                                    <div className="text-[10px] space-y-1">
+                                                                                        <span className="font-bold text-slate-400">Vendor Pricing & Stock:</span>
+                                                                                        <div className="space-y-1">
+                                                                                            {model.vendors.map((v: any, idx: number) => (
+                                                                                                <div key={idx} className="flex justify-between items-center text-[10px] bg-indigo-50/30 p-1 rounded font-medium">
+                                                                                                    <span className="font-bold truncate max-w-[80px]">{v.vendorName}</span>
+                                                                                                    <span className="font-mono text-slate-400 text-[8px]">{v.sku}</span>
+                                                                                                    <span>Stock: <b className="text-indigo-700">{v.stock}</b></span>
+                                                                                                    <span>P: <b>₹{v.purchasePrice}</b></span>
+                                                                                                    <span>S: <b>₹{v.sellingPrice}</b></span>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>
@@ -853,378 +973,722 @@ export const InventoryModule: React.FC = () => {
                 </div>
             )}
 
-            {/* Edit Product Modal */}
+            {/* Edit Product Modal (Hierarchical Builder Wizard) */}
             {showEditProductModal && editingProduct && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                        <div className="p-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
-                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Edit Registry Item</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Manual Inventory Adjustment</p>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase">Edit Hierarchical Product</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Category → Subcategory → Product → Brand → Model → Vendor</p>
                             </div>
-                            <button onClick={() => setShowEditProductModal(false)}><X size={28} className="text-slate-400 hover:text-slate-600 transition-colors" /></button>
+                            <button onClick={() => setShowEditProductModal(false)}><X size={28} className="text-slate-400 hover:text-slate-655" /></button>
                         </div>
-                        <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Name *</label>
-                                <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none focus:border-medical-500" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
-                                <select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none appearance-none" value={editingProduct.category || 'Equipment'} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value as any })}>
-                                    <option>Equipment</option>
-                                    <option>Consumable</option>
-                                    <option>Spare Part</option>
-                                    <option>Pipe Line</option>
-                                    <option>Furniture</option>
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SKU / Model *</label>
-                                    <div className="relative">
-                                        <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-[2rem] pl-3 pr-10 py-2 text-[16px] font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
-                                        <button
-                                            type="button"
-                                            onClick={async () => {
-                                                if (showPrompt) {
-                                                    const pwd = await showPrompt("Enter admin password to generate SKU", "Generate SKU", "password");
-                                                    if (pwd === "admin") {
-                                                        let newSku = "";
-                                                        let isDuplicate = true;
-                                                        while (isDuplicate) {
-                                                            newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
-                                                            isDuplicate = products.some(p => p.sku === newSku);
-                                                        }
-                                                        setEditingProduct({ ...editingProduct, sku: newSku });
-                                                        addNotification('SKU Generated', `New SKU ${newSku} generated successfully.`, 'success');
-                                                    } else if (pwd !== null) {
-                                                        addNotification('Error', 'Incorrect password.', 'error');
+                        <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            
+                            {/* Step 1: Base Product Master */}
+                            <div className="space-y-4">
+                                <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest border-b border-indigo-100 pb-1">1. Master Product Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Product Name *</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none focus:border-medical-500" value={editingProduct.name} onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-1.5 font-bold">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Category *</label>
+                                        <select className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none appearance-none" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value as any })}>
+                                            <option>Equipment</option>
+                                            <option>Consumable</option>
+                                            <option>Spare Part</option>
+                                            <option>Pipe Line</option>
+                                            <option>Furniture</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Subcategory</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none focus:border-medical-500" value={hierarchicalSubcategory} onChange={e => setHierarchicalSubcategory(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    <div className="space-y-1.5 relative">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Product SKU *</label>
+                                        <div className="relative">
+                                            <input type="text" className="w-full border border-slate-355 bg-white rounded-[2rem] pl-4 pr-10 py-2 text-xs font-bold outline-none" value={editingProduct.sku} onChange={e => setEditingProduct({ ...editingProduct, sku: e.target.value })} />
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    let newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                    while (products.some(p => p.sku === newSku)) {
+                                                        newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
                                                     }
-                                                }
-                                            }}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full p-1.5 transition-colors"
-                                            title="Auto Generate SKU"
-                                        >
-                                            <ScanBarcode size={14} />
-                                        </button>
+                                                    setEditingProduct({ ...editingProduct, sku: newSku });
+                                                    addNotification('SKU Generated', `New SKU ${newSku} generated successfully.`, 'success');
+                                                }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full p-1.5 transition-colors"
+                                                title="Generate SKU"
+                                            >
+                                                <ScanBarcode size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unit Type</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" value={editingProduct.unit} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value.toLowerCase() })} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">HSN Code</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" value={editingProduct.hsn || ''} onChange={e => setEditingProduct({ ...editingProduct, hsn: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Min Level</label>
+                                        <input type="number" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" value={editingProduct.minLevel || ''} onChange={e => setEditingProduct({ ...editingProduct, minLevel: Number(e.target.value) })} />
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Type (nos/pkt)</label>
-                                    <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none uppercase" value={editingProduct.unit || ''} onChange={e => setEditingProduct({ ...editingProduct, unit: e.target.value.toLowerCase() })} placeholder="nos" />
-                                </div>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Selling Rate (₹)</label>
-                                <input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none text-emerald-600" value={editingProduct.sellingPrice || 0} onChange={e => setEditingProduct({ ...editingProduct, sellingPrice: Number(e.target.value) })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Available Stock</label>
-                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none text-indigo-600" value={editingProduct.stock || 0} onChange={e => setEditingProduct({ ...editingProduct, stock: Number(e.target.value) })} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Min Alert Level</label>
-                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" value={editingProduct.minLevel || 0} onChange={e => setEditingProduct({ ...editingProduct, minLevel: Number(e.target.value) })} />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">HSN Code</label>
-                                    <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" value={editingProduct.hsn || ''} onChange={e => setEditingProduct({ ...editingProduct, hsn: e.target.value })} placeholder="HSN Code" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">GST Percentage (%)</label>
-                                    <input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" value={editingProduct.taxRate || 0} onChange={e => setEditingProduct({ ...editingProduct, taxRate: Number(e.target.value) })} />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tax Calculation (Selling Price + GST)</label>
-                                <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black text-medical-600 flex justify-between items-center">
-                                    <span>Calculated Rate:</span>
-                                    <span>₹{((editingProduct.sellingPrice || 0) * (1 + (editingProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vendors & Purchasing Rates</label>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleAddEditVendor} 
-                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
+
+                            {/* Step 2: Brands & Models Specification Builder */}
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center border-b border-slate-200 pb-1">
+                                    <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">2. Brand & Model Hierarchy Configuration</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newBrandId = `B-${Date.now()}`;
+                                            setHierarchicalBrands([...hierarchicalBrands, { id: newBrandId, name: '', models: [] }]);
+                                            setExpandedBrands({ ...expandedBrands, [newBrandId]: true });
+                                        }}
+                                        className="text-[9px] font-black text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 uppercase tracking-wider flex items-center gap-1 transition-colors"
                                     >
-                                        <Plus size={12} /> Add Vendor entry
+                                        <Plus size={10} /> Add Brand
                                     </button>
                                 </div>
-                                {editProductVendors.length > 0 ? (
-                                    <div className="space-y-2.5">
-                                        {editProductVendors.map((pv, index) => (
-                                            <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
-                                                <select className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 appearance-none"
-                                                    value={pv.vendorId}
-                                                    onChange={e => handleEditVendorChange(index, 'vendorId', e.target.value)}
-                                                >
-                                                    <option value="">-- Select Vendor --</option>
-                                                    {vendors.map(v => (
-                                                        <option key={v.id} value={v.id}>{v.name}</option>
-                                                    ))}
-                                                    {pv.vendorId && !vendors.some(v => v.id === pv.vendorId) && (
-                                                        <option value={pv.vendorId}>{pv.vendorName}</option>
-                                                    )}
-                                                </select>
-                                                <div className="relative w-32 shrink-0">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        placeholder="Price" 
-                                                        className="w-full bg-white border border-slate-300 rounded-[2rem] pl-6 pr-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                        value={pv.purchasePrice || ''} 
-                                                        onChange={e => handleEditVendorChange(index, 'purchasePrice', Number(e.target.value))} 
-                                                    />
+
+                                {hierarchicalBrands.length === 0 ? (
+                                    <div className="p-8 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
+                                        No brands defined yet. Click "Add Brand" to build your hierarchical tree.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {hierarchicalBrands.map((brand, bIdx) => (
+                                            <div key={brand.id} className="border border-slate-200 dark:border-slate-800 rounded-[1.5rem] bg-slate-50/50 p-4 space-y-3">
+                                                <div className="flex justify-between items-center gap-4">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedBrands({ ...expandedBrands, [brand.id]: !expandedBrands[brand.id] })}
+                                                            className="p-1 hover:bg-slate-200 rounded"
+                                                        >
+                                                            {expandedBrands[brand.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                        </button>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Brand Name (e.g. Philips, GE)"
+                                                            className="flex-1 max-w-xs border border-slate-300 bg-white rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none focus:border-medical-500"
+                                                            value={brand.name}
+                                                            onChange={e => {
+                                                                const updated = [...hierarchicalBrands];
+                                                                updated[bIdx].name = e.target.value;
+                                                                setHierarchicalBrands(updated);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const modelId = `M-${Date.now()}`;
+                                                                const updated = [...hierarchicalBrands];
+                                                                updated[bIdx].models.push({
+                                                                    id: modelId,
+                                                                    name: '',
+                                                                    specs: [],
+                                                                    vendors: [],
+                                                                    images: [],
+                                                                    documents: []
+                                                                });
+                                                                setHierarchicalBrands(updated);
+                                                                setExpandedBrands({ ...expandedBrands, [brand.id]: true });
+                                                                setExpandedModels({ ...expandedModels, [modelId]: true });
+                                                            }}
+                                                            className="text-[9px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-2.5 py-1 uppercase tracking-wider flex items-center gap-0.5"
+                                                        >
+                                                            <Plus size={10} /> Add Model
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setHierarchicalBrands(hierarchicalBrands.filter(b => b.id !== brand.id));
+                                                            }}
+                                                            className="text-rose-500 hover:bg-rose-50 p-1.5 rounded"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleRemoveEditVendor(index)} 
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-colors shrink-0"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+
+                                                {/* Models render */}
+                                                {expandedBrands[brand.id] && (
+                                                    <div className="pl-6 border-l-2 border-slate-200 space-y-3 mt-2">
+                                                        {brand.models.map((model: any, mIdx: number) => (
+                                                            <div key={model.id} className="bg-white rounded-xl p-3 border border-slate-200 space-y-3">
+                                                                <div className="flex justify-between items-center gap-3">
+                                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setExpandedModels({ ...expandedModels, [model.id]: !expandedModels[model.id] })}
+                                                                            className="p-1 hover:bg-slate-100 rounded"
+                                                                        >
+                                                                            {expandedModels[model.id] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                                        </button>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Model Name / Reference Number"
+                                                                            className="flex-1 max-w-xs border border-slate-200 bg-slate-50 rounded-[2rem] px-3 py-1 text-xs font-bold outline-none"
+                                                                            value={model.name}
+                                                                            onChange={e => {
+                                                                                const updated = [...hierarchicalBrands];
+                                                                                updated[bIdx].models[mIdx].name = e.target.value;
+                                                                                setHierarchicalBrands(updated);
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const updated = [...hierarchicalBrands];
+                                                                            updated[bIdx].models = updated[bIdx].models.filter((m: any) => m.id !== model.id);
+                                                                            setHierarchicalBrands(updated);
+                                                                        }}
+                                                                        className="text-rose-500 hover:bg-rose-50 p-1.5 rounded"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                </div>
+
+                                                                {expandedModels[model.id] && (
+                                                                    <div className="pl-4 space-y-3 border-l border-slate-100 mt-2">
+                                                                        
+                                                                        {/* Specifications Builder */}
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex justify-between items-center">
+                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Specifications</span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs.push({ key: '', value: '' });
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }}
+                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
+                                                                                >
+                                                                                    <Plus size={10} /> Add Spec Field
+                                                                                </button>
+                                                                            </div>
+                                                                            {model.specs.map((spec: any, sIdx: number) => (
+                                                                                <div key={sIdx} className="flex gap-2 items-center">
+                                                                                    <input type="text" placeholder="Specification (e.g. Dimensions)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.key} onChange={e => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs[sIdx].key = e.target.value;
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} />
+                                                                                    <input type="text" placeholder="Value (e.g. 50x30x20cm)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.value} onChange={e => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs[sIdx].value = e.target.value;
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} />
+                                                                                    <button type="button" onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs = updated[bIdx].models[mIdx].specs.filter((_: any, idx: number) => idx !== sIdx);
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={10} /></button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+
+                                                                        {/* Vendors Configurations pricing/stock */}
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex justify-between items-center">
+                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Linked Vendors</span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].vendors.push({
+                                                                                            vendorId: '',
+                                                                                            vendorName: '',
+                                                                                            sku: `${editingProduct.sku || 'SKU'}-${brand.name || 'B'}-${model.name || 'M'}-${Date.now().toString().slice(-4)}`,
+                                                                                            purchasePrice: 0,
+                                                                                            sellingPrice: 0,
+                                                                                            gstRate: 18,
+                                                                                            leadTimeDays: 7,
+                                                                                            warrantyMonths: 12,
+                                                                                            stock: 0
+                                                                                        });
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }}
+                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
+                                                                                >
+                                                                                    <Plus size={10} /> Link Vendor entry
+                                                                                </button>
+                                                                            </div>
+                                                                            {model.vendors.map((vendor: any, vIdx: number) => (
+                                                                                <div key={vIdx} className="border border-slate-100 rounded-lg p-2 bg-slate-50 space-y-2">
+                                                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                                                        <select
+                                                                                            className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] font-bold bg-white"
+                                                                                            value={vendor.vendorId}
+                                                                                            onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                const f = vendors.find(v => v.id === e.target.value);
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].vendorId = e.target.value;
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].vendorName = f ? f.name : '';
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }}
+                                                                                        >
+                                                                                            <option value="">-- Select Vendor --</option>
+                                                                                            {vendors.map(v => (
+                                                                                                <option key={v.id} value={v.id}>{v.name}</option>
+                                                                                            ))}
+                                                                                        </select>
+                                                                                        <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
+                                                                                            const updated = [...hierarchicalBrands];
+                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
+                                                                                            setHierarchicalBrands(updated);
+                                                                                        }} />
+                                                                                        <input type="number" placeholder="Warranty (Months)" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white" value={vendor.warrantyMonths} onChange={e => {
+                                                                                            const updated = [...hierarchicalBrands];
+                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].warrantyMonths = Number(e.target.value);
+                                                                                            setHierarchicalBrands(updated);
+                                                                                        }} />
+                                                                                    </div>
+                                                                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">P:</span>
+                                                                                            <input type="number" placeholder="Purchase" className="w-full pl-4 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.purchasePrice || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].purchasePrice = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">S:</span>
+                                                                                            <input type="number" placeholder="Selling" className="w-full pl-4 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.sellingPrice || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].sellingPrice = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">GST:</span>
+                                                                                            <input type="number" placeholder="GST" className="w-full pl-7 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.gstRate} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].gstRate = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">L/T:</span>
+                                                                                            <input type="number" placeholder="Days" className="w-full pl-7 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.leadTimeDays} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].leadTimeDays = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative flex items-center gap-1">
+                                                                                            <input type="number" placeholder="Stock" className="w-full px-1 py-1 border border-slate-200 rounded text-[11px] font-bold text-indigo-700 bg-indigo-50/50" value={vendor.stock || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].stock = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                            <button type="button" onClick={() => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors = updated[bIdx].models[mIdx].vendors.filter((_: any, idx: number) => idx !== vIdx);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} className="text-rose-500 hover:bg-rose-50 p-1 rounded shrink-0"><Trash2 size={10} /></button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="p-6 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
-                                        No vendors associated yet. Click "Add Vendor entry".
-                                    </div>
                                 )}
                             </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Specifications & Info</label>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleAddEditSpec} 
-                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                    >
-                                        <Plus size={12} /> Add Spec Row
-                                    </button>
-                                </div>
-                                {editSpecs.length > 0 ? (
-                                    <div className="border border-slate-200 rounded-[2rem] overflow-hidden bg-slate-50 p-3 space-y-2.5">
-                                        {editSpecs.map((spec, index) => (
-                                            <div key={index} className="flex gap-2 items-center animate-in slide-in-from-top-1 duration-75">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Spec Name (e.g. Dimensions)" 
-                                                    className="flex-1 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                    value={spec.key} 
-                                                    onChange={e => handleEditSpecChange(index, 'key', e.target.value)} 
-                                                />
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Value (e.g. 10x20 cm)" 
-                                                    className="flex-1 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                    value={spec.value} 
-                                                    onChange={e => handleEditSpecChange(index, 'value', e.target.value)} 
-                                                />
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleRemoveEditSpec(index)} 
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-colors shrink-0"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="p-6 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
-                                        No specifications added yet. Click "Add Spec Row" to define technical details.
-                                    </div>
-                                )}
-                            </div>
+
                         </div>
-                        <div className="p-8 border-t border-slate-300 flex gap-2.5 bg-slate-50/50">
-                            <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                        <div className="p-8 border-t border-slate-200 dark:border-slate-800 flex gap-2.5 bg-slate-50/50 dark:bg-slate-800/50">
+                            <button onClick={() => setShowEditProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                             <button onClick={handleUpdateSubmit} className="flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-medical-500/20 active:scale-95 transition-all">Commit Registry Changes</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Add Product Modal */}
+            {/* Add Product Modal (Hierarchical Builder Wizard) */}
             {showAddProductModal && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
-                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden scale-100 animate-in zoom-in-95">
-                        <div className="p-8 border-b border-slate-300 flex justify-between items-center bg-slate-50/50">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-4xl w-full overflow-hidden scale-100 animate-in zoom-in-95">
+                        <div className="p-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                             <div>
-                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Register New Item</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Master Registry Entry</p>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase">Hierarchical Product Registry</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Category → Subcategory → Product → Brand → Model → Vendor</p>
                             </div>
-                            <button onClick={() => setShowAddProductModal(false)}><X size={28} className="text-slate-400" /></button>
+                            <button onClick={() => setShowAddProductModal(false)}><X size={28} className="text-slate-400 hover:text-slate-655" /></button>
                         </div>
-                        <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                            <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none focus:border-medical-500" placeholder="Product Name *" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div className="relative">
-                                    <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] pl-3 pr-10 py-2 text-[16px] font-bold outline-none" placeholder="SKU / Unique ID *" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            if (showPrompt) {
-                                                const pwd = await showPrompt("Enter admin password to generate SKU", "Generate SKU", "password");
-                                                if (pwd === "admin") {
-                                                    let newSku = "";
-                                                    let isDuplicate = true;
-                                                    while (isDuplicate) {
+                        <div className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            
+                            {/* Step 1: Base Product Master */}
+                            <div className="space-y-4">
+                                <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest border-b border-indigo-100 pb-1">1. Master Product Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Product Name *</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none focus:border-medical-500" placeholder="e.g. Defibrillator" value={newProduct.name || ''} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-1.5 font-bold">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Category *</label>
+                                        <select className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
+                                            <option>Equipment</option>
+                                            <option>Consumable</option>
+                                            <option>Spare Part</option>
+                                            <option>Pipe Line</option>
+                                            <option>Furniture</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Subcategory</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2.5 text-xs font-black outline-none focus:border-medical-500" placeholder="e.g. ICU Equipment" value={hierarchicalSubcategory} onChange={e => setHierarchicalSubcategory(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    <div className="space-y-1.5 relative">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Product SKU *</label>
+                                        <div className="relative">
+                                            <input type="text" className="w-full border border-slate-355 bg-white rounded-[2rem] pl-4 pr-10 py-2 text-xs font-bold outline-none" placeholder="SKU / Unique ID" value={newProduct.sku || ''} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} />
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    let newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
+                                                    while (products.some(p => p.sku === newSku)) {
                                                         newSku = Math.floor(10000000 + Math.random() * 90000000).toString();
-                                                        isDuplicate = products.some(p => p.sku === newSku);
                                                     }
                                                     setNewProduct({ ...newProduct, sku: newSku });
                                                     addNotification('SKU Generated', `New SKU ${newSku} generated successfully.`, 'success');
-                                                } else if (pwd !== null) {
-                                                    addNotification('Error', 'Incorrect password.', 'error');
-                                                }
-                                            }
+                                                }}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-full p-1.5 transition-colors"
+                                                title="Generate SKU"
+                                            >
+                                                <ScanBarcode size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unit Type</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" placeholder="nos" value={newProduct.unit || ''} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value.toLowerCase() })} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">HSN Code</label>
+                                        <input type="text" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" placeholder="HSN Code" value={newProduct.hsn || ''} onChange={e => setNewProduct({ ...newProduct, hsn: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Min Level</label>
+                                        <input type="number" className="w-full border border-slate-350 bg-white rounded-[2rem] px-4 py-2 text-xs font-black outline-none" placeholder="5" value={newProduct.minLevel || ''} onChange={e => setNewProduct({ ...newProduct, minLevel: Number(e.target.value) })} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Step 2: Brands & Models Specification Builder */}
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center border-b border-slate-200 pb-1">
+                                    <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest">2. Brand & Model Hierarchy Configuration</h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newBrandId = `B-${Date.now()}`;
+                                            setHierarchicalBrands([...hierarchicalBrands, { id: newBrandId, name: '', models: [] }]);
+                                            setExpandedBrands({ ...expandedBrands, [newBrandId]: true });
                                         }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full p-1.5 transition-colors"
-                                        title="Auto Generate SKU"
+                                        className="text-[9px] font-black text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 uppercase tracking-wider flex items-center gap-1 transition-colors"
                                     >
-                                        <ScanBarcode size={14} />
+                                        <Plus size={10} /> Add Brand
                                     </button>
                                 </div>
-                                <select className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none appearance-none" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value as any })}>
-                                    <option>Equipment</option><option>Consumable</option><option>Spare Part</option><option>Pipe Line</option><option>Furniture</option>
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selling Rate (₹) *</label>
-                                <input type="number" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none text-emerald-600" placeholder="0.00" value={newProduct.sellingPrice || ''} onChange={e => setNewProduct({ ...newProduct, sellingPrice: Number(e.target.value) })} />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <input type="number" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" placeholder="Initial Stock" value={newProduct.stock || ''} onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) })} />
-                                <input type="text" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none uppercase" placeholder="Unit (nos, pkt, mtr)" value={newProduct.unit || ''} onChange={e => setNewProduct({ ...newProduct, unit: e.target.value.toLowerCase() })} />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <input type="number" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" placeholder="Min Alert Level" value={newProduct.minLevel || ''} onChange={e => setNewProduct({ ...newProduct, minLevel: Number(e.target.value) })} />
-                                <input type="text" className="w-full border border-slate-300 bg-slate-50 rounded-[2rem] px-3 py-2 text-[16px] font-bold outline-none" placeholder="Warehouse Location" value={newProduct.location || ''} onChange={e => setNewProduct({ ...newProduct, location: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">HSN Code</label>
-                                    <input type="text" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" placeholder="HSN Code" value={newProduct.hsn || ''} onChange={e => setNewProduct({ ...newProduct, hsn: e.target.value })} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">GST Percentage (%)</label>
-                                    <input type="number" className="w-full border border-slate-300 bg-white rounded-[2rem] px-3 py-2 text-[16px] font-black outline-none" placeholder="18" value={newProduct.taxRate || ''} onChange={e => setNewProduct({ ...newProduct, taxRate: Number(e.target.value) })} />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tax Calculation (Selling Price + GST)</label>
-                                <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-[2rem] px-3 py-2 text-[16px] font-black text-medical-600 flex justify-between items-center">
-                                    <span>Calculated Rate:</span>
-                                    <span>₹{((newProduct.sellingPrice || 0) * (1 + (newProduct.taxRate || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-200 dark:border-slate-850">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Vendors & Purchasing Rates</label>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleAddNewVendor} 
-                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                    >
-                                        <Plus size={12} /> Add Vendor entry
-                                    </button>
-                                </div>
-                                {newProductVendors.length > 0 ? (
-                                    <div className="space-y-2.5">
-                                        {newProductVendors.map((pv, index) => (
-                                            <div key={index} className="flex gap-2 items-center w-full min-w-0 animate-in slide-in-from-top-1 duration-75">
-                                                <select className="flex-1 min-w-0 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 appearance-none"
-                                                    value={pv.vendorId}
-                                                    onChange={e => handleNewVendorChange(index, 'vendorId', e.target.value)}
-                                                >
-                                                    <option value="">-- Select Vendor --</option>
-                                                    {vendors.map(v => (
-                                                        <option key={v.id} value={v.id}>{v.name}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="relative w-32 shrink-0">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        placeholder="Price" 
-                                                        className="w-full bg-white border border-slate-300 rounded-[2rem] pl-6 pr-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                        value={pv.purchasePrice || ''} 
-                                                        onChange={e => handleNewVendorChange(index, 'purchasePrice', Number(e.target.value))} 
-                                                    />
+
+                                {hierarchicalBrands.length === 0 ? (
+                                    <div className="p-8 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
+                                        No brands defined yet. Click "Add Brand" to build your hierarchical tree.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {hierarchicalBrands.map((brand, bIdx) => (
+                                            <div key={brand.id} className="border border-slate-200 dark:border-slate-800 rounded-[1.5rem] bg-slate-50/50 p-4 space-y-3">
+                                                <div className="flex justify-between items-center gap-4">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExpandedBrands({ ...expandedBrands, [brand.id]: !expandedBrands[brand.id] })}
+                                                            className="p-1 hover:bg-slate-200 rounded"
+                                                        >
+                                                            {expandedBrands[brand.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                        </button>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Brand Name (e.g. Philips, GE)"
+                                                            className="flex-1 max-w-xs border border-slate-300 bg-white rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none focus:border-medical-500"
+                                                            value={brand.name}
+                                                            onChange={e => {
+                                                                const updated = [...hierarchicalBrands];
+                                                                updated[bIdx].name = e.target.value;
+                                                                setHierarchicalBrands(updated);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const modelId = `M-${Date.now()}`;
+                                                                const updated = [...hierarchicalBrands];
+                                                                updated[bIdx].models.push({
+                                                                    id: modelId,
+                                                                    name: '',
+                                                                    specs: [],
+                                                                    vendors: [],
+                                                                    images: [],
+                                                                    documents: []
+                                                                });
+                                                                setHierarchicalBrands(updated);
+                                                                setExpandedBrands({ ...expandedBrands, [brand.id]: true });
+                                                                setExpandedModels({ ...expandedModels, [modelId]: true });
+                                                            }}
+                                                            className="text-[9px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-2.5 py-1 uppercase tracking-wider flex items-center gap-0.5"
+                                                        >
+                                                            <Plus size={10} /> Add Model
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setHierarchicalBrands(hierarchicalBrands.filter(b => b.id !== brand.id));
+                                                            }}
+                                                            className="text-rose-500 hover:bg-rose-50 p-1.5 rounded"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleRemoveNewVendor(index)} 
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-colors shrink-0"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+
+                                                {/* Models render */}
+                                                {expandedBrands[brand.id] && (
+                                                    <div className="pl-6 border-l-2 border-slate-200 space-y-3 mt-2">
+                                                        {brand.models.map((model: any, mIdx: number) => (
+                                                            <div key={model.id} className="bg-white rounded-xl p-3 border border-slate-200 space-y-3">
+                                                                <div className="flex justify-between items-center gap-3">
+                                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setExpandedModels({ ...expandedModels, [model.id]: !expandedModels[model.id] })}
+                                                                            className="p-1 hover:bg-slate-100 rounded"
+                                                                        >
+                                                                            {expandedModels[model.id] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                                        </button>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Model Name / Reference Number"
+                                                                            className="flex-1 max-w-xs border border-slate-200 bg-slate-50 rounded-[2rem] px-3 py-1 text-xs font-bold outline-none"
+                                                                            value={model.name}
+                                                                            onChange={e => {
+                                                                                const updated = [...hierarchicalBrands];
+                                                                                updated[bIdx].models[mIdx].name = e.target.value;
+                                                                                setHierarchicalBrands(updated);
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const updated = [...hierarchicalBrands];
+                                                                            updated[bIdx].models = updated[bIdx].models.filter((m: any) => m.id !== model.id);
+                                                                            setHierarchicalBrands(updated);
+                                                                        }}
+                                                                        className="text-rose-500 hover:bg-rose-50 p-1.5 rounded"
+                                                                    >
+                                                                        <Trash2 size={12} />
+                                                                    </button>
+                                                                </div>
+
+                                                                {expandedModels[model.id] && (
+                                                                    <div className="pl-4 space-y-3 border-l border-slate-100 mt-2">
+                                                                        
+                                                                        {/* Specifications Builder */}
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex justify-between items-center">
+                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Specifications</span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs.push({ key: '', value: '' });
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }}
+                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
+                                                                                >
+                                                                                    <Plus size={10} /> Add Spec Field
+                                                                                </button>
+                                                                            </div>
+                                                                            {model.specs.map((spec: any, sIdx: number) => (
+                                                                                <div key={sIdx} className="flex gap-2 items-center">
+                                                                                    <input type="text" placeholder="Specification (e.g. Dimensions)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.key} onChange={e => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs[sIdx].key = e.target.value;
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} />
+                                                                                    <input type="text" placeholder="Value (e.g. 50x30x20cm)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.value} onChange={e => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs[sIdx].value = e.target.value;
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} />
+                                                                                    <button type="button" onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].specs = updated[bIdx].models[mIdx].specs.filter((_: any, idx: number) => idx !== sIdx);
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={10} /></button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+
+                                                                        {/* Vendors Configurations pricing/stock */}
+                                                                        <div className="space-y-2">
+                                                                            <div className="flex justify-between items-center">
+                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Linked Vendors</span>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        const updated = [...hierarchicalBrands];
+                                                                                        updated[bIdx].models[mIdx].vendors.push({
+                                                                                            vendorId: '',
+                                                                                            vendorName: '',
+                                                                                            sku: `${newProduct.sku || 'SKU'}-${brand.name || 'B'}-${model.name || 'M'}-${Date.now().toString().slice(-4)}`,
+                                                                                            purchasePrice: 0,
+                                                                                            sellingPrice: 0,
+                                                                                            gstRate: 18,
+                                                                                            leadTimeDays: 7,
+                                                                                            warrantyMonths: 12,
+                                                                                            stock: 0
+                                                                                        });
+                                                                                        setHierarchicalBrands(updated);
+                                                                                    }}
+                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
+                                                                                >
+                                                                                    <Plus size={10} /> Link Vendor entry
+                                                                                </button>
+                                                                            </div>
+                                                                            {model.vendors.map((vendor: any, vIdx: number) => (
+                                                                                <div key={vIdx} className="border border-slate-100 rounded-lg p-2 bg-slate-50 space-y-2">
+                                                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                                                        <select
+                                                                                            className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] font-bold bg-white"
+                                                                                            value={vendor.vendorId}
+                                                                                            onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                const f = vendors.find(v => v.id === e.target.value);
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].vendorId = e.target.value;
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].vendorName = f ? f.name : '';
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }}
+                                                                                        >
+                                                                                            <option value="">-- Select Vendor --</option>
+                                                                                            {vendors.map(v => (
+                                                                                                <option key={v.id} value={v.id}>{v.name}</option>
+                                                                                            ))}
+                                                                                        </select>
+                                                                                        <input type="text" placeholder="Vendor SKU" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white font-mono" value={vendor.sku} onChange={e => {
+                                                                                            const updated = [...hierarchicalBrands];
+                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].sku = e.target.value;
+                                                                                            setHierarchicalBrands(updated);
+                                                                                        }} />
+                                                                                        <input type="number" placeholder="Warranty (Months)" className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] bg-white" value={vendor.warrantyMonths} onChange={e => {
+                                                                                            const updated = [...hierarchicalBrands];
+                                                                                            updated[bIdx].models[mIdx].vendors[vIdx].warrantyMonths = Number(e.target.value);
+                                                                                            setHierarchicalBrands(updated);
+                                                                                        }} />
+                                                                                    </div>
+                                                                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">P:</span>
+                                                                                            <input type="number" placeholder="Purchase" className="w-full pl-4 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.purchasePrice || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].purchasePrice = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">S:</span>
+                                                                                            <input type="number" placeholder="Selling" className="w-full pl-4 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.sellingPrice || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].sellingPrice = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">GST:</span>
+                                                                                            <input type="number" placeholder="GST" className="w-full pl-7 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.gstRate} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].gstRate = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative">
+                                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">L/T:</span>
+                                                                                            <input type="number" placeholder="Days" className="w-full pl-7 pr-1 py-1 border border-slate-200 rounded text-[11px]" value={vendor.leadTimeDays} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].leadTimeDays = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                        </div>
+                                                                                        <div className="relative flex items-center gap-1">
+                                                                                            <input type="number" placeholder="Stock" className="w-full px-1 py-1 border border-slate-200 rounded text-[11px] font-bold text-indigo-700 bg-indigo-50/50" value={vendor.stock || ''} onChange={e => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors[vIdx].stock = Number(e.target.value);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} />
+                                                                                            <button type="button" onClick={() => {
+                                                                                                const updated = [...hierarchicalBrands];
+                                                                                                updated[bIdx].models[mIdx].vendors = updated[bIdx].models[mIdx].vendors.filter((_: any, idx: number) => idx !== vIdx);
+                                                                                                setHierarchicalBrands(updated);
+                                                                                            }} className="text-rose-500 hover:bg-rose-50 p-1 rounded shrink-0"><Trash2 size={10} /></button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <div className="p-6 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
-                                        No vendors associated yet. Click "Add Vendor entry".
-                                    </div>
                                 )}
                             </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Specifications & Info</label>
-                                    <button 
-                                        type="button" 
-                                        onClick={handleAddNewSpec} 
-                                        className="text-[10px] font-black text-medical-600 hover:text-medical-700 uppercase tracking-wider flex items-center gap-1 transition-colors"
-                                    >
-                                        <Plus size={12} /> Add Spec Row
-                                    </button>
-                                </div>
-                                {newSpecs.length > 0 ? (
-                                    <div className="border border-slate-200 rounded-[2rem] overflow-hidden bg-slate-50 p-3 space-y-2.5">
-                                        {newSpecs.map((spec, index) => (
-                                            <div key={index} className="flex gap-2 items-center animate-in slide-in-from-top-1 duration-75">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Spec Name (e.g. Dimensions)" 
-                                                    className="flex-1 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                    value={spec.key} 
-                                                    onChange={e => handleNewSpecChange(index, 'key', e.target.value)} 
-                                                />
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Value (e.g. 10x20 cm)" 
-                                                    className="flex-1 bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold outline-none focus:border-medical-500" 
-                                                    value={spec.value} 
-                                                    onChange={e => handleNewSpecChange(index, 'value', e.target.value)} 
-                                                />
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => handleRemoveNewSpec(index)} 
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-[2rem] transition-colors shrink-0"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="p-6 border border-dashed border-slate-300 rounded-[2rem] text-center text-xs text-slate-400">
-                                        No specifications added yet. Click "Add Spec Row" to define technical details.
-                                    </div>
-                                )}
-                            </div>
+
                         </div>
-                        <div className="p-8 border-t border-slate-300 flex gap-2.5 bg-slate-50/50">
-                            <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+                        <div className="p-8 border-t border-slate-200 dark:border-slate-800 flex gap-2.5 bg-slate-50/50 dark:bg-slate-800/50">
+                            <button onClick={() => setShowAddProductModal(false)} className="flex-1 py-4 bg-white border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
                             <button onClick={handleSaveProduct} className="flex-[2] py-4 bg-medical-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all">Initialize Item</button>
                         </div>
                     </div>

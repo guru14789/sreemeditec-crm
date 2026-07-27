@@ -120,6 +120,39 @@ export interface Vendor {
   procurementVolume?: number;
 }
 
+export interface ProductSpecification {
+  key: string;
+  value: string;
+}
+
+export interface ModelVendorInfo {
+  vendorId: string;
+  vendorName: string;
+  sku: string;
+  purchasePrice: number;
+  sellingPrice: number;
+  gstRate: number; // e.g. 18 for 18%
+  leadTimeDays: number;
+  warrantyMonths: number;
+  stock: number;
+}
+
+export interface ModelDetail {
+  id: string;
+  name: string;
+  barcode?: string;
+  qrCode?: string;
+  specs: ProductSpecification[];
+  vendors: ModelVendorInfo[];
+  images: string[]; // URLs or base64
+  documents: { name: string; url: string; type: 'Brochure' | 'Manual' | 'Certificate' | 'Other' }[];
+}
+
+export interface BrandDetail {
+  id: string;
+  name: string;
+  models: ModelDetail[];
+}
 
 export interface ProductVendorInfo {
   vendorId: string;
@@ -131,6 +164,7 @@ export interface Product {
   id: string;
   name: string;
   category: 'Equipment' | 'Consumable' | 'Spare Part' | 'Pipe Line' | 'Furniture';
+  subcategory?: string;
   sku: string;
   stock: number;
   unit: string;
@@ -150,6 +184,9 @@ export interface Product {
   isBatchTracked?: boolean;
   reorderLevel?: number;
   godown?: string;
+  
+  // Advanced hierarchical properties
+  brands?: BrandDetail[];
 }
 
 // --- NEW ACCOUNTING & COMPLIANCE TYPES ---
