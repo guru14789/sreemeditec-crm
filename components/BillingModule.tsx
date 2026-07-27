@@ -194,7 +194,7 @@ Email: sreemeditec@gmail.com`;
     const overdueInvoices = useMemo(() => {
         if (!isBillingAdmin) return [];
         const today = new Date();
-        return invoices.filter(inv => {
+        return allSmInvoicesKpi.filter(inv => {
             if ((inv.documentType && inv.documentType !== 'Invoice') || !inv.invoiceNumber?.startsWith('SM/')) return false;
             if (inv.status === 'Paid' || inv.status === 'Completed' || inv.status === 'Cancelled') return false;
             if (!inv.date) return false;
@@ -209,7 +209,7 @@ Email: sreemeditec@gmail.com`;
             
             return diffDays > 35;
         });
-    }, [invoices, isBillingAdmin]);
+    }, [allSmInvoicesKpi, isBillingAdmin]);
 
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
