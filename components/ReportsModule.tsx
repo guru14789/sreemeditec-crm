@@ -2592,7 +2592,7 @@ export const ReportsModule: React.FC = () => {
                 <Users size={12} className="text-slate-400" />
               </div>
 
-              {expandedSection === 'employees' && (
+              {expandedSection === 'employees' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
@@ -2640,6 +2640,28 @@ export const ReportsModule: React.FC = () => {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-2 mt-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => {
+                    const percentage = emp.target > 0 ? Math.round((emp.total / emp.target) * 100) : 0;
+                    return (
+                      <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="font-black text-slate-700 uppercase">{idx + 1}. {emp.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-slate-600">{formatCurrency(emp.total)}</span>
+                          {emp.target > 0 && (
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= emp.target ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                              {percentage}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {analyticsData.topEmployees.length === 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-4">No Sales Performance Recorded</span>
+                  )}
                 </div>
               )}
             </div>
