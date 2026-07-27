@@ -43,6 +43,10 @@ export const BarcodeCreatorModule: React.FC = () => {
         setSelectedProduct(null);
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     const handleClear = () => {
         setSheetItems(Array(30).fill(null));
     };
@@ -230,7 +234,6 @@ export const BarcodeCreatorModule: React.FC = () => {
                                                 textMargin={2}
                                             />
                                         </div>
-                                        <div className="text-[8px] font-black text-black mt-0.5">₹{item.price}</div>
                                         
                                         {/* Remove button (hidden on print) */}
                                         <button 
