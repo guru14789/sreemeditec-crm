@@ -71,7 +71,7 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
             {/* Bottom Row: Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
                 <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                    {(['General', 'Bank', 'Companies', 'Designations'] as const).map(tab => (
+                    {(['General', 'Bank', 'Companies'] as const).map(tab => (
                     <button
                         key={tab}
                         onClick={() => setSubTab(tab)}
@@ -86,7 +86,6 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
                         {tab === 'General' && 'System Terminal'}
                         {tab === 'Bank' && 'Bank Details'}
                         {tab === 'Companies' && 'Company Profiles'}
-                        {tab === 'Designations' && 'Positions & Incentives'}
                     </button>
                     ))}
                 </div>
@@ -112,7 +111,6 @@ export const SystemConfigModule: React.FC<SystemConfigModuleProps> = ({
         )}
         {subTab === 'Bank' && <BankTab />}
         {subTab === 'Companies' && <CompaniesTab />}
-        {subTab === 'Designations' && <DesignationsTab isAdmin={isAdmin} showAlert={showAlert} />}
       </div>
     </div>
   );
@@ -804,7 +802,7 @@ interface DesignationsTabProps {
   showAlert: (msg: string) => Promise<void>;
 }
 
-const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert }) => {
+export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert }) => {
   const { employees } = useData();
   const [rules, setRules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);

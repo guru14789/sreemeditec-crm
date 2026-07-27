@@ -5,6 +5,7 @@ import {
     Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { DesignationsTab } from './SystemConfigModule';
 
 const MODULE_OPTIONS = [
     { value: TabView.DASHBOARD, label: 'Dashboard' },
@@ -48,7 +49,7 @@ const ROLE_OPTIONS: { value: EnterpriseRole; label: string }[] = [
 
 export const HRModule: React.FC = () => {
     const { employees, updateEmployee, addEmployee, removeEmployee, addNotification, showAlert, showConfirm } = useData();
-    const [activeTab, setActiveTab] = useState<'employees' | 'permissions'>('employees');
+    const [activeTab, setActiveTab] = useState<'employees' | 'permissions' | 'designations'>('employees');
     const [searchQuery, setSearchQuery] = useState('');
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -250,6 +251,9 @@ export const HRModule: React.FC = () => {
                         <button onClick={() => setActiveTab('permissions')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${activeTab === 'permissions' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <ShieldCheck size={12} /> Access Grid
                         </button>
+                        <button onClick={() => setActiveTab('designations')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${activeTab === 'designations' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <Award size={12} /> Positions & Incentives
+                        </button>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
@@ -414,6 +418,9 @@ export const HRModule: React.FC = () => {
                         </table>
                     </div>
                     </React.Fragment>
+                )}
+                {activeTab === 'designations' && (
+                    <DesignationsTab isAdmin={true} showAlert={showAlert} />
                 )}
             </div>
 
