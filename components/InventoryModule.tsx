@@ -723,11 +723,11 @@ export const InventoryModule: React.FC = () => {
                 {/* Table Content */}
                 <div className="flex-1 overflow-auto custom-scrollbar relative">
                     {activeTab === 'stock' ? (
-                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[1200px] table-fixed">
+                        <table className="w-full text-left text-[11px] text-slate-600 min-w-[1200px]">
                              <thead className="bg-[#fcfdfd] text-[8px] sm:text-[9px] md:text-[10px] uppercase font-black tracking-widest text-slate-500 sticky top-0 z-20 border-b border-slate-300 shadow-[0_1px_0_0_#f1f5f9]">
                                 <tr>
-                                    <th className="px-3 py-1.5 w-[18%] bg-[#fcfdfd]">Product Master</th>
-                                    <th className="px-3 py-1.5 w-[12%] bg-[#fcfdfd]">Cat & SKU</th>
+                                    <th className="px-3 py-1.5 w-[25%] bg-[#fcfdfd]">Product Master</th>
+                                    <th className="px-3 py-1.5 w-[10%] bg-[#fcfdfd]">Cat & SKU</th>
                                     <th className="px-3 py-1.5 w-[12%] bg-[#fcfdfd]">Supplier</th>
                                     <th className="px-3 py-1.5 text-right w-[10%] bg-[#fcfdfd]">Stock</th>
                                     <th className="px-3 py-1.5 text-right w-[10%] bg-[#fcfdfd]">Purchase</th>
@@ -751,13 +751,13 @@ export const InventoryModule: React.FC = () => {
                                             <tr className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0" onClick={() => setExpandedProductsTree({ ...expandedProductsTree, [product.id]: !isExpanded })}>
                                                 <td className="px-3 py-1.5 editable-cell">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-slate-400">
+                                                        <span className="text-slate-400 shrink-0">
                                                             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                                         </span>
-                                                        <div>
-                                                            <div className="font-black text-slate-800 truncate text-[11px]" title={product.name}>{product.name}</div>
+                                                        <div className="min-w-0">
+                                                            <div className="font-black text-slate-800 text-[11px] whitespace-normal break-words" title={product.name}>{product.name}</div>
                                                             {product.subcategory && (
-                                                                <div className="text-[8px] text-indigo-500 font-bold uppercase">{product.subcategory}</div>
+                                                                <div className="text-[8px] text-indigo-500 font-bold uppercase whitespace-normal break-words">{product.subcategory}</div>
                                                             )}
                                                         </div>
                                                     </div>
