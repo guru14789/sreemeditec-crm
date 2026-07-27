@@ -5,11 +5,23 @@ import { Search, Plus, Printer, Trash2, X, QrCode } from 'lucide-react';
 import Barcode from 'react-barcode';
 
 export const BarcodeCreatorModule: React.FC = () => {
+    interface CustomBarcodeItem {
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        brandName?: string;
+        modelName?: string;
+    }
+
     const { products, addNotification } = useData();
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [sheetItems, setSheetItems] = useState<(Product | null)[]>(Array(30).fill(null));
+    const [selectedProduct, setSelectedProduct] = useState<CustomBarcodeItem | null>(null);
+    const [selectedBrand, setSelectedBrand] = useState<string>('');
+    const [selectedModel, setSelectedModel] = useState<string>('');
+    const [sheetItems, setSheetItems] = useState<(CustomBarcodeItem | null)[]>(Array(30).fill(null));
 
+    // Suggestions matching parent product names
     const suggestions = searchQuery.trim() 
         ? products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()))).slice(0, 10)
         : [];
@@ -26,15 +38,13 @@ export const BarcodeCreatorModule: React.FC = () => {
         newSheet[emptyIndex] = selectedProduct;
         setSheetItems(newSheet);
         setSearchQuery('');
+        setSelectedBrand('');
+        setSelectedModel('');
         setSelectedProduct(null);
     };
 
     const handleClear = () => {
         setSheetItems(Array(30).fill(null));
-    };
-
-    const handlePrint = () => {
-        window.print();
     };
 
     const removeItem = (index: number) => {
@@ -58,8 +68,9 @@ export const BarcodeCreatorModule: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col md:flex-row items-end gap-4 relative">
-                    <div className="flex-1 w-full max-w-md relative">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Search Product</label>
+                    {/* 1. Product Search */}
+                    <div className="w-full md:w-80 relative">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">1. Search Product</label>
                         <div className="relative">
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
@@ -70,6 +81,8 @@ export const BarcodeCreatorModule: React.FC = () => {
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
                                     setSelectedProduct(null);
+                                    setSelectedBrand('');
+                                    setSelectedModel('');
                                 }}
                             />
                         </div>
@@ -80,8 +93,13 @@ export const BarcodeCreatorModule: React.FC = () => {
                                         key={p.id} 
                                         className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-100 last:border-0"
                                         onClick={() => {
-                                            setSelectedProduct(p);
-                                            setSearchQuery(`${p.name} (${p.sku || 'No SKU'})`);
+                                            setSelectedProduct({
+                                                id: p.id,
+                                                name: p.name,
+                                                sku: p.sku || '',
+                                                price: p.sellingPrice || 0
+                                            });
+                                            setSearchQuery(p.name);
                                         }}
                                     >
                                         <div className="font-bold text-slate-800 text-xs uppercase">{p.name}</div>
@@ -92,10 +110,71 @@ export const BarcodeCreatorModule: React.FC = () => {
                         )}
                     </div>
 
+                    {/* 2. Brand Dropdown */}
+                    <div className="w-full md:w-48 relative">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">2. Brand</label>
+                        <select
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-bold text-slate-700 outline-none h-[42px]"
+                            value={selectedBrand}
+                            onChange={(e) => {
+                                setSelectedBrand(e.target.value);
+                                setSelectedModel('');
+                            }}
+                            disabled={!selectedProduct}
+                        >
+                            <option value="">Select Brand</option>
+                            {(() => {
+                                const fullProduct = products.find(p => p.id === selectedProduct?.id);
+                                return fullProduct?.brands?.map(b => (
+                                    <option key={b.id} value={b.name}>{b.name}</option>
+                                ));
+                            })()}
+                        </select>
+                    </div>
+
+                    {/* 3. Model Dropdown */}
+                    <div className="w-full md:w-48 relative">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">3. Model</label>
+                        <select
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-bold text-slate-700 outline-none h-[42px]"
+                            value={selectedModel}
+                            onChange={(e) => {
+                                const modelVal = e.target.value;
+                                setSelectedModel(modelVal);
+                                const fullProduct = products.find(p => p.id === selectedProduct?.id);
+                                const brandObj = fullProduct?.brands?.find(b => b.name === selectedBrand);
+                                const modelObj = brandObj?.models?.find(m => m.name === modelVal);
+                                if (modelObj && selectedProduct) {
+                                    // Use vendor SKU if available
+                                    const vendorSku = (modelObj.vendors && modelObj.vendors[0]?.sku) || modelObj.barcode || selectedProduct.sku;
+                                    const sellingPrice = (modelObj.vendors && modelObj.vendors[0]?.sellingPrice) || selectedProduct.price;
+                                    setSelectedProduct({
+                                        id: `${selectedProduct.id}::${selectedBrand}::${modelVal}`,
+                                        name: `${selectedProduct.name} (${selectedBrand} - ${modelVal})`,
+                                        sku: vendorSku,
+                                        price: sellingPrice,
+                                        brandName: selectedBrand,
+                                        modelName: modelVal
+                                    });
+                                }
+                            }}
+                            disabled={!selectedBrand}
+                        >
+                            <option value="">Select Model</option>
+                            {(() => {
+                                const fullProduct = products.find(p => p.id === selectedProduct?.id.split('::')[0]);
+                                const brandObj = fullProduct?.brands?.find(b => b.name === selectedBrand);
+                                return brandObj?.models?.map(m => (
+                                    <option key={m.id} value={m.name}>{m.name}</option>
+                                ));
+                            })()}
+                        </select>
+                    </div>
+
                     <button 
                         onClick={handleAdd}
                         disabled={!selectedProduct || !selectedProduct.sku}
-                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center gap-2"
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center gap-2 h-[42px]"
                     >
                         <Plus size={16} /> Add 
                     </button>
@@ -151,7 +230,7 @@ export const BarcodeCreatorModule: React.FC = () => {
                                                 textMargin={2}
                                             />
                                         </div>
-                                        <div className="text-[8px] font-black text-black mt-0.5">₹{item.sellingPrice}</div>
+                                        <div className="text-[8px] font-black text-black mt-0.5">₹{item.price}</div>
                                         
                                         {/* Remove button (hidden on print) */}
                                         <button 
