@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Package, Plus, Trash2, Layers, Search, Barcode, AlertTriangle, BookmarkPlus, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Product, InvoiceItemInventoryMapping, ServiceTemplate } from '../types';
 import { useData } from './DataContext';
@@ -29,23 +29,98 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
   const [showTemplateSaveModal, setShowTemplateSaveModal] = useState(false);
   const [showTemplateLoadModal, setShowTemplateLoadModal] = useState(false);
 
-  // Filtered inventory products based on search (Name, SKU, or Barcode)
-  const matchingProducts = products.filter(p => {
-    if (!productSearch.trim()) return false;
-    const query = productSearch.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(query) ||
-      (p.sku && p.sku.toLowerCase().includes(query)) ||
-      (p.barcode && p.barcode.toLowerCase().includes(query))
-    );
-  });
+  interface SearchResultItem {
+    id: string;
+    name: string;
+    sku: string;
+    barcode: string;
+    purchasePrice: number;
+    sellingPrice: number;
+    stock: number;
+    unit: string;
+    minLevel: number;
+    brandName?: string;
+    modelName?: string;
+    isSubItem: boolean;
+  }
 
-  const handleAddProduct = (product: Product) => {
-    // Prevent duplicate mapping for exact same product
-    if (mappings.some(m => m.inventoryProductId === product.id)) {
-      addNotification('Duplicate Item', `${product.name} is already added to this assembly. Combined quantity updated.`, 'info');
+  // Filtered inventory products based on search (Name, SKU, or Barcode)
+  const matchingProducts = useMemo(() => {
+    if (!productSearch.trim()) return [];
+    const query = productSearch.toLowerCase();
+    const results: SearchResultItem[] = [];
+
+    products.forEach(p => {
+      // 1. Check parent product level
+      const matchParent = p.name.toLowerCase().includes(query) ||
+        (p.sku && p.sku.toLowerCase().includes(query)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query)) ||
+        (p.subcategory && p.subcategory.toLowerCase().includes(query));
+
+      if (matchParent) {
+        results.push({
+          id: p.id,
+          name: p.name,
+          sku: p.sku || '',
+          barcode: p.barcode || '',
+          purchasePrice: p.purchasePrice || 0,
+          sellingPrice: p.sellingPrice || 0,
+          stock: p.stock || 0,
+          unit: p.unit || 'Nos',
+          minLevel: p.minLevel || 5,
+          isSubItem: false
+        });
+      }
+
+      // 2. Check nested Brand / Model hierarchy options
+      if (p.brands && p.brands.length > 0) {
+        p.brands.forEach(b => {
+          if (b.models && b.models.length > 0) {
+            b.models.forEach(m => {
+              const modelMatch = b.name.toLowerCase().includes(query) ||
+                m.name.toLowerCase().includes(query) ||
+                (m.barcode && m.barcode.toLowerCase().includes(query)) ||
+                (m.vendors && m.vendors.some(v => v.sku.toLowerCase().includes(query)));
+
+              if (modelMatch) {
+                // Determine prices/stock from first vendor or default to parent
+                const primaryVendor = m.vendors && m.vendors[0];
+                const cost = primaryVendor ? primaryVendor.purchasePrice : p.purchasePrice;
+                const selling = primaryVendor ? primaryVendor.sellingPrice : p.sellingPrice;
+                const stock = m.vendors ? m.vendors.reduce((s, v) => s + (v.stock || 0), 0) : p.stock;
+                const sku = primaryVendor ? primaryVendor.sku : p.sku;
+
+                results.push({
+                  id: `${p.id}::${b.name}::${m.name}`,
+                  name: `${p.name} (${b.name} - ${m.name})`,
+                  sku: sku || '',
+                  barcode: m.barcode || '',
+                  purchasePrice: cost || 0,
+                  sellingPrice: selling || 0,
+                  stock: stock || 0,
+                  unit: p.unit || 'Nos',
+                  minLevel: p.minLevel || 5,
+                  brandName: b.name,
+                  modelName: m.name,
+                  isSubItem: true
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    return results.slice(0, 15);
+  }, [products, productSearch]);
+
+  const handleAddProduct = (item: SearchResultItem) => {
+    // Prevent duplicate mapping for exact same product/model link
+    if (mappings.some(m => m.inventoryProductId === item.id)) {
+      addNotification('Duplicate Item', `${item.name} is already added to this assembly. Combined quantity updated.`, 'info');
       const updated = mappings.map(m => {
-        if (m.inventoryProductId === product.id) {
+        if (m.inventoryProductId === item.id) {
           return { ...m, quantityUsed: m.quantityUsed + 1 };
         }
         return m;
@@ -54,14 +129,14 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
     } else {
       const newMapping: InvoiceItemInventoryMapping = {
         id: `MAP-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        inventoryProductId: product.id,
-        productName: product.name,
-        sku: product.sku || '',
-        barcode: product.barcode || '',
+        inventoryProductId: item.id,
+        productName: item.name,
+        sku: item.sku || '',
+        barcode: item.barcode || '',
         quantityUsed: 1,
-        unit: product.unit || 'Nos',
-        costPrice: product.purchasePrice || 0,
-        sellingPrice: product.sellingPrice || 0
+        unit: item.unit || 'Nos',
+        costPrice: item.purchasePrice || 0,
+        sellingPrice: item.sellingPrice || 0
       };
       onChange([...mappings, newMapping]);
     }
@@ -278,8 +353,20 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold">
                   {mappings.map(m => {
-                    const matchedProd = products.find(p => p.id === m.inventoryProductId);
-                    const currentStock = matchedProd?.stock ?? m.currentStock ?? 0;
+                    const parentId = m.inventoryProductId.split('::')[0];
+                    const matchedProd = products.find(p => p.id === parentId);
+                    let currentStock = matchedProd?.stock ?? m.currentStock ?? 0;
+                    
+                    if (m.inventoryProductId.includes('::')) {
+                      const parts = m.inventoryProductId.split('::');
+                      const brandName = parts[1];
+                      const modelName = parts[2];
+                      const brand = matchedProd?.brands?.find(b => b.name === brandName);
+                      const model = brand?.models?.find(md => md.name === modelName);
+                      if (model && model.vendors) {
+                        currentStock = model.vendors.reduce((s, v) => s + (v.stock || 0), 0);
+                      }
+                    }
                     const totalNeeded = (m.quantityUsed || 1) * (parentQuantity || 1);
                     const isInsufficient = currentStock < totalNeeded;
 
