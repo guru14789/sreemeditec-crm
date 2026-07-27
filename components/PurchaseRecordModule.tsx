@@ -526,11 +526,11 @@ export const PurchaseRecordModule: React.FC = () => {
                             <tr>
                                 <th className="px-4 py-2 font-inter">Invoice / Date</th>
                                 <th className="px-4 py-2">Supplier</th>
-                                <th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th>
-                                <th className="px-4 py-2 text-center hidden sm:table-cell">Paid Amt</th>
-                                <th className="px-4 py-2 text-right hidden sm:table-cell">Balance</th>
-                                <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
-                                <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
+                                <th className="px-4 py-2 text-right">Grand Total</th>
+                                <th className="px-4 py-2 text-center">Paid Amt</th>
+                                <th className="px-4 py-2 text-right">Balance</th>
+                                <th className="px-4 py-2 text-center">Filed Status</th>
+                                <th className="px-4 py-2 text-center">Status</th>
                                 <th className="px-4 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -551,10 +551,10 @@ export const PurchaseRecordModule: React.FC = () => {
                                             <div className="font-bold text-slate-700 uppercase tracking-tight leading-tight">{record.supplier}</div>
                                             <div className="text-[9px] font-medium text-slate-400 mt-0.5">Received: {record.materialReceivedDate}</div>
                                         </td>
-                                        <td className="px-4 py-2 text-right hidden sm:table-cell">
+                                        <td className="px-4 py-2 text-right">
                                             <div className="font-bold text-slate-800 text-xs">₹{formatIndianNumber(total)}</div>
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-center gap-1.5">
                                                 <input 
                                                     type="number"
@@ -586,10 +586,10 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 </button>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">
+                                        <td className="px-4 py-2 text-right font-black text-rose-600">
                                             ₹{formatIndianNumber(balance)}
                                         </td>
-                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={record.id}
                                                 filedStatus={record.filedStatus}
@@ -600,7 +600,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 }}
                                             />
                                         </td>
-                                         <td className="px-4 py-2 text-center hidden sm:table-cell">
+                                         <td className="px-4 py-2 text-center">
                                             <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
                                                 displayStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                                                 displayStatus === 'Draft' ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' :
