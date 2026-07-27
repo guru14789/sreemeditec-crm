@@ -286,7 +286,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [allSmInvoicesKpi, setAllSmInvoicesKpi] = useState<Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[]>([]);
     const invoices = useMemo(() => {
         const ids = new Set(invoiceSnap.map(i => i.id));
-        return [...invoiceSnap, ...pushedInvoices.filter(i => !ids.has(i.id))].sort((a,b) => b.date.localeCompare(a.date));
+        const numKeys = new Set(invoiceSnap.map(i => `${i.documentType}_${(i.invoiceNumber || '').trim().toLowerCase()}`));
+        const merged = [...invoiceSnap, ...pushedInvoices.filter(i => {
+            if (ids.has(i.id)) return false;
+            const key = `${i.documentType}_${(i.invoiceNumber || '').trim().toLowerCase()}`;
+            if (i.invoiceNumber && numKeys.has(key)) return false;
+            return true;
+        })];
+        return merged.sort((a,b) => b.date.localeCompare(a.date));
     }, [invoiceSnap, pushedInvoices]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [lastLogDoc, setLastLogDoc] = useState<any>(null);
