@@ -1214,10 +1214,12 @@ export const InventoryModule: React.FC = () => {
                                                                                     type="button"
                                                                                     onClick={() => {
                                                                                         const updated = [...hierarchicalBrands];
+                                                                                        const bName = (brand.name || 'Brand').replace(/\s+/g, '').toUpperCase();
+                                                                                        const mName = (model.name || 'Model').replace(/\s+/g, '').toUpperCase();
                                                                                         updated[bIdx].models[mIdx].vendors.push({
                                                                                             vendorId: '',
                                                                                             vendorName: '',
-                                                                                            sku: `${editingProduct.sku || 'SKU'}-${brand.name || 'B'}-${model.name || 'M'}-${Date.now().toString().slice(-4)}`,
+                                                                                            sku: `${editingProduct.sku || 'SKU'}-${bName}-${mName}-${Date.now().toString().slice(-4)}`,
                                                                                             purchasePrice: 0,
                                                                                             sellingPrice: 0,
                                                                                             gstRate: 18,
