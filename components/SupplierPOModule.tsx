@@ -572,7 +572,10 @@ export const SupplierPOModule: React.FC = () => {
                                                     <MoreVertical size={18} />
                                                 </button>
                                                 {activeMenuId === inv.id && (
-                                                    <div className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]">
+                                                    <div 
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="absolute right-0 top-12 bg-white border border-slate-300 shadow-2xl rounded-[2rem] p-1 z-50 flex gap-1 animate-in fade-in slide-in-from-top-2 min-w-[100px]"
+                                                    >
                                                         <button onClick={(e) => { e.stopPropagation(); setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); setActiveMenuId(null); }} className="p-2.5 text-indigo-500 hover:bg-indigo-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Edit size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleDownloadPDF(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center"><Download size={18} /></button>
                                                         <button onClick={(e) => { e.stopPropagation(); handleWhatsAppSend(inv); setActiveMenuId(null); }} className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-[2rem] transition-all flex-1 flex justify-center" title="Send on WhatsApp"><MessageSquare size={18} /></button>
