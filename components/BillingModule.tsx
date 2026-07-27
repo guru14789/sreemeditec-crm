@@ -210,7 +210,49 @@ Email: sreemeditec@gmail.com`;
             return diffDays > 35;
         });
     }, [allSmInvoicesKpi, isBillingAdmin]);
+    const flatProducts = useMemo(() => {
+        const list: any[] = [];
+        products.forEach(p => {
+            // Push base product
+            list.push({
+                id: p.id,
+                name: p.name,
+                sku: p.sku || '',
+                barcode: p.barcode || '',
+                sellingPrice: p.sellingPrice || 0,
+                hsn: p.hsn || '',
+                taxRate: p.taxRate || 18,
+                features: p.description || ''
+            });
 
+            // Push all brand and model options
+            if (p.brands && p.brands.length > 0) {
+                p.brands.forEach(b => {
+                    if (b.models && b.models.length > 0) {
+                        b.models.forEach(m => {
+                            const primaryVendor = m.vendors && m.vendors[0];
+                            const cost = primaryVendor ? primaryVendor.purchasePrice : p.purchasePrice;
+                            const selling = primaryVendor ? primaryVendor.sellingPrice : p.sellingPrice;
+                            const sku = primaryVendor ? primaryVendor.sku : p.sku;
+                            const gst = primaryVendor ? primaryVendor.gstRate : (p.taxRate || 18);
+
+                            list.push({
+                                id: `${p.id}::${b.name}::${m.name}`,
+                                name: `${p.name} (${b.name} - ${m.name})`,
+                                sku: sku || '',
+                                barcode: m.barcode || '',
+                                sellingPrice: selling || 0,
+                                hsn: p.hsn || '',
+                                taxRate: gst || 18,
+                                features: m.specs ? m.specs.map(sp => `${sp.key}: ${sp.value}`).join(', ') : (p.description || '')
+                            });
+                        });
+                    }
+                });
+            }
+        });
+        return list;
+    }, [products]);
     const [invoice, setInvoice] = useState<Partial<Invoice>>({
         invoiceNumber: '',
         date: new Date().toISOString().split('T')[0],
@@ -1170,7 +1212,7 @@ Email: sreemeditec@gmail.com`;
                                                                     if (prod.sellingPrice) updateItem(item.id, 'unitPrice', prod.sellingPrice);
                                                                     if (prod.features) updateItem(item.id, 'features', prod.features);
                                                                 }}
-                                                                suggestions={products}
+                                                                suggestions={flatProducts}
                                                                 filterKey="name"
                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black"
                                                                 placeholder="Item Name"

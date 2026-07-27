@@ -78,7 +78,8 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
         p.brands.forEach(b => {
           if (b.models && b.models.length > 0) {
             b.models.forEach(m => {
-              const modelMatch = b.name.toLowerCase().includes(query) ||
+              const modelMatch = matchParent || 
+                b.name.toLowerCase().includes(query) ||
                 m.name.toLowerCase().includes(query) ||
                 (m.barcode && m.barcode.toLowerCase().includes(query)) ||
                 (m.vendors && m.vendors.some(v => v.sku.toLowerCase().includes(query)));
