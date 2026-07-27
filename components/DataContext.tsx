@@ -756,7 +756,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // ── Unlimited SM invoice listener for KPI totals (no pagination) ──────
         // Fetches only lightweight fields needed for aggregation
         const unsubSmKpi = onSnapshot(
-            query(collection(db, "invoices"), where("documentType", "==", "Invoice"), orderBy('date', 'desc')),
+            collection(db, "invoices"),
             (snap) => {
                 setAllSmInvoicesKpi(
                     snap.docs
