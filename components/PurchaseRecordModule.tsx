@@ -1,7 +1,7 @@
 import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem, TabView } from '../types';
-import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck } from 'lucide-react';
+import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck, ChevronDown } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
@@ -22,7 +22,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 import { AutoSuggest } from './AutoSuggest';
 
 export const PurchaseRecordModule: React.FC = () => {
-    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData, isSystemAdmin } = useData();
+    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData, isSystemAdmin, fetchMoreData } = useData();
     const isAdmin = currentUser?.permissions?.[TabView.PURCHASE_REGISTER] === 'Admin' || isSystemAdmin;
     const [searchQuery, setSearchQuery] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
@@ -66,6 +66,7 @@ export const PurchaseRecordModule: React.FC = () => {
     const [pendingDelete, setPendingDelete] = useState<{ id: string, name: string } | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showDraftWarningModal, setShowDraftWarningModal] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const handleNewEntry = () => {
         setNewRecord(INITIAL_RECORD_STATE);
@@ -690,6 +691,20 @@ export const PurchaseRecordModule: React.FC = () => {
                             )}
                         </tbody>
                     </table>
+                    <div className="p-8 flex justify-center border-t border-slate-100 bg-slate-50/20">
+                        <button 
+                            onClick={async () => {
+                                setIsLoadingMore(true);
+                                await fetchMoreData('purchaseRecords', 'dateSupply');
+                                setIsLoadingMore(false);
+                            }}
+                            disabled={isLoadingMore}
+                            className="px-8 py-3 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                        >
+                            {isLoadingMore ? <RefreshCw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                            Load Older Documents
+                        </button>
+                    </div>
                 </div>
             </div>
 

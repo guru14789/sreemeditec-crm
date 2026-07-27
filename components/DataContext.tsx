@@ -332,7 +332,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [monthlyWinners, setMonthlyWinners] = useState<MonthlyWinner[]>([]);
-    const [purchaseRecords, setPurchaseRecords] = useState<PurchaseRecord[]>([]);
+    const [purchaseRecordSnap, setPurchaseRecordSnap] = useState<PurchaseRecord[]>([]);
+    const [pushedPurchaseRecords, setPushedPurchaseRecords] = useState<PurchaseRecord[]>([]);
+    const purchaseRecords = useMemo(() => {
+        const ids = new Set(purchaseRecordSnap.map(r => r.id));
+        return [...purchaseRecordSnap, ...pushedPurchaseRecords.filter(r => !ids.has(r.id))].sort((a,b) => b.dateSupply.localeCompare(a.dateSupply));
+    }, [purchaseRecordSnap, pushedPurchaseRecords]);
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
     const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
     const [serviceTasks, setServiceTasks] = useState<ServiceTask[]>([]);
@@ -789,7 +794,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         );
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(100)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
-        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => setPurchaseRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PurchaseRecord)), (err) => console.warn("purchaseRecords listener:", err));
+        const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => handleSnap('purchaseRecords', s, setPurchaseRecordSnap), (err) => console.warn("purchaseRecords listener:", err));
         const unsubVouchers = onSnapshot(query(collection(db, "vouchers"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('vouchers', s, setVoucherSnap), (err) => console.warn("vouchers listener:", err));
         const unsubTickets = onSnapshot(query(collection(db, "serviceTickets"), orderBy('timestamp', 'desc'), limit(100)), (s) => setServiceTickets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTicket)), (err) => console.warn("serviceTickets listener:", err));
         const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(100)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
@@ -1346,6 +1351,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (colName === 'expenses') setPushedExpenses(prev => [...prev, ...newData] as ExpenseRecord[]);
         if (colName === 'tasks') setPushedTasks(prev => [...prev, ...newData] as Task[]);
         if (colName === 'vouchers') setPushedVouchers(prev => [...prev, ...newData] as AccountingVoucher[]);
+        if (colName === 'purchaseRecords') setPushedPurchaseRecords(prev => [...prev, ...newData] as PurchaseRecord[]);
     };
 
     const addClient = async (c: Client) => { 
