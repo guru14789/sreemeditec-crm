@@ -942,9 +942,34 @@ const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showAlert })
             ]}
           />
           {isAdmin && (
-            <Button variant="primary" size="sm" onClick={handleOpenAdd} className="flex items-center gap-1.5 rounded-full px-4 shrink-0">
-              <PlusIcon size={14} /> Add Position
-            </Button>
+            <>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  if (window.confirm("Are you sure you want to reset all positions to their default salary scale configurations? This will overwrite custom edits.")) {
+                    setIsLoading(true);
+                    try {
+                      const { SALARY_SCALE } = await import('../types');
+                      for (const item of SALARY_SCALE) {
+                        const docId = item.position.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                        await setDoc(doc(db, "salaryScaleRules", docId), item);
+                      }
+                      showAlert("Designation salaries reset to default scale successfully.");
+                    } catch (e: any) {
+                      showAlert("Failed to reset: " + e.message);
+                    }
+                    setIsLoading(false);
+                  }
+                }} 
+                className="flex items-center gap-1.5 rounded-full px-4 shrink-0"
+              >
+                Reset Defaults
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleOpenAdd} className="flex items-center gap-1.5 rounded-full px-4 shrink-0">
+                <PlusIcon size={14} /> Add Position
+              </Button>
+            </>
           )}
         </div>
       </div>
