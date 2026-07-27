@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Employee, TabView, EnterpriseRole, SALARY_SCALE } from '../types';
 import {
-    Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw
+    Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw, Award
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { DesignationsTab } from './SystemConfigModule';
