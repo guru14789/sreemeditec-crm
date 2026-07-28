@@ -143,6 +143,7 @@ export interface ModelDetail {
   barcode?: string;
   qrCode?: string;
   specs: ProductSpecification[];
+  description?: string;
   vendors: ModelVendorInfo[];
   images: string[]; // URLs or base64
   documents: { name: string; url: string; type: 'Brochure' | 'Manual' | 'Certificate' | 'Other' }[];

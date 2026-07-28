@@ -1103,6 +1103,7 @@ export const InventoryModule: React.FC = () => {
                                                                     id: modelId,
                                                                     name: '',
                                                                     specs: [],
+                                                                    description: '',
                                                                     vendors: [],
                                                                     images: [],
                                                                     documents: []
@@ -1169,44 +1170,23 @@ export const InventoryModule: React.FC = () => {
                                                                 {expandedModels[model.id] && (
                                                                     <div className="pl-4 space-y-3 border-l border-slate-100 mt-2">
                                                                         
-                                                                        {/* Specifications Builder */}
-                                                                        <div className="space-y-2">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Specifications</span>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs.push({ key: '', value: '' });
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }}
-                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
-                                                                                >
-                                                                                    <Plus size={10} /> Add Spec Field
-                                                                                </button>
-                                                                            </div>
-                                                                            {model.specs.map((spec: any, sIdx: number) => (
-                                                                                <div key={sIdx} className="flex gap-2 items-center">
-                                                                                    <input type="text" placeholder="Specification (e.g. Dimensions)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.key} onChange={e => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs[sIdx].key = e.target.value;
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} />
-                                                                                    <input type="text" placeholder="Value (e.g. 50x30x20cm)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.value} onChange={e => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs[sIdx].value = e.target.value;
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} />
-                                                                                    <button type="button" onClick={() => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs = updated[bIdx].models[mIdx].specs.filter((_: any, idx: number) => idx !== sIdx);
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={10} /></button>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
+                                                                        {/* Specifications Text Area */}
+                                                                         <div className="space-y-1">
+                                                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Model Specifications</label>
+                                                                             <textarea
+                                                                                 placeholder="Enter specifications (e.g. Dimensions: 50x30cm, weight: 10kg...)"
+                                                                                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none resize-none"
+                                                                                 rows={3}
+                                                                                 value={model.description || ''}
+                                                                                 onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].description = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }}
+                                                                             />
+                                                                         </div>
 
-                                                                        {/* Vendors Configurations pricing/stock */}
+                                                                         {/* Vendors Configurations pricing/stock */}
                                                                         <div className="space-y-2">
                                                                             <div className="flex justify-between items-center">
                                                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Linked Vendors</span>
@@ -1482,6 +1462,7 @@ export const InventoryModule: React.FC = () => {
                                                                     id: modelId,
                                                                     name: '',
                                                                     specs: [],
+                                                                    description: '',
                                                                     vendors: [],
                                                                     images: [],
                                                                     documents: []
@@ -1548,44 +1529,23 @@ export const InventoryModule: React.FC = () => {
                                                                 {expandedModels[model.id] && (
                                                                     <div className="pl-4 space-y-3 border-l border-slate-100 mt-2">
                                                                         
-                                                                        {/* Specifications Builder */}
-                                                                        <div className="space-y-2">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Specifications</span>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs.push({ key: '', value: '' });
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }}
-                                                                                    className="text-[9px] font-black text-indigo-500 uppercase tracking-wider flex items-center gap-0.5"
-                                                                                >
-                                                                                    <Plus size={10} /> Add Spec Field
-                                                                                </button>
-                                                                            </div>
-                                                                            {model.specs.map((spec: any, sIdx: number) => (
-                                                                                <div key={sIdx} className="flex gap-2 items-center">
-                                                                                    <input type="text" placeholder="Specification (e.g. Dimensions)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.key} onChange={e => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs[sIdx].key = e.target.value;
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} />
-                                                                                    <input type="text" placeholder="Value (e.g. 50x30x20cm)" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold outline-none" value={spec.value} onChange={e => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs[sIdx].value = e.target.value;
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} />
-                                                                                    <button type="button" onClick={() => {
-                                                                                        const updated = [...hierarchicalBrands];
-                                                                                        updated[bIdx].models[mIdx].specs = updated[bIdx].models[mIdx].specs.filter((_: any, idx: number) => idx !== sIdx);
-                                                                                        setHierarchicalBrands(updated);
-                                                                                    }} className="text-rose-500 hover:bg-rose-50 p-1 rounded"><Trash2 size={10} /></button>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
+                                                                        {/* Specifications Text Area */}
+                                                                         <div className="space-y-1">
+                                                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Model Specifications</label>
+                                                                             <textarea
+                                                                                 placeholder="Enter specifications (e.g. Dimensions: 50x30cm, weight: 10kg...)"
+                                                                                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none resize-none"
+                                                                                 rows={3}
+                                                                                 value={model.description || ''}
+                                                                                 onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].description = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }}
+                                                                             />
+                                                                         </div>
 
-                                                                        {/* Vendors Configurations pricing/stock */}
+                                                                         {/* Vendors Configurations pricing/stock */}
                                                                         <div className="space-y-2">
                                                                             <div className="flex justify-between items-center">
                                                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Linked Vendors</span>
