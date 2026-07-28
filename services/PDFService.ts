@@ -353,15 +353,29 @@ export const PDFService = {
                 const gstAmt = (Number(it.unitPrice) * Number(it.quantity)) * (Number(it.taxRate) / 100);
                 const lineTotal = (Number(it.unitPrice) * Number(it.quantity)) + gstAmt;
                 return [
-                    it.description, it.model || '-', it.features ? it.features : '-', `${it.quantity}\n${it.unit}`,
-                    `Rs.${Number(it.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, `${it.taxRate}%`, `Rs.${gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                    { content: `Rs.${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n${numberToWords(lineTotal)}`, styles: { halign: 'right' , textColor: [0, 0, 0] } }
+                    { content: it.description, styles: { halign: 'left', textColor: [0, 0, 0] } },
+                    { content: it.model || '-', styles: { halign: 'left', textColor: [0, 0, 0] } },
+                    { content: it.features ? it.features : '-', styles: { halign: 'left', textColor: [0, 0, 0] } },
+                    { content: `${it.quantity}\n${it.unit}`, styles: { halign: 'center', textColor: [0, 0, 0] } },
+                    { content: `Rs.${Number(it.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', textColor: [0, 0, 0] } },
+                    { content: `${it.taxRate}%`, styles: { halign: 'center', textColor: [0, 0, 0] } },
+                    { content: `Rs.${gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', textColor: [0, 0, 0] } },
+                    { content: `Rs.${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n${numberToWords(lineTotal)}`, styles: { halign: 'right', textColor: [0, 0, 0] } }
                 ];
             }),
             theme: 'grid',
             headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [0, 0, 0], halign: 'center' },
             styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
-            columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 20 }, 2: { cellWidth: 35 }, 3: { cellWidth: 10, halign: 'center' }, 4: { cellWidth: 18, halign: 'right' }, 5: { cellWidth: 10, halign: 'center' }, 6: { cellWidth: 18, halign: 'right' }, 7: { cellWidth: 35 } }
+            columnStyles: { 
+                0: { cellWidth: 35, halign: 'left' }, 
+                1: { cellWidth: 15, halign: 'left' }, 
+                2: { cellWidth: 30, halign: 'left' }, 
+                3: { cellWidth: 10, halign: 'center' }, 
+                4: { cellWidth: 24, halign: 'right' }, 
+                5: { cellWidth: 10, halign: 'center' }, 
+                6: { cellWidth: 22, halign: 'right' }, 
+                7: { cellWidth: 34, halign: 'right' } 
+            }
         });
 
         let finalY = (doc as any).lastAutoTable.finalY;
