@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 
-export type FilingFilterValue = 'All' | 'Filed' | 'Not Filed' | 'Not Updated';
+export type FilingFilterValue = 'All' | 'Filed' | 'Not Filed' | 'Not Updated' | 'Draft';
 
 interface FilingFilterDropdownProps {
     value: FilingFilterValue;
@@ -21,7 +21,8 @@ export const FilingFilterDropdown: React.FC<FilingFilterDropdownProps> = ({ valu
         { label: 'All Filing', value: 'All' },
         { label: 'Filed', value: 'Filed' },
         { label: 'Not Filed', value: 'Not Filed' },
-        { label: 'Not Updated', value: 'Not Updated' }
+        { label: 'Not Updated', value: 'Not Updated' },
+        { label: 'Draft', value: 'Draft' }
     ];
 
     const selectedLabel = options.find(o => o.value === value)?.label || 'All Filing';

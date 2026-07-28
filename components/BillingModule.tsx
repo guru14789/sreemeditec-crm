@@ -183,7 +183,7 @@ Email: sreemeditec@gmail.com`;
     const [catalogSearch, setCatalogSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
+    const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated' | 'Draft'>('All');
     const [serverInvoices, setServerInvoices] = useState<Invoice[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -805,6 +805,7 @@ Email: sreemeditec@gmail.com`;
                                             return overdueInvoices.some(overdue => overdue.id === i.id);
                                         }
                                         if (filingFilter === 'All') return true;
+                                        if (filingFilter === 'Draft') return i.status === 'Draft';
                                         if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
                                         return i.filedStatus === filingFilter;
                                     })
