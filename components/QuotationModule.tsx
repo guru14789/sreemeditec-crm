@@ -1066,14 +1066,14 @@ Sree Meditec`;
                                         <table className="w-full border-collapse border border-black text-[10px] mb-8">
                                             <thead>
                                                 <tr className="bg-slate-100 font-bold border-b border-black">
-                                                    <th className="border-r border-black p-1">Product</th>
-                                                    <th className="border-r border-black p-1">Model</th>
-                                                    <th className="border-r border-black p-1">Features</th>
-                                                    <th className="border-r border-black p-1">Qty</th>
-                                                    <th className="border-r border-black p-1">Rate</th>
-                                                    <th className="border-r border-black p-1">GST%</th>
-                                                    <th className="border-r border-black p-1">GST Amt</th>
-                                                    <th className="p-1">Amount</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Product</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Model</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Features</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'center' }}>Qty</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'right' }}>Rate</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'center' }}>GST%</th>
+                                                    <th className="border-r border-black p-1" style={{ textAlign: 'right' }}>GST Amt</th>
+                                                    <th className="p-1" style={{ textAlign: 'right' }}>Amount</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1081,16 +1081,16 @@ Sree Meditec`;
                                                     const rowGst = (it.unitPrice * it.quantity) * (it.taxRate / 100); 
                                                     const rowTotal = (it.unitPrice * it.quantity) + rowGst; 
                                                     return (
-                                                        <tr key={it.id} className="border-b border-black text-center align-top">
-                                                            <td className="border-r border-black p-1 text-left font-bold">{it.description}</td>
-                                                            <td className="border-r border-black p-1">{it.model}</td>
-                                                            <td className="border-r border-black p-1 text-left whitespace-pre-wrap">{it.features}</td>
-                                                            <td className="border-r border-black p-1 font-bold">{it.quantity} {it.unit}</td>
-                                                            <td className="border-r border-black p-1 text-right">Rs.{it.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                            <td className="border-r border-black p-1">{it.taxRate}%</td>
-                                                            <td className="border-r border-black p-1 text-right">Rs.{rowGst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                            <td className="p-1 text-right font-bold">
-                                                                <div>Rs.{rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                                        <tr key={it.id} className="border-b border-black align-top">
+                                                            <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'left' }}>{it.description}</td>
+                                                            <td className="border-r border-black p-1" style={{ textAlign: 'left' }}>{it.model}</td>
+                                                            <td className="border-r border-black p-1 whitespace-pre-wrap" style={{ textAlign: 'left' }}>{it.features}</td>
+                                                            <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'center' }}>{it.quantity} {it.unit}</td>
+                                                            <td className="border-r border-black p-1 font-mono" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Rs.{it.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="border-r border-black p-1" style={{ textAlign: 'center' }}>{it.taxRate}%</td>
+                                                            <td className="border-r border-black p-1 font-mono" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Rs.{rowGst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="p-1 font-bold" style={{ textAlign: 'right' }}>
+                                                                <div className="font-mono" style={{ whiteSpace: 'nowrap' }}>Rs.{rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                                                 <div className="text-[8px] font-normal italic">{numberToWords(rowTotal)}</div>
                                                             </td>
                                                         </tr>
