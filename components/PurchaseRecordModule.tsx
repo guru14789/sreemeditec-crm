@@ -1,7 +1,7 @@
 import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo } from 'react';
 import { PurchaseRecord, PurchaseItem, TabView } from '../types';
-import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Calendar, User, Package, FileText, IndianRupee, Trash2, ArrowUpRight, X, RefreshCw, AlertTriangle, Search, Plus, Filter, Edit, Wallet, CheckCheck, ChevronDown, CheckSquare, Square } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
@@ -22,7 +22,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 import { AutoSuggest } from './AutoSuggest';
 
 export const PurchaseRecordModule: React.FC = () => {
-    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData, isSystemAdmin, fetchMoreData } = useData();
+    const { purchaseRecords, addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord, addNotification, currentUser, products, vendors, setActiveTab, setPendingSupplierPOData, isSystemAdmin, fetchMoreData, addInvoice, invoices, financialYear } = useData();
     const isAdmin = currentUser?.permissions?.[TabView.PURCHASE_REGISTER] === 'Admin' || isSystemAdmin;
     const [searchQuery, setSearchQuery] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
@@ -67,6 +67,7 @@ export const PurchaseRecordModule: React.FC = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showDraftWarningModal, setShowDraftWarningModal] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const handleNewEntry = () => {
         setNewRecord(INITIAL_RECORD_STATE);
@@ -521,10 +522,110 @@ export const PurchaseRecordModule: React.FC = () => {
 
             {/* Table */}
             <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
+                {/* Bulk action bar */}
+                {selectedIds.size > 0 && (
+                    <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200 animate-in fade-in slide-in-from-top-2">
+                        <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">{selectedIds.size} selected</span>
+                        <button
+                            onClick={async () => {
+                                const selected = filteredRecords.filter(r => selectedIds.has(r.id));
+                                if (selected.length === 0) return;
+
+                                // Find the highest existing SMPOC number to auto-increment
+                                const existingPOs = (invoices || []).filter(
+                                    (i: any) => i.documentType === 'SupplierPO' && (i.invoiceNumber || '').includes(`/${financialYear}/`)
+                                );
+                                let nextNum = existingPOs.reduce((max: number, i: any) => {
+                                    const parts = (i.invoiceNumber || '').split('/');
+                                    const n = parseInt(parts[parts.length - 1], 10);
+                                    return isNaN(n) ? max : Math.max(max, n);
+                                }, 0) + 1;
+
+                                let created = 0;
+                                for (const record of selected) {
+                                    const mappedItems = (record.items || []).map((item: any) => {
+                                        const qty = item.qty || 0;
+                                        const rate = item.rate || 0;
+                                        const taxRate = item.gstPercent || item.cgstPercent || 0;
+                                        const amount = qty * rate;
+                                        const gstValue = amount * (taxRate / 100);
+                                        return {
+                                            id: item.id,
+                                            productName: item.equipmentName,
+                                            description: item.equipmentName,
+                                            hsn: '',
+                                            unit: item.unit || 'nos',
+                                            quantity: qty,
+                                            unitPrice: rate,
+                                            taxRate,
+                                            cgstRate: taxRate / 2,
+                                            sgstRate: taxRate / 2,
+                                            igstRate: 0,
+                                            amount,
+                                            gstValue,
+                                            priceWithGst: amount + gstValue,
+                                            total: item.total || 0,
+                                            discount: 0,
+                                        };
+                                    });
+                                    const grandTotal = record.total || 0;
+                                    const poNum = `SMPOC/${financialYear}/${String(nextNum).padStart(4, '0')}`;
+                                    await addInvoice({
+                                        id: `SPO-${Date.now()}-${nextNum}`,
+                                        invoiceNumber: poNum,
+                                        documentType: 'SupplierPO',
+                                        status: 'Draft',
+                                        date: record.dateSupply || new Date().toISOString().split('T')[0],
+                                        customerName: record.supplier,
+                                        cpoNumber: record.invoiceNo,
+                                        cpoDate: record.materialReceivedDate || '',
+                                        remarks: `Converted from Purchase Entry ${record.invoiceNo}`,
+                                        items: mappedItems,
+                                        subtotal: record.total || 0,
+                                        taxTotal: 0,
+                                        grandTotal,
+                                        isRoundOff: record.isRoundOff,
+                                        createdBy: currentUser?.name || 'System',
+                                    } as any);
+                                    nextNum++;
+                                    created++;
+                                }
+                                setSelectedIds(new Set());
+                                addNotification('Supplier POs Created', `${created} Supplier PO${created > 1 ? 's' : ''} created as Draft.`, 'success');
+                                setActiveTab(TabView.SUPPLIER_PO);
+                            }}
+                            className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all active:scale-95 shadow-sm"
+                        >
+                            <ArrowUpRight size={11} /> Convert to Supplier PO ({selectedIds.size} separate POs)
+                        </button>
+                        <button onClick={() => setSelectedIds(new Set())} className="text-amber-400 hover:text-amber-700 transition-colors">
+                            <X size={13} />
+                        </button>
+                    </div>
+                )}
                 <div className="flex-1 overflow-auto custom-scrollbar">
                     <table className="w-full text-left text-[11px]">
                         <thead className="bg-slate-50 border-b text-[9px] uppercase font-bold text-slate-400 sticky top-0 z-10">
                             <tr>
+                                {/* Select-all checkbox */}
+                                <th className="pl-4 py-2 w-8">
+                                    {(() => {
+                                        const visibleIds = filteredRecords.map(r => r.id);
+                                        const allChecked = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+                                        return (
+                                            <button
+                                                title={allChecked ? 'Deselect all' : 'Select all'}
+                                                onClick={() => {
+                                                    if (allChecked) setSelectedIds(new Set());
+                                                    else setSelectedIds(new Set(visibleIds));
+                                                }}
+                                                className={`transition-colors ${allChecked ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400'}`}
+                                            >
+                                                {allChecked ? <CheckSquare size={13} /> : <Square size={13} />}
+                                            </button>
+                                        );
+                                    })()}
+                                </th>
                                 <th className="px-4 py-2 font-inter">Invoice / Date</th>
                                 <th className="px-4 py-2">Supplier</th>
                                 <th className="px-4 py-2 text-right">Grand Total</th>
@@ -543,7 +644,21 @@ export const PurchaseRecordModule: React.FC = () => {
                                 const displayStatus = record.status || (balance <= 0 ? 'Completed' : 'Pending');
 
                                 return (
-                                    <tr key={record.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0" onClick={() => setSelectedRecord(record)}>
+                                    <tr key={record.id} className={`hover:bg-slate-50/50 transition-colors cursor-pointer group border-b border-slate-100 last:border-0 ${selectedIds.has(record.id) ? 'bg-amber-50/60 border-l-2 border-amber-400' : ''}`} onClick={() => setSelectedRecord(record)}>
+                                        {/* Row checkbox */}
+                                        <td className="pl-4 py-3 w-8" onClick={e => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => {
+                                                    const next = new Set(selectedIds);
+                                                    if (next.has(record.id)) next.delete(record.id);
+                                                    else next.add(record.id);
+                                                    setSelectedIds(next);
+                                                }}
+                                                className={`transition-colors ${selectedIds.has(record.id) ? 'text-amber-500' : 'text-slate-200 hover:text-amber-400 opacity-0 group-hover:opacity-100'}`}
+                                            >
+                                                {selectedIds.has(record.id) ? <CheckSquare size={13} /> : <Square size={13} />}
+                                            </button>
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="font-black text-slate-800 font-inter tracking-widest">{record.invoiceNo}</div>
                                             <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{record.dateSupply}</div>
@@ -681,7 +796,7 @@ export const PurchaseRecordModule: React.FC = () => {
                             })}
                             {filteredRecords.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="py-20 text-center">
+                                    <td colSpan={9} className="py-20 text-center">
                                         <div className="flex flex-col items-center opacity-20">
                                             <ShoppingCart size={48} className="mb-4" />
                                             <p className="font-black uppercase tracking-[0.2em] text-slate-400">No Purchase Entries Found</p>

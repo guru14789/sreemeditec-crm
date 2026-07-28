@@ -413,6 +413,7 @@ export const ServiceOrderModule: React.FC = () => {
                                     <th className="px-4 py-2 hidden md:table-cell">Machine</th>
                                     <th className="px-4 py-2 text-right hidden sm:table-cell">Value</th>
                                     <th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th>
+                                    <th className="px-4 py-2 text-center hidden sm:table-cell">Status</th>
                                     <th className="px-4 py-2 text-center hidden sm:table-cell">Priority</th>
                                     <th className="px-4 py-2 text-right">Action</th>
                                 </tr>
@@ -456,6 +457,28 @@ export const ServiceOrderModule: React.FC = () => {
                                                     await updateInvoice(docId, updates);
                                                 }}
                                             />
+                                        </td>
+                                        <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+                                             <select 
+                                                 value={inv.status || 'Pending'} 
+                                                 onChange={async (e) => {
+                                                     const nextStatus = e.target.value;
+                                                     await updateInvoice(inv.id, { status: nextStatus as any });
+                                                     addNotification('Status Updated', `Service Order ${inv.invoiceNumber} status set to ${nextStatus}`, 'success');
+                                                 }}
+                                                 className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-slate-200 transition-all hover:border-slate-400 ${
+                                                     inv.status === 'Draft' ? 'bg-slate-100 text-slate-600 border-slate-300' :
+                                                     inv.status === 'Completed' || inv.status === 'Invoiced' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                                     inv.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                     inv.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                     'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                 }`}
+                                             >
+                                                 <option value="Draft">Draft</option>
+                                                 <option value="Pending">Pending</option>
+                                                 <option value="Completed">Invoiced</option>
+                                                 <option value="Cancelled">Cancelled</option>
+                                             </select>
                                         </td>
                                         <td className="px-4 py-2 text-center hidden sm:table-cell"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.priority === 'Urgent' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>{inv.priority}</span></td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>

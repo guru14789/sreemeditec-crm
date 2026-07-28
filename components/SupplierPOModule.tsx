@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, Save, PenTool, X,
-    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart, ChevronDown, RotateCcw
+    History, Download, Edit, Eye, List as ListIcon, Building2, CreditCard, Package, Star, FileText, MoreVertical, Percent, MessageSquare, ShoppingCart, ChevronDown, RotateCcw, CheckSquare, Square, AlertTriangle
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
@@ -76,6 +76,7 @@ export const SupplierPOModule: React.FC = () => {
     const [poSearch, setPoSearch] = useState('');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const [order, setOrder] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -503,13 +504,75 @@ export const SupplierPOModule: React.FC = () => {
 
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
+                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex flex-wrap justify-between items-center gap-3">
                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto">Procurement History</h3>
+                        {/* Bulk-delete action bar — super admin only */}
+                        {isSystemAdmin && selectedIds.size > 0 && (
+                            <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-2 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                <AlertTriangle size={13} className="text-rose-500 shrink-0" />
+                                <span className="text-[10px] font-black text-rose-700 uppercase tracking-widest">{selectedIds.size} selected</span>
+                                <button
+                                    onClick={async () => {
+                                        const confirmed = await showConfirm(`Permanently delete ${selectedIds.size} Supplier PO${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`);
+                                        if (!confirmed) return;
+                                        const idsArray = Array.from(selectedIds);
+                                        await Promise.all(idsArray.map(id => removeInvoice(id)));
+                                        addNotification('Bulk Delete', `${idsArray.length} Supplier PO${idsArray.length > 1 ? 's' : ''} deleted successfully.`, 'success');
+                                        setSelectedIds(new Set());
+                                    }}
+                                    className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all active:scale-95 shadow-sm"
+                                >
+                                    <Trash2 size={11} /> Delete Selected
+                                </button>
+                                <button onClick={() => setSelectedIds(new Set())} className="text-rose-400 hover:text-rose-600 transition-colors">
+                                    <X size={13} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
+                                    {/* Checkbox col — super admin only */}
+                                    {isSystemAdmin && (() => {
+                                        const visibleIds = invoices
+                                            .filter(i => i.documentType === 'SupplierPO')
+                                            .filter(i => {
+                                                if (poSearch) {
+                                                    const low = poSearch.toLowerCase();
+                                                    return (i.invoiceNumber || '').toLowerCase().includes(low) ||
+                                                           (i.customerName || '').toLowerCase().includes(low) ||
+                                                           (i.items || []).some(item => (item.description || '').toLowerCase().includes(low));
+                                                }
+                                                return true;
+                                            })
+                                            .filter(i => {
+                                                if (filingFilter === 'All') return true;
+                                                if (filingFilter === 'Not Updated') return !i.filedStatus || i.filedStatus === 'Not Updated';
+                                                return i.filedStatus === filingFilter;
+                                            })
+                                            .map(i => i.id);
+                                        const allChecked = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+                                        const someChecked = visibleIds.some(id => selectedIds.has(id));
+                                        return (
+                                            <th className="pl-4 py-2 w-8">
+                                                <button
+                                                    title={allChecked ? 'Deselect all' : 'Select all'}
+                                                    onClick={() => {
+                                                        if (allChecked) {
+                                                            setSelectedIds(new Set());
+                                                        } else {
+                                                            setSelectedIds(new Set(visibleIds));
+                                                        }
+                                                    }}
+                                                    className={`transition-colors ${allChecked ? 'text-rose-500' : someChecked ? 'text-rose-300' : 'text-slate-300 hover:text-rose-400'}`}
+                                                >
+                                                    {allChecked ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                </button>
+                                            </th>
+                                        );
+                                    })()}
                                     <th className="px-4 py-2 font-inter">PO / Date</th>
                                     <th className="px-4 py-2">Vendor</th>
                                     <th className="px-4 py-2">Author</th>
@@ -542,7 +605,23 @@ export const SupplierPOModule: React.FC = () => {
                                         return numB.localeCompare(numA, undefined, { numeric: true });
                                     })
                                     .map(inv => (
-                                    <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
+                                    <tr key={inv.id} onClick={() => { setOrder(inv); setEditingId(inv.id); setViewState('builder'); setBuilderTab('form'); }} className={`hover:bg-slate-50 transition-colors group cursor-pointer ${selectedIds.has(inv.id) ? 'bg-rose-50/60 border-l-2 border-rose-400' : ''}`}>
+                                        {/* Checkbox — super admin only */}
+                                        {isSystemAdmin && (
+                                            <td className="pl-4 py-3 w-8" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => {
+                                                        const next = new Set(selectedIds);
+                                                        if (next.has(inv.id)) next.delete(inv.id);
+                                                        else next.add(inv.id);
+                                                        setSelectedIds(next);
+                                                    }}
+                                                    className={`transition-colors ${selectedIds.has(inv.id) ? 'text-rose-500' : 'text-slate-200 hover:text-rose-400 opacity-0 group-hover:opacity-100'}`}
+                                                >
+                                                    {selectedIds.has(inv.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                </button>
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3">
                                             <div className="font-black text-slate-800 font-inter tracking-widest">{inv.invoiceNumber}</div>
                                             <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{inv.date || '—'}</div>
@@ -565,7 +644,28 @@ export const SupplierPOModule: React.FC = () => {
                                                 }} 
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-700'}`}>{inv.status}</span></td>
+                                        <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <select 
+                                                value={inv.status || 'Pending'} 
+                                                onChange={async (e) => {
+                                                    const nextStatus = e.target.value;
+                                                    await updateInvoice(inv.id, { status: nextStatus as any });
+                                                    addNotification('Status Updated', `Supplier PO ${inv.invoiceNumber} status set to ${nextStatus}`, 'success');
+                                                }}
+                                                className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-slate-200 transition-all hover:border-slate-400 ${
+                                                    inv.status === 'Draft' ? 'bg-slate-100 text-slate-600 border-slate-300' :
+                                                    inv.status === 'Purchased' || inv.status === 'Completed' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                                    inv.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                    inv.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                }`}
+                                            >
+                                                <option value="Draft">Draft</option>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Purchased">Purchased</option>
+                                                <option value="Cancelled">Cancelled</option>
+                                            </select>
+                                        </td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className={`relative flex justify-end ${activeMenuId === inv.id ? 'z-50' : 'z-0'}`}>
                                                 <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === inv.id ? null : inv.id); }} className={`p-2 rounded-[2rem] transition-all ${activeMenuId === inv.id ? 'bg-medical-50 text-medical-600' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>

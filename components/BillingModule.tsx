@@ -590,7 +590,14 @@ Email: sreemeditec@gmail.com`;
                     
                     const updated = { ...item, [field]: finalVal };
                     if (field === 'description') {
-                        const matchedProduct = products.find(p => p.name.toUpperCase() === value.toUpperCase());
+                        const targetName = typeof value === 'object' ? value.name : value;
+                        const targetId = typeof value === 'object' ? value.id : null;
+
+                        const matchedProduct = targetId 
+                            ? products.find(p => p.id === targetId)
+                            : products.find(p => p.name.toUpperCase() === targetName.toUpperCase());
+
+                        updated.description = targetName;
                         updated.brand = '';
                         updated.model = '';
                         if (matchedProduct) {
@@ -604,26 +611,37 @@ Email: sreemeditec@gmail.com`;
                         }
                     } else if (field === 'brand') {
                         updated.model = '';
+                        updated.features = '';
                     } else if (field === 'model') {
-                        const matchedProduct = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                        // Use stored productId first (most reliable), fall back to name match
+                        const matchedProduct = item.productId
+                            ? products.find(p => p.id === item.productId)
+                            : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                         if (matchedProduct) {
-                            const brandObj = matchedProduct.brands?.find(b => b.name === item.brand);
-                            const modelObj = brandObj?.models?.find(m => m.name === value);
+                            const brandObj = matchedProduct.brands?.find((b: any) => (b.name || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase());
+                            const modelObj = brandObj?.models?.find((m: any) => (m.name || '').trim().toLowerCase() === String(value).trim().toLowerCase());
                             if (modelObj) {
-                                // Default specs and pricing
-                                updated.features = modelObj.specs ? modelObj.specs.map(s => `${s.key}: ${s.value}`).join(', ') : (matchedProduct.description || '');
+                                // Build features from specs — newline separated for readability
+                                if (modelObj.specs && modelObj.specs.length > 0) {
+                                    updated.features = modelObj.specs.map((s: any) => `${s.key}: ${s.value}`).join('\n');
+                                } else {
+                                    updated.features = matchedProduct.description || '';
+                                }
+                                updated.hsn = matchedProduct.hsn || updated.hsn || '';
                                 if (modelObj.vendors && modelObj.vendors.length > 0) {
                                     const primaryVendor = modelObj.vendors[0];
                                     updated.unitPrice = primaryVendor.sellingPrice || matchedProduct.sellingPrice || 0;
                                     updated.taxRate = primaryVendor.gstRate || matchedProduct.taxRate || 18;
                                     updated.sku = primaryVendor.sku || matchedProduct.sku || '';
+                                } else {
+                                    updated.unitPrice = matchedProduct.sellingPrice || updated.unitPrice || 0;
+                                    updated.taxRate = matchedProduct.taxRate || updated.taxRate || 18;
                                 }
-                                if (modelObj.barcode) {
-                                    updated.barcode = modelObj.barcode;
-                                }
+                                if (modelObj.barcode) updated.barcode = modelObj.barcode;
                             }
                         }
                     }
+
                     // Calculations work with strings automatically in JS math
                     updated.amount = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
                     updated.gstValue = updated.amount * ((Number(updated.taxRate) || 0) / 100);
@@ -1229,7 +1247,7 @@ Email: sreemeditec@gmail.com`;
                                                                  onSelect={prod => {
                                                                      // Handle selection of base product (only matching unique name)
                                                                      const baseProdName = prod.name.split(' (')[0];
-                                                                     updateItem(item.id, 'description', baseProdName);
+                                                                     updateItem(item.id, 'description', { name: baseProdName, id: prod.id });
                                                                  }}
                                                                  suggestions={products}
                                                                  filterKey="name"

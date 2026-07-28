@@ -4,7 +4,7 @@ import { Invoice, InvoiceItem, TabView } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail, ChevronDown
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
@@ -110,7 +110,7 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt } = useData();
+    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
     const flatProducts = useMemo(() => {
         const list: any[] = [];
@@ -208,6 +208,7 @@ Sree Meditec`;
     const [quoteSearch, setQuoteSearch] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [logo, setLogo] = useState<string | null>(null);
     const [signature, setSignature] = useState<string | null>(null);
@@ -337,20 +338,60 @@ Sree Meditec`;
             const updatedItems = (prev.items || []).map(item => {
                 if (item.id === id) {
                     const updated = { ...item, [field]: value };
+
                     if (field === 'description') {
-                        const matched = flatProducts.find(p => p.name.toUpperCase() === value.toUpperCase());
-                        if (matched) {
-                            updated.unitPrice = matched.sellingPrice;
-                            updated.taxRate = matched.taxRate || 12;
-                            updated.features = matched.features || '';
-                            if (matched.id.includes('::')) {
-                                const parts = matched.id.split('::');
-                                updated.model = parts[2];
-                            } else {
-                                updated.model = '';
+                        const targetName = typeof value === 'object' ? value.name : value;
+                        const targetId = typeof value === 'object' ? value.id : null;
+                        
+                        const matchedProduct = targetId 
+                            ? products.find(p => p.id === targetId)
+                            : products.find(p => p.name.toUpperCase() === targetName.toUpperCase());
+
+                        // Reset brand/model when product changes
+                        updated.description = targetName;
+                        updated.brand = '';
+                        updated.model = '';
+                        if (matchedProduct) {
+                            updated.productId = matchedProduct.id;
+                            updated.unitPrice = matchedProduct.sellingPrice || 0;
+                            updated.taxRate = matchedProduct.taxRate || 12;
+                            updated.features = matchedProduct.description || '';
+                            updated.hsn = matchedProduct.hsn || '';
+                            updated.sku = matchedProduct.sku || '';
+                        }
+                    } else if (field === 'brand') {
+                        updated.model = '';
+                        updated.features = '';
+                    } else if (field === 'model') {
+                        // Use stored productId first, fall back to name match
+                        const matchedProduct = item.productId
+                            ? products.find(p => p.id === item.productId)
+                            : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                        if (matchedProduct) {
+                            const brandObj = matchedProduct.brands?.find((b: any) => (b.name || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase());
+                            const modelObj = brandObj?.models?.find((m: any) => (m.name || '').trim().toLowerCase() === String(value).trim().toLowerCase());
+                            if (modelObj) {
+                                // Build features from specs — newline separated
+                                if (modelObj.specs && modelObj.specs.length > 0) {
+                                    updated.features = modelObj.specs.map((s: any) => `${s.key}: ${s.value}`).join('\n');
+                                } else {
+                                    updated.features = matchedProduct.description || '';
+                                }
+                                updated.hsn = matchedProduct.hsn || updated.hsn || '';
+                                if (modelObj.vendors && modelObj.vendors.length > 0) {
+                                    const primaryVendor = modelObj.vendors[0];
+                                    updated.unitPrice = primaryVendor.sellingPrice || matchedProduct.sellingPrice || 0;
+                                    updated.taxRate = primaryVendor.gstRate || matchedProduct.taxRate || 12;
+                                    updated.sku = primaryVendor.sku || matchedProduct.sku || '';
+                                } else {
+                                    updated.unitPrice = matchedProduct.sellingPrice || updated.unitPrice || 0;
+                                    updated.taxRate = matchedProduct.taxRate || updated.taxRate || 12;
+                                }
+                                if (modelObj.barcode) updated.barcode = modelObj.barcode;
                             }
                         }
                     }
+
                     updated.amount = updated.quantity * updated.unitPrice;
                     return updated;
                 }
@@ -359,6 +400,7 @@ Sree Meditec`;
             return { ...prev, items: updatedItems };
         });
     };
+
 
     const handleRevise = (inv: Invoice) => {
         // Source: SMQ/25-26/14 or SMQ/R1/25-26/14
@@ -666,15 +708,18 @@ Sree Meditec`;
                                                      await updateInvoice(inv.id, { status: nextStatus as any });
                                                      addNotification('Status Updated', `Quotation ${inv.invoiceNumber} status set to ${nextStatus}`, 'success');
                                                  }}
-                                                 className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-transparent transition-all hover:border-slate-300 ${
-                                                     inv.status === 'Draft' ? 'bg-slate-100 text-slate-500' :
-                                                     inv.status === 'Completed' ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' :
-                                                     'bg-emerald-50 text-emerald-700'
+                                                 className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-slate-200 transition-all hover:border-slate-400 ${
+                                                     inv.status === 'Draft' ? 'bg-slate-100 text-slate-600 border-slate-300' :
+                                                     inv.status === 'Completed' || inv.status === 'Invoiced' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                                     inv.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                     inv.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                     'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                  }`}
                                              >
                                                  <option value="Draft">Draft</option>
                                                  <option value="Pending">Pending</option>
                                                  <option value="Completed">Invoiced</option>
+                                                 <option value="Cancelled">Cancelled</option>
                                              </select>
                                         </td>
                                         <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
@@ -787,6 +832,20 @@ Sree Meditec`;
                                 ))}
                             </tbody>
                         </table>
+                        <div className="p-8 flex justify-center border-t border-slate-100 bg-slate-50/20">
+                            <button 
+                                onClick={async () => {
+                                    setIsLoadingMore(true);
+                                    await fetchMoreData('invoices', 'date');
+                                    setIsLoadingMore(false);
+                                }}
+                                disabled={isLoadingMore}
+                                className="px-8 py-3 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                            >
+                                {isLoadingMore ? <RefreshCw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+                                Load Older Documents
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -859,7 +918,7 @@ Sree Meditec`;
                                                                  onChange={val => updateItem(item.id, 'description', val.toUpperCase())}
                                                                  onSelect={prod => {
                                                                      const baseProdName = prod.name.split(' (')[0];
-                                                                     updateItem(item.id, 'description', baseProdName.toUpperCase());
+                                                                     updateItem(item.id, 'description', { name: baseProdName.toUpperCase(), id: prod.id });
                                                                  }}
                                                                  suggestions={products}
                                                                  filterKey="name"

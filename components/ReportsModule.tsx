@@ -174,7 +174,7 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, allSmInvoicesKpi, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
+  const { invoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
@@ -818,81 +818,82 @@ export const ReportsModule: React.FC = () => {
     if (viewMode === 'month') {
       const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
       const dailyData = Array.from({ length: daysInMonth }, (_, i) => ({
-        label: `${i + 1}`, revenue: 0, expenses: 0, profit: 0,
+        label: `${i + 1}`, revenue: 0, expenses: 0, procurement: 0, profit: 0,
         raw: `${currentMonthStr}-${String(i + 1).padStart(2, '0')}`,
       }));
-      invoices.forEach((inv) => {
+      (allInvoicesKpi || []).forEach((inv) => {
         if (inv.status === 'Draft' || !inv.date.startsWith(currentMonthStr)) return;
         const day = parseInt(inv.date.split('-')[2]);
         if (day && dailyData[day - 1]) {
-          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') dailyData[day - 1].revenue += inv.grandTotal || 0;
+          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO' && (inv as any).documentType !== 'SupplierPO') dailyData[day - 1].revenue += inv.grandTotal || 0;
         }
       });
-      expenses.forEach((exp) => {
+      (allExpensesKpi || []).forEach((exp) => {
         if (exp.status !== 'Approved' || !exp.date.startsWith(currentMonthStr)) return;
         const day = parseInt(exp.date.split('-')[2]);
         if (day && dailyData[day - 1]) dailyData[day - 1].expenses += exp.amount || 0;
       });
-      (purchaseRecords || []).forEach((rec: any) => {
+      (allPurchaseRecordsKpi || []).forEach((rec: any) => {
         const dStr = rec.dateSupply || rec.materialReceivedDate || '';
         if (!dStr.startsWith(currentMonthStr)) return;
         const day = parseInt(dStr.split('-')[2]);
-        if (day && dailyData[day - 1]) dailyData[day - 1].expenses += rec.total || 0;
+        if (day && dailyData[day - 1]) dailyData[day - 1].procurement += rec.total || 0;
       });
-      return dailyData.map((d) => ({ ...d, profit: d.revenue - d.expenses }));
+      return dailyData.map((d) => ({ ...d, profit: d.revenue - (d.expenses + d.procurement) }));
     }
 
     if (viewMode === 'year') {
       const monthlyData = Array.from({ length: 12 }, (_, i) => ({
-        label: monthsShort[i], revenue: 0, expenses: 0, profit: 0,
+        label: monthsShort[i], revenue: 0, expenses: 0, procurement: 0, profit: 0,
         raw: `${currentYear}-${String(i + 1).padStart(2, '0')}`,
       }));
-      invoices.forEach((inv) => {
+      (allInvoicesKpi || []).forEach((inv) => {
         if (inv.status === 'Draft' || !inv.date.startsWith(`${currentYear}-`)) return;
         const month = parseInt(inv.date.split('-')[1]);
         if (month && monthlyData[month - 1]) {
-          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') monthlyData[month - 1].revenue += inv.grandTotal || 0;
+          if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO' && (inv as any).documentType !== 'SupplierPO') monthlyData[month - 1].revenue += inv.grandTotal || 0;
         }
       });
-      expenses.forEach((exp) => {
+      (allExpensesKpi || []).forEach((exp) => {
         if (exp.status !== 'Approved' || !exp.date.startsWith(`${currentYear}-`)) return;
         const month = parseInt(exp.date.split('-')[1]);
         if (month && monthlyData[month - 1]) monthlyData[month - 1].expenses += exp.amount || 0;
       });
-      (purchaseRecords || []).forEach((rec: any) => {
+      (allPurchaseRecordsKpi || []).forEach((rec: any) => {
         const dStr = rec.dateSupply || rec.materialReceivedDate || '';
         if (!dStr.startsWith(`${currentYear}-`)) return;
         const month = parseInt(dStr.split('-')[1]);
-        if (month && monthlyData[month - 1]) monthlyData[month - 1].expenses += rec.total || 0;
+        if (month && monthlyData[month - 1]) monthlyData[month - 1].procurement += rec.total || 0;
       });
-      return monthlyData.map((d) => ({ ...d, profit: d.revenue - d.expenses }));
+      return monthlyData.map((d) => ({ ...d, profit: d.revenue - (d.expenses + d.procurement) }));
     }
 
     // viewMode === 'overall'
     const yearMap: Record<string, any> = {};
-    const addYearData = (dateStr: string, rev: number, exp: number) => {
+    const addYearData = (dateStr: string, rev: number, exp: number, proc: number) => {
       if (!dateStr) return;
       const year = dateStr.split('-')[0];
       if (!year || year.length !== 4) return;
-      if (!yearMap[year]) yearMap[year] = { label: year, revenue: 0, expenses: 0, profit: 0, raw: year };
+      if (!yearMap[year]) yearMap[year] = { label: year, revenue: 0, expenses: 0, procurement: 0, profit: 0, raw: year };
       yearMap[year].revenue += rev;
       yearMap[year].expenses += exp;
+      yearMap[year].procurement += proc;
     };
-    invoices.forEach((inv) => {
+    (allInvoicesKpi || []).forEach((inv) => {
       if (inv.status === 'Draft') return;
-      if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO') addYearData(inv.date, inv.grandTotal || 0, 0);
+      if ((inv as any).documentType !== 'Quotation' && (inv as any).documentType !== 'PO' && (inv as any).documentType !== 'SupplierPO') addYearData(inv.date, inv.grandTotal || 0, 0, 0);
     });
-    expenses.forEach((exp) => {
-      if (exp.status === 'Approved') addYearData(exp.date, 0, exp.amount || 0);
+    (allExpensesKpi || []).forEach((exp) => {
+      if (exp.status === 'Approved') addYearData(exp.date, 0, exp.amount || 0, 0);
     });
-    (purchaseRecords || []).forEach((rec: any) => {
-      addYearData(rec.dateSupply || rec.materialReceivedDate, 0, rec.total || 0);
+    (allPurchaseRecordsKpi || []).forEach((rec: any) => {
+      addYearData(rec.dateSupply || rec.materialReceivedDate, 0, 0, rec.total || 0);
     });
     return Object.values(yearMap)
-      .map((d: any) => ({ ...d, profit: d.revenue - d.expenses }))
+      .map((d: any) => ({ ...d, profit: d.revenue - (d.expenses + d.procurement) }))
       .sort((a: any, b: any) => a.raw.localeCompare(b.raw));
       
-  }, [viewMode, invoices, expenses, purchaseRecords]);
+  }, [viewMode, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi]);
 
   const CATEGORY_DATA = useMemo(() => {
     const catMap: Record<string, number> = {};
@@ -1034,24 +1035,23 @@ export const ReportsModule: React.FC = () => {
       return false;
     };
 
-    // ── Current period ────────────────────────────────────────────────────────
-    // Total Sales = ALL SM/ invoice subtotals (pre-tax, excl. GST) from complete Firestore dataset
+    // Total Sales = invoiced amount (grandTotal, incl. GST) for SM/ invoices
     let totalRevenue = 0;
     allSmInvoicesKpi.forEach(inv => {
       if (!inRange(inv.date)) return;
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      totalRevenue += (inv.subtotal || inv.grandTotal || 0);
+      totalRevenue += (inv.grandTotal || 0);
     });
 
     let totalExpenses = 0;
-    expenses.forEach(exp => {
+    (allExpensesKpi || []).forEach(exp => {
       if (!inRange(exp.date)) return;
       if (exp.status === 'Approved') totalExpenses += exp.amount || 0;
     });
 
     let totalPurchaseRecords = 0;
     let filteredPurchaseCount = 0;
-    (purchaseRecords || []).forEach((rec: any) => {
+    (allPurchaseRecordsKpi || []).forEach((rec: any) => {
       if (!inRange(rec.dateSupply || rec.materialReceivedDate)) return;
       totalPurchaseRecords += rec.total || 0;
       filteredPurchaseCount += 1;
@@ -1060,21 +1060,22 @@ export const ReportsModule: React.FC = () => {
     const totalProfit = totalRevenue - (totalExpenses + totalPurchaseRecords);
 
     // ── Previous period ───────────────────────────────────────────────────────
+    // Previous period revenue
     let prevRevenue = 0;
     allSmInvoicesKpi.forEach(inv => {
       if (!inPrevRange(inv.date)) return;
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      prevRevenue += (inv.subtotal || inv.grandTotal || 0);
+      prevRevenue += (inv.grandTotal || 0);
     });
 
     let prevExpenses = 0;
-    expenses.forEach(exp => {
+    (allExpensesKpi || []).forEach(exp => {
       if (!inPrevRange(exp.date)) return;
       if (exp.status === 'Approved') prevExpenses += exp.amount || 0;
     });
 
     let prevPurchaseRecords = 0;
-    (purchaseRecords || []).forEach((rec: any) => {
+    (allPurchaseRecordsKpi || []).forEach((rec: any) => {
       if (!inPrevRange(rec.dateSupply || rec.materialReceivedDate)) return;
       prevPurchaseRecords += rec.total || 0;
     });
@@ -1097,7 +1098,7 @@ export const ReportsModule: React.FC = () => {
       profitTrend: calcTrend(totalProfit, prevProfit),
       expenseTrend: calcTrend(totalExpenses, prevExpenses),
     };
-  }, [allSmInvoicesKpi, expenses, purchaseRecords, dateRange]);
+  }, [allSmInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, dateRange]);
 
   const { totalRevenue, totalExpenses, totalPurchaseRecords, filteredPurchaseCount, totalProfit, prevRevenue, salesTrend, profitTrend, expenseTrend } = kpiData;
   const growthRate = salesTrend;
@@ -2258,7 +2259,7 @@ export const ReportsModule: React.FC = () => {
           <div>
             <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
             <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
-            <p className="text-[6px] text-emerald-400/60 font-bold mt-0.5 uppercase tracking-wider">Pre-tax (excl. GST)</p>
+            <p className="text-[6px] text-emerald-400/60 font-bold mt-0.5 uppercase tracking-wider">Incl. GST</p>
           </div>
         </div>
 
@@ -2280,6 +2281,7 @@ export const ReportsModule: React.FC = () => {
           <div>
             <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
             <h3 className={`text-sm md:text-base font-black mt-1 ${totalProfit < 0 ? 'text-rose-300' : 'text-white'}`}>₹{formatIndianNumber(totalProfit)}</h3>
+            <p className="text-[6px] text-emerald-200/50 font-bold mt-0.5 uppercase tracking-wider">Sales − (Expenses + Procurement)</p>
           </div>
         </div>
 
