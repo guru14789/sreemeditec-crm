@@ -1258,7 +1258,18 @@ Email: sreemeditec@gmail.com`;
 
                                                          {/* Brand Selection (filtered by product) */}
                                                          <div className="col-span-1 sm:col-span-1">
-                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Brand</label>
+                                                             <div className="flex justify-between items-center mb-1">
+                                                                 <label className="text-[9px] font-black text-slate-400 uppercase block">Brand</label>
+                                                                 <label className="flex items-center gap-1 cursor-pointer select-none">
+                                                                     <input
+                                                                         type="checkbox"
+                                                                         checked={!item.hideBrand}
+                                                                         onChange={e => updateItem(item.id, 'hideBrand', !e.target.checked)}
+                                                                         className="rounded border-slate-300 text-medical-600 focus:ring-medical-500 w-3 h-3 cursor-pointer"
+                                                                     />
+                                                                     <span className="text-[8px] font-black text-slate-500">SHOW</span>
+                                                                 </label>
+                                                             </div>
                                                              <select
                                                                  className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none appearance-none"
                                                                  value={item.brand || ''}
@@ -1514,7 +1525,7 @@ Email: sreemeditec@gmail.com`;
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center">{idx + 1}</td>
                                                             <td className="border-r border-black p-1.5 text-left flex flex-col justify-center overflow-hidden">
                                                                 <span className="font-bold uppercase truncate text-[9px]">
-                                                                     {`${it.brand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`}
+                                                                     {`${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`}
                                                                 </span>
                                                                 {it.features && <span className="text-[7px] italic text-slate-500 whitespace-pre-wrap mt-0.5 leading-tight">{it.features}</span>}
                                                                 {it.inventoryMappings && it.inventoryMappings.length > 0 && (

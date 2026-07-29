@@ -152,7 +152,7 @@ export const PDFService = {
             const base = qty * price;
             
             let descText = '';
-            if (it.brand) descText += `${it.brand} `;
+            if (it.brand && !it.hideBrand) descText += `${it.brand} `;
             descText += it.description;
             if (it.model) descText += ` - ${it.model}`;
             

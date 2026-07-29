@@ -489,6 +489,7 @@ export interface InvoiceItem {
   inventoryMappings?: InvoiceItemInventoryMapping[];
   totalComponentCost?: number;
   lineProfit?: number;
+  hideBrand?: boolean;
 }
 
 export interface Invoice {
