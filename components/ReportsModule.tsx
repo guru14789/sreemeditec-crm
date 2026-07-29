@@ -174,7 +174,12 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, expenses, leads, products, purchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
+  const { invoices: paginatedInvoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, expenses: paginatedExpenses, leads, products, purchaseRecords: paginatedPurchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
+  
+  // Use un-paginated collections for reports so they are not affected by paginated screens
+  const invoices = allInvoicesKpi;
+  const expenses = allExpensesKpi;
+  const purchaseRecords = allPurchaseRecordsKpi;
   const [dateRange, setDateRange] = useState('This Year');
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');

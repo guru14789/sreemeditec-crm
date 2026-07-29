@@ -779,21 +779,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, "invoices"),
             (snap) => {
                 setAllInvoicesKpi(
-                    snap.docs.map(d => {
-                        const data = d.data();
-                        return {
-                            id: d.id,
-                            invoiceNumber: data.invoiceNumber || '',
-                            date: data.date || '',
-                            status: data.status,
-                            documentType: data.documentType,
-                            subtotal: data.subtotal || 0,
-                            grandTotal: data.grandTotal || 0,
-                            paidAmount: data.paidAmount || 0,
-                            closedBy: data.closedBy || '',
-                            customerName: data.customerName || '',
-                        } as any;
-                    })
+                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
                 );
             },
             (err) => console.warn("allInvoicesKpi listener:", err)
@@ -804,15 +790,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, "expenses"),
             (snap) => {
                 setAllExpensesKpi(
-                    snap.docs.map(d => {
-                        const data = d.data();
-                        return {
-                            id: d.id,
-                            date: data.date || '',
-                            amount: Number(data.amount) || 0,
-                            status: data.status
-                        } as any;
-                    })
+                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
                 );
             },
             (err) => console.warn("allExpensesKpi listener:", err)
@@ -823,15 +801,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             collection(db, "purchaseRecords"),
             (snap) => {
                 setAllPurchaseRecordsKpi(
-                    snap.docs.map(d => {
-                        const data = d.data();
-                        return {
-                            id: d.id,
-                            dateSupply: data.dateSupply || '',
-                            materialReceivedDate: data.materialReceivedDate || '',
-                            total: Number(data.total) || 0
-                        } as any;
-                    })
+                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
                 );
             },
             (err) => console.warn("allPurchaseRecordsKpi listener:", err)
