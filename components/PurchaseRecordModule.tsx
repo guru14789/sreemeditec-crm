@@ -56,7 +56,9 @@ export const PurchaseRecordModule: React.FC = () => {
         taxType: 'Local',
         totalIgst: 0,
         totalGst: 0,
-        total: 0
+        total: 0,
+        brand: '',
+        model: ''
     };
 
     const [newRecord, setNewRecord] = useState<Partial<PurchaseRecord>>(INITIAL_RECORD_STATE);
@@ -273,6 +275,8 @@ export const PurchaseRecordModule: React.FC = () => {
             totalIgst: Number(currentItem.totalIgst) || 0,
             totalGst: Number(currentItem.totalGst) || 0,
             total: Number(currentItem.total) || 0,
+            brand: currentItem.brand || '',
+            model: currentItem.model || ''
         } as PurchaseItem;
         
         let updatedItems;
@@ -297,7 +301,9 @@ export const PurchaseRecordModule: React.FC = () => {
             taxType: 'Local',
             totalIgst: 0,
             totalGst: 0,
-            total: 0
+            total: 0,
+            brand: '',
+            model: ''
         });
     };
 
@@ -925,14 +931,92 @@ export const PurchaseRecordModule: React.FC = () => {
                                                                     </span>
                                                                     <span className="text-[7px] font-black text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 mt-0.5 whitespace-nowrap">
                                                                         SELLING: ₹{formatIndianNumber(products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase())?.sellingPrice || products.find(p => p.name.toUpperCase() === currentItem.equipmentName?.toUpperCase())?.price || 0)}
-                                                                    </span>
+                                                    </span>
                                                                 </div>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </FormRow>
-
                                             </div>
+
+                                            {/* Brand Selection */}
+                                            <FormRow label="Brand">
+                                                <select
+                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none"
+                                                    value={currentItem.brand || ''}
+                                                    onChange={e => {
+                                                        const brandVal = e.target.value;
+                                                        setCurrentItem(prev => ({
+                                                            ...prev,
+                                                            brand: brandVal,
+                                                            model: '' // Reset model when brand changes
+                                                        }));
+                                                    }}
+                                                    disabled={!currentItem.equipmentName}
+                                                >
+                                                    <option value="">Select Brand</option>
+                                                    {(() => {
+                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (currentItem.equipmentName || '').toUpperCase());
+                                                        return matchedProd?.brands?.map(b => (
+                                                            <option key={b.id} value={b.name}>{b.name}</option>
+                                                        ));
+                                                    })()}
+                                                </select>
+                                            </FormRow>
+
+                                            {/* Model Selection */}
+                                            <FormRow label="Model">
+                                                <select
+                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none"
+                                                    value={currentItem.model || ''}
+                                                    onChange={e => {
+                                                        const modelVal = e.target.value;
+                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (currentItem.equipmentName || '').toUpperCase());
+                                                        const brandObj = matchedProd?.brands?.find(b => b.name === currentItem.brand);
+                                                        const modelObj = brandObj?.models?.find(m => m.name === modelVal);
+                                                        
+                                                        setCurrentItem(prev => {
+                                                            const updated = {
+                                                                ...prev,
+                                                                model: modelVal
+                                                            };
+                                                            if (modelObj) {
+                                                                if (modelObj.vendors && modelObj.vendors.length > 0) {
+                                                                    const primaryVendor = modelObj.vendors[0];
+                                                                    updated.rate = primaryVendor.purchasePrice || matchedProd?.purchasePrice || prev.rate || 0;
+                                                                    updated.gstPercent = primaryVendor.gstRate || matchedProd?.taxRate || prev.gstPercent || 18;
+                                                                } else if (matchedProd) {
+                                                                    updated.rate = matchedProd.purchasePrice || prev.rate || 0;
+                                                                    updated.gstPercent = matchedProd.taxRate || prev.gstPercent || 18;
+                                                                }
+                                                                
+                                                                // Recalculate totals
+                                                                const basicAmount = (updated.rate || 0) * (updated.qty || 1);
+                                                                const taxAmt = (basicAmount * (updated.gstPercent || 0)) / 100;
+                                                                const isInterstate = updated.taxType === 'Interstate';
+                                                                updated.cgstPercent = isInterstate ? 0 : (updated.gstPercent || 0) / 2;
+                                                                updated.sgstPercent = isInterstate ? 0 : (updated.gstPercent || 0) / 2;
+                                                                updated.igstPercent = isInterstate ? (updated.gstPercent || 0) : 0;
+                                                                updated.totalGst = isInterstate ? 0 : taxAmt;
+                                                                updated.totalIgst = isInterstate ? taxAmt : 0;
+                                                                updated.total = basicAmount + taxAmt;
+                                                            }
+                                                            return updated;
+                                                        });
+                                                    }}
+                                                    disabled={!currentItem.brand}
+                                                >
+                                                    <option value="">Select Model</option>
+                                                    {(() => {
+                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (currentItem.equipmentName || '').toUpperCase());
+                                                        const brandObj = matchedProd?.brands?.find(b => b.name === currentItem.brand);
+                                                        return brandObj?.models?.map(m => (
+                                                            <option key={m.id} value={m.name}>{m.name}</option>
+                                                        ));
+                                                    })()}
+                                                </select>
+                                            </FormRow>
+
                                             <FormRow label="Unit Rate (₹)">
                                                 <input type="number" className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-black outline-none focus:ring-4 focus:ring-medical-500/5" value={currentItem.rate || ''} onChange={e => handleItemChange('rate', e.target.value)} />
                                             </FormRow>
@@ -1005,7 +1089,15 @@ export const PurchaseRecordModule: React.FC = () => {
                                                 <tbody className="divide-y divide-slate-100 bg-white">
                                                     {newRecord.items.map((item, idx) => (
                                                         <tr key={idx}>
-                                                            <td className="px-3 py-1.5 font-bold text-slate-800">{item.equipmentName}</td>
+                                                             <td className="px-3 py-1.5 font-bold text-slate-800">
+                                                                 <div>{item.equipmentName}</div>
+                                                                 {(item.brand || item.model) && (
+                                                                     <div className="text-[9px] font-medium text-slate-500 mt-0.5 uppercase">
+                                                                         {item.brand && <span className="bg-slate-100 px-1 py-0.5 rounded mr-1">Brand: {item.brand}</span>}
+                                                                         {item.model && <span className="bg-slate-100 px-1 py-0.5 rounded">Model: {item.model}</span>}
+                                                                     </div>
+                                                                 )}
+                                                             </td>
                                                             <td className="px-3 py-1.5 text-right">₹{formatIndianNumber(item.rate)} x {item.qty} <span className="text-[8px] opacity-60 uppercase">{item.unit || 'NOS'}</span></td>
                                                             <td className="px-3 py-1.5 text-right text-[9px]">
                                                                 <span className="font-bold">{(item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0)}%</span>

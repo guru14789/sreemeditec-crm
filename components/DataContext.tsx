@@ -26,6 +26,53 @@ import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
 import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
 
+const updateBrandModelStock = (product: Product, brandName: string | undefined, modelName: string | undefined, qty: number, type: 'In' | 'Out'): Product => {
+    if (!brandName || !modelName || !product.brands) return product;
+    
+    const updatedBrands = product.brands.map(b => {
+        if (b.name.trim().toLowerCase() !== brandName.trim().toLowerCase()) return b;
+        
+        const updatedModels = b.models.map(m => {
+            if (m.name.trim().toLowerCase() !== modelName.trim().toLowerCase()) return m;
+            
+            if (m.vendors && m.vendors.length > 0) {
+                let targetVendorIdx = 0;
+                if (type === 'Out') {
+                    const idxWithStock = m.vendors.findIndex(v => (v.stock || 0) >= qty);
+                    if (idxWithStock !== -1) targetVendorIdx = idxWithStock;
+                }
+                
+                const updatedVendors = m.vendors.map((v, idx) => {
+                    if (idx === targetVendorIdx) {
+                        const currentStock = v.stock || 0;
+                        const newStock = type === 'In' ? currentStock + qty : Math.max(0, currentStock - qty);
+                        return { ...v, stock: newStock };
+                    }
+                    return v;
+                });
+                return { ...m, vendors: updatedVendors };
+            }
+            return m;
+        });
+        return { ...b, models: updatedModels };
+    });
+    
+    return { ...product, brands: updatedBrands };
+};
+
+const calculateTotalStockFromBrands = (brands: any[] | undefined, fallbackStock: number): number => {
+    if (!brands || brands.length === 0) return fallbackStock;
+    let total = 0;
+    brands.forEach(b => {
+        b.models?.forEach((m: any) => {
+            m.vendors?.forEach((v: any) => {
+                total += Number(v.stock) || 0;
+            });
+        });
+    });
+    return total;
+};
+
 export interface DataContextType {
     clients: Client[];
     vendors: Vendor[];
@@ -1529,28 +1576,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const currentProducts = [...products];
                 
                 const getItems = (inv: Invoice) => {
-                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }[] = [];
                     (inv.items || []).forEach(item => {
                         if (item.inventoryMappings && item.inventoryMappings.length > 0) {
-                            // Composite / General item with mapped inventory items
                             item.inventoryMappings.forEach(mapping => {
                                 list.push({
                                     name: (mapping.productName || '').toUpperCase(),
-                                    // Total consumed = item line quantity * quantity used per unit
                                     qty: (Number(item.quantity) || 1) * (Number(mapping.quantityUsed) || 0),
                                     productId: mapping.inventoryProductId,
                                     sku: mapping.sku,
-                                    barcode: mapping.barcode
+                                    barcode: mapping.barcode,
+                                    brand: undefined,
+                                    model: undefined
                                 });
                             });
                         } else {
-                            // Direct single product line item
                             list.push({
                                 name: (item.description || '').toUpperCase(),
                                 qty: Number(item.quantity) || 0,
                                 productId: item.productId,
                                 sku: item.sku,
-                                barcode: item.barcode
+                                barcode: item.barcode,
+                                brand: item.brand,
+                                model: item.model
                             });
                         }
                     });
@@ -1578,30 +1626,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const newItems = isInventoryAffecting ? getItems(updatedRecord) : [];
                 const dateSupply = updatedRecord.date || new Date().toISOString().split('T')[0];
                 
-                const oldGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
+                const oldGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string, brand?: string, model?: string }> = {};
                 oldItems.forEach(item => {
                     if (item.name) {
-                        const key = item.productId || item.sku || item.barcode || item.name;
+                        const key = `${item.productId || item.name}::${item.brand || ''}::${item.model || ''}`;
                         oldGrouped[key] = {
                             qty: (oldGrouped[key]?.qty || 0) + item.qty,
                             productId: item.productId,
                             sku: item.sku,
                             barcode: item.barcode,
-                            name: item.name
+                            name: item.name,
+                            brand: item.brand,
+                            model: item.model
                         };
                     }
                 });
                 
-                const newGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string }> = {};
+                const newGrouped: Record<string, { qty: number, productId?: string, sku?: string, barcode?: string, name: string, brand?: string, model?: string }> = {};
                 newItems.forEach(item => {
                     if (item.name) {
-                        const key = item.productId || item.sku || item.barcode || item.name;
+                        const key = `${item.productId || item.name}::${item.brand || ''}::${item.model || ''}`;
                         newGrouped[key] = {
                             qty: (newGrouped[key]?.qty || 0) + item.qty,
                             productId: item.productId,
                             sku: item.sku,
                             barcode: item.barcode,
-                            name: item.name
+                            name: item.name,
+                            brand: item.brand,
+                            model: item.model
                         };
                     }
                 });
@@ -1647,11 +1699,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             available: availableStock
                         });
                     } else if (ref && dbProduct) {
-                        const newStock = dbStock + oldQty - newQty;
+                        let updatedProduct = { ...dbProduct };
+                        if (oldInfo && oldInfo.brand && oldInfo.model) {
+                            updatedProduct = updateBrandModelStock(updatedProduct, oldInfo.brand, oldInfo.model, oldQty, 'In');
+                        }
+                        if (newInfo && newInfo.brand && newInfo.model) {
+                            updatedProduct = updateBrandModelStock(updatedProduct, newInfo.brand, newInfo.model, newQty, 'Out');
+                        }
+                        
+                        if (updatedProduct.brands) {
+                            updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock + oldQty - newQty);
+                        } else {
+                            updatedProduct.stock = dbStock + oldQty - newQty;
+                        }
+                        
                         productsToUpdate.push({
                             ref,
-                            newStock,
-                            productData: { ...dbProduct, stock: newStock }
+                            newStock: updatedProduct.stock,
+                            productData: updatedProduct
                         });
                         
                         const netChange = oldQty - newQty;
@@ -1698,8 +1763,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 
                 tx.update(doc(db, "invoices", id), sanitizeData({ ...u, editHistory: updatedEditHistory }));
                 
-                productsToUpdate.forEach(({ ref, newStock }) => {
-                    tx.update(ref, { stock: newStock });
+                productsToUpdate.forEach(({ ref, newStock, productData }) => {
+                    if (productData.brands) {
+                        tx.update(ref, { stock: newStock, brands: productData.brands });
+                    } else {
+                        tx.update(ref, { stock: newStock });
+                    }
                 });
                 
                 stockMovementsToCreate.forEach(m => {
@@ -2571,7 +2640,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const currentProducts = [...products];
             
             const getItems = (rec: PurchaseRecord) => {
-                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                const list: { name: string, qty: number, rate: number, unit: string, gstPercent: number, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }[] = [];
                 if (rec.items && rec.items.length > 0) {
                     rec.items.forEach(item => {
                         list.push({
@@ -2582,7 +2651,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             gstPercent: Number(item.gstPercent || (item.cgstPercent || 0) + (item.sgstPercent || 0) + (item.igstPercent || 0) || 0),
                             productId: item.productId,
                             sku: item.sku,
-                            barcode: item.barcode
+                            barcode: item.barcode,
+                            brand: item.brand,
+                            model: item.model
                         });
                     });
                 } else if (rec.equipmentName) {
@@ -2635,14 +2706,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                     
                     if (dbProduct && ref) {
-                        const newStock = Number(dbProduct.stock || 0) + item.qty;
-                        const updatedProduct = {
-                            ...dbProduct,
-                            stock: newStock,
-                            purchasePrice: item.rate,
-                            lastRestocked: dateSupply,
-                            supplier: r.supplier || dbProduct.supplier
-                        };
+                        let updatedProduct = { ...dbProduct };
+                        if (item.brand && item.model) {
+                            updatedProduct = updateBrandModelStock(updatedProduct, item.brand, item.model, item.qty, 'In');
+                            updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, Number(dbProduct.stock || 0) + item.qty);
+                        } else {
+                            updatedProduct.stock = Number(dbProduct.stock || 0) + item.qty;
+                        }
+                        
+                        updatedProduct.purchasePrice = item.rate;
+                        updatedProduct.lastRestocked = dateSupply;
+                        updatedProduct.supplier = r.supplier || dbProduct.supplier;
+                        
                         productsToUpdate.push({ ref, isNew: false, productData: updatedProduct });
                         
                         stockMovementsToCreate.push({
@@ -2667,12 +2742,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (isNew) {
                     tx.set(ref, sanitizeData(productData));
                 } else {
-                    tx.update(ref, {
+                    const updateObj: any = {
                         stock: productData.stock,
                         purchasePrice: productData.purchasePrice,
                         lastRestocked: productData.lastRestocked,
                         supplier: productData.supplier
-                    });
+                    };
+                    if (productData.brands) {
+                        updateObj.brands = productData.brands;
+                    }
+                    tx.update(ref, updateObj);
                 }
             });
             
@@ -3767,14 +3846,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const currentProducts = [...products];
                 
                 const getItems = (inv: Invoice) => {
-                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }[] = [];
                     (inv.items || []).forEach(item => {
                         list.push({
                             name: (item.description || '').toUpperCase(),
                             qty: Number(item.quantity) || 0,
                             productId: item.productId,
                             sku: item.sku,
-                            barcode: item.barcode
+                            barcode: item.barcode,
+                            brand: item.brand,
+                            model: item.model
                         });
                     });
                     return list;
@@ -3798,17 +3879,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 const newItems = getItems(i);
                 
-                // Group new items by unique match key
-                const newGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string }> = {};
+                // Group new items by unique match key (including brand/model)
+                const newGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }> = {};
                 newItems.forEach(item => {
                     if (!item.name) return;
-                    const key = item.productId || item.sku || item.barcode || item.name;
+                    const key = `${item.productId || item.name}::${item.brand || ''}::${item.model || ''}`;
                     newGrouped[key] = {
                         qty: (newGrouped[key]?.qty || 0) + item.qty,
                         name: item.name,
                         productId: item.productId,
                         sku: item.sku,
-                        barcode: item.barcode
+                        barcode: item.barcode,
+                        brand: item.brand,
+                        model: item.model
                     };
                 });
                 
@@ -3837,11 +3920,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             available: availableStock
                         });
                     } else if (ref && dbProduct) {
-                        const newStock = dbStock - info.qty;
+                        let updatedProduct = { ...dbProduct };
+                        if (info.brand && info.model) {
+                            updatedProduct = updateBrandModelStock(updatedProduct, info.brand, info.model, info.qty, 'Out');
+                            updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock - info.qty);
+                        } else {
+                            updatedProduct.stock = dbStock - info.qty;
+                        }
+                        
                         productsToUpdate.push({
                             ref,
-                            newStock,
-                            productData: { ...dbProduct, stock: newStock }
+                            newStock: updatedProduct.stock,
+                            productData: updatedProduct
                         });
                         
                         stockMovementsToCreate.push({
@@ -3873,8 +3963,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 tx.set(doc(db, "invoices", i.id), sanitizeData(i));
                 
                 // Update product stocks
-                productsToUpdate.forEach(({ ref, newStock }) => {
-                    tx.update(ref, { stock: newStock });
+                productsToUpdate.forEach(({ ref, newStock, productData }) => {
+                    if (productData.brands) {
+                        tx.update(ref, { stock: newStock, brands: productData.brands });
+                    } else {
+                        tx.update(ref, { stock: newStock });
+                    }
                 });
                 
                 // Write stock movements

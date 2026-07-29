@@ -988,6 +988,8 @@ export interface PurchaseItem {
   totalGst: number;
   totalIgst: number;
   total: number;
+  brand?: string;
+  model?: string;
 }
 
 export interface PurchaseRecord {
