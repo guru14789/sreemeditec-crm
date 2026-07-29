@@ -46,7 +46,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const ServiceOrderModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingServiceReportData, setActiveTab, showConfirm, previewPDF } = useData();
+    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, setPendingServiceReportData, setActiveTab, showConfirm, previewPDF } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SERVICE_ORDERS] === 'Admin';
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
@@ -348,7 +348,7 @@ export const ServiceOrderModule: React.FC = () => {
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Service Order Registry</h2>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'ServiceOrder').length} Total Orders</p>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{allInvoicesKpi.filter(i => i.documentType === 'ServiceOrder').length} Total Orders</p>
                         </div>
                     </div>
 

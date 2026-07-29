@@ -110,7 +110,7 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData } = useData();
+    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
     const flatProducts = useMemo(() => {
         const list: any[] = [];
@@ -565,7 +565,7 @@ Sree Meditec`;
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Quotation Registry</h2>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'Quotation').length} Total Quotes</p>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{allInvoicesKpi.filter(i => i.documentType === 'Quotation').length} Total Quotes</p>
                         </div>
                     </div>
 

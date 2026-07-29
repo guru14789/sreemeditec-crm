@@ -50,7 +50,7 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 );
 
 export const SupplierPOModule: React.FC = () => {
-    const { vendors, products, invoices, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, pendingSupplierPOData, setPendingSupplierPOData, showConfirm, showPrompt, previewPDF, bankDetailsList = [], fetchMoreData } = useData();
+    const { vendors, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, financialYear, isSystemAdmin, pendingSupplierPOData, setPendingSupplierPOData, showConfirm, showPrompt, previewPDF, bankDetailsList = [], fetchMoreData } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SUPPLIER_PO] === 'Admin';
 
     const handleWhatsAppSend = async (inv: Invoice) => {
@@ -443,7 +443,7 @@ export const SupplierPOModule: React.FC = () => {
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Supplier PO Registry</h2>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'SupplierPO').length} Total Orders</p>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{allInvoicesKpi.filter(i => i.documentType === 'SupplierPO').length} Total Orders</p>
                         </div>
                     </div>
 

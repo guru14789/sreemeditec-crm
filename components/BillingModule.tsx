@@ -104,7 +104,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ variant = 'billing' }) => {
-    const { clients, products, invoices, allSmInvoicesKpi, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
+    const { clients, products, invoices, allSmInvoicesKpi, allInvoicesKpi, employees, addInvoice, updateInvoice, removeInvoice, updateProduct, recordStockMovement, addNotification, currentUser, addLog, searchRecords, fetchMoreData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingChallanData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, pendingInvoiceData, setPendingInvoiceData } = useData();
 
     const handleWhatsAppSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
@@ -669,7 +669,7 @@ Email: sreemeditec@gmail.com`;
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Invoice Registry</h2>
-                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{invoices.filter(i => i.documentType === 'Invoice' || !i.documentType).length} Total Records</p>
+                            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">{allInvoicesKpi.filter(i => i.documentType === 'Invoice' || !i.documentType).length} Total Records</p>
                         </div>
                     </div>
 
