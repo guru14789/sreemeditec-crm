@@ -151,7 +151,11 @@ export const PDFService = {
             const tax = Number(it.taxRate) || 0;
             const base = qty * price;
             
-            let descText = it.description;
+            let descText = '';
+            if (it.brand) descText += `${it.brand} `;
+            descText += it.description;
+            if (it.model) descText += ` - ${it.model}`;
+            
             if (it.features) descText += `\n${it.features}`;
             if (isInternalCopy && it.inventoryMappings && it.inventoryMappings.length > 0) {
                 descText += `\n[Internal Assembly Components:]`;

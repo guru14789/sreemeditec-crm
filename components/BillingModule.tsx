@@ -1513,7 +1513,9 @@ Email: sreemeditec@gmail.com`;
                                                         <tr key={`${idx}-m`} className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] border-b border-slate-300">
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center">{idx + 1}</td>
                                                             <td className="border-r border-black p-1.5 text-left flex flex-col justify-center overflow-hidden">
-                                                                <span className="font-bold uppercase truncate text-[9px]">{it.description}</span>
+                                                                <span className="font-bold uppercase truncate text-[9px]">
+                                                                     {`${it.brand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`}
+                                                                </span>
                                                                 {it.features && <span className="text-[7px] italic text-slate-500 whitespace-pre-wrap mt-0.5 leading-tight">{it.features}</span>}
                                                                 {it.inventoryMappings && it.inventoryMappings.length > 0 && (
                                                                      <div className="mt-1 p-1 bg-slate-100/80 rounded border border-slate-200 text-[7px] text-slate-600 space-y-0.5">
