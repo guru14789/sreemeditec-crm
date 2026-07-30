@@ -340,8 +340,8 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
 
           {/* Linked Products Table */}
           {mappings.length > 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <table className="w-full text-left text-xs">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
+              <table className="w-full text-left text-xs min-w-[600px]">
                 <thead className="bg-slate-50 border-b border-slate-200 text-[8px] font-black uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-3 py-2">Inventory Product</th>
@@ -349,7 +349,7 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
                     <th className="px-3 py-2 text-center w-28">Qty per Service</th>
                     <th className="px-3 py-2 text-right">Cost / Unit</th>
                     <th className="px-3 py-2 text-right">Total Sub-Cost</th>
-                    <th className="px-3 py-2 text-center w-10">Action</th>
+                    <th className="px-3 py-2 text-center w-12 min-w-[48px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold">
@@ -406,7 +406,7 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
                         <td className="px-3 py-2 text-right font-bold text-slate-800">
                           ₹{((m.costPrice || 0) * (m.quantityUsed || 0)).toLocaleString('en-IN')}
                         </td>
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-3 py-2 text-center w-12 min-w-[48px]">
                           <button
                             type="button"
                             onClick={() => handleRemoveMapping(m.id)}
