@@ -169,9 +169,9 @@ export const PDFService = {
                 { content: descText, styles: { fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 it.hsn || '', 
                 `${tax}%`, 
-                `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, 
+                `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${it.unit || 'nos'}`, 
                 (Number(price) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
-                'nos', 
+                it.unit || 'nos', 
                 '', 
                 (Number(base) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             ];
@@ -199,7 +199,7 @@ export const PDFService = {
                 { content: 'Total', styles: { halign: 'right', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 '', 
                 '', 
-                { content: `${(Number(docTotals.totalQty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos`, styles: { halign: 'center', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
+                { content: `${(Number(docTotals.totalQty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'center', fontStyle: 'bold' , textColor: [0, 0, 0] } as any }, 
                 '', 
                 '', 
                 '', 
@@ -1131,7 +1131,7 @@ export const PDFService = {
         const totalQty = (data.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
         
         doc.setFont('helvetica', 'bold');
-        doc.text(`Total Quantity: ${totalQty} nos`, margin, finalY);
+        doc.text(`Total Quantity: ${totalQty}`, margin, finalY);
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);

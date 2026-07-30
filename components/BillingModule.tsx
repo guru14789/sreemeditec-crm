@@ -1305,14 +1305,29 @@ Email: sreemeditec@gmail.com`;
                                                                  })()}
                                                              </select>
                                                          </div>
-                                                        <div className="col-span-1 sm:col-span-2">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
-                                                            <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
-                                                        </div>
-                                                        <div className="col-span-1 sm:col-span-1">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
-                                                            <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
-                                                        </div>
+                                                         <div className="col-span-1 sm:col-span-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
+                                                             <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
+                                                         </div>
+                                                         <div className="col-span-1 sm:col-span-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
+                                                             <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
+                                                         </div>
+                                                         <div className="col-span-1 sm:col-span-1">
+                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Type</label>
+                                                             <select
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold h-[32px] outline-none appearance-none text-center"
+                                                                 value={item.unit || 'nos'}
+                                                                 onChange={e => updateItem(item.id, 'unit', e.target.value)}
+                                                             >
+                                                                 <option value="nos">nos</option>
+                                                                 <option value="no">no</option>
+                                                                 <option value="jar">jar</option>
+                                                                 <option value="packet">packet</option>
+                                                                 <option value="meter">meter</option>
+                                                                 <option value="kgs">kgs</option>
+                                                             </select>
+                                                         </div>
                                                         <div className="col-span-1 sm:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
                                                             <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
@@ -1542,9 +1557,9 @@ Email: sreemeditec@gmail.com`;
                                                              </td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.hsn}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.taxRate}%</td>
-                                                            <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} nos</td>
+                                                            <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {it.unit || 'nos'}</td>
                                                             <td className="border-r border-black p-1.5 text-right flex items-center justify-end text-[10px]">{(it.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">nos</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.unit || 'nos'}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center"></td>
                                                             <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         </tr>
