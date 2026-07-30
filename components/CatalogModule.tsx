@@ -171,11 +171,20 @@ export const CatalogModule: React.FC = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-base font-playfair font-bold text-slate-800 dark:text-white uppercase tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">
-                                            {item.brandName ? `${item.brandName} ${item.productName}` : item.productName}
+                                            {item.productName}
                                         </h3>
-                                        {item.modelName && (
-                                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Model: {item.modelName}</p>
-                                        )}
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {item.brandName && (
+                                                <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-[2rem] text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                    Brand: {item.brandName}
+                                                </span>
+                                            )}
+                                            {item.modelName && (
+                                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-[2rem] text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                                                    Model: {item.modelName}
+                                                </span>
+                                            )}
+                                        </div>
                                         {item.specs.length > 0 && (
                                             <div className="mt-2.5 md:mt-3 space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2 md:pt-2.5">
                                                 {item.specs.slice(0, 3).map((spec, idx) => (
@@ -238,10 +247,16 @@ export const CatalogModule: React.FC = () => {
                                     <div className="p-2 md:p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-[1.5rem] md:rounded-[2rem] group-hover:scale-110 transition-transform shrink-0"><Layers size={20} className="w-4 h-4 md:w-5 md:h-5" /></div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm md:text-base font-playfair font-bold text-slate-800 dark:text-white uppercase tracking-tight leading-tight line-clamp-2 group-hover:text-emerald-600 transition-colors">
-                                            {item.brandName ? `${item.brandName} ${item.productName}` : item.productName}
+                                            {item.productName}
                                         </p>
                                         <div className="flex items-center gap-2 mt-1.5 overflow-hidden">
                                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{item.category}</span>
+                                            {item.brandName && (
+                                                <>
+                                                    <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+                                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest truncate">Brand: {item.brandName}</span>
+                                                </>
+                                            )}
                                             {item.modelName && (
                                                 <>
                                                     <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
