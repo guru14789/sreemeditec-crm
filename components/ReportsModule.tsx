@@ -164,6 +164,8 @@ const GlobalChartDefs: React.FC = () => (
 
 type ProductDetail = {
   name: string;
+  brand?: string;
+  model?: string;
   totalQty: number;
   totalRevenue: number;
   invoiceCount: number;
@@ -932,10 +934,29 @@ export const ReportsModule: React.FC = () => {
       const monthKey = (inv.date || '').substring(0, 7);
 
       inv.items.forEach((item) => {
-        const key = item.description;
-        if (!key) return;
+        const prodName = item.description || '';
+        if (!prodName) return;
+        const brand = item.brand || '';
+        const model = item.model || '';
+        
+        // Group by unique brand + product name + model combination
+        const key = `${brand ? brand + '::' : ''}${prodName}${model ? '::' : ''}${model}`;
+        
+        // Formatted display name showing Brand and Model inline
+        const displayName = `${brand && !item.hideBrand ? brand + ' ' : ''}${prodName}${model ? ' - ' + model : ''}`;
+
         if (!prodMap[key]) {
-          prodMap[key] = { name: key, totalQty: 0, totalRevenue: 0, invoiceCount: 0, avgPrice: 0, invoiceList: [], monthlyRevenue: [] };
+          prodMap[key] = { 
+            name: displayName, 
+            brand, 
+            model, 
+            totalQty: 0, 
+            totalRevenue: 0, 
+            invoiceCount: 0, 
+            avgPrice: 0, 
+            invoiceList: [], 
+            monthlyRevenue: [] 
+          };
         }
         const p = prodMap[key];
         p.totalQty += item.quantity || 0;
