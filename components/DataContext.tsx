@@ -818,7 +818,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // Dynamic Collections (High Growth): Initial small batch, then paginated
         const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
-        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
+        const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc')), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
 
         // ── Unlimited invoice listener for KPI totals (no pagination) ──────
         // Fetches only lightweight fields needed for aggregation

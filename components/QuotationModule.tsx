@@ -832,20 +832,6 @@ Sree Meditec`;
                                 ))}
                             </tbody>
                         </table>
-                        <div className="p-8 flex justify-center border-t border-slate-100 bg-slate-50/20">
-                            <button 
-                                onClick={async () => {
-                                    setIsLoadingMore(true);
-                                    await fetchMoreData('invoices', 'date');
-                                    setIsLoadingMore(false);
-                                }}
-                                disabled={isLoadingMore}
-                                className="px-8 py-3 bg-white border border-slate-300 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-medical-600 hover:border-medical-300 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
-                            >
-                                {isLoadingMore ? <RefreshCw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
-                                Load Older Documents
-                            </button>
-                        </div>
                     </div>
                 </div>
             ) : (
