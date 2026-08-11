@@ -941,8 +941,10 @@ export const PurchaseRecordModule: React.FC = () => {
 
                                             {/* Brand Selection */}
                                             <FormRow label="Brand">
-                                                <select
-                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none"
+                                                <input
+                                                    type="text"
+                                                    list={`brands-${currentItem.id || 'new'}`}
+                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
                                                     value={currentItem.brand || ''}
                                                     onChange={e => {
                                                         const brandVal = e.target.value;
@@ -952,22 +954,25 @@ export const PurchaseRecordModule: React.FC = () => {
                                                             model: '' // Reset model when brand changes
                                                         }));
                                                     }}
+                                                    placeholder="Select Brand"
                                                     disabled={!currentItem.equipmentName}
-                                                >
-                                                    <option value="">Select Brand</option>
+                                                />
+                                                <datalist id={`brands-${currentItem.id || 'new'}`}>
                                                     {(() => {
                                                         const matchedProd = products.find(p => p.name.toUpperCase() === (currentItem.equipmentName || '').toUpperCase());
                                                         return matchedProd?.brands?.map(b => (
                                                             <option key={b.id} value={b.name}>{b.name}</option>
                                                         ));
                                                     })()}
-                                                </select>
+                                                </datalist>
                                             </FormRow>
 
                                             {/* Model Selection */}
                                             <FormRow label="Model">
-                                                <select
-                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all appearance-none"
+                                                <input
+                                                    type="text"
+                                                    list={`models-${currentItem.id || 'new'}`}
+                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:ring-4 focus:ring-medical-500/5 transition-all"
                                                     value={currentItem.model || ''}
                                                     onChange={e => {
                                                         const modelVal = e.target.value;
@@ -1004,9 +1009,10 @@ export const PurchaseRecordModule: React.FC = () => {
                                                             return updated;
                                                         });
                                                     }}
+                                                    placeholder="Select Model"
                                                     disabled={!currentItem.brand}
-                                                >
-                                                    <option value="">Select Model</option>
+                                                />
+                                                <datalist id={`models-${currentItem.id || 'new'}`}>
                                                     {(() => {
                                                         const matchedProd = products.find(p => p.name.toUpperCase() === (currentItem.equipmentName || '').toUpperCase());
                                                         const brandObj = matchedProd?.brands?.find(b => b.name === currentItem.brand);
@@ -1014,7 +1020,7 @@ export const PurchaseRecordModule: React.FC = () => {
                                                             <option key={m.id} value={m.name}>{m.name}</option>
                                                         ));
                                                     })()}
-                                                </select>
+                                                </datalist>
                                             </FormRow>
 
                                             <FormRow label="Unit Rate (₹)">

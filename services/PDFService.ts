@@ -1110,7 +1110,7 @@ export const PDFService = {
             head: [['Sl No.', 'Description of Goods', 'Quantity', 'Unit', 'Remarks']],
             body: (data.items || []).map((it: ChallanItem, idx: number) => [
                 idx + 1, 
-                it.description, 
+                `${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`, 
                 it.quantity, 
                 it.unit || 'nos',
                 it.remarks || ''

@@ -3,7 +3,8 @@ import { DeliveryChallan, StockMovement, TabView } from '../types';
 import { 
     Plus, Download, Search, Trash2, 
     Save, Edit, Eye, List as ListIcon, PenTool, 
-    History, FileText, MoreVertical, Truck, Package, User, Info
+    History, FileText, MoreVertical, Truck, Package, User, Info,
+    X, CheckSquare, Square, AlertTriangle
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
@@ -47,6 +48,7 @@ export const DeliveryChallanModule: React.FC = () => {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const [challan, setChallan] = useState<Partial<DeliveryChallan>>({
         challanNumber: '',
@@ -168,7 +170,10 @@ export const DeliveryChallanModule: React.FC = () => {
                 description: p?.name || '', 
                 quantity: 1, 
                 unit: p?.unit || 'Nos', 
-                remarks: '' 
+                remarks: '',
+                brand: '',
+                model: '',
+                hideBrand: false
             };
             const current = prev.items || [];
             const idx = index ?? current.length;
@@ -186,7 +191,11 @@ export const DeliveryChallanModule: React.FC = () => {
                         const masterProd = products.find(p => p.name === value);
                         if (masterProd) {
                             updated.unit = masterProd.unit || 'Nos';
+                            updated.brand = '';
+                            updated.model = '';
                         }
+                    } else if (field === 'brand') {
+                        updated.model = '';
                     }
                     return updated;
                 }
@@ -261,13 +270,76 @@ export const DeliveryChallanModule: React.FC = () => {
 
             {viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
-                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
+                    <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex flex-wrap justify-between items-center gap-3">
                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto">Delivery Challan Archive</h3>
+                        {/* Bulk-delete action bar — super admin only */}
+                        {isSystemAdmin && selectedIds.size > 0 && (
+                            <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-2 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                <AlertTriangle size={13} className="text-rose-500 shrink-0" />
+                                <span className="text-[10px] font-black text-rose-700 uppercase tracking-widest">{selectedIds.size} selected</span>
+                                <button
+                                    onClick={async () => {
+                                        const confirmed = await showConfirm(`Permanently delete ${selectedIds.size} Delivery Challan${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`);
+                                        if (!confirmed) return;
+                                        const idsArray = Array.from(selectedIds);
+                                        await Promise.all(idsArray.map(id => removeDeliveryChallan(id)));
+                                        addNotification('Bulk Delete', `${idsArray.length} Delivery Challan${idsArray.length > 1 ? 's' : ''} deleted successfully.`, 'success');
+                                        setSelectedIds(new Set());
+                                    }}
+                                    className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all active:scale-95 shadow-sm"
+                                >
+                                    <Trash2 size={11} /> Delete Selected
+                                </button>
+                                <button onClick={() => setSelectedIds(new Set())} className="text-rose-400 hover:text-rose-600 transition-colors">
+                                    <X size={13} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
                                 <tr>
+                                    {/* Checkbox col — super admin only */}
+                                    {isSystemAdmin && (() => {
+                                        const visibleIds = deliveryChallans
+                                            .filter((c: any) => {
+                                                if (!searchQuery) return true;
+                                                const query = searchQuery.toLowerCase();
+                                                return (
+                                                    (c.challanNumber || '').toLowerCase().includes(query) ||
+                                                    (c.customerName || '').toLowerCase().includes(query) ||
+                                                    (c.createdBy || '').toLowerCase().includes(query) ||
+                                                    (c.items || []).some((item: any) => (item.description || '').toLowerCase().includes(query))
+                                                );
+                                            })
+                                            .filter((c: any) => {
+                                                if (filingFilter === 'All') return true;
+                                                if (filingFilter === 'Not Updated') return !c.filedStatus || c.filedStatus === 'Not Updated';
+                                                return c.filedStatus === filingFilter;
+                                            })
+                                            .map((c: any) => c.id);
+                                        const allChecked = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+                                        const someChecked = visibleIds.some(id => selectedIds.has(id));
+                                        return (
+                                            <th className="pl-4 py-2 w-8">
+                                                <button
+                                                    type="button"
+                                                    title={allChecked ? 'Deselect all' : 'Select all'}
+                                                    onClick={() => {
+                                                        if (allChecked) {
+                                                            setSelectedIds(new Set());
+                                                        } else {
+                                                            setSelectedIds(new Set(visibleIds));
+                                                        }
+                                                    }}
+                                                    className={`transition-colors ${allChecked ? 'text-rose-500' : someChecked ? 'text-rose-300' : 'text-slate-300 hover:text-rose-400'}`}
+                                                >
+                                                    {allChecked ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                </button>
+                                            </th>
+                                        );
+                                    })()}
                                     <th className="px-4 py-2 font-inter">Challan / Date</th>
                                     <th className="px-4 py-2">Consignee</th>
                                     <th className="px-4 py-2 hidden md:table-cell">Author</th>
@@ -295,7 +367,24 @@ export const DeliveryChallanModule: React.FC = () => {
                                     })
                                     .sort((a, b) => (b.challanNumber || '').localeCompare(a.challanNumber || '', undefined, { numeric: true }))
                                     .map((c: any) => (
-                                    <tr key={c.id} onClick={() => { setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0">
+                                    <tr key={c.id} onClick={() => { setChallan(c); setEditingId(c.id); setViewState('builder'); setBuilderTab('form'); }} className={`hover:bg-slate-50 transition-colors group cursor-pointer border-b border-slate-50 last:border-b-0 ${selectedIds.has(c.id) ? 'bg-rose-50/60 border-l-2 border-rose-400' : ''}`}>
+                                        {/* Checkbox — super admin only */}
+                                        {isSystemAdmin && (
+                                            <td className="pl-4 py-3 w-8" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const next = new Set(selectedIds);
+                                                        if (next.has(c.id)) next.delete(c.id);
+                                                        else next.add(c.id);
+                                                        setSelectedIds(next);
+                                                    }}
+                                                    className={`transition-colors ${selectedIds.has(c.id) ? 'text-rose-500' : 'text-slate-200 hover:text-rose-400 opacity-0 group-hover:opacity-100'}`}
+                                                >
+                                                    {selectedIds.has(c.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                </button>
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3">
                                             <div className="font-black text-slate-800 font-inter tracking-widest">{c.challanNumber}</div>
                                             <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{c.date || '—'}</div>
@@ -449,12 +538,65 @@ export const DeliveryChallanModule: React.FC = () => {
                                                                 onSelect={(prod) => {
                                                                     updateItem(item.id, 'description', prod.name);
                                                                     updateItem(item.id, 'unit', prod.unit || 'Nos');
+                                                                    updateItem(item.id, 'brand', '');
+                                                                    updateItem(item.id, 'model', '');
                                                                 }}
                                                                 suggestions={products}
                                                                 filterKey="name"
                                                                 className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
                                                                 placeholder="Select Part..."
                                                             />
+                                                            <div className="flex flex-wrap items-center gap-3 mt-2 mb-2">
+                                                                {/* Brand Selection */}
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <input
+                                                                        type="text"
+                                                                        list={`brands-${item.id}`}
+                                                                        className="bg-white border border-slate-200 rounded-[2rem] px-3 py-1 text-[11px] font-bold outline-none h-[28px]"
+                                                                        value={item.brand || ''}
+                                                                        onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                        placeholder="Brand"
+                                                                        disabled={!item.description}
+                                                                    />
+                                                                    <datalist id={`brands-${item.id}`}>
+                                                                        {(() => {
+                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            return matchedProd?.brands?.map(b => (
+                                                                                <option key={b.id} value={b.name}>{b.name}</option>
+                                                                            ));
+                                                                        })()}
+                                                                    </datalist>
+                                                                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!item.hideBrand}
+                                                                            onChange={e => updateItem(item.id, 'hideBrand', !e.target.checked)}
+                                                                            className="rounded border-slate-300 text-medical-600 focus:ring-medical-500 w-3 h-3 cursor-pointer"
+                                                                        />
+                                                                        <span className="text-[9px] font-black text-slate-500">SHOW</span>
+                                                                    </label>
+                                                                </div>
+
+                                                                {/* Model Selection */}
+                                                                <input
+                                                                    type="text"
+                                                                    list={`models-${item.id}`}
+                                                                    className="bg-white border border-slate-200 rounded-[2rem] px-3 py-1 text-[11px] font-bold outline-none h-[28px]"
+                                                                    value={item.model || ''}
+                                                                    onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                    placeholder="Model"
+                                                                    disabled={!item.brand}
+                                                                />
+                                                                <datalist id={`models-${item.id}`}>
+                                                                    {(() => {
+                                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                        const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                        return matchedBrand?.models?.map(m => (
+                                                                            <option key={m.id} value={m.name}>{m.name}</option>
+                                                                        ));
+                                                                    })()}
+                                                                </datalist>
+                                                            </div>
                                                             <input 
                                                                 value={item.remarks || ''}
                                                                 onChange={e => updateItem(item.id, 'remarks', e.target.value)}
@@ -538,63 +680,69 @@ export const DeliveryChallanModule: React.FC = () => {
                         )}
                         {builderTab === 'preview' && (
                             <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50 print:bg-white print:p-0">
-                                <div className="bg-white w-[210mm] min-h-[297mm] shrink-0 shadow-2xl p-8 md:p-12 space-y-5 font-sans leading-relaxed text-slate-800 border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-8">
-                                    <div className="text-center space-y-1">
-                                        <h2 className="text-4xl font-playfair font-bold tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>
-                                        {challan.sellerProfile && (
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase">{challan.sellerProfile.address}</p>
-                                        )}
-                                    </div>
-                                    <div className="flex justify-between items-start border-y-2 border-slate-100 py-6">
-                                        <div className="max-w-[60%]">
-                                            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Consignee Identity</h4>
-                                            <p className="font-playfair font-bold text-xl tracking-tight tracking-tight leading-tight uppercase text-slate-800">{challan.customerName || '---'}</p>
-                                            <p className="text-xs font-bold text-slate-500 mt-2 uppercase whitespace-pre-wrap">{challan.customerAddress || '---'}</p>
+                                <div className={`bg-white w-[210mm] min-h-[297mm] shrink-0 shadow-2xl p-8 md:p-12 font-sans leading-relaxed text-slate-800 border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-8 flex flex-col justify-between ${
+                                    (challan.items?.length ?? 0) <= 4 ? 'space-y-12' : 'space-y-6'
+                                }`}>
+                                    <div className="space-y-8 flex-1">
+                                        <div className="text-center space-y-2">
+                                            <h2 className="text-4xl font-playfair font-bold tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>
+                                            {challan.sellerProfile && (
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase">{challan.sellerProfile.address}</p>
+                                            )}
                                         </div>
-                                        <div className="text-right space-y-4">
-                                            <div>
-                                                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Challan Ref</h4>
-                                                <p className="font-black text-medical-600 text-lg"><span className="font-inter font-bold tracking-widest">{challan.challanNumber || 'SM/DC/---'}</span></p>
+                                        <div className="flex justify-between items-start border-y-2 border-slate-100 py-8">
+                                            <div className="max-w-[60%]">
+                                                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Consignee Identity</h4>
+                                                <p className="font-playfair font-bold text-xl tracking-tight leading-tight uppercase text-slate-800">{challan.customerName || '---'}</p>
+                                                <p className="text-xs font-bold text-slate-500 mt-3 uppercase whitespace-pre-wrap leading-relaxed">{challan.customerAddress || '---'}</p>
                                             </div>
-                                            <div>
-                                                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Execution Date</h4>
-                                                <p className="font-black text-slate-800">{formatDateDDMMYYYY(challan.date)}</p>
+                                            <div className="text-right space-y-5">
+                                                <div>
+                                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Challan Ref</h4>
+                                                    <p className="font-black text-medical-600 text-lg"><span className="font-inter font-bold tracking-widest">{challan.challanNumber || 'SM/DC/---'}</span></p>
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Execution Date</h4>
+                                                    <p className="font-black text-slate-800">{formatDateDDMMYYYY(challan.date)}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center border-b pb-2">Manifest Specification</h4>
-                                        <table className="w-full">
-                                            <thead>
-                                                <tr className="border-b border-slate-100">
-                                                    <th className="py-2 text-left text-[10px] font-black uppercase text-slate-400 w-12">Item</th>
-                                                    <th className="py-2 text-left text-[10px] font-black uppercase text-slate-400">Description</th>
-                                                    <th className="py-2 text-right text-[10px] font-black uppercase text-slate-400 w-24">Qty</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {challan.items?.map((it, idx) => (
-                                                    <tr key={it.id} className="border-b border-slate-50">
-                                                        <td className="py-3 text-[11px] font-black text-slate-300">#{idx + 1}</td>
-                                                        <td className="py-3">
-                                                            <p className="font-black text-sm uppercase text-slate-800">{it.description}</p>
-                                                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{it.remarks}</p>
-                                                        </td>
-                                                        <td className="py-3 text-right font-black text-sm text-slate-700">
-                                                            {it.quantity} <span className="text-[9px] text-slate-400 uppercase ml-1">{it.unit}</span>
-                                                        </td>
+                                        <div className="space-y-6">
+                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center border-b pb-3">Manifest Specification</h4>
+                                            <table className="w-full">
+                                                <thead>
+                                                    <tr className="border-b border-slate-200">
+                                                        <th className="pb-3 text-left text-[10px] font-black uppercase text-slate-400 w-12">Item</th>
+                                                        <th className="pb-3 text-left text-[10px] font-black uppercase text-slate-400">Description</th>
+                                                        <th className="pb-3 text-right text-[10px] font-black uppercase text-slate-400 w-24">Qty</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    {challan.items?.map((it, idx) => (
+                                                        <tr key={it.id} className="border-b border-slate-100">
+                                                            <td className="py-4 text-[11px] font-black text-slate-300">#{idx + 1}</td>
+                                                            <td className="py-4">
+                                                                <p className="font-black text-sm uppercase text-slate-800">{`${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{it.remarks}</p>
+                                                            </td>
+                                                            <td className="py-4 text-right font-black text-sm text-slate-700">
+                                                                {it.quantity} <span className="text-[9px] text-slate-400 uppercase ml-1">{it.unit}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                    <div className="pt-20 flex justify-between items-end">
-                                        <div className="max-w-[50%] p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                            <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Terms & Conditions</h5>
+                                    <div className={`flex justify-between items-end ${
+                                        (challan.items?.length ?? 0) <= 4 ? 'pt-24' : 'pt-12'
+                                    }`}>
+                                        <div className="max-w-[50%] p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+                                            <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Terms & Conditions</h5>
                                             <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase whitespace-pre-wrap">{challan.terms}</p>
                                         </div>
-                                        <div className="text-right space-y-12">
+                                        <div className="text-right space-y-16">
                                             <div className="w-48 h-px bg-slate-200 ml-auto" />
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-800">Authorized Personnel</p>
                                         </div>

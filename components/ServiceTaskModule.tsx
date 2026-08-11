@@ -5,7 +5,7 @@ import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
-  Eye, Paperclip, Download, Plus, Building2, Mail
+  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -22,29 +22,31 @@ const STATUS_CONFIG: Record<ServiceTaskStatus, { label: string; color: string; d
   'Waiting for Customer': { label: 'Service Finished Waiting', color: 'bg-purple-500', dotColor: 'bg-purple-500' },
   'Cancelled': { label: 'Cancelled', color: 'bg-rose-500', dotColor: 'bg-rose-500' },
   'Reopened': { label: 'Reopened', color: 'bg-orange-500', dotColor: 'bg-orange-500' },
+  'Billed': { label: 'Billed', color: 'bg-slate-500', dotColor: 'bg-slate-500' },
 };
 
 const STATUS_FLOW: ServiceTaskStatus[] = [
   'New', 'Claimed', 'In Progress', 'Completed',
-  'On Hold', 'Waiting for Customer', 'Cancelled', 'Reopened'
+  'On Hold', 'Waiting for Customer', 'Cancelled', 'Reopened', 'Billed'
 ];
 
-const getNextStatuses = (current: ServiceTaskStatus): ServiceTaskStatus[] => {
+const getNextStatuses = (current: ServiceTaskStatus, isAdmin: boolean = false): ServiceTaskStatus[] => {
   switch (current) {
     case 'New': return ['Claimed', 'Cancelled'];
     case 'Claimed': return ['In Progress', 'On Hold', 'Waiting for Customer', 'Cancelled'];
     case 'In Progress': return ['Completed', 'On Hold', 'Waiting for Customer', 'Cancelled'];
-    case 'Completed': return ['Reopened'];
+    case 'Completed': return isAdmin ? ['Billed', 'Reopened'] : ['Reopened'];
     case 'On Hold': return ['In Progress', 'Waiting for Customer', 'Cancelled'];
     case 'Waiting for Customer': return ['In Progress', 'On Hold', 'Cancelled'];
     case 'Cancelled': return ['Reopened'];
     case 'Reopened': return ['Claimed', 'In Progress', 'On Hold', 'Cancelled'];
+    case 'Billed': return [];
     default: return ['Claimed', 'Cancelled'];
   }
 };
 
 export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }) => {
-  const { serviceTasks, addServiceTask, updateServiceTask, currentUser, showConfirm, addNotification } = useData();
+  const { serviceTasks, addServiceTask, updateServiceTask, removeServiceTask, currentUser, showConfirm, addNotification } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -63,9 +65,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
 
   const isAdmin = userRole === 'Admin';
 
-  const formUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/?form=service`
-    : 'https://sreemeditec.com/?form=service';
+  const formUrl = 'https://sreemeditec-crm.vercel.app/?form=service';
 
   const selectedTask = useMemo(() => serviceTasks.find(t => t.id === selectedTaskId), [serviceTasks, selectedTaskId]);
 
@@ -88,7 +88,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const groupedTasks = useMemo(() => {
     const groups: Record<ServiceTaskStatus, ServiceTask[]> = {
       'New': [], 'Claimed': [], 'In Progress': [], 'Completed': [],
-      'On Hold': [], 'Waiting for Customer': [], 'Cancelled': [], 'Reopened': []
+      'On Hold': [], 'Waiting for Customer': [], 'Cancelled': [], 'Reopened': [], 'Billed': []
     };
     filteredTasks.forEach(t => {
       if (groups[t.status]) groups[t.status].push(t);
@@ -464,6 +464,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         <KanbanColumn status="Waiting for Customer" />
         <KanbanColumn status="Cancelled" />
         <KanbanColumn status="Reopened" />
+        {isAdmin && <KanbanColumn status="Billed" />}
       </div>
 
       {/* Detail Side Panel */}
@@ -481,7 +482,30 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
  <h3 className="text-xl md:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight mt-1 truncate">{selectedTask.customerName}</h3>
                 {selectedTask.companyName && <p className="text-[11px] font-bold text-slate-500 mt-1">{selectedTask.companyName}</p>}
               </div>
-              <button onClick={() => { setSelectedTaskId(null); setShowStatusMenu(false); }} className="p-2 text-slate-400 hover:text-slate-800 transition-all shrink-0"><X size={28} /></button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isAdmin && (
+                  <button 
+                    onClick={async () => {
+                      const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Service Task ${selectedTask.taskNumber}? This action cannot be undone.`);
+                      if (confirmed) {
+                        try {
+                          await removeServiceTask(selectedTask.id);
+                          addNotification('Task Deleted', `${selectedTask.taskNumber} has been removed.`, 'success');
+                          setSelectedTaskId(null);
+                          setShowStatusMenu(false);
+                        } catch (err) {
+                          addNotification('Error', 'Failed to delete task.', 'alert');
+                        }
+                      }
+                    }} 
+                    className="p-2 text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                    title="Delete Task"
+                  >
+                    <Trash2 size={22} />
+                  </button>
+                )}
+                <button onClick={() => { setSelectedTaskId(null); setShowStatusMenu(false); }} className="p-2 text-slate-400 hover:text-slate-800 transition-all shrink-0"><X size={28} /></button>
+              </div>
             </div>
 
             {/* Panel Body */}
@@ -501,7 +525,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                         </button>
                         {showStatusMenu && (
                           <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] shadow-2xl py-2 z-50 min-w-[200px]">
-                            {getNextStatuses(selectedTask.status).map(s => (
+                            {getNextStatuses(selectedTask.status, isAdmin).map(s => (
                               <button
                                 key={s}
                                 onClick={async () => {
@@ -520,9 +544,11 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                    {STATUS_FLOW.map((s, i) => {
-                      const isCurrent = s === selectedTask.status;
-                      const isPast = STATUS_FLOW.indexOf(selectedTask.status) >= i;
+                    {(() => {
+                      const visibleFlow = STATUS_FLOW.filter(s => isAdmin || s !== 'Billed');
+                      return visibleFlow.map((s, i) => {
+                        const isCurrent = s === selectedTask.status;
+                        const isPast = visibleFlow.indexOf(selectedTask.status) >= i;
                       return (
                         <React.Fragment key={s}>
                           {i > 0 && <div className={`w-3 h-px shrink-0 ${isPast ? 'bg-teal-400' : 'bg-slate-200'}`}></div>}
@@ -534,7 +560,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                           </div>
                         </React.Fragment>
                       );
-                    })}
+                    })})()}
                   </div>
                 </div>
 

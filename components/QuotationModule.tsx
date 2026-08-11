@@ -916,32 +916,38 @@ Sree Meditec`;
                                                          {/* Brand Selection (filtered by product) */}
                                                          <div className="md:col-span-4 space-y-1">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Brand</label>
-                                                             <select
-                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none h-[38px] outline-none"
+                                                             <input
+                                                                 type="text"
+                                                                 list={`brands-${item.id}`}
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold h-[38px] outline-none"
                                                                  value={item.brand || ''}
                                                                  onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                 placeholder="Select Brand"
                                                                  disabled={!item.description}
-                                                             >
-                                                                 <option value="">Select Brand</option>
+                                                             />
+                                                             <datalist id={`brands-${item.id}`}>
                                                                  {(() => {
                                                                      const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                      return matchedProd?.brands?.map(b => (
                                                                          <option key={b.id} value={b.name}>{b.name}</option>
                                                                      ));
                                                                  })()}
-                                                             </select>
+                                                             </datalist>
                                                          </div>
 
                                                          {/* Model Selection (filtered by brand) */}
                                                          <div className="md:col-span-4 space-y-1">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Model</label>
-                                                             <select
-                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none h-[38px] outline-none"
+                                                             <input
+                                                                 type="text"
+                                                                 list={`models-${item.id}`}
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold h-[38px] outline-none"
                                                                  value={item.model || ''}
                                                                  onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 placeholder="Select Model"
                                                                  disabled={!item.brand}
-                                                             >
-                                                                 <option value="">Select Model</option>
+                                                             />
+                                                             <datalist id={`models-${item.id}`}>
                                                                  {(() => {
                                                                      const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                      const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
@@ -949,7 +955,7 @@ Sree Meditec`;
                                                                          <option key={m.id} value={m.name}>{m.name}</option>
                                                                      ));
                                                                  })()}
-                                                             </select>
+                                                             </datalist>
                                                          </div>
                                                         <div className="grid grid-cols-2 md:col-span-4 gap-4">
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>

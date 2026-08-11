@@ -207,6 +207,7 @@ export interface DataContextType {
     updateServiceTicket: (id: string, updates: Partial<ServiceTicket>) => Promise<void>;
     addServiceTask: (task: ServiceTask) => Promise<void>;
     updateServiceTask: (id: string, updates: Partial<ServiceTask>) => Promise<void>;
+    removeServiceTask: (id: string) => Promise<void>;
     addExpense: (expense: ExpenseRecord) => Promise<void>;
     updateExpense: (id: string, updates: Partial<ExpenseRecord>) => Promise<void>;
     updateExpenseStatus: (id: string, status: ExpenseRecord['status'], reason?: string) => Promise<void>;
@@ -2069,6 +2070,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Tasks', 'Updated Service Task', existing?.customerName || id, existing, { ...existing, ...u });
     };
 
+    const removeServiceTask = async (id: string) => {
+        setServiceTasks(prev => prev.filter(t => t.id !== id));
+        await deleteDoc(doc(db, "serviceTasks", id));
+        await addLog('Tasks', 'Deleted Service Task', id);
+    };
+
     const autoPostExpenseVoucher = async (e: ExpenseRecord) => {
         try {
             let expenseLedgerId = 'LDG-OFFICE-EXP';
@@ -3848,15 +3855,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const getItems = (inv: Invoice) => {
                     const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }[] = [];
                     (inv.items || []).forEach(item => {
-                        list.push({
-                            name: (item.description || '').toUpperCase(),
-                            qty: Number(item.quantity) || 0,
-                            productId: item.productId,
-                            sku: item.sku,
-                            barcode: item.barcode,
-                            brand: item.brand,
-                            model: item.model
-                        });
+                        if (item.inventoryMappings && item.inventoryMappings.length > 0) {
+                            item.inventoryMappings.forEach(mapping => {
+                                list.push({
+                                    name: (mapping.productName || '').toUpperCase(),
+                                    qty: (Number(item.quantity) || 1) * (Number(mapping.quantityUsed) || 0),
+                                    productId: mapping.inventoryProductId,
+                                    sku: mapping.sku,
+                                    barcode: mapping.barcode,
+                                    brand: undefined,
+                                    model: undefined
+                                });
+                            });
+                        } else {
+                            list.push({
+                                name: (item.description || '').toUpperCase(),
+                                qty: Number(item.quantity) || 0,
+                                productId: item.productId,
+                                sku: item.sku,
+                                barcode: item.barcode,
+                                brand: item.brand,
+                                model: item.model
+                            });
+                        }
                     });
                     return list;
                 };
@@ -4033,13 +4054,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const getItems = (rec: Invoice) => {
                     const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
                     (rec.items || []).forEach(item => {
-                        list.push({
-                            name: (item.description || '').toUpperCase(),
-                            qty: Number(item.quantity) || 0,
-                            productId: item.productId,
-                            sku: item.sku,
-                            barcode: item.barcode
-                        });
+                        if (item.inventoryMappings && item.inventoryMappings.length > 0) {
+                            item.inventoryMappings.forEach(mapping => {
+                                list.push({
+                                    name: (mapping.productName || '').toUpperCase(),
+                                    qty: (Number(item.quantity) || 1) * (Number(mapping.quantityUsed) || 0),
+                                    productId: mapping.inventoryProductId,
+                                    sku: mapping.sku,
+                                    barcode: mapping.barcode
+                                });
+                            });
+                        } else {
+                            list.push({
+                                name: (item.description || '').toUpperCase(),
+                                qty: Number(item.quantity) || 0,
+                                productId: item.productId,
+                                sku: item.sku,
+                                barcode: item.barcode
+                            });
+                        }
                     });
                     return list;
                 };
@@ -4332,7 +4365,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
-            serviceTasks, addServiceTask, updateServiceTask,
+            serviceTasks, addServiceTask, updateServiceTask, removeServiceTask,
             serviceTemplates, addServiceTemplate, updateServiceTemplate, removeServiceTemplate,
             addInvoice, updateInvoice, removeInvoice, recordStockMovement, addExpense, updateExpense, removeExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,

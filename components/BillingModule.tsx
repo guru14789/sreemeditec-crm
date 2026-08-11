@@ -499,7 +499,11 @@ Email: sreemeditec@gmail.com`;
 
             setViewState('history');
             setEditingId(null);
-            addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
+            if (status === 'Finalized') {
+                addNotification('Success', `Invoice ${finalData.invoiceNumber} created successfully!`, 'success');
+            } else {
+                addNotification('Registry Updated', `Invoice ${finalData.invoiceNumber} archived.`, 'success');
+            }
 
             // Update source quotation status AFTER closing the form — in its own block
             // so any error here never prevents the form from closing
@@ -1221,9 +1225,9 @@ Email: sreemeditec@gmail.com`;
                                             <div key={item.id} className="group space-y-3">
                                                 <div className="p-6 bg-slate-50 border border-slate-300 rounded-[1.5rem] relative hover:bg-white hover:border-medical-200 transition-all">
                                                     <button onClick={() => setInvoice({...invoice, items: invoice.items?.filter(i => i.id !== item.id)})} className="absolute top-4 right-4 text-rose-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={18}/></button>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-12 gap-3 sm:gap-6">
+                                                    <div className="grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-[14] gap-3 sm:gap-4">
                                                         {/* Product Selection */}
-                                                         <div className="col-span-2 sm:col-span-3">
+                                                         <div className="col-span-2 sm:col-span-6 lg:col-span-3">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Product Name</label>
                                                              <AutoSuggest
                                                                  value={item.description || ''}
@@ -1241,7 +1245,7 @@ Email: sreemeditec@gmail.com`;
                                                          </div>
 
                                                          {/* Brand Selection (filtered by product) */}
-                                                         <div className="col-span-1 sm:col-span-1">
+                                                         <div className="col-span-1 sm:col-span-3 lg:col-span-2">
                                                              <div className="flex justify-between items-center mb-1">
                                                                  <label className="text-[9px] font-black text-slate-400 uppercase block">Brand</label>
                                                                  <label className="flex items-center gap-1 cursor-pointer select-none">
@@ -1254,32 +1258,38 @@ Email: sreemeditec@gmail.com`;
                                                                      <span className="text-[8px] font-black text-slate-500">SHOW</span>
                                                                  </label>
                                                              </div>
-                                                             <select
-                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none appearance-none"
+                                                             <input
+                                                                 type="text"
+                                                                 list={`brands-${item.id}`}
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none"
                                                                  value={item.brand || ''}
                                                                  onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                 placeholder="Select Brand"
                                                                  disabled={!item.description}
-                                                             >
-                                                                 <option value="">Select Brand</option>
+                                                             />
+                                                             <datalist id={`brands-${item.id}`}>
                                                                  {(() => {
                                                                      const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                      return matchedProd?.brands?.map(b => (
                                                                          <option key={b.id} value={b.name}>{b.name}</option>
                                                                      ));
                                                                  })()}
-                                                             </select>
+                                                             </datalist>
                                                          </div>
 
                                                          {/* Model Selection (filtered by brand) */}
-                                                         <div className="col-span-1 sm:col-span-1">
+                                                         <div className="col-span-1 sm:col-span-3 lg:col-span-2">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Model</label>
-                                                             <select
-                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none appearance-none"
+                                                             <input
+                                                                 type="text"
+                                                                 list={`models-${item.id}`}
+                                                                 className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none"
                                                                  value={item.model || ''}
                                                                  onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 placeholder="Select Model"
                                                                  disabled={!item.brand}
-                                                             >
-                                                                 <option value="">Select Model</option>
+                                                             />
+                                                             <datalist id={`models-${item.id}`}>
                                                                  {(() => {
                                                                      const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                      const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
@@ -1287,17 +1297,17 @@ Email: sreemeditec@gmail.com`;
                                                                          <option key={m.id} value={m.name}>{m.name}</option>
                                                                      ));
                                                                  })()}
-                                                             </select>
+                                                             </datalist>
                                                          </div>
-                                                         <div className="col-span-1 sm:col-span-1">
+                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-1">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">HSN</label>
                                                              <input type="text" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.hsn || ''} onChange={e => updateItem(item.id, 'hsn', e.target.value)} />
                                                          </div>
-                                                         <div className="col-span-1 sm:col-span-1">
+                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-1">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Qty</label>
                                                              <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', e.target.value)} />
                                                          </div>
-                                                         <div className="col-span-1 sm:col-span-1">
+                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-1">
                                                              <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">Type</label>
                                                              <select
                                                                  className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold h-[32px] outline-none appearance-none text-center"
@@ -1312,19 +1322,19 @@ Email: sreemeditec@gmail.com`;
                                                                  <option value="kgs">kgs</option>
                                                              </select>
                                                          </div>
-                                                        <div className="col-span-1 sm:col-span-2">
+                                                        <div className="col-span-1 sm:col-span-1 lg:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
                                                             <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
                                                         </div>
-                                                        <div className="col-span-1 sm:col-span-2">
+                                                        <div className="col-span-1 sm:col-span-1 lg:col-span-1">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>
                                                             <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center" value={item.taxRate || ''} onChange={e => updateItem(item.id, 'taxRate', e.target.value)} />
                                                         </div>
-                                                        <div className="col-span-2 sm:col-span-12">
+                                                        <div className="col-span-2 sm:col-span-6 lg:col-span-[14]">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">Features / Specifications</label>
                                                             <textarea rows={2} className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-[11px] font-bold outline-none resize-none" placeholder="Detailed specifications..." value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} />
                                                         </div>
-                                                        <div className="col-span-2 sm:col-span-12">
+                                                        <div className="col-span-2 sm:col-span-6 lg:col-span-[14]">
                                                             <InventoryMappingPanel
                                                                 parentItemDescription={item.description || ''}
                                                                 parentUnitPrice={item.unitPrice || 0}

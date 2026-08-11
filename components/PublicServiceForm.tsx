@@ -142,13 +142,13 @@ export const PublicServiceForm: React.FC = () => {
       }));
       const task: ServiceTask = {
         id: taskId, taskNumber,
-        customerName: form.customerName.trim(), companyName: form.companyName.trim() || undefined,
-        customerPhone: form.customerPhone.trim(), customerEmail: form.customerEmail.trim() || undefined,
-        subject: form.subject.trim() || undefined, equipment: form.equipment.trim(),
+        customerName: form.customerName.trim(), companyName: form.companyName.trim() || '',
+        customerPhone: form.customerPhone.trim(), customerEmail: form.customerEmail.trim() || '',
+        subject: form.subject.trim() || '', equipment: form.equipment.trim(),
         serialNo: form.serialNo.trim(),
-        serviceCategory: form.serviceCategory || undefined, issue: form.issue.trim(),
+        serviceCategory: form.serviceCategory || '', issue: form.issue.trim(),
         priority: form.priority, status: 'New', createdAt: new Date().toISOString(),
-        location: form.location.trim() || undefined, source: 'public_form',
+        location: form.location.trim() || '', source: 'public_form',
         comments: [], attachments, activityLog: []
       };
       await setDoc(doc(db, 'serviceTasks', taskId), task);

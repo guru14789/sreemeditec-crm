@@ -819,7 +819,7 @@ export interface ServiceReport {
   referenceOrderId?: string;
 }
 
-export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened';
+export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened' | 'Billed';
 
 export interface ServiceTaskAttachment {
   name: string;
@@ -922,6 +922,9 @@ export interface ChallanItem {
   quantity: number;
   unit?: string;
   remarks?: string;
+  brand?: string;
+  model?: string;
+  hideBrand?: boolean;
 }
 
 export interface DeliveryChallan {

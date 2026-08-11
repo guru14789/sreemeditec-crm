@@ -6,13 +6,13 @@ import autoTable from 'jspdf-autotable';
 import { SALARY_SCALE } from '../types';
 
 export const PayrollModule: React.FC = () => {
-    const { 
-        currentUser: me, 
-        addNotification, 
-        attendanceRecords, 
-        holidays, 
-        expenses = [], 
-        employees = [], 
+    const {
+        currentUser: me,
+        addNotification,
+        attendanceRecords,
+        holidays,
+        expenses = [],
+        employees = [],
         pointHistory = [],
         invoices = [],
         serviceTasks = []
@@ -24,7 +24,7 @@ export const PayrollModule: React.FC = () => {
 
     const isAdmin = me?.role === 'SYSTEM_ADMIN' || me?.email === 'sreekumar.career@gmail.com';
     const [selectedEmployeeId, setSelectedEmployeeId] = useState(me?.id || '');
-    
+
     const [activePicker, setActivePicker] = useState<'month' | 'year' | 'employee' | null>(null);
 
     // Resolve the active target employee for payroll calculations
@@ -128,9 +128,9 @@ export const PayrollModule: React.FC = () => {
                 const empInvoices = invoices.filter(inv => {
                     if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
                     if (!inv.date.startsWith(yearMonthStr)) return false;
-                    return inv.closedBy === targetEmployee.id || 
-                           inv.closedBy === targetEmployee.name ||
-                           inv.createdBy === targetEmployee.name;
+                    return inv.closedBy === targetEmployee.id ||
+                        inv.closedBy === targetEmployee.name ||
+                        inv.createdBy === targetEmployee.name;
                 });
                 totalAchievedAmount = empInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
             }
@@ -267,9 +267,9 @@ export const PayrollModule: React.FC = () => {
                     const empInvoices = invoices.filter(inv => {
                         if (inv.documentType !== 'Invoice' || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
                         if (!inv.date.startsWith(yearMonthStr)) return false;
-                        return inv.closedBy === emp.id || 
-                               inv.closedBy === emp.name ||
-                               inv.createdBy === emp.name;
+                        return inv.closedBy === emp.id ||
+                            inv.closedBy === emp.name ||
+                            inv.createdBy === emp.name;
                     });
                     totalAchievedAmount = empInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
                 }
@@ -321,36 +321,31 @@ export const PayrollModule: React.FC = () => {
             const doc = new jsPDF('p', 'mm', 'a4');
             const docTitle = `SALARY SLIP - ${monthName.toUpperCase()} ${selectedSalaryYear}`;
 
-            // Premium Header Banner
-            doc.setFillColor(11, 27, 22); // Premium deep forest green
-            doc.rect(0, 0, 210, 48, 'F');
-
-            // Top accents
-            doc.setFillColor(197, 160, 89); // Gold accent line
-            doc.rect(0, 48, 210, 2, 'F');
+            // Header Banner
+            doc.setFillColor(16, 185, 129); // Emerald-600
+            doc.rect(0, 0, 210, 40, 'F');
 
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(22);
-            doc.setFont('times', 'bold');
-            doc.text("Sreemeditec", 14, 18);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Sree Meditec Enterprise", 14, 20);
 
-            doc.setFontSize(8.5);
+            doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            doc.setTextColor(220, 220, 220);
-            doc.text("No:18 , bajanai koil street, Rajakilpakkam, Chennai-73, Tamilnadu", 14, 26);
-            doc.text("GSTIN: 33APGPS4675G2ZL", 14, 32);
+            doc.text("Kochi, Kerala | Contact: +91 98848 18398", 14, 28);
+            doc.text("GSTIN: 32XXXXX1234X1Z1", 14, 33);
 
             // Title
-            doc.setTextColor(11, 27, 22); // Deep forest green
-            doc.setFontSize(14);
-            doc.setFont('times', 'bold');
-            doc.text(docTitle, 105, 62, { align: 'center' });
+            doc.setTextColor(30, 41, 59); // Slate-800
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text(docTitle, 105, 55, { align: 'center' });
 
             // Employee Information Table
             const empInfo = [
                 ['Employee Name', targetEmployee.name, 'Employee ID', targetEmployee.id || 'EMP-001'],
-                ['Department', targetEmployee.department, 'Designation', targetEmployee.position || 'Representative'],
-                ['Month/Year', `${monthName} ${selectedSalaryYear}`, 'Bank Name', 'KVB Bank'],
+                ['Department', targetEmployee.department, 'Designation', targetEmployee.role === 'SYSTEM_ADMIN' ? 'Administrator' : 'Sales Representative'],
+                ['Month/Year', `${monthName} ${selectedSalaryYear}`, 'Bank Name', 'HDFC Bank'],
                 ['Working Days', salaryDetails.daysInMonth.toString(), 'Absent Days', salaryDetails.absentDays.toString()],
             ];
             if (salaryDetails.outstationDays > 0) {
@@ -358,51 +353,51 @@ export const PayrollModule: React.FC = () => {
             }
 
             autoTable(doc, {
-                startY: 70,
+                startY: 65,
                 body: empInfo,
                 theme: 'plain',
-                styles: { fontSize: 8.5, cellPadding: 2, font: 'helvetica' },
+                styles: { fontSize: 9, cellPadding: 2.5 },
                 columnStyles: {
-                    0: { fontStyle: 'bold', textColor: [120, 130, 140] },
-                    2: { fontStyle: 'bold', textColor: [120, 130, 140] }
+                    0: { fontStyle: 'bold', textColor: [100, 116, 139] },
+                    2: { fontStyle: 'bold', textColor: [100, 116, 139] }
                 }
             });
 
-             // Earnings & Deductions Table
+            // Earnings & Deductions Table
             const financeData = [
-                ['Basic Salary', `₹${salaryDetails.basic.toLocaleString('en-IN')}`, 'Salary Advance', `₹${salaryDetails.salaryAdvance.toLocaleString('en-IN')}`],
-                ['Sales Incentive', `₹${salaryDetails.salesIncentive.toLocaleString('en-IN')}`, '', ''],
-                ['Daily Allowance', `₹${salaryDetails.totalDailyAllowance.toLocaleString('en-IN')}`, '', ''],
-                ['Outstation Allowance', `₹${salaryDetails.totalOutstationAllowance.toLocaleString('en-IN')}`, '', ''],
+                ['Basic Salary', salaryDetails.basic.toLocaleString('en-IN'), 'Salary Advance', salaryDetails.salaryAdvance.toLocaleString('en-IN')],
+                ['Sales Incentive', salaryDetails.salesIncentive.toLocaleString('en-IN'), '', ''],
+                ['Daily Allowance', salaryDetails.totalDailyAllowance.toLocaleString('en-IN'), '', ''],
+                ['Outstation Allowance', salaryDetails.totalOutstationAllowance.toLocaleString('en-IN'), '', ''],
                 [
-                    { content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
-                    { content: `₹${salaryDetails.totalEarnings.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
-                    { content: 'Total Deductions', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }, 
+                    { content: 'Total Earnings', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
+                    { content: `₹${salaryDetails.totalEarnings.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
+                    { content: 'Total Deductions', styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } },
                     { content: `₹${salaryDetails.totalDeductions.toLocaleString('en-IN')}`, styles: { fontStyle: 'bold', fillColor: [248, 250, 252] } }
                 ]
             ];
 
             autoTable(doc, {
                 startY: (doc as any).lastAutoTable.finalY + 8,
-                head: [['EARNINGS', 'AMOUNT', 'DEDUCTIONS', 'AMOUNT']],
+                head: [['EARNINGS', 'AMOUNT (INR)', 'DEDUCTIONS', 'AMOUNT (INR)']],
                 body: financeData as any,
                 theme: 'grid',
-                headStyles: { fillColor: [11, 27, 22], textColor: [255, 255, 255], fontStyle: 'bold', font: 'times' },
-                styles: { fontSize: 8.5, font: 'helvetica' }
+                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] },
+                styles: { fontSize: 9 }
             });
 
             // Net Pay Container
             const finalY = (doc as any).lastAutoTable.finalY + 12;
-            doc.setFillColor(243, 244, 246); // Light gray
+            doc.setFillColor(240, 253, 244); // Emerald-50
             doc.rect(14, finalY, 182, 18, 'F');
-            doc.setDrawColor(197, 160, 89); // Gold border
+            doc.setDrawColor(16, 185, 129);
             doc.setLineWidth(0.5);
             doc.rect(14, finalY, 182, 18);
 
-            doc.setTextColor(11, 27, 22);
-            doc.setFontSize(12);
-            doc.setFont('times', 'bold');
-            doc.text(`NET PAYABLE:  ₹${salaryDetails.netPay.toLocaleString('en-IN')}/-`, 105, finalY + 11, { align: 'center' });
+            doc.setTextColor(16, 185, 129);
+            doc.setFontSize(13);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`NET PAYABLE:  INR ${salaryDetails.netPay.toLocaleString('en-IN')}/-`, 105, finalY + 11, { align: 'center' });
 
             // Footer disclaimer
             doc.setTextColor(148, 163, 184);
@@ -444,17 +439,17 @@ export const PayrollModule: React.FC = () => {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[2rem] p-4 md:p-5 w-full md:w-[400px] shadow-2xl flex flex-col gap-3">
                             {isAdmin && (
                                 <div className="space-y-1.5 mb-1">
-                                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 flex items-center gap-1 ml-1"><Users size={12}/> Choose Employee</label>
-                                    <div 
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 flex items-center gap-1 ml-1"><Users size={12} /> Choose Employee</label>
+                                    <div
                                         onClick={() => setActivePicker('employee')}
                                         className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
                                         <span className="truncate">
-                                            {selectedEmployeeId 
+                                            {selectedEmployeeId
                                                 ? (() => {
                                                     const emp = employees.find(e => e.id === selectedEmployeeId);
                                                     return emp ? `${emp.name} (${emp.department})` : '-- Select --';
-                                                  })()
+                                                })()
                                                 : '-- Select --'}
                                         </span>
                                         <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400 pointer-events-none" />
@@ -465,7 +460,7 @@ export const PayrollModule: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3 w-full">
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 ml-1">Month</label>
-                                    <div 
+                                    <div
                                         onClick={() => setActivePicker('month')}
                                         className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
@@ -475,7 +470,7 @@ export const PayrollModule: React.FC = () => {
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-black uppercase tracking-wider text-emerald-100/70 ml-1">Year</label>
-                                    <div 
+                                    <div
                                         onClick={() => setActivePicker('year')}
                                         className="relative w-full bg-slate-900/60 border border-white/10 rounded-[1.5rem] pl-4 pr-10 py-3 md:py-2.5 text-[15px] font-bold text-white transition-all cursor-pointer shadow-inner flex items-center h-[46px] md:h-[42px]"
                                     >
@@ -485,7 +480,7 @@ export const PayrollModule: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={handleDownloadSalarySlip}
                                 disabled={isGeneratingSlip || !targetEmployee}
                                 className="w-full py-3 bg-white text-emerald-700 rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-3 transform active:scale-95 disabled:opacity-40"
@@ -527,8 +522,8 @@ export const PayrollModule: React.FC = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 block md:table-row-group">
                                     {allEmployeesSalarySummary.map((row) => (
-                                        <tr 
-                                            key={row.id} 
+                                        <tr
+                                            key={row.id}
                                             className={`block md:table-row hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all text-[11px] md:text-xs cursor-pointer border-b border-slate-200 md:border-slate-100 md:rounded-none p-2 md:p-0 bg-white ${selectedEmployeeId === row.id ? 'bg-emerald-50/40 dark:bg-emerald-950/10' : ''}`}
                                             onClick={() => setSelectedEmployeeId(row.id)}
                                         >
@@ -537,7 +532,7 @@ export const PayrollModule: React.FC = () => {
                                                     <div className="font-bold text-slate-800 dark:text-slate-200 text-xs">{row.name}</div>
                                                     <div className="text-[8px] text-slate-400 font-semibold uppercase">{row.department} · {row.role}</div>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setSelectedEmployeeId(row.id);
@@ -548,7 +543,7 @@ export const PayrollModule: React.FC = () => {
                                                 </button>
                                             </td>
                                             <td className="block md:table-cell py-0.5 px-1 md:py-3 md:px-4 font-black text-[9px] text-slate-600 dark:text-slate-400 pt-2">
-                                                 <div className="flex items-center justify-between md:justify-start w-full">
+                                                <div className="flex items-center justify-between md:justify-start w-full">
                                                     <span className="md:hidden text-[8px] font-black uppercase text-slate-400">Attendance</span>
                                                     <div>
                                                         <span className="text-emerald-600 dark:text-emerald-400">{row.presentDays} Pres</span>
@@ -557,7 +552,7 @@ export const PayrollModule: React.FC = () => {
                                                         <span className="mx-1 text-slate-300 dark:text-slate-700">|</span>
                                                         <span className="text-indigo-600 dark:text-indigo-400">{row.outstationDays} Out</span>
                                                     </div>
-                                                 </div>
+                                                </div>
                                             </td>
                                             <td className="hidden md:table-cell py-0.5 px-1 md:py-3 md:px-4 text-left md:text-right font-semibold text-slate-700 dark:text-slate-300">
                                                 <div className="flex items-center justify-between md:justify-end w-full">
@@ -584,7 +579,7 @@ export const PayrollModule: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="hidden md:table-cell py-3 px-4 text-center">
-                                                <button 
+                                                <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setSelectedEmployeeId(row.id);
@@ -630,12 +625,12 @@ export const PayrollModule: React.FC = () => {
                                 <p className="text-[9px] font-black uppercase text-emerald-100/80 tracking-wider">Shift Performance</p>
                                 <div className="my-3 space-y-1">
                                     <div className="flex items-baseline gap-2">
- <span className="text-2xl font-bold tracking-tight text-white">{salaryDetails.presentDays}</span>
+                                        <span className="text-2xl font-bold tracking-tight text-white">{salaryDetails.presentDays}</span>
                                         <span className="text-xs font-bold text-emerald-300">/ {salaryDetails.daysInMonth} Days</span>
                                     </div>
                                     {salaryDetails.outstationDays > 0 && (
                                         <div className="flex items-baseline gap-2">
- <span className="text-lg font-bold tracking-tight text-emerald-300">{salaryDetails.outstationDays}</span>
+                                            <span className="text-lg font-bold tracking-tight text-emerald-300">{salaryDetails.outstationDays}</span>
                                             <span className="text-[10px] font-bold text-emerald-100/80">Days Outstation</span>
                                         </div>
                                     )}
@@ -712,7 +707,7 @@ export const PayrollModule: React.FC = () => {
                                 {activePicker === 'year' && 'Select Year'}
                                 {activePicker === 'employee' && 'Select Employee'}
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setActivePicker(null)}
                                 className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded-full transition-colors"
                             >

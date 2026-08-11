@@ -117,29 +117,34 @@ export const BarcodeCreatorModule: React.FC = () => {
                     {/* 2. Brand Dropdown */}
                     <div className="w-full md:w-48 relative">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">2. Brand</label>
-                        <select
+                        <input
+                            type="text"
+                            list="barcode-brands"
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-bold text-slate-700 outline-none h-[42px]"
                             value={selectedBrand}
                             onChange={(e) => {
                                 setSelectedBrand(e.target.value);
                                 setSelectedModel('');
                             }}
+                            placeholder="Select Brand"
                             disabled={!selectedProduct}
-                        >
-                            <option value="">Select Brand</option>
+                        />
+                        <datalist id="barcode-brands">
                             {(() => {
                                 const fullProduct = products.find(p => p.id === selectedProduct?.id);
                                 return fullProduct?.brands?.map(b => (
                                     <option key={b.id} value={b.name}>{b.name}</option>
                                 ));
                             })()}
-                        </select>
+                        </datalist>
                     </div>
 
                     {/* 3. Model Dropdown */}
                     <div className="w-full md:w-48 relative">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">3. Model</label>
-                        <select
+                        <input
+                            type="text"
+                            list="barcode-models"
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm font-bold text-slate-700 outline-none h-[42px]"
                             value={selectedModel}
                             onChange={(e) => {
@@ -162,9 +167,10 @@ export const BarcodeCreatorModule: React.FC = () => {
                                     });
                                 }
                             }}
+                            placeholder="Select Model"
                             disabled={!selectedBrand}
-                        >
-                            <option value="">Select Model</option>
+                        />
+                        <datalist id="barcode-models">
                             {(() => {
                                 const fullProduct = products.find(p => p.id === selectedProduct?.id.split('::')[0]);
                                 const brandObj = fullProduct?.brands?.find(b => b.name === selectedBrand);
@@ -172,7 +178,7 @@ export const BarcodeCreatorModule: React.FC = () => {
                                     <option key={m.id} value={m.name}>{m.name}</option>
                                 ));
                             })()}
-                        </select>
+                        </datalist>
                     </div>
 
                     <button 
