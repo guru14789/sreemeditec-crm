@@ -649,7 +649,7 @@ Sree Meditec`;
                                         <div className="space-y-3 pb-4">
                                             {(order.items || []).length > 0 ? (order.items || []).map((item, idx) => (
                                                 <div key={item.id} className="group space-y-3">
-                                                    <div className="p-4 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-12 gap-4 relative shadow-sm">
+                                                    <div className="p-4 bg-slate-50 rounded-[2rem] border border-slate-200 hover:border-medical-300 transition-all grid grid-cols-1 sm:grid-cols-[16] gap-4 relative shadow-sm">
                                                         <button onClick={() => setOrder(prev => ({ ...prev, items: prev.items?.filter(it => it.id !== item.id) }))} className="absolute -top-2 -right-2 bg-white text-rose-400 hover:text-rose-600 p-2 rounded-full shadow-lg border border-slate-100 opacity-0 group-hover:opacity-100 transition-all z-10"><Trash2 size={14}/></button>
                                                         <div className="sm:col-span-4">
                                                             <FormRow label={`Item #${idx + 1}`}>
@@ -661,12 +661,57 @@ Sree Meditec`;
                                                                         updateItem(item.id, 'unitPrice', prod.sellingPrice || 0);
                                                                         updateItem(item.id, 'taxRate', prod.taxRate || 18);
                                                                         updateItem(item.id, 'hsn', prod.hsn || '');
+                                                                        updateItem(item.id, 'brand', '');
+                                                                        updateItem(item.id, 'model', '');
                                                                     }}
                                                                     suggestions={products}
                                                                     filterKey="name"
                                                                     placeholder="Search product..."
                                                                     className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black uppercase outline-none"
                                                                 />
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="Brand">
+                                                                <input
+                                                                    type="text"
+                                                                    list={`brands-${item.id}`}
+                                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none"
+                                                                    value={item.brand || ''}
+                                                                    onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                    placeholder="Brand"
+                                                                    disabled={!item.description}
+                                                                />
+                                                                <datalist id={`brands-${item.id}`}>
+                                                                    {(() => {
+                                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                        return matchedProd?.brands?.map(b => (
+                                                                            <option key={b.id} value={b.name}>{b.name}</option>
+                                                                        ));
+                                                                    })()}
+                                                                </datalist>
+                                                            </FormRow>
+                                                        </div>
+                                                        <div className="sm:col-span-2">
+                                                            <FormRow label="Model">
+                                                                <input
+                                                                    type="text"
+                                                                    list={`models-${item.id}`}
+                                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none"
+                                                                    value={item.model || ''}
+                                                                    onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                    placeholder="Model"
+                                                                    disabled={!item.brand}
+                                                                />
+                                                                <datalist id={`models-${item.id}`}>
+                                                                    {(() => {
+                                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                        const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                        return matchedBrand?.models?.map(m => (
+                                                                            <option key={m.id} value={m.name}>{m.name}</option>
+                                                                        ));
+                                                                    })()}
+                                                                </datalist>
                                                             </FormRow>
                                                         </div>
                                                         <div className="sm:col-span-2">

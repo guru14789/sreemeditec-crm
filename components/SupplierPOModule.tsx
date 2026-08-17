@@ -825,6 +825,8 @@ export const SupplierPOModule: React.FC = () => {
                                                                                     sgstRate: tr / 2,
                                                                                     igstRate: 0,
                                                                                     hsn: prod.hsn || '',
+                                                                                    brand: '',
+                                                                                    model: '',
                                                                                     amount: it.quantity * (prod.purchasePrice || 0),
                                                                                     gstValue: (it.quantity * (prod.purchasePrice || 0)) * (tr / 100),
                                                                                     priceWithGst: (it.quantity * (prod.purchasePrice || 0)) * (1 + (tr / 100))
@@ -840,8 +842,49 @@ export const SupplierPOModule: React.FC = () => {
                                                                 className="w-full bg-transparent font-black text-slate-800 outline-none uppercase placeholder:text-slate-300 text-sm h-[24px]"
                                                                 placeholder="Select Part..."
                                                             />
-                                                            <div className="flex gap-2 mt-1">
-                                                                <span className="text-[9px] font-black text-medical-500 uppercase tracking-widest">HSN: {item.hsn || '---'}</span>
+                                                            <div className="flex gap-2 mt-1 items-center">
+                                                                <span className="text-[9px] font-black text-medical-500 uppercase tracking-widest shrink-0">HSN: {item.hsn || '---'}</span>
+                                                            </div>
+                                                            <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="text"
+                                                                        list={`brands-${item.id}`}
+                                                                        className="w-full bg-slate-100 rounded-lg px-2 py-1 text-xs font-black outline-none border border-slate-200"
+                                                                        value={item.brand || ''}
+                                                                        onChange={e => updateItem(item.id, 'brand', e.target.value)}
+                                                                        placeholder="Brand"
+                                                                        disabled={!item.description}
+                                                                    />
+                                                                    <datalist id={`brands-${item.id}`}>
+                                                                        {(() => {
+                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            return matchedProd?.brands?.map(b => (
+                                                                                <option key={b.id} value={b.name}>{b.name}</option>
+                                                                            ));
+                                                                        })()}
+                                                                    </datalist>
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <input
+                                                                        type="text"
+                                                                        list={`models-${item.id}`}
+                                                                        className="w-full bg-slate-100 rounded-lg px-2 py-1 text-xs font-black outline-none border border-slate-200"
+                                                                        value={item.model || ''}
+                                                                        onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                        placeholder="Model"
+                                                                        disabled={!item.brand}
+                                                                    />
+                                                                    <datalist id={`models-${item.id}`}>
+                                                                        {(() => {
+                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                            return matchedBrand?.models?.map(m => (
+                                                                                <option key={m.id} value={m.name}>{m.name}</option>
+                                                                            ));
+                                                                        })()}
+                                                                    </datalist>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto shadow-sm">
