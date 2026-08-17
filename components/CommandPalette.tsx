@@ -3,7 +3,7 @@ import { useData } from './DataContext';
 import { TabView } from '../types';
 import { 
     Search, Compass, Users, Package, Shield, 
-    Clipboard, ArrowRight, CornerDownLeft, Sparkles, User, Briefcase
+    Clipboard, ArrowRight, CornerDownLeft, Sparkles, User, Briefcase, Landmark
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -72,7 +72,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             { tab: TabView.PERFORMANCE, icon: Sparkles, label: 'Leaderboard', sub: 'Employee gamification metrics' },
             { tab: TabView.HR, icon: Shield, label: 'Staff Management', sub: 'Configure roles and system access grid' },
             { tab: TabView.REPORTS, icon: Clipboard, label: 'Reports Centre', sub: 'Analytical dashboards and Excel exports' },
-            { tab: TabView.ACCOUNTING, icon: Shield, label: 'Accounts (TallyPrime)', sub: 'Tally-style ledgers, balance sheets, and trials' },
+            { tab: TabView.ACCOUNTING, icon: Landmark, label: 'Banking', sub: 'View registered bank accounts' },
             { tab: TabView.CONFIG, icon: Shield, label: 'System Config', sub: 'Adjust financial periods and company profiles' },
         ];
 

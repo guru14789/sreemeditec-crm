@@ -102,6 +102,7 @@ export interface Client {
   dlNo?: string;
   udyamNo?: string;
   status?: 'Draft' | 'Finalized';
+  advanceBalance?: number;
 }
 
 export interface Vendor {
@@ -118,6 +119,7 @@ export interface Vendor {
   udyamNo?: string;
   status?: 'Draft' | 'Finalized';
   procurementVolume?: number;
+  advanceBalance?: number;
 }
 
 export interface ProductSpecification {
@@ -144,6 +146,10 @@ export interface ModelDetail {
   qrCode?: string;
   specs: ProductSpecification[];
   description?: string;
+  boxNumber?: string;
+  shelfNumber?: string;
+  hsnCode?: string;
+  category?: string;
   vendors: ModelVendorInfo[];
   images: string[]; // URLs or base64
   documents: { name: string; url: string; type: 'Brochure' | 'Manual' | 'Certificate' | 'Other' }[];
@@ -498,6 +504,7 @@ export interface Invoice {
   date: string;
   items: InvoiceItem[];
   status: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
+  amountPaid?: number;
   customerName: string;
   customerHospital?: string;
   customerAddress?: string;
@@ -707,6 +714,7 @@ export interface BankDetails {
   branchIfsc: string;
   accountType?: string;
   isDefault?: boolean;
+  initialBalance?: number;
 }
 
 export interface SystemSettings {
@@ -885,7 +893,31 @@ export interface SupportMessage {
   sender: string;
   text: string;
   timestamp: string;
-  isAdmin: boolean;
+  isSystemAdmin?: boolean;
+}
+
+export interface TransactionAllocation {
+  documentId: string;
+  amountAllocated: number;
+  documentNo?: string;
+}
+
+export interface BankTransaction {
+  id: string;
+  bankId: string;
+  date: string;
+  partyType: 'Client' | 'Vendor' | 'Contra';
+  partyId: string;
+  partyName: string;
+  type: 'Credit' | 'Debit';
+  amount: number;
+  paymentMode: string;
+  allocations: TransactionAllocation[];
+  unallocatedAmount: number;
+  referenceNumber?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
 }
 
 export interface SupportTicket {

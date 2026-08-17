@@ -146,7 +146,7 @@ export const QuotationModule: React.FC = () => {
                                 sellingPrice: selling || 0,
                                 hsn: p.hsn || '',
                                 taxRate: gst || 12,
-                                features: m.specs ? m.specs.map(sp => `${sp.key}: ${sp.value}`).join(', ') : (p.description || '')
+                                features: m.specs ? m.specs.map(sp => `${sp.key}: ${sp.value}`).join('\n') : (p.description || '')
                             });
                         });
                     }
@@ -964,7 +964,7 @@ Sree Meditec`;
                                                         <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
                                                         <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
                                                         <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString('en-IN')}</div></div>
-                                                        <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold resize-none" rows={2} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
+                                                        <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold resize-y" rows={4} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
                                                         
                                                         <div className="md:col-span-12">
                                                             <InventoryMappingPanel
@@ -1058,9 +1058,9 @@ Sree Meditec`;
                                         <table className="w-full border-collapse border border-black text-[10px] mb-8">
                                             <thead>
                                                 <tr className="bg-slate-100 font-bold border-b border-black">
-                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Product</th>
-                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Model</th>
-                                                    <th className="border-r border-black p-1" style={{ textAlign: 'left' }}>Features</th>
+                                                    <th className="border-r border-black p-1 w-[15%]" style={{ textAlign: 'left' }}>Product</th>
+                                                    <th className="border-r border-black p-1 w-[10%]" style={{ textAlign: 'left' }}>Model</th>
+                                                    <th className="border-r border-black p-1 w-[35%]" style={{ textAlign: 'left' }}>Features</th>
                                                     <th className="border-r border-black p-1" style={{ textAlign: 'center' }}>Qty</th>
                                                     <th className="border-r border-black p-1" style={{ textAlign: 'right' }}>Rate</th>
                                                     <th className="border-r border-black p-1" style={{ textAlign: 'center' }}>GST%</th>
@@ -1076,7 +1076,7 @@ Sree Meditec`;
                                                         <tr key={it.id} className="border-b border-black align-top">
                                                             <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'left' }}>{it.description}</td>
                                                             <td className="border-r border-black p-1" style={{ textAlign: 'left' }}>{it.model}</td>
-                                                            <td className="border-r border-black p-1 whitespace-pre-wrap" style={{ textAlign: 'left' }}>{it.features}</td>
+                                                            <td className="border-r border-black p-1 whitespace-pre-wrap break-words" style={{ textAlign: 'left' }}>{it.features}</td>
                                                             <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'center' }}>{it.quantity} {it.unit}</td>
                                                             <td className="border-r border-black p-1 font-mono" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Rs.{it.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                             <td className="border-r border-black p-1" style={{ textAlign: 'center' }}>{it.taxRate}%</td>

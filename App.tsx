@@ -5,7 +5,7 @@ import { collection, getDocs, query, updateDoc, doc } from 'firebase/firestore';
 import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
-  Receipt, ShoppingCart, Wallet, Search,
+  Receipt, ShoppingCart, Wallet, Search, Landmark,
   Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, QrCode
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
@@ -733,7 +733,7 @@ export const App: React.FC = () => {
         { tab: TabView.HR, icon: ShieldCheck, label: 'Staff Management' },
         { tab: TabView.REPORTS, icon: ClipboardList, label: 'Reports Centre' },
         { tab: TabView.ARCHIVE, icon: FileText, label: 'Finance Archive' },
-        { tab: TabView.ACCOUNTING, icon: Wallet, label: 'Accounts (TallyPrime)' },
+        { tab: TabView.ACCOUNTING, icon: Landmark, label: 'Banking' },
         { tab: TabView.COMPLIANCE, icon: ShieldCheck, label: 'Compliance Terminal' },
         { tab: TabView.CONFIG, icon: Settings, label: 'System Config' },
       ]

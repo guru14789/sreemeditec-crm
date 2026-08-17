@@ -24,7 +24,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule, BankTransaction } from '../types';
 
 const updateBrandModelStock = (product: Product, brandName: string | undefined, modelName: string | undefined, qty: number, type: 'In' | 'Out'): Product => {
     if (!brandName || !modelName || !product.brands) return product;
@@ -163,6 +163,10 @@ export interface DataContextType {
     addBankRule: (rule: BankRule) => Promise<void>;
     updateBankRule: (id: string, rule: Partial<BankRule>) => Promise<void>;
     removeBankRule: (id: string) => Promise<void>;
+    bankTransactions: BankTransaction[];
+    processClientPayment: (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
+    processVendorPayment: (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
+    processContraTransfer: (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
     companyProfiles: CompanyProfile[];
     addCompanyProfile: (profile: CompanyProfile) => Promise<void>;
     updateCompanyProfile: (id: string, profile: Partial<CompanyProfile>) => Promise<void>;
@@ -417,6 +421,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [prizePool, setPrizePool] = useState<number>(1500);
     const [financialYear, setFinancialYear] = useState<string>("26-27");
     const [bankDetailsList, setBankDetailsList] = useState<BankDetails[]>([]);
+    const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
     const [pendingQuoteData, setPendingQuoteData] = useState<Partial<Invoice> | null>(null);
     const [pendingInvoiceData, setPendingInvoiceData] = useState<Partial<Invoice> | null>(null);
     const [pendingServiceReportData, setPendingServiceReportData] = useState<Partial<ServiceReport> | null>(null);
@@ -952,7 +957,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubFixedAssets = onSnapshot(collection(db, "fixedAssets"), (s) => setFixedAssets(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as FixedAsset)), (err) => console.warn("fixedAssets listener:", err));
         const unsubDepreciation = onSnapshot(query(collection(db, "depreciationSchedule"), orderBy('date', 'desc'), limit(1000)), (s) => setDepreciationSchedule(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as DepreciationScheduleEntry)), (err) => console.warn("depreciationSchedule listener:", err));
         const unsubBankStatements = onSnapshot(collection(db, "bankStatements"), (s) => setBankStatements(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankStatementEntry)), (err) => console.warn("bankStatements listener:", err));
-        return () => { unsubLedgers(); unsubGroups(); unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements(); };
+        const unsubBankTransactions = onSnapshot(query(collection(db, "bankTransactions"), orderBy('createdAt', 'desc'), limit(1000)), (s) => setBankTransactions(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as BankTransaction)), (err) => console.warn("bankTransactions listener:", err));
+        return () => { unsubLedgers(); unsubGroups(); unsubCostCentres(); unsubFixedAssets(); unsubDepreciation(); unsubBankStatements(); unsubBankTransactions(); };
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
@@ -4265,6 +4271,180 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Updated Fiscal Period', `New Period: ${fy}`);
     };
 
+    const processClientPayment = async (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+        const client = clients.find(c => c.id === clientId);
+        if (!client) throw new Error("Client not found");
+
+        const clientInvoices = invoices.filter(i => (i.customerName === client.name || i.customerId === clientId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+        clientInvoices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        let remaining = amount;
+        const allocations: TransactionAllocation[] = [];
+        const updates: Promise<void>[] = [];
+
+        for (const inv of clientInvoices) {
+            if (remaining <= 0) break;
+            const pending = inv.grandTotal - (inv.amountPaid || 0);
+            if (pending <= 0) continue;
+
+            const allocated = Math.min(pending, remaining);
+            const newAmountPaid = (inv.amountPaid || 0) + allocated;
+            const newStatus = newAmountPaid >= inv.grandTotal ? 'Paid' : 'Partially Paid';
+
+            allocations.push({
+                documentId: inv.id,
+                documentNo: inv.invoiceNumber,
+                amountAllocated: allocated
+            });
+
+            remaining -= allocated;
+            updates.push(updateDoc(doc(db, "invoices", inv.id), { amountPaid: newAmountPaid, status: newStatus }));
+        }
+
+        if (remaining > 0) {
+            const newAdvance = (client.advanceBalance || 0) + remaining;
+            updates.push(updateDoc(doc(db, "clients", clientId), { advanceBalance: newAdvance }));
+        }
+
+        const txId = doc(collection(db, "bankTransactions")).id;
+        const tx: BankTransaction = {
+            id: txId,
+            bankId,
+            date: new Date().toISOString().split('T')[0],
+            partyType: 'Client',
+            partyId: clientId,
+            partyName: client.name,
+            type: 'Credit',
+            amount,
+            paymentMode,
+            allocations,
+            unallocatedAmount: remaining > 0 ? remaining : 0,
+            referenceNumber,
+            notes,
+            createdBy: currentUser?.name || 'System',
+            createdAt: new Date().toISOString()
+        };
+
+        updates.push(setDoc(doc(db, "bankTransactions", txId), tx));
+        await Promise.all(updates);
+        await addLog('Sales', 'Client Payment Processed', `Received ₹${amount} from ${client.name}`);
+    };
+
+    const processVendorPayment = async (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+        const vendor = vendors.find(v => v.id === vendorId);
+        if (!vendor) throw new Error("Vendor not found");
+
+        const vendorBills = purchaseRecords.filter(p => p.supplier === vendor.name && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status));
+        vendorBills.sort((a, b) => new Date(a.dateSupply).getTime() - new Date(b.dateSupply).getTime());
+
+        let remaining = amount;
+        const allocations: TransactionAllocation[] = [];
+        const updates: Promise<void>[] = [];
+
+        for (const bill of vendorBills) {
+            if (remaining <= 0) break;
+            const pending = bill.total - (bill.paidAmount || 0);
+            if (pending <= 0) continue;
+
+            const allocated = Math.min(pending, remaining);
+            const newAmountPaid = (bill.paidAmount || 0) + allocated;
+            const newStatus = newAmountPaid >= bill.total ? 'Paid' : 'Partially Paid';
+
+            allocations.push({
+                documentId: bill.id,
+                documentNo: bill.invoiceNo,
+                amountAllocated: allocated
+            });
+
+            remaining -= allocated;
+            updates.push(updateDoc(doc(db, "purchaseRecords", bill.id), { paidAmount: newAmountPaid, status: newStatus }));
+        }
+
+        if (remaining > 0) {
+            const newAdvance = (vendor.advanceBalance || 0) + remaining;
+            updates.push(updateDoc(doc(db, "vendors", vendorId), { advanceBalance: newAdvance }));
+        }
+
+        const txId = doc(collection(db, "bankTransactions")).id;
+        const tx: BankTransaction = {
+            id: txId,
+            bankId,
+            date: new Date().toISOString().split('T')[0],
+            partyType: 'Vendor',
+            partyId: vendorId,
+            partyName: vendor.name,
+            type: 'Debit',
+            amount,
+            paymentMode,
+            allocations,
+            unallocatedAmount: remaining > 0 ? remaining : 0,
+            referenceNumber,
+            notes,
+            createdBy: currentUser?.name || 'System',
+            createdAt: new Date().toISOString()
+        };
+
+        updates.push(setDoc(doc(db, "bankTransactions", txId), tx));
+        await Promise.all(updates);
+        await addLog('Purchases', 'Vendor Payment Processed', `Paid ₹${amount} to ${vendor.name}`);
+    };
+
+    const processContraTransfer = async (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+        const sourceBank = bankDetailsList.find(b => b.id === sourceBankId);
+        const targetBank = bankDetailsList.find(b => b.id === targetBankId);
+        
+        if (!sourceBank || !targetBank) throw new Error("Bank details not found");
+
+        const debitTxId = doc(collection(db, "bankTransactions")).id;
+        const creditTxId = doc(collection(db, "bankTransactions")).id;
+        const now = new Date().toISOString();
+        const date = now.split('T')[0];
+
+        const debitTx: BankTransaction = {
+            id: debitTxId,
+            bankId: sourceBankId,
+            date,
+            partyType: 'Contra',
+            partyId: targetBankId,
+            partyName: `Contra Transfer to ${targetBank.bankName}`,
+            type: 'Debit',
+            amount,
+            paymentMode,
+            allocations: [],
+            unallocatedAmount: 0,
+            referenceNumber,
+            notes,
+            createdBy: currentUser?.name || 'System',
+            createdAt: now
+        };
+
+        const creditTx: BankTransaction = {
+            id: creditTxId,
+            bankId: targetBankId,
+            date,
+            partyType: 'Contra',
+            partyId: sourceBankId,
+            partyName: `Contra Transfer from ${sourceBank.bankName}`,
+            type: 'Credit',
+            amount,
+            paymentMode,
+            allocations: [],
+            unallocatedAmount: 0,
+            referenceNumber,
+            notes,
+            createdBy: currentUser?.name || 'System',
+            createdAt: now
+        };
+
+        const updates: Promise<void>[] = [
+            setDoc(doc(db, "bankTransactions", debitTxId), debitTx),
+            setDoc(doc(db, "bankTransactions", creditTxId), creditTx)
+        ];
+
+        await Promise.all(updates);
+        await addLog('Banking', 'Contra Transfer', `Transferred ₹${amount} from ${sourceBank.bankName} to ${targetBank.bankName}`);
+    };
+
     const addBankDetails = async (details: BankDetails) => {
         const updated = [...bankDetailsList, details];
         setBankDetailsList(updated);
@@ -4379,7 +4559,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
-            searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails,
+            searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails, bankTransactions, processClientPayment, processVendorPayment, processContraTransfer,
             bankRules, addBankRule, updateBankRule, removeBankRule,
             companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile,
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,

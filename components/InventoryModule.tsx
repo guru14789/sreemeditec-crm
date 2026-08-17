@@ -225,7 +225,37 @@ export const InventoryModule: React.FC = () => {
         }
     };
 
+    const inventorySummary = useMemo(() => {
+        let totalAssetValue = 0;
+        let totalItemsCount = 0;
 
+        products.forEach(product => {
+            let pStock = 0;
+            let pAsset = 0;
+
+            if (product.brands && product.brands.length > 0) {
+                product.brands.forEach(brand => {
+                    if (brand.models) {
+                        brand.models.forEach(model => {
+                            if (model.vendors) {
+                                model.vendors.forEach(v => {
+                                    pStock += Number(v.stock || 0);
+                                    pAsset += Number(v.stock || 0) * Number(v.purchasePrice || 0);
+                                });
+                            }
+                        });
+                    }
+                });
+            } else {
+                pStock = Number(product.stock || 0);
+                pAsset = pStock * Number(product.purchasePrice || 0);
+            }
+            totalAssetValue += pAsset;
+            totalItemsCount += pStock;
+        });
+
+        return { totalAssetValue, totalItemsCount };
+    }, [products]);
 
     // Filtered Products for Search
     const filteredProducts = useMemo(() => {
@@ -628,6 +658,26 @@ export const InventoryModule: React.FC = () => {
     return (
         <div className="h-full flex flex-col gap-2 md:gap-3 relative overflow-y-auto lg:overflow-hidden p-1.5 md:p-2 min-w-0 w-full">
 
+            {/* Dashboard Summary */}
+            <div className="bg-gradient-to-r from-emerald-900 to-indigo-900 rounded-3xl p-4 sm:p-5 shadow-[0_15px_30px_-10px_rgba(6,78,59,0.5)] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-emerald-300">
+                        <Package size={18} />
+                    </div>
+                    <div>
+                        <h4 className="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Total Inventory Value (Total Assets)</h4>
+                        <div className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
+                            ₹{inventorySummary.totalAssetValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 pl-0 sm:pl-5">
+                    <div>
+                        <h4 className="text-[9px] font-black text-slate-300 uppercase tracking-wider">Total Items (Stock)</h4>
+                        <div className="text-lg font-black text-slate-100">{inventorySummary.totalItemsCount.toLocaleString('en-IN')} NOS</div>
+                    </div>
+                </div>
+            </div>
 
             {/* Main Inventory Section */}
             <div className="flex-1 bg-white rounded-[2rem] md:rounded-3xl shadow-sm border border-slate-300 flex flex-col overflow-hidden min-h-0 min-w-0 w-full">
@@ -741,7 +791,28 @@ export const InventoryModule: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-100 relative z-10">
                                 {filteredProducts.map((product) => {
-                                    const stock = product.stock || 0;
+                                    let calculatedStock = 0;
+                                    let calculatedAsset = 0;
+                                    
+                                    if (product.brands && product.brands.length > 0) {
+                                        product.brands.forEach(brand => {
+                                            if (brand.models) {
+                                                brand.models.forEach(model => {
+                                                    if (model.vendors) {
+                                                        model.vendors.forEach(v => {
+                                                            calculatedStock += (v.stock || 0);
+                                                            calculatedAsset += (v.stock || 0) * (v.purchasePrice || 0);
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
+                                    } else {
+                                        calculatedStock = product.stock || 0;
+                                        calculatedAsset = calculatedStock * (product.purchasePrice || 0);
+                                    }
+
+                                    const stock = calculatedStock;
                                     const purchasePrice = product.purchasePrice || 0;
                                     const sellingPrice = product.sellingPrice || 0;
                                     const isExpanded = !!expandedProductsTree[product.id];
@@ -807,7 +878,7 @@ export const InventoryModule: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-1.5 text-right font-black text-medical-800 bg-medical-50/10 text-[11px]">
-                                                    ₹{(stock * purchasePrice).toLocaleString('en-IN')}
+                                                    ₹{calculatedAsset.toLocaleString('en-IN')}
                                                 </td>
                                                 <td className="px-3 py-1.5">
                                                     <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate">
@@ -1186,6 +1257,49 @@ export const InventoryModule: React.FC = () => {
                                                                              />
                                                                          </div>
 
+                                                                         {/* Storage & Classification */}
+                                                                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Category</label>
+                                                                                 <select className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none bg-white" value={model.category || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].category = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }}>
+                                                                                     <option value="">Select Category</option>
+                                                                                     <option value="Equipment">Equipment</option>
+                                                                                     <option value="Consumable">Consumable</option>
+                                                                                     <option value="Spare Part">Spare Part</option>
+                                                                                     <option value="Pipe Line">Pipe Line</option>
+                                                                                     <option value="Furniture">Furniture</option>
+                                                                                 </select>
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">HSN Code</label>
+                                                                                 <input type="text" placeholder="e.g. 9018" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.hsnCode || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].hsnCode = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Box Number</label>
+                                                                                 <input type="text" placeholder="e.g. B-12" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.boxNumber || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].boxNumber = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Shelf Number</label>
+                                                                                 <input type="text" placeholder="e.g. S-04" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.shelfNumber || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].shelfNumber = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
+                                                                         </div>
+
                                                                          {/* Vendors Configurations pricing/stock */}
                                                                         <div className="space-y-2">
                                                                             <div className="flex justify-between items-center">
@@ -1543,6 +1657,49 @@ export const InventoryModule: React.FC = () => {
                                                                                      setHierarchicalBrands(updated);
                                                                                  }}
                                                                              />
+                                                                         </div>
+
+                                                                         {/* Storage & Classification */}
+                                                                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-2">
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Category</label>
+                                                                                 <select className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none bg-white" value={model.category || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].category = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }}>
+                                                                                     <option value="">Select Category</option>
+                                                                                     <option value="Equipment">Equipment</option>
+                                                                                     <option value="Consumable">Consumable</option>
+                                                                                     <option value="Spare Part">Spare Part</option>
+                                                                                     <option value="Pipe Line">Pipe Line</option>
+                                                                                     <option value="Furniture">Furniture</option>
+                                                                                 </select>
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">HSN Code</label>
+                                                                                 <input type="text" placeholder="e.g. 9018" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.hsnCode || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].hsnCode = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Box Number</label>
+                                                                                 <input type="text" placeholder="e.g. B-12" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.boxNumber || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].boxNumber = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
+                                                                             <div className="space-y-1">
+                                                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Shelf Number</label>
+                                                                                 <input type="text" placeholder="e.g. S-04" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none" value={model.shelfNumber || ''} onChange={e => {
+                                                                                     const updated = [...hierarchicalBrands];
+                                                                                     updated[bIdx].models[mIdx].shelfNumber = e.target.value;
+                                                                                     setHierarchicalBrands(updated);
+                                                                                 }} />
+                                                                             </div>
                                                                          </div>
 
                                                                          {/* Vendors Configurations pricing/stock */}

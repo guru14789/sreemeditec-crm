@@ -35,7 +35,7 @@ const MODULE_OPTIONS = [
     { value: TabView.PURCHASE_REGISTER, label: 'Purchase Entry' },
     { value: TabView.CONFIG, label: 'System Settings' },
     { value: TabView.PROFILE, label: 'My Profile' },
-    { value: TabView.ACCOUNTING, label: 'Accounting Terminal' },
+    { value: TabView.ACCOUNTING, label: 'Banking' },
     { value: TabView.COMPLIANCE, label: 'Compliance Terminal' },
     { value: TabView.BARCODE_CREATOR, label: 'Barcode Maker' },
     { value: TabView.COMPANIES, label: 'Company Settings' },

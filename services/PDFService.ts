@@ -371,14 +371,14 @@ export const PDFService = {
             headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: 0.1, lineColor: [0, 0, 0], halign: 'center' },
             styles: { fontSize: 7, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, textColor: [0, 0, 0] },
             columnStyles: { 
-                0: { cellWidth: 35, halign: 'left' }, 
+                0: { cellWidth: 30, halign: 'left' }, 
                 1: { cellWidth: 15, halign: 'left' }, 
-                2: { cellWidth: 30, halign: 'left' }, 
+                2: { cellWidth: 50, halign: 'left' }, 
                 3: { cellWidth: 10, halign: 'center' }, 
-                4: { cellWidth: 24, halign: 'right' }, 
+                4: { cellWidth: 20, halign: 'right' }, 
                 5: { cellWidth: 10, halign: 'center' }, 
-                6: { cellWidth: 22, halign: 'right' }, 
-                7: { cellWidth: 34, halign: 'right' } 
+                6: { cellWidth: 18, halign: 'right' }, 
+                7: { cellWidth: 27, halign: 'right' } 
             }
         });
 

@@ -1439,6 +1439,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                                         const record = attendanceRecords.find(r => r.userId === calendarSelectedUser.id && r.date === ds);
                                         const isHoliday = holidays.find(h => h.date === ds);
+                                        const joinDateStr = calendarSelectedUser.joinDate;
+                                        const isBeforeJoin = joinDateStr ? ds < joinDateStr : false;
                                         const isFuture = date > today;
                                         const isSunday = date.getDay() === 0;
 
@@ -1448,9 +1450,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         let statusText = '';
                                         let reasonText = '';
 
-                                        if (isFuture) {
+                                        if (isFuture || isBeforeJoin) {
                                             bgColor = 'bg-slate-50/50';
                                             textColor = 'text-slate-300';
+                                            statusText = isBeforeJoin ? 'Not Joined' : '';
                                         } else if (record) {
                                             if (record.status === 'OnLeave') {
                                                 bgColor = 'bg-rose-50';
@@ -1493,7 +1496,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                             <div 
                                                 key={ds}
                                                 onClick={() => {
-                                                    if (isAdmin && !isFuture) {
+                                                    if (isAdmin && !isFuture && !isBeforeJoin) {
                                                         setCalendarSelectedUser(calendarSelectedUser);
                                                         setQuickSelectedDate(ds);
                                                         setQuickReason(record?.leaveReason || '');
@@ -1508,7 +1511,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                                         setShowQuickAttendanceModal(true);
                                                     }
                                                 }}
-                                                className={`aspect-square p-2 md:p-4 rounded-[1.5rem] md:rounded-[2rem] border-2 flex flex-col justify-between transition-all group ${borderColor} ${bgColor} ${isAdmin && !isFuture ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : ''}`}
+                                                className={`aspect-square p-2 md:p-4 rounded-[1.5rem] md:rounded-[2rem] border-2 flex flex-col justify-between transition-all group ${borderColor} ${bgColor} ${isAdmin && !isFuture && !isBeforeJoin ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : ''}`}
                                             >
                                                 <div className="flex justify-between items-start">
  <span className={`text-xs md:text-lg font-bold tracking-tight ${ds === todayDateStr ? 'text-indigo-600 scale-125' : textColor}`}>{d}</span>

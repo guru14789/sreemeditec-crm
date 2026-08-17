@@ -292,7 +292,15 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             }`}>{task.priority}</span>
             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${cfg.color} text-white`}>{cfg.label}</span>
           </div>
-          <span className="text-[8px] font-bold text-slate-400">{new Date(task.createdAt).toLocaleDateString()}</span>
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+              <Clock size={10} />
+              {new Date(task.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            <span className="text-[8px] font-semibold text-slate-400">
+              {new Date(task.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
         </div>
         <div className="flex items-start gap-2 mb-1">
           <span className="text-[8px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 mt-0.5">{task.taskNumber}</span>
