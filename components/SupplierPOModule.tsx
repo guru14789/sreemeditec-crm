@@ -9,6 +9,7 @@ import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
+import { VendorSelectionModal } from './VendorSelectionModal';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const DEFAULT_DELIVERY_ADDRESS = 'Sreemeditec,\nNew No: 18, Old No: 2, Bajanai Koil Street, Rajakilpakkam, Chennai - 600 073.';
@@ -60,14 +61,20 @@ export const SupplierPOModule: React.FC = () => {
             if (!result) return;
             phone = result;
         }
-        phone = phone.replace(/\D/g, '');
-        if (!phone.startsWith('91') && phone.length === 10) {
-            phone = '91' + phone;
-        }
+        let phoneNum = phone.replace(/\D/g, '');
+        if (!phoneNum.startsWith('91') && phoneNum.length === 10) phoneNum = '91' + phoneNum;
         const message = `Hello, here are the details for your Supplier PO *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
-        const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        const url = `https://wa.me/${phoneNum}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
     };
+
+    const [vendorPopup, setVendorPopup] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        vendors: any[];
+        isPurchaseContext: boolean;
+    } | null>(null);
+
     const [viewState, setViewState] = useState<'history' | 'builder'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'spares'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -871,7 +878,29 @@ export const SupplierPOModule: React.FC = () => {
                                                                         list={`models-${item.id}`}
                                                                         className="w-full bg-slate-100 rounded-lg px-2 py-1 text-xs font-black outline-none border border-slate-200"
                                                                         value={item.model || ''}
-                                                                        onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                        value={item.model || ''}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            updateItem(item.id, 'model', val);
+                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                            const matchedModel = matchedBrand?.models?.find(m => m.name === val);
+                                                                            
+                                                                            if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
+                                                                                if (matchedModel.vendors.length === 1) {
+                                                                                    const v = matchedModel.vendors[0];
+                                                                                    updateItem(item.id, 'unitPrice', v.purchasePrice);
+                                                                                    if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
+                                                                                } else {
+                                                                                    setVendorPopup({
+                                                                                        isOpen: true,
+                                                                                        itemId: item.id,
+                                                                                        vendors: matchedModel.vendors,
+                                                                                        isPurchaseContext: true
+                                                                                    });
+                                                                                }
+                                                                            }
+                                                                        }}
                                                                         placeholder="Model"
                                                                         disabled={!item.brand}
                                                                     />
@@ -1109,6 +1138,19 @@ export const SupplierPOModule: React.FC = () => {
                         )}
                     </div>
                 </div>
+            )}
+            
+            {vendorPopup && (
+                <VendorSelectionModal
+                    isOpen={vendorPopup.isOpen}
+                    onClose={() => setVendorPopup(null)}
+                    vendors={vendorPopup.vendors}
+                    isPurchaseContext={vendorPopup.isPurchaseContext}
+                    onSelect={(v) => {
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.purchasePrice);
+                        if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
+                    }}
+                />
             )}
         </div>
     );

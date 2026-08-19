@@ -10,6 +10,7 @@ import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
+import { VendorSelectionModal } from './VendorSelectionModal';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
@@ -64,10 +65,18 @@ export const PurchaseOrderModule: React.FC = () => {
         if (!phone.startsWith('91') && phone.length === 10) {
             phone = '91' + phone;
         }
-        const message = `Hello, here are the details for your Customer PO *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
+        const message = `Hello, here are the details for your Purchase Order *#${inv.invoiceNumber}*:\nDate: ${formatDateDDMMYYYY(inv.date)}\nTotal Amount: *₹${(inv.grandTotal || 0).toLocaleString('en-IN')}*\nThank you for doing business with us!\n- Sree Meditec`;
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
     };
+
+    const [vendorPopup, setVendorPopup] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        vendors: any[];
+        isPurchaseContext: boolean;
+    } | null>(null);
+
     const handleEmailSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
         const prefilledEmail = inv.email || clientObj?.email || '';
@@ -699,7 +708,29 @@ Sree Meditec`;
                                                                     list={`models-${item.id}`}
                                                                     className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none"
                                                                     value={item.model || ''}
-                                                                    onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                    value={item.model || ''}
+                                                                    onChange={e => {
+                                                                        const val = e.target.value;
+                                                                        updateItem(item.id, 'model', val);
+                                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                        const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                        const matchedModel = matchedBrand?.models?.find(m => m.name === val);
+                                                                        
+                                                                        if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
+                                                                            if (matchedModel.vendors.length === 1) {
+                                                                                const v = matchedModel.vendors[0];
+                                                                                updateItem(item.id, 'unitPrice', v.purchasePrice);
+                                                                                if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
+                                                                            } else {
+                                                                                setVendorPopup({
+                                                                                    isOpen: true,
+                                                                                    itemId: item.id,
+                                                                                    vendors: matchedModel.vendors,
+                                                                                    isPurchaseContext: true
+                                                                                });
+                                                                            }
+                                                                        }
+                                                                    }}
                                                                     placeholder="Model"
                                                                     disabled={!item.brand}
                                                                 />
@@ -850,6 +881,19 @@ Sree Meditec`;
                         )}
                     </div>
                 </div>
+            )}
+            
+            {vendorPopup && (
+                <VendorSelectionModal
+                    isOpen={vendorPopup.isOpen}
+                    onClose={() => setVendorPopup(null)}
+                    vendors={vendorPopup.vendors}
+                    isPurchaseContext={vendorPopup.isPurchaseContext}
+                    onSelect={(v) => {
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.purchasePrice);
+                        if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
+                    }}
+                />
             )}
         </div>
     );

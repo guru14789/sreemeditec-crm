@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from './DataContext';
-import { ArrowLeft, UserPlus, Building, DollarSign, Send, ArrowDownLeft, ArrowUpRight, CheckCircle2, Copy, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, UserPlus, Building, DollarSign, Send, ArrowDownLeft, ArrowUpRight, CheckCircle2, Copy, ArrowRightLeft, Edit3, Trash2, X } from 'lucide-react';
+import { BankTransaction } from '../types';
 
 interface Props {
   bankId: string;
@@ -18,6 +19,8 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     processClientPayment,
     processVendorPayment,
     processContraTransfer,
+    deleteBankTransaction,
+    updateBankTransaction,
     addNotification,
     updateBankDetails
   } = useData();
@@ -31,9 +34,11 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
   const [clientRef, setClientRef] = useState<string>('');
   const [clientNotes, setClientNotes] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedClientInvoiceIds, setSelectedClientInvoiceIds] = useState<Set<string>>(new Set());
 
   // Vendor Payment State
   const [selectedVendorId, setSelectedVendorId] = useState<string>('');
+  const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<Set<string>>(new Set());
   const [vendorAmount, setVendorAmount] = useState<string>('');
   const [vendorMode, setVendorMode] = useState<string>('Bank Transfer');
   const [vendorRef, setVendorRef] = useState<string>('');
@@ -45,6 +50,13 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
   const [contraMode, setContraMode] = useState<string>('Bank Transfer');
   const [contraRef, setContraRef] = useState<string>('');
   const [contraNotes, setContraNotes] = useState<string>('');
+
+  const [editingTransaction, setEditingTransaction] = useState<BankTransaction | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [editMode, setEditMode] = useState<string>('');
+  const [editRef, setEditRef] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [editSelectedInvoiceIds, setEditSelectedInvoiceIds] = useState<Set<string>>(new Set());
 
   const bank = bankDetailsList.find(b => b.id === bankId);
   if (!bank) return null;
@@ -68,6 +80,44 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
   const selectedVendorPendingBills = selectedVendor ? purchaseRecords.filter(p => p.supplier === selectedVendor.name && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status)).sort((a,b) => new Date(a.dateSupply || '').getTime() - new Date(b.dateSupply || '').getTime()) : [];
   const selectedVendorPending = selectedVendorPendingBills.reduce((acc, p) => acc + (p.total - (p.paidAmount || 0)), 0);
   const selectedVendorAdvance = selectedVendor?.advanceBalance || 0;
+
+  const handleDeleteTransaction = async (tx: BankTransaction) => {
+    if (!window.confirm('Are you sure you want to delete this transaction and reverse its allocations?')) return;
+    try {
+      setIsProcessing(true);
+      await deleteBankTransaction(tx.id);
+      addNotification('Success', 'Transaction deleted successfully', 'success');
+    } catch (err: any) {
+      addNotification('Error', err.message || 'Failed to delete', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTransaction) return;
+    try {
+      setIsProcessing(true);
+      setIsProcessing(true);
+      await updateBankTransaction(editingTransaction.id, parseFloat(editAmount), editMode, editNotes, editRef, Array.from(editSelectedInvoiceIds));
+      addNotification('Success', 'Transaction updated successfully', 'success');
+      setEditingTransaction(null);
+    } catch (err: any) {
+      addNotification('Error', err.message || 'Failed to update', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openEditModal = (tx: BankTransaction) => {
+    setEditingTransaction(tx);
+    setEditAmount(String(tx.amount));
+    setEditMode(tx.paymentMode);
+    setEditRef(tx.referenceNumber || '');
+    setEditNotes(tx.notes || '');
+    setEditSelectedInvoiceIds(new Set((tx.allocations || []).map(a => a.documentId)));
+  };
 
   const handleSetInitialBalance = async () => {
     const pwd = window.prompt("Enter admin password to set initial balance:");
@@ -96,13 +146,14 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!selectedClientId || !clientAmount) return;
     try {
       setIsProcessing(true);
-      await processClientPayment(bankId, selectedClientId, parseFloat(clientAmount), clientMode, clientNotes, clientRef);
+      await processClientPayment(bankId, selectedClientId, parseFloat(clientAmount), clientMode, clientNotes, clientRef, Array.from(selectedClientInvoiceIds));
       addNotification('Success', 'Client payment processed successfully', 'success');
       setActiveTab('transactions');
       setClientAmount('');
       setClientNotes('');
       setClientRef('');
       setSelectedClientId('');
+      setSelectedClientInvoiceIds(new Set());
     } catch (error: any) {
       addNotification('Error', error.message || 'Failed to process payment', 'error');
     } finally {
@@ -115,13 +166,14 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!selectedVendorId || !vendorAmount) return;
     try {
       setIsProcessing(true);
-      await processVendorPayment(bankId, selectedVendorId, parseFloat(vendorAmount), vendorMode, vendorNotes, vendorRef);
+      await processVendorPayment(bankId, selectedVendorId, parseFloat(vendorAmount), vendorMode, vendorNotes, vendorRef, Array.from(selectedVendorInvoiceIds));
       addNotification('Success', 'Vendor payment processed successfully', 'success');
       setActiveTab('transactions');
       setVendorAmount('');
       setVendorNotes('');
       setVendorRef('');
       setSelectedVendorId('');
+      setSelectedVendorInvoiceIds(new Set());
     } catch (error: any) {
       addNotification('Error', error.message || 'Failed to process payment', 'error');
     } finally {
@@ -147,6 +199,20 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
       setIsProcessing(false);
     }
   };
+
+  let editEligibleInvoices: any[] = [];
+  if (editingTransaction?.partyType === 'Client') {
+    editEligibleInvoices = invoices.filter(i => 
+      (i.customerId === editingTransaction.partyId || i.customerName === editingTransaction.partyName) &&
+      i.invoiceNumber && i.invoiceNumber.startsWith('SM/') &&
+      (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status || editingTransaction.allocations?.some(a => a.documentId === i.id))
+    ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  } else if (editingTransaction?.partyType === 'Vendor') {
+    editEligibleInvoices = purchaseRecords.filter(p => 
+      (p.supplierId === editingTransaction.partyId || p.supplier === editingTransaction.partyName) &&
+      (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status || editingTransaction.allocations?.some(a => a.documentId === p.id))
+    ).sort((a,b) => new Date(a.dateSupply || '').getTime() - new Date(b.dateSupply || '').getTime());
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 p-8 w-full">
@@ -205,6 +271,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                   <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-slate-400">Mode / Ref</th>
                   <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Debit</th>
                   <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-slate-400 text-right">Credit</th>
+                  <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-slate-400 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -245,6 +312,16 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                     <td className="py-4 px-4 text-right font-mono font-bold text-emerald-600">
                       {tx.type === 'Credit' ? `₹${tx.amount.toLocaleString('en-IN')}` : '-'}
                     </td>
+                    <td className="py-4 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditModal(tx)} className="p-1.5 text-slate-400 hover:text-blue-600 bg-white hover:bg-blue-50 rounded shadow-sm border border-slate-200" title="Edit">
+                          <Edit3 size={14} />
+                        </button>
+                        <button onClick={() => handleDeleteTransaction(tx)} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white hover:bg-rose-50 rounded shadow-sm border border-slate-200" title="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -265,7 +342,10 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Select Client</label>
                 <select 
                   value={selectedClientId} 
-                  onChange={e => setSelectedClientId(e.target.value)}
+                  onChange={e => {
+                    setSelectedClientId(e.target.value);
+                    setSelectedClientInvoiceIds(new Set());
+                  }}
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-emerald-500"
                   required
                 >
@@ -294,7 +374,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                       <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pending Invoices ({selectedClientPendingInvoices.length})</p>
-                        <p className="text-[10px] font-bold text-slate-400">Oldest First</p>
+                        <p className="text-[10px] font-bold text-slate-400">{selectedClientInvoiceIds.size > 0 ? `${selectedClientInvoiceIds.size} Selected` : 'Oldest First'}</p>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         <table className="w-full text-left text-sm">
@@ -303,6 +383,19 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                               const pendingAmt = inv.grandTotal - (inv.amountPaid || 0);
                               return (
                                 <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                  <td className="px-4 py-3 w-10">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={selectedClientInvoiceIds.has(inv.id)}
+                                      onChange={(e) => {
+                                        const newSet = new Set(selectedClientInvoiceIds);
+                                        if (e.target.checked) newSet.add(inv.id);
+                                        else newSet.delete(inv.id);
+                                        setSelectedClientInvoiceIds(newSet);
+                                      }}
+                                      className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                  </td>
                                   <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">{inv.invoiceNumber}</td>
                                   <td className="px-4 py-3 text-slate-500">{new Date(inv.date).toLocaleDateString('en-GB')}</td>
                                   <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">₹{pendingAmt.toLocaleString('en-IN')}</td>
@@ -390,7 +483,10 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Select Vendor</label>
                 <select 
                   value={selectedVendorId} 
-                  onChange={e => setSelectedVendorId(e.target.value)}
+                  onChange={e => {
+                    setSelectedVendorId(e.target.value);
+                    setSelectedVendorInvoiceIds(new Set());
+                  }}
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-rose-500"
                   required
                 >
@@ -419,7 +515,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
                       <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pending Bills ({selectedVendorPendingBills.length})</p>
-                        <p className="text-[10px] font-bold text-slate-400">Oldest First</p>
+                        <p className="text-[10px] font-bold text-slate-400">{selectedVendorInvoiceIds.size > 0 ? `${selectedVendorInvoiceIds.size} Selected` : 'Oldest First'}</p>
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         <table className="w-full text-left text-sm">
@@ -428,8 +524,21 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                               const pendingAmt = bill.total - (bill.paidAmount || 0);
                               return (
                                 <tr key={bill.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                  <td className="px-4 py-3 w-10">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={selectedVendorInvoiceIds.has(bill.id)}
+                                      onChange={(e) => {
+                                        const newSet = new Set(selectedVendorInvoiceIds);
+                                        if (e.target.checked) newSet.add(bill.id);
+                                        else newSet.delete(bill.id);
+                                        setSelectedVendorInvoiceIds(newSet);
+                                      }}
+                                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                    />
+                                  </td>
                                   <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">{bill.invoiceNo || bill.poNumber || bill.id.substring(0,8)}</td>
-                                  <td className="px-4 py-3 text-slate-500">{new Date(bill.dateSupply).toLocaleDateString('en-GB')}</td>
+                                  <td className="px-4 py-3 text-slate-500">{new Date(bill.dateSupply || '').toLocaleDateString('en-GB')}</td>
                                   <td className="px-4 py-3 text-right font-mono font-bold text-rose-600">₹{pendingAmt.toLocaleString('en-IN')}</td>
                                 </tr>
                               );
@@ -586,6 +695,140 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
           </form>
         )}
       </div>
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-slate-800 dark:text-white">Edit Transaction</h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">ID: {editingTransaction.id.substring(0,8)}</p>
+              </div>
+              <button onClick={() => setEditingTransaction(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+              <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-4 rounded-xl">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-400 leading-relaxed">
+                  Editing this transaction will recalculate allocations. The new amount will automatically pay off oldest pending invoices first, unless you specifically select invoices below.
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Amount</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="text-slate-400 font-bold">₹</span>
+                  </div>
+                  <input 
+                    type="number" 
+                    value={editAmount}
+                    onChange={e => setEditAmount(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl pl-8 pr-4 py-3 font-medium focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
+
+              {editEligibleInvoices.length > 0 && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Select specific documents to pay (Optional)
+                  </label>
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+                    <div className="max-h-40 overflow-y-auto">
+                      <table className="w-full text-left text-sm">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                          {editEligibleInvoices.map(inv => {
+                            const isSelected = editSelectedInvoiceIds.has(inv.id);
+                            const pendingAmt = (inv.grandTotal || inv.total) - (inv.amountPaid || inv.paidAmount || 0);
+                            return (
+                              <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="px-4 py-2 w-10">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const isChecked = e.target.checked;
+                                      setEditSelectedInvoiceIds(prev => {
+                                        const newSet = new Set(prev);
+                                        if (isChecked) newSet.add(inv.id);
+                                        else newSet.delete(inv.id);
+                                        return newSet;
+                                      });
+                                    }}
+                                    className="rounded text-blue-600 focus:ring-blue-500"
+                                  />
+                                </td>
+                                <td className="py-2 pr-4 font-bold text-slate-700 dark:text-slate-300">
+                                  {inv.invoiceNumber || inv.billNo || 'Document'}
+                                </td>
+                                <td className="py-2 pr-4 text-right">
+                                  <span className="text-rose-600 font-bold font-mono">
+                                    ₹{pendingAmt.toLocaleString('en-IN')}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Payment Mode</label>
+                <select 
+                  value={editMode} 
+                  onChange={e => setEditMode(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-blue-500"
+                >
+                  <option>Bank Transfer</option>
+                  <option>NEFT</option>
+                  <option>RTGS</option>
+                  <option>IMPS</option>
+                  <option>UPI</option>
+                  <option>Cheque</option>
+                  <option>Cash</option>
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Ref / UTR</label>
+                  <input 
+                    type="text" 
+                    value={editRef}
+                    onChange={e => setEditRef(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-blue-500"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Notes</label>
+                  <input 
+                    type="text" 
+                    value={editNotes}
+                    onChange={e => setEditNotes(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-blue-500"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              
+              <button disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all flex justify-center items-center gap-2 mt-4">
+                {isProcessing ? 'Updating...' : 'Save Changes'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

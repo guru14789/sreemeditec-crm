@@ -9,6 +9,7 @@ import {
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { InventoryMappingPanel } from './InventoryMappingPanel';
+import { VendorSelectionModal } from './VendorSelectionModal';
 import { PDFService } from '../services/PDFService';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
@@ -497,6 +498,15 @@ Sree Meditec`;
         }
     };
 
+    const [vendorPopup, setVendorPopup] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        vendors: any[];
+        isPurchaseContext: boolean;
+    } | null>(null);
+
+    const isRevMode = Boolean(quote.originalQuoteId);
+
     const totals = useMemo(() => calculateDetailedTotals(quote), [quote]);
 
     const sortedQuotes = useMemo(() => {
@@ -943,7 +953,28 @@ Sree Meditec`;
                                                                  list={`models-${item.id}`}
                                                                  className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold h-[38px] outline-none"
                                                                  value={item.model || ''}
-                                                                 onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 onChange={e => {
+                                                                     const val = e.target.value;
+                                                                     updateItem(item.id, 'model', val);
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                     const matchedModel = matchedBrand?.models?.find(m => m.name === val);
+                                                                     
+                                                                     if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
+                                                                         if (matchedModel.vendors.length === 1) {
+                                                                             const v = matchedModel.vendors[0];
+                                                                             updateItem(item.id, 'unitPrice', v.sellingPrice);
+                                                                             if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
+                                                                         } else {
+                                                                             setVendorPopup({
+                                                                                 isOpen: true,
+                                                                                 itemId: item.id,
+                                                                                 vendors: matchedModel.vendors,
+                                                                                 isPurchaseContext: false
+                                                                             });
+                                                                         }
+                                                                     }
+                                                                 }}
                                                                  placeholder="Select Model"
                                                                  disabled={!item.brand}
                                                              />
@@ -1144,6 +1175,19 @@ Sree Meditec`;
             )}
 
             <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name.toUpperCase()} />)}</datalist>
+
+            {vendorPopup && (
+                <VendorSelectionModal
+                    isOpen={vendorPopup.isOpen}
+                    onClose={() => setVendorPopup(null)}
+                    vendors={vendorPopup.vendors}
+                    isPurchaseContext={vendorPopup.isPurchaseContext}
+                    onSelect={(v) => {
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.sellingPrice);
+                        if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
+                    }}
+                />
+            )}
         </div>
     );
 };

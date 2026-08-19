@@ -42,6 +42,8 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
     brandName?: string;
     modelName?: string;
     isSubItem: boolean;
+    hsnCode?: string;
+    taxRate?: number;
   }
 
   // Filtered inventory products based on search (Name, SKU, or Barcode)
@@ -69,7 +71,9 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
           stock: p.stock || 0,
           unit: p.unit || 'Nos',
           minLevel: p.minLevel || 5,
-          isSubItem: false
+          isSubItem: false,
+          hsnCode: p.hsn,
+          taxRate: p.taxRate
         });
       }
 
@@ -104,7 +108,9 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
                   minLevel: p.minLevel || 5,
                   brandName: b.name,
                   modelName: m.name,
-                  isSubItem: true
+                  isSubItem: true,
+                  hsnCode: p.hsn,
+                  taxRate: p.taxRate
                 });
               }
             });
@@ -137,8 +143,19 @@ export const InventoryMappingPanel: React.FC<InventoryMappingPanelProps> = ({
         quantityUsed: 1,
         unit: item.unit || 'Nos',
         costPrice: item.purchasePrice || 0,
-        sellingPrice: item.sellingPrice || 0
+        sellingPrice: item.sellingPrice || 0,
+        brand: item.brandName,
+        model: item.modelName
       };
+      
+      if (mappings.length === 0 && onApplyTemplateData) {
+        onApplyTemplateData({
+          defaultUnitPrice: item.sellingPrice,
+          hsn: item.hsnCode,
+          taxRate: item.taxRate
+        });
+      }
+
       onChange([...mappings, newMapping]);
     }
     setProductSearch('');

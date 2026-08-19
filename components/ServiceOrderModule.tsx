@@ -9,6 +9,7 @@ import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
 import { PDFService } from '../services/PDFService';
 import { AutoSuggest } from './AutoSuggest';
+import { VendorSelectionModal } from './VendorSelectionModal';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
 
 const calculateDetailedTotals = (order: Partial<Invoice>) => {
@@ -55,6 +56,13 @@ export const ServiceOrderModule: React.FC = () => {
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [vendorPopup, setVendorPopup] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        vendors: any[];
+        isPurchaseContext: boolean;
+    } | null>(null);
 
     const [order, setOrder] = useState<Partial<Invoice>>({
         invoiceNumber: '',
@@ -666,7 +674,29 @@ export const ServiceOrderModule: React.FC = () => {
                                                                         list={`models-${item.id}`}
                                                                         className="w-full bg-slate-100 rounded-lg px-2 py-1 text-xs font-black outline-none border border-slate-200"
                                                                         value={item.model || ''}
-                                                                        onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                        value={item.model || ''}
+                                                                        onChange={e => {
+                                                                            const val = e.target.value;
+                                                                            updateItem(item.id, 'model', val);
+                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                            const matchedModel = matchedBrand?.models?.find(m => m.name === val);
+                                                                            
+                                                                            if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
+                                                                                if (matchedModel.vendors.length === 1) {
+                                                                                    const v = matchedModel.vendors[0];
+                                                                                    updateItem(item.id, 'unitPrice', v.sellingPrice);
+                                                                                    if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
+                                                                                } else {
+                                                                                    setVendorPopup({
+                                                                                        isOpen: true,
+                                                                                        itemId: item.id,
+                                                                                        vendors: matchedModel.vendors,
+                                                                                        isPurchaseContext: false
+                                                                                    });
+                                                                                }
+                                                                            }
+                                                                        }}
                                                                         placeholder="Model"
                                                                         disabled={!item.brand}
                                                                     />
@@ -763,6 +793,19 @@ export const ServiceOrderModule: React.FC = () => {
                         )}
                     </div>
                 </div>
+            )}
+            
+            {vendorPopup && (
+                <VendorSelectionModal
+                    isOpen={vendorPopup.isOpen}
+                    onClose={() => setVendorPopup(null)}
+                    vendors={vendorPopup.vendors}
+                    isPurchaseContext={vendorPopup.isPurchaseContext}
+                    onSelect={(v) => {
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.sellingPrice);
+                        if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
+                    }}
+                />
             )}
         </div>
     );

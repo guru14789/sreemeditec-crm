@@ -452,6 +452,8 @@ export interface InvoiceItemInventoryMapping {
   unit?: string;
   costPrice?: number;
   sellingPrice?: number;
+  brand?: string;
+  model?: string;
 }
 
 export interface ServiceTemplate {
@@ -623,7 +625,8 @@ export interface Employee {
   baseSalary?: number;
   dailyAllowance?: number;
   outstationAllowance?: number;
-  status: 'Active' | 'On Leave';
+  status: 'Active' | 'On Leave' | 'Resigned';
+  resignedAt?: string;
   permissions: Record<string, 'Admin' | 'Employee'>;
   password?: string;
   isLoginEnabled: boolean;

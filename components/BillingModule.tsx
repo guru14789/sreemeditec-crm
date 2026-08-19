@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
+import { VendorSelectionModal } from './VendorSelectionModal';
 import { PDFService } from '../services/PDFService';
 import { jsPDF } from 'jspdf';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
@@ -17,11 +18,11 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 const PaidAmountInput = ({ inv, onUpdate }: { inv: Invoice, onUpdate: (val: number, status: string) => void }) => {
-    const [val, setVal] = useState<string>(String(inv.paidAmount ?? 0));
-
+    const [val, setVal] = useState<string>(String(inv.paidAmount || inv.amountPaid || 0));
+    
     useEffect(() => {
-        setVal(String(inv.paidAmount ?? 0));
-    }, [inv.paidAmount]);
+        setVal(String(inv.paidAmount || inv.amountPaid || 0));
+    }, [inv.paidAmount, inv.amountPaid]);
 
     const handleApply = (inputVal: string) => {
         const numVal = Number(inputVal) || 0;
@@ -125,6 +126,13 @@ export const BillingModule: React.FC<{ variant?: 'billing' | 'quotes' }> = ({ va
         window.open(url, '_blank');
     };
 
+    const [vendorPopup, setVendorPopup] = useState<{
+        isOpen: boolean;
+        itemId: string;
+        vendors: any[];
+        isPurchaseContext: boolean;
+    } | null>(null);
+
     const handleEmailSend = async (inv: Invoice) => {
         const clientObj = clients.find(c => c.name === inv.customerName);
         const prefilledEmail = inv.email || clientObj?.email || '';
@@ -200,7 +208,8 @@ Email: sreemeditec@gmail.com`;
             if (!inv.date) return false;
             
             // Re-check calculated status
-            const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
+            const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+            const balance = (inv.grandTotal || 0) - currentPaid;
             if (balance <= 0) return false;
 
             const invDate = new Date(inv.date);
@@ -860,7 +869,8 @@ Email: sreemeditec@gmail.com`;
                                                 <button 
                                                     onClick={() => {
                                                         const total = inv.grandTotal || 0;
-                                                        if ((inv.paidAmount || 0) !== total) {
+                                                        const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+                                                        if (currentPaid !== total) {
                                                             const expectedStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled') ? 'Completed' : inv.status;
                                                             updateInvoice(inv.id, { paidAmount: total, status: expectedStatus });
                                                             setServerInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, paidAmount: total, status: expectedStatus } : i));
@@ -886,7 +896,7 @@ Email: sreemeditec@gmail.com`;
                                                 <span className="text-slate-300 text-center block">-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">₹{(Number(inv.grandTotal || 0) - Number(inv.paidAmount || 0)).toLocaleString('en-IN')}</td>
+                                        <td className="px-4 py-2 text-right font-black text-rose-600 hidden sm:table-cell">₹{(Number(inv.grandTotal || 0) - Number(inv.paidAmount || inv.amountPaid || 0)).toLocaleString('en-IN')}</td>
                                         <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
@@ -901,7 +911,7 @@ Email: sreemeditec@gmail.com`;
                                         <td className="px-4 py-2 text-center hidden sm:table-cell">
                                             {(() => {
                                                 const displayStatus = (inv.status !== 'Draft' && inv.status !== 'Cancelled')
-                                                    ? (((inv.grandTotal || 0) - (inv.paidAmount || 0) <= 0) ? 'Completed' : 'Pending')
+                                                    ? (((inv.grandTotal || 0) - (inv.paidAmount || inv.amountPaid || 0) <= 0) ? 'Completed' : 'Pending')
                                                     : (inv.status || 'Pending');
                                                 return (
                                                     <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
@@ -988,7 +998,8 @@ Email: sreemeditec@gmail.com`;
                                                                      e.stopPropagation(); 
                                                                      const confirmed = await showConfirm('Restore this invoice? it will be re-added to calculations.');
                                                                      if(confirmed) {
-                                                                         const balance = (inv.grandTotal || 0) - (inv.paidAmount || 0);
+                                                                         const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+                                                                         const balance = (inv.grandTotal || 0) - currentPaid;
                                                                          updateInvoice(inv.id, { status: balance <= 0 ? 'Completed' : 'Pending' });
                                                                      }
                                                                      setActiveMenuId(null); 
@@ -1285,7 +1296,28 @@ Email: sreemeditec@gmail.com`;
                                                                  list={`models-${item.id}`}
                                                                  className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black h-[32px] outline-none"
                                                                  value={item.model || ''}
-                                                                 onChange={e => updateItem(item.id, 'model', e.target.value)}
+                                                                 onChange={e => {
+                                                                     const val = e.target.value;
+                                                                     updateItem(item.id, 'model', val);
+                                                                     const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                     const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
+                                                                     const matchedModel = matchedBrand?.models?.find(m => m.name === val);
+                                                                     
+                                                                     if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
+                                                                         if (matchedModel.vendors.length === 1) {
+                                                                             const v = matchedModel.vendors[0];
+                                                                             updateItem(item.id, 'unitPrice', v.sellingPrice);
+                                                                             if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
+                                                                         } else {
+                                                                             setVendorPopup({
+                                                                                 isOpen: true,
+                                                                                 itemId: item.id,
+                                                                                 vendors: matchedModel.vendors,
+                                                                                 isPurchaseContext: false
+                                                                             });
+                                                                         }
+                                                                     }
+                                                                 }}
                                                                  placeholder="Select Model"
                                                                  disabled={!item.brand}
                                                              />
@@ -1722,6 +1754,19 @@ Email: sreemeditec@gmail.com`;
                 </div>
             )}
             <datalist id="prod-list">{products.map((p, idx) => <option key={idx} value={p.name} />)}</datalist>
+            
+            {vendorPopup && (
+                <VendorSelectionModal
+                    isOpen={vendorPopup.isOpen}
+                    onClose={() => setVendorPopup(null)}
+                    vendors={vendorPopup.vendors}
+                    isPurchaseContext={vendorPopup.isPurchaseContext}
+                    onSelect={(v) => {
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.sellingPrice);
+                        if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
+                    }}
+                />
+            )}
         </div>
     );
 };

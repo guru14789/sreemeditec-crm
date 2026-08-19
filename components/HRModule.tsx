@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Employee, TabView, EnterpriseRole, SALARY_SCALE } from '../types';
 import {
-    Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw, Award
+    Users, Search, ShieldCheck, UserPlus, X, Trash2, Lock, ShieldAlert, RefreshCw, Award, UserX, UserCheck
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { DesignationsTab } from './SystemConfigModule';
@@ -68,6 +68,8 @@ export const HRModule: React.FC = () => {
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+    const [statusAction, setStatusAction] = useState<'Resign' | 'Reactivate'>('Resign');
 
     const handleOpenAddModal = () => {
         setIsEditing(false);
@@ -142,6 +144,31 @@ export const HRModule: React.FC = () => {
             addNotification('Staff Registered', `${emp.name} added to enterprise registry.`, 'success');
         }
         setShowEmployeeModal(false);
+    };
+
+    const handleStatusChange = async () => {
+        if (confirmPassword !== 'admin') {
+            showAlert('Unauthorized: Incorrect security password.');
+            return;
+        }
+        if (!selectedEmployeeId) return;
+
+        const isResigning = statusAction === 'Resign';
+        const newStatus = isResigning ? 'Resigned' : 'Active';
+        const newEmployeeData: Partial<Employee> = {
+            status: newStatus,
+            ...(isResigning ? { resignedAt: new Date().toISOString() } : {})
+        };
+
+        try {
+            await updateEmployee(selectedEmployeeId, newEmployeeData);
+            addNotification('System', `User successfully ${isResigning ? 'resigned' : 'reactivated'}.`, 'success');
+            setShowStatusConfirm(false);
+            setConfirmPassword('');
+            setShowEmployeeModal(false);
+        } catch (error: any) {
+            showAlert(error.message);
+        }
     };
 
     const handleDeleteEmployee = async () => {
@@ -291,21 +318,21 @@ export const HRModule: React.FC = () => {
                             <div key={emp.id} onClick={() => handleOpenEditModal(emp)} className={`${g.bg} p-3 md:p-5 rounded-[16px] md:rounded-[28px] ${g.shadow} hover:scale-[1.02] transition-all duration-300 cursor-pointer group active:scale-[0.99]`}>
                                 <div className="flex justify-between items-center mb-2 md:mb-4">
                                     <div className="flex items-center gap-2.5 md:gap-4">
-                                        <div className={`w-9 h-9 md:w-14 md:h-14 rounded-xl md:rounded-[2rem] flex items-center justify-center font-playfair font-bold text-sm md:text-2xl tracking-tight border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : g.avatar}`}>{emp.name.charAt(0)}</div>
+                                        <div className={`w-9 h-9 md:w-14 md:h-14 rounded-xl md:rounded-[2rem] flex items-center justify-center font-playfair font-bold text-sm md:text-2xl tracking-tight border shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform ${emp.role === 'SYSTEM_ADMIN' ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/30' : emp.status === 'Resigned' ? 'bg-rose-900/40 text-rose-300 border-rose-500/20' : g.avatar}`}>{emp.name.charAt(0)}</div>
                                         <div>
-                                            <h4 className={`text-xs md:text-base font-black uppercase tracking-tight leading-none ${g.textLight}`}>{emp.name}</h4>
-                                            <p className={`text-[7px] md:text-[10px] ${g.text} font-bold uppercase mt-1 tracking-widest leading-none`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
+                                            <h4 className={`text-xs md:text-base font-black uppercase tracking-tight leading-none ${emp.status === 'Resigned' ? 'text-rose-200' : g.textLight}`}>{emp.name}</h4>
+                                            <p className={`text-[7px] md:text-[10px] ${emp.status === 'Resigned' ? 'text-rose-300' : g.text} font-bold uppercase mt-1 tracking-widest leading-none`}>{emp.id} • {emp.role.replace('_', ' ')}</p>
                                         </div>
                                     </div>
-                                    <div className={`border text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[2rem] shadow-sm shrink-0 ${emp.status === 'Active' ? g.badge : g.roseBadge}`}>{emp.status}</div>
+                                    <div className={`border text-[8px] md:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-[2rem] shadow-sm shrink-0 ${emp.status === 'Active' ? g.badge : emp.status === 'Resigned' ? 'bg-rose-950 text-rose-500 border-rose-900/50' : g.roseBadge}`}>{emp.status}</div>
                                 </div>
-                                <div className={`h-px w-full my-3 md:my-4 ${g.divider}`}></div>
+                                <div className={`h-px w-full my-3 md:my-4 ${emp.status === 'Resigned' ? 'border-rose-900/30' : g.divider}`}></div>
                                 <div className="space-y-1.5 md:space-y-3.5 text-[10px] md:text-xs">
-                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Division</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.department}</span></div>
-                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Designation</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.position || '—'}</span></div>
-                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Base Salary</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>₹{emp.baseSalary ? emp.baseSalary.toLocaleString('en-IN') : '0'}</span></div>
-                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Allowance</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>₹{emp.dailyAllowance ? emp.dailyAllowance.toLocaleString('en-IN') : '0'} (Out: ₹{emp.outstationAllowance ? emp.outstationAllowance.toLocaleString('en-IN') : '0'})</span></div>
-                                    <div className="flex justify-between items-center leading-none"><span className={`${g.label} uppercase font-bold tracking-wider`}>Joined</span><span className={`font-black uppercase tracking-tight ${g.textLight}`}>{emp.joinDate}</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${emp.status === 'Resigned' ? 'text-rose-500' : g.label} uppercase font-bold tracking-wider`}>Division</span><span className={`font-black uppercase tracking-tight ${emp.status === 'Resigned' ? 'text-rose-300' : g.textLight}`}>{emp.department}</span></div>
+                                    <div className="flex justify-between items-center leading-none"><span className={`${emp.status === 'Resigned' ? 'text-rose-500' : g.label} uppercase font-bold tracking-wider`}>Designation</span><span className={`font-black uppercase tracking-tight ${emp.status === 'Resigned' ? 'text-rose-300' : g.textLight}`}>{emp.position || '—'}</span></div>
+                                    {emp.resignedAt && (
+                                        <div className="flex justify-between items-center leading-none"><span className={`text-rose-600 uppercase font-bold tracking-wider`}>Resigned At</span><span className={`font-black uppercase tracking-tight text-rose-400`}>{new Date(emp.resignedAt).toLocaleDateString()}</span></div>
+                                    )}
                                 </div>
                             </div>
                             );
@@ -543,10 +570,13 @@ export const HRModule: React.FC = () => {
                         </div>
                         <div className="p-8 border-t border-slate-300 bg-slate-50/50 rounded-b-[2.5rem]">
                             {showDeleteConfirm ? (
-                                <div className="space-y-4 animate-in slide-in-from-bottom-2">
-                                    <div className="flex items-center gap-3 p-4 bg-rose-50 border border-rose-100 rounded-[2rem]">
-                                        <ShieldAlert className="text-rose-600" size={20} />
-                                        <p className="text-[10px] font-black text-rose-700 uppercase leading-tight">Security Protocol: Enter Registry Password to authorize permanent deletion.</p>
+                                <div className="space-y-4 p-4 bg-rose-50/50 rounded-2xl border border-rose-100">
+                                    <div className="flex items-start gap-3 text-rose-600">
+                                        <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="font-bold text-sm">Destructive Action Warning</h4>
+                                            <p className="text-[10px] opacity-80 mt-1 font-medium leading-relaxed">You are about to permanently erase this registry entry. This requires Security Admin clearance.</p>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <input
@@ -560,9 +590,34 @@ export const HRModule: React.FC = () => {
                                         <button onClick={() => { setShowDeleteConfirm(false); setConfirmPassword(''); }} className="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest">Abort</button>
                                     </div>
                                 </div>
+                            ) : showStatusConfirm ? (
+                                <div className="space-y-4 p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                                    <div className="flex items-start gap-3 text-amber-700">
+                                        <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+                                        <div>
+                                            <h4 className="font-bold text-sm">Status Modification Warning</h4>
+                                            <p className="text-[10px] opacity-80 mt-1 font-medium leading-relaxed">
+                                                {statusAction === 'Resign' 
+                                                    ? 'This action will instantly lock this user out of the CRM and revoke all system access.'
+                                                    : 'This action will restore the user\'s access to the CRM.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="password"
+                                            placeholder="Enter Password"
+                                            className="flex-1 px-3 py-1.5 border border-amber-200 rounded-[2rem] text-xs font-black outline-none focus:border-amber-500"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                        />
+                                        <button onClick={handleStatusChange} className="bg-amber-600 text-white px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95">Confirm</button>
+                                        <button onClick={() => { setShowStatusConfirm(false); setConfirmPassword(''); }} className="bg-slate-200 text-slate-600 px-3 py-1.5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest">Abort</button>
+                                    </div>
+                                </div>
                             ) : (
-                                <div className="flex gap-4">
-                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
+                                <div className="flex gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
+                                    <button onClick={() => { setShowEmployeeModal(false); setShowDeleteConfirm(false); setShowStatusConfirm(false); setConfirmPassword(''); }} className="flex-1 py-4 bg-white border border-slate-300 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Discard</button>
                                     {isEditing && (
                                         <button
                                             onClick={() => setShowDeleteConfirm(true)}
@@ -570,6 +625,26 @@ export const HRModule: React.FC = () => {
                                             title="Delete Registry"
                                         >
                                             <Trash2 size={20} />
+                                        </button>
+                                    )}
+                                    {isEditing && employeeFormData.status !== 'Resigned' && (
+                                        <button
+                                            onClick={() => { setStatusAction('Resign'); setShowStatusConfirm(true); }}
+                                            className="p-4 bg-orange-50 text-orange-600 rounded-[2rem] hover:bg-orange-100 transition-all border border-orange-100 flex items-center justify-center gap-2"
+                                            title="Resign User"
+                                        >
+                                            <UserX size={20} />
+                                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Resign</span>
+                                        </button>
+                                    )}
+                                    {isEditing && employeeFormData.status === 'Resigned' && (
+                                        <button
+                                            onClick={() => { setStatusAction('Reactivate'); setShowStatusConfirm(true); }}
+                                            className="p-4 bg-blue-50 text-blue-600 rounded-[2rem] hover:bg-blue-100 transition-all border border-blue-100 flex items-center justify-center gap-2"
+                                            title="Reactivate User"
+                                        >
+                                            <UserCheck size={20} />
+                                            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Reactivate</span>
                                         </button>
                                     )}
                                     <button onClick={handleSaveEmployee} className="flex-[2] py-4 bg-[#022c22] text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 active:scale-95">

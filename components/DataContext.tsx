@@ -164,9 +164,11 @@ export interface DataContextType {
     updateBankRule: (id: string, rule: Partial<BankRule>) => Promise<void>;
     removeBankRule: (id: string) => Promise<void>;
     bankTransactions: BankTransaction[];
-    processClientPayment: (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
-    processVendorPayment: (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
+    processClientPayment: (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
+    processVendorPayment: (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
     processContraTransfer: (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
+    deleteBankTransaction: (id: string) => Promise<void>;
+    updateBankTransaction: (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
     companyProfiles: CompanyProfile[];
     addCompanyProfile: (profile: CompanyProfile) => Promise<void>;
     updateCompanyProfile: (id: string, profile: Partial<CompanyProfile>) => Promise<void>;
@@ -603,7 +605,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // 2. Resolve against Registry
                 const match = employees.find(e => e.email.toLowerCase() === email);
                 if (match) {
-                    if (match.isLoginEnabled) {
+                    if (match.status === 'Resigned') {
+                        setAuthError("Account Locked: User has resigned.");
+                        signOut(auth);
+                        setIsAuthenticating(false);
+                    } else if (match.isLoginEnabled) {
                         resolvedUser = { ...match };
                     } else {
                         setAuthError("Registry Locked: Access disabled.");
@@ -679,8 +685,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 }
             };
             restoreSession();
+            if (employees.length > 0) {
+                setAuthInitialized(true);
+            }
         }
     }, [firebaseUser, employees]);
+
+    // Active Session Invalidation for Resigned Users
+    useEffect(() => {
+        if (currentUser && currentUser.id !== 'EMP-OWNER') {
+            const match = employees.find(e => e.id === currentUser.id);
+            if (match && match.status === 'Resigned') {
+                setAuthError("Session Terminated: Your account access has been revoked.");
+                signOut(auth);
+                setCurrentUser(null);
+            }
+        }
+    }, [employees, currentUser]);
 
     // ─── REAL-TIME PERMISSION SYNC ────────────────────────────────────────────────
     // Employees who log in via password use anonymous Firebase auth.
@@ -1284,7 +1305,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             
             if (match && empId) {
-                if (!match.isLoginEnabled) {
+                if (match.status === 'Resigned') {
+                    setAuthError("Account Locked: User has resigned.");
+                } else if (!match.isLoginEnabled) {
                     setAuthError("Account Locked: Registry access revoked by Admin.");
                 } else if (match.password === password) {
                     if (auth.currentUser) {
@@ -1593,8 +1616,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                     productId: mapping.inventoryProductId,
                                     sku: mapping.sku,
                                     barcode: mapping.barcode,
-                                    brand: undefined,
-                                    model: undefined
+                                    brand: mapping.brand,
+                                    model: mapping.model
                                 });
                             });
                         } else {
@@ -1857,7 +1880,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const debtorId = await ensurePartyLedger(existing.customerName, 'GRP-DEBTORS', { gstin: existing.customerGstin, email: existing.email, phone: existing.phone });
                     const bankLdg = ledgers.find(l => l.id === 'LDG-BANK') || ledgers.find(l => l.id === 'LDG-CASH');
                     if (!bankLdg) console.warn('No Bank or Cash ledger found — Receipt entry will have empty ledgerId');
-                    const amount = u.paidAmount || existing.paidAmount || existing.grandTotal || 0;
+                    const amount = u.paidAmount || u.amountPaid || existing.paidAmount || existing.amountPaid || existing.grandTotal || 0;
                     if (amount > 0) {
                         await postToLedger({
                             date: new Date().toISOString().split('T')[0],
@@ -3869,8 +3892,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                     productId: mapping.inventoryProductId,
                                     sku: mapping.sku,
                                     barcode: mapping.barcode,
-                                    brand: undefined,
-                                    model: undefined
+                                    brand: mapping.brand,
+                                    model: mapping.model
                                 });
                             });
                         } else {
@@ -4058,7 +4081,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const currentProducts = [...products];
                 
                 const getItems = (rec: Invoice) => {
-                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string }[] = [];
+                    const list: { name: string, qty: number, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }[] = [];
                     (rec.items || []).forEach(item => {
                         if (item.inventoryMappings && item.inventoryMappings.length > 0) {
                             item.inventoryMappings.forEach(mapping => {
@@ -4067,7 +4090,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                     qty: (Number(item.quantity) || 1) * (Number(mapping.quantityUsed) || 0),
                                     productId: mapping.inventoryProductId,
                                     sku: mapping.sku,
-                                    barcode: mapping.barcode
+                                    barcode: mapping.barcode,
+                                    brand: mapping.brand,
+                                    model: mapping.model
                                 });
                             });
                         } else {
@@ -4271,11 +4296,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Updated Fiscal Period', `New Period: ${fy}`);
     };
 
-    const processClientPayment = async (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+    const processClientPayment = async (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
         const client = clients.find(c => c.id === clientId);
         if (!client) throw new Error("Client not found");
 
-        const clientInvoices = invoices.filter(i => (i.customerName === client.name || i.customerId === clientId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+        let clientInvoices = invoices.filter(i => (i.customerName === client.name || i.customerId === clientId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+        
+        if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
+            clientInvoices = clientInvoices.filter(i => selectedInvoiceIds.includes(i.id));
+        }
+        
         clientInvoices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         let remaining = amount;
@@ -4284,12 +4314,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         for (const inv of clientInvoices) {
             if (remaining <= 0) break;
-            const pending = inv.grandTotal - (inv.amountPaid || 0);
+            const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+            const pending = inv.grandTotal - currentPaid;
             if (pending <= 0) continue;
 
             const allocated = Math.min(pending, remaining);
-            const newAmountPaid = (inv.amountPaid || 0) + allocated;
-            const newStatus = newAmountPaid >= inv.grandTotal ? 'Paid' : 'Partially Paid';
+            const newAmountPaid = currentPaid + allocated;
+            const newStatus = newAmountPaid >= inv.grandTotal ? 'Completed' : 'Pending';
 
             allocations.push({
                 documentId: inv.id,
@@ -4298,7 +4329,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             });
 
             remaining -= allocated;
-            updates.push(updateDoc(doc(db, "invoices", inv.id), { amountPaid: newAmountPaid, status: newStatus }));
+            updates.push(updateDoc(doc(db, "invoices", inv.id), { 
+                paidAmount: newAmountPaid, 
+                amountPaid: newAmountPaid, 
+                status: newStatus 
+            }));
         }
 
         if (remaining > 0) {
@@ -4330,11 +4365,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Sales', 'Client Payment Processed', `Received ₹${amount} from ${client.name}`);
     };
 
-    const processVendorPayment = async (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+    const processVendorPayment = async (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
         const vendor = vendors.find(v => v.id === vendorId);
         if (!vendor) throw new Error("Vendor not found");
 
-        const vendorBills = purchaseRecords.filter(p => p.supplier === vendor.name && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status));
+        let vendorBills = purchaseRecords.filter(p => p.supplier === vendor.name && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status));
+        
+        if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
+            vendorBills = vendorBills.filter(p => selectedInvoiceIds.includes(p.id));
+        }
+
         vendorBills.sort((a, b) => new Date(a.dateSupply).getTime() - new Date(b.dateSupply).getTime());
 
         let remaining = amount;
@@ -4443,6 +4483,191 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         await Promise.all(updates);
         await addLog('Banking', 'Contra Transfer', `Transferred ₹${amount} from ${sourceBank.bankName} to ${targetBank.bankName}`);
+    };
+
+    const deleteBankTransaction = async (id: string) => {
+        const tx = bankTransactions.find(t => t.id === id);
+        if (!tx) throw new Error("Transaction not found");
+
+        const updates: Promise<void>[] = [];
+        
+        if (tx.partyType === 'Client') {
+            const client = clients.find(c => c.id === tx.partyId);
+            if (client && tx.unallocatedAmount > 0) {
+                const newAdvance = Math.max(0, (client.advanceBalance || 0) - tx.unallocatedAmount);
+                updates.push(updateDoc(doc(db, "clients", client.id), { advanceBalance: newAdvance }));
+            }
+            if (tx.allocations && tx.allocations.length > 0) {
+                for (const alloc of tx.allocations) {
+                    const inv = invoices.find(i => i.id === alloc.documentId);
+                    if (inv) {
+                        const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+                        const newAmountPaid = Math.max(0, currentPaid - alloc.amountAllocated);
+                        const newStatus = newAmountPaid > 0 ? 'Partially Paid' : 'Pending';
+                        updates.push(updateDoc(doc(db, "invoices", inv.id), { paidAmount: newAmountPaid, amountPaid: newAmountPaid, status: newStatus }));
+                    }
+                }
+            }
+        } else if (tx.partyType === 'Vendor') {
+            const vendor = vendors.find(v => v.id === tx.partyId);
+            if (vendor && tx.unallocatedAmount > 0) {
+                const newAdvance = Math.max(0, (vendor.advanceBalance || 0) - tx.unallocatedAmount);
+                updates.push(updateDoc(doc(db, "vendors", vendor.id), { advanceBalance: newAdvance }));
+            }
+            if (tx.allocations && tx.allocations.length > 0) {
+                for (const alloc of tx.allocations) {
+                    const bill = purchaseRecords.find(p => p.id === alloc.documentId);
+                    if (bill) {
+                        const currentPaid = bill.paidAmount || 0;
+                        const newAmountPaid = Math.max(0, currentPaid - alloc.amountAllocated);
+                        const newStatus = newAmountPaid > 0 ? 'Partially Paid' : 'Pending';
+                        updates.push(updateDoc(doc(db, "purchaseRecords", bill.id), { paidAmount: newAmountPaid, status: newStatus }));
+                    }
+                }
+            }
+        }
+
+        updates.push(deleteDoc(doc(db, "bankTransactions", id)));
+        await Promise.all(updates);
+        await addLog('Banking', 'Deleted Transaction', `Reversed transaction ${id}`);
+    };
+
+    const updateBankTransaction = async (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
+        const tx = bankTransactions.find(t => t.id === id);
+        if (!tx) throw new Error("Transaction not found");
+
+        const updates: Promise<void>[] = [];
+        const simulatedInvoices = invoices.map(inv => {
+            const alloc = tx.allocations?.find(a => a.documentId === inv.id);
+            if (alloc) {
+                const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+                const newAmountPaid = Math.max(0, currentPaid - alloc.amountAllocated);
+                return { ...inv, paidAmount: newAmountPaid, amountPaid: newAmountPaid, status: newAmountPaid > 0 ? 'Partially Paid' : 'Pending' };
+            }
+            return inv;
+        });
+
+        const simulatedBills = purchaseRecords.map(bill => {
+            const alloc = tx.allocations?.find(a => a.documentId === bill.id);
+            if (alloc) {
+                const currentPaid = bill.paidAmount || 0;
+                const newAmountPaid = Math.max(0, currentPaid - alloc.amountAllocated);
+                return { ...bill, paidAmount: newAmountPaid, status: newAmountPaid > 0 ? 'Partially Paid' : 'Pending' };
+            }
+            return bill;
+        });
+
+        if (tx.partyType === 'Client') {
+            const client = clients.find(c => c.id === tx.partyId);
+            if (!client) throw new Error("Client not found");
+
+            let clientInvoices = simulatedInvoices.filter(i => (i.customerName === client.name || i.customerId === client.id) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+            
+            if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
+                clientInvoices = clientInvoices.filter(i => selectedInvoiceIds.includes(i.id));
+            }
+            clientInvoices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            let remaining = amount;
+            const newAllocations: TransactionAllocation[] = [];
+            
+            for (const inv of clientInvoices) {
+                if (remaining <= 0) break;
+                const currentPaid = inv.paidAmount || inv.amountPaid || 0;
+                const pending = inv.grandTotal - currentPaid;
+                if (pending <= 0) continue;
+
+                const allocated = Math.min(pending, remaining);
+                const newAmountPaid = currentPaid + allocated;
+                const newStatus = newAmountPaid >= inv.grandTotal ? 'Completed' : 'Pending';
+
+                newAllocations.push({ documentId: inv.id, documentNo: inv.invoiceNumber, amountAllocated: allocated });
+                remaining -= allocated;
+                
+                const simIdx = simulatedInvoices.findIndex(x => x.id === inv.id);
+                if (simIdx !== -1) {
+                    simulatedInvoices[simIdx] = { ...simulatedInvoices[simIdx], paidAmount: newAmountPaid, amountPaid: newAmountPaid, status: newStatus };
+                }
+            }
+
+            const oldSet = new Set((tx.allocations || []).map(a => a.documentId));
+            const newSet = new Set(newAllocations.map(a => a.documentId));
+            for (const docId of new Set([...oldSet, ...newSet])) {
+                const finalInv = simulatedInvoices.find(i => i.id === docId);
+                if (finalInv) {
+                    updates.push(updateDoc(doc(db, "invoices", docId), { paidAmount: finalInv.paidAmount, amountPaid: finalInv.amountPaid, status: finalInv.status }));
+                }
+            }
+
+            let simulatedAdvance = client.advanceBalance || 0;
+            if (tx.unallocatedAmount > 0) simulatedAdvance = Math.max(0, simulatedAdvance - tx.unallocatedAmount);
+            if (remaining > 0) simulatedAdvance += remaining;
+            if (simulatedAdvance !== client.advanceBalance) updates.push(updateDoc(doc(db, "clients", client.id), { advanceBalance: simulatedAdvance }));
+
+            updates.push(updateDoc(doc(db, "bankTransactions", id), {
+                amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || '',
+                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0
+            }));
+            
+        } else if (tx.partyType === 'Vendor') {
+            const vendor = vendors.find(v => v.id === tx.partyId);
+            if (!vendor) throw new Error("Vendor not found");
+
+            let vendorBills = simulatedBills.filter(p => (p.supplier === vendor.name || p.supplierId === vendor.id) && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status));
+            
+            if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
+                vendorBills = vendorBills.filter(p => selectedInvoiceIds.includes(p.id));
+            }
+            vendorBills.sort((a, b) => new Date(a.dateSupply || '').getTime() - new Date(b.dateSupply || '').getTime());
+
+            let remaining = amount;
+            const newAllocations: TransactionAllocation[] = [];
+            
+            for (const bill of vendorBills) {
+                if (remaining <= 0) break;
+                const currentPaid = bill.paidAmount || 0;
+                const pending = bill.total - currentPaid;
+                if (pending <= 0) continue;
+
+                const allocated = Math.min(pending, remaining);
+                const newAmountPaid = currentPaid + allocated;
+                const newStatus = newAmountPaid >= bill.total ? 'Completed' : 'Pending';
+
+                newAllocations.push({ documentId: bill.id, documentNo: bill.billNo || '', amountAllocated: allocated });
+                remaining -= allocated;
+                
+                const simIdx = simulatedBills.findIndex(x => x.id === bill.id);
+                if (simIdx !== -1) {
+                    simulatedBills[simIdx] = { ...simulatedBills[simIdx], paidAmount: newAmountPaid, status: newStatus };
+                }
+            }
+
+            const oldSet = new Set((tx.allocations || []).map(a => a.documentId));
+            const newSet = new Set(newAllocations.map(a => a.documentId));
+            for (const docId of new Set([...oldSet, ...newSet])) {
+                const finalBill = simulatedBills.find(i => i.id === docId);
+                if (finalBill) {
+                    updates.push(updateDoc(doc(db, "purchaseRecords", docId), { paidAmount: finalBill.paidAmount, status: finalBill.status }));
+                }
+            }
+
+            let simulatedAdvance = vendor.advanceBalance || 0;
+            if (tx.unallocatedAmount > 0) simulatedAdvance = Math.max(0, simulatedAdvance - tx.unallocatedAmount);
+            if (remaining > 0) simulatedAdvance += remaining;
+            if (simulatedAdvance !== vendor.advanceBalance) updates.push(updateDoc(doc(db, "vendors", vendor.id), { advanceBalance: simulatedAdvance }));
+
+            updates.push(updateDoc(doc(db, "bankTransactions", id), {
+                amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || '',
+                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0
+            }));
+            
+        } else if (tx.partyType === 'Contra') {
+            updates.push(updateDoc(doc(db, "bankTransactions", id), {
+                amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || ''
+            }));
+        }
+        await Promise.all(updates);
+        await addLog('Banking', 'Updated Transaction', `Updated transaction ${id}`);
     };
 
     const addBankDetails = async (details: BankDetails) => {
@@ -4559,7 +4784,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             serviceReports, addServiceReport, updateServiceReport, removeServiceReport,
             prizePool, updatePrizePool, monthlyWinners, showWinnerPopup, setShowWinnerPopup, latestWinner, setLatestWinner, acknowledgeWinner, checkAndPerformMonthReset,
             logs, addLog, fetchAuditLogs, hasMoreLogs,
-            searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails, bankTransactions, processClientPayment, processVendorPayment, processContraTransfer,
+            searchRecords, fetchMoreData, financialYear, updateFinancialYear, bankDetailsList, addBankDetails, updateBankDetails, removeBankDetails, bankTransactions, processClientPayment, processVendorPayment, processContraTransfer, deleteBankTransaction, updateBankTransaction,
             bankRules, addBankRule, updateBankRule, removeBankRule,
             companyProfiles, addCompanyProfile, updateCompanyProfile, removeCompanyProfile,
             addPurchaseRecord, updatePurchaseRecord, removePurchaseRecord,
