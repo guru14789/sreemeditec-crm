@@ -357,7 +357,7 @@ export const PDFService = {
                 const gstAmt = (Number(it.unitPrice) * Number(it.quantity)) * (Number(it.taxRate) / 100);
                 const lineTotal = (Number(it.unitPrice) * Number(it.quantity)) + gstAmt;
                 return [
-                    { content: it.description, styles: { halign: 'left', textColor: [0, 0, 0] } },
+                    { content: `${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}`, styles: { halign: 'left', textColor: [0, 0, 0] } },
                     { content: it.model || '-', styles: { halign: 'left', textColor: [0, 0, 0] } },
                     { content: it.features ? it.features : '-', styles: { halign: 'left', textColor: [0, 0, 0] } },
                     { content: `${it.quantity}\n${it.unit}`, styles: { halign: 'center', textColor: [0, 0, 0] } },
@@ -547,7 +547,7 @@ export const PDFService = {
                 const gstValue = amount * (tax / 100);
                 return [
                     idx + 1, 
-                    it.description, 
+                    `${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`, 
                     qty, 
                     (Number(price) || 0).toLocaleString('en-IN'), 
                     (Number(amount) || 0).toLocaleString('en-IN'), 
@@ -752,7 +752,7 @@ export const PDFService = {
                 const gstValue = taxable * (tax / 100);
                 return [
                     idx + 1,
-                    it.description,
+                    `${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}${it.model ? ' - ' + it.model : ''}`,
                     qty,
                     price.toLocaleString('en-IN'),
                     taxable.toLocaleString('en-IN'),

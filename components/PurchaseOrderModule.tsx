@@ -301,7 +301,7 @@ Sree Meditec`;
                             return (
                                 <tr key={idx} className="border-b border-black last:border-b-0 h-8">
                                     <td className="border-r border-black p-2 text-center">{idx + 1}</td>
-                                    <td className="border-r border-black p-2 font-black uppercase">{item.description}</td>
+                                    <td className="border-r border-black p-2 font-black uppercase">{`${item.brand && !item.hideBrand ? item.brand + ' ' : ''}${item.description}${item.model ? ' - ' + item.model : ''}`}</td>
                                     <td className="border-r border-black p-2 text-center font-black">{item.quantity}</td>
                                     <td className="border-r border-black p-2 text-right">{item.unitPrice?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td className="border-r border-black p-2 text-right font-bold">{amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -719,14 +719,14 @@ Sree Meditec`;
                                                                         if (matchedModel?.vendors && matchedModel.vendors.length > 0) {
                                                                             if (matchedModel.vendors.length === 1) {
                                                                                 const v = matchedModel.vendors[0];
-                                                                                updateItem(item.id, 'unitPrice', v.purchasePrice);
+                                                                                updateItem(item.id, 'unitPrice', v.sellingPrice);
                                                                                 if (v.gstRate) updateItem(item.id, 'taxRate', v.gstRate);
                                                                             } else {
                                                                                 setVendorPopup({
                                                                                     isOpen: true,
                                                                                     itemId: item.id,
                                                                                     vendors: matchedModel.vendors,
-                                                                                    isPurchaseContext: true
+                                                                                    isPurchaseContext: false
                                                                                 });
                                                                             }
                                                                         }
@@ -890,7 +890,7 @@ Sree Meditec`;
                     vendors={vendorPopup.vendors}
                     isPurchaseContext={vendorPopup.isPurchaseContext}
                     onSelect={(v) => {
-                        updateItem(vendorPopup.itemId, 'unitPrice', v.purchasePrice);
+                        updateItem(vendorPopup.itemId, 'unitPrice', v.sellingPrice);
                         if (v.gstRate) updateItem(vendorPopup.itemId, 'taxRate', v.gstRate);
                     }}
                 />

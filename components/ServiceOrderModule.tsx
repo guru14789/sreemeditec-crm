@@ -279,7 +279,7 @@ export const ServiceOrderModule: React.FC = () => {
                             return (
                                 <tr key={idx} className="border-b border-black last:border-b-0 h-8">
                                     <td className="border-r border-black p-1 text-center">{idx + 1}</td>
-                                    <td className="border-r border-black p-1 font-bold">{item.description}</td>
+                                    <td className="border-r border-black p-1 font-bold">{`${item.brand && !item.hideBrand ? item.brand + ' ' : ''}${item.description}${item.model ? ' - ' + item.model : ''}`}</td>
                                     <td className="border-r border-black p-1 text-center">{item.quantity || ''}</td>
                                     <td className="border-r border-black p-1 text-right">{item.quantity ? (item.unitPrice || 0).toLocaleString('en-IN') : ''}</td>
                                     <td className="border-r border-black p-1 text-right">{item.quantity ? amt.toLocaleString('en-IN') : ''}</td>

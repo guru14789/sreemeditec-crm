@@ -560,7 +560,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                                                     />
                                                                     <datalist id={`brands-${item.id}`}>
                                                                         {(() => {
-                                                                            const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                            const matchedProd = item.productId ? products.find(p => p.id === item.productId) : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                             return matchedProd?.brands?.map(b => (
                                                                                 <option key={b.id} value={b.name}>{b.name}</option>
                                                                             ));
@@ -589,7 +589,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                                                 />
                                                                 <datalist id={`models-${item.id}`}>
                                                                     {(() => {
-                                                                        const matchedProd = products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                                                                        const matchedProd = item.productId ? products.find(p => p.id === item.productId) : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
                                                                         const matchedBrand = matchedProd?.brands?.find(b => b.name === item.brand);
                                                                         return matchedBrand?.models?.map(m => (
                                                                             <option key={m.id} value={m.name}>{m.name}</option>

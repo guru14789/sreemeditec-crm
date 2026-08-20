@@ -1105,7 +1105,7 @@ Sree Meditec`;
                                                     const rowTotal = (it.unitPrice * it.quantity) + rowGst; 
                                                     return (
                                                         <tr key={it.id} className="border-b border-black align-top">
-                                                            <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'left' }}>{it.description}</td>
+                                                            <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'left' }}>{`${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}`}</td>
                                                             <td className="border-r border-black p-1" style={{ textAlign: 'left' }}>{it.model}</td>
                                                             <td className="border-r border-black p-1 whitespace-pre-wrap break-words" style={{ textAlign: 'left' }}>{it.features}</td>
                                                             <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'center' }}>{it.quantity} {it.unit}</td>
