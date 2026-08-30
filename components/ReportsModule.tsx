@@ -304,7 +304,7 @@ export const ReportsModule: React.FC = () => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
-    // 1b. Employee Sales & Service Performance against targets (GST-excluded pre-tax subtotal)
+    // 1b. Employee Sales & Service Performance against targets (Grand Total, incl. GST)
     const employeeSalesMap: Record<string, { total: number; invoices: number; name: string; target: number; department: string }> = {};
     
     // Initialize map with active employees' target parameters
@@ -324,7 +324,7 @@ export const ReportsModule: React.FC = () => {
       const matchedEmp = (employees || []).find(e => e.id === closedById || e.name.trim().toLowerCase() === closedById.trim().toLowerCase());
       if (matchedEmp) {
         const id = matchedEmp.id;
-        const amt = inv.subtotal || 0; // Actual pre-tax taxable amount (GST excluded)
+        const amt = inv.grandTotal || 0; // Full invoice Grand Total (incl. GST)
         if (!employeeSalesMap[id]) {
           const scaleRule = SALARY_SCALE.find(s => s.position === matchedEmp.position);
           employeeSalesMap[id] = { total: 0, invoices: 0, name: matchedEmp.name, target: scaleRule?.monthlyTarget || 0, department: scaleRule?.department || 'Sales' };
@@ -1079,6 +1079,7 @@ export const ReportsModule: React.FC = () => {
     let filteredPurchaseCount = 0;
     (allPurchaseRecordsKpi || []).forEach((rec: any) => {
       if (!inRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      if (rec.status === 'Draft' || rec.status === 'Cancelled') return;
       totalPurchaseRecords += rec.total || 0;
       filteredPurchaseCount += 1;
     });
@@ -1103,6 +1104,7 @@ export const ReportsModule: React.FC = () => {
     let prevPurchaseRecords = 0;
     (allPurchaseRecordsKpi || []).forEach((rec: any) => {
       if (!inPrevRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      if (rec.status === 'Draft' || rec.status === 'Cancelled') return;
       prevPurchaseRecords += rec.total || 0;
     });
 
@@ -2267,7 +2269,7 @@ export const ReportsModule: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-3 md:gap-4 shrink-0 pb-2 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
-        {/* Card 1: Total Sales (SM invoices, pre-tax subtotals) */}
+        {/* Card 1: Total Sales (SM invoices, Grand Total incl. GST) */}
         <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
           <div className="flex justify-between items-start mb-2">
             <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
@@ -2369,6 +2371,51 @@ export const ReportsModule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Why Net Profit is Negative — Diagnostic Card */}
+      {totalProfit < 0 && (
+        <div className="mx-2 md:mx-0 mb-4 p-3 md:p-4 rounded-2xl border border-rose-200 bg-rose-50/70 shadow-sm shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 shrink-0 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+              <AlertTriangle size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-[10px] md:text-xs font-black text-rose-800 uppercase tracking-widest">Why is Net Profit negative?</h4>
+              <p className="text-[9px] md:text-[11px] font-bold text-rose-700 mt-1 leading-relaxed">
+                For the selected period, costs exceed sales by ₹{formatIndianNumber(Math.abs(totalProfit))}. Breakdown:
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                <div className="bg-white rounded-xl border border-rose-100 px-2.5 py-1.5">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Sales (+)</p>
+                  <p className="text-[10px] md:text-xs font-black text-emerald-700">₹{formatIndianNumber(totalRevenue)}</p>
+                </div>
+                <div className="bg-white rounded-xl border border-rose-100 px-2.5 py-1.5">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Expenses (−)</p>
+                  <p className="text-[10px] md:text-xs font-black text-amber-700">₹{formatIndianNumber(totalExpenses)}</p>
+                </div>
+                <div className="bg-white rounded-xl border border-rose-100 px-2.5 py-1.5">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Procurement (−)</p>
+                  <p className="text-[10px] md:text-xs font-black text-violet-700">₹{formatIndianNumber(totalPurchaseRecords)}</p>
+                </div>
+                <div className="bg-white rounded-xl border border-rose-100 px-2.5 py-1.5">
+                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Net Deficit</p>
+                  <p className="text-[10px] md:text-xs font-black text-rose-600">−₹{formatIndianNumber(Math.abs(totalProfit))}</p>
+                </div>
+              </div>
+              <ul className="mt-2 space-y-0.5">
+                {totalPurchaseRecords > totalRevenue && (
+                  <li className="text-[8px] md:text-[10px] font-bold text-rose-600 leading-relaxed">• Procurement (₹{formatIndianNumber(totalPurchaseRecords)}) alone exceeds total sales (₹{formatIndianNumber(totalRevenue)}).</li>
+                )}
+                {totalExpenses > totalRevenue && (
+                  <li className="text-[8px] md:text-[10px] font-bold text-rose-600 leading-relaxed">• Approved expenses (₹{formatIndianNumber(totalExpenses)}) alone exceed total sales.</li>
+                )}
+                <li className="text-[8px] md:text-[10px] font-bold text-slate-500 leading-relaxed">• Sales figures include GST collected, while procurement totals include GST paid — GST is not income/cost, which can distort the margin either way.</li>
+                <li className="text-[8px] md:text-[10px] font-bold text-slate-500 leading-relaxed">• Only approved expenses are counted; pending/draft expenses are excluded, so actual costs may be higher.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reportsTab === 'overview' ? (
         <>

@@ -1004,7 +1004,6 @@ export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showA
                       </tr>
                       {deptRules.map((rule) => {
                       const assignedEmployees = (employees || []).filter(e => e.position === rule.position);
-                      const isSalesOrService = rule.department === 'Sales' || rule.department === 'Service';
                       return (
                         <tr key={rule.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-4 text-xs font-black text-slate-800 uppercase tracking-tight leading-snug">{rule.position}</td>
@@ -1020,13 +1019,13 @@ export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showA
                           </td>
                           <td className="p-4 text-xs font-bold text-slate-800">₹{rule.monthlySalary?.toLocaleString('en-IN')}</td>
                           <td className="p-4 text-xs font-bold text-slate-600">
-                            {isSalesOrService ? `₹${rule.monthlyTarget?.toLocaleString('en-IN')}` : '—'}
+                            {rule.monthlyTarget ? `₹${rule.monthlyTarget.toLocaleString('en-IN')}` : '—'}
                           </td>
                           <td className="p-4 text-xs font-extrabold text-emerald-700">
-                            {isSalesOrService ? `₹${rule.incentiveOnTargetAchievement?.toLocaleString('en-IN')}` : '—'}
+                            {rule.incentiveOnTargetAchievement ? `₹${rule.incentiveOnTargetAchievement.toLocaleString('en-IN')}` : '—'}
                           </td>
                           <td className="p-4 text-xs font-extrabold text-indigo-700">
-                            {isSalesOrService ? `${((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%` : '—'}
+                            {(rule.incentivePercentageAboveTarget || 0) > 0 ? `${((rule.incentivePercentageAboveTarget || 0) * 100).toFixed(2)}%` : '—'}
                           </td>
                           <td className="p-4">
                             {assignedEmployees.length > 0 ? (
@@ -1090,17 +1089,13 @@ export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showA
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label="Base Monthly Salary (₹) *" type="number" value={monthlySalary} onChange={(e: any) => setMonthlySalary(Number(e.target.value))} />
-              {(department === 'Sales' || department === 'Service') && (
-                <Input label="Monthly Target (₹)" type="number" value={monthlyTarget} onChange={(e: any) => setMonthlyTarget(Number(e.target.value))} />
-              )}
+              <Input label="Monthly Target (₹)" type="number" value={monthlyTarget} onChange={(e: any) => setMonthlyTarget(Number(e.target.value))} />
             </div>
 
-            {(department === 'Sales' || department === 'Service') && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
                 <Input label="Flat Bonus on Completion (₹)" type="number" value={incentiveOnTargetAchievement} onChange={(e: any) => setIncentiveOnTargetAchievement(Number(e.target.value))} />
                 <Input label="Commission Rate (%)" type="number" step="0.01" value={incentivePercentageAboveTarget} onChange={(e: any) => setIncentivePercentageAboveTarget(Number(e.target.value))} placeholder="e.g. 3 for 3%" />
-              </div>
-            )}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

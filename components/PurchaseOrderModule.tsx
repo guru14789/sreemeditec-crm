@@ -491,7 +491,7 @@ Sree Meditec`;
                                     .filter(i => {
                                         if (poSearch) {
                                             const low = poSearch.toLowerCase();
-                                            return i.invoiceNumber.toLowerCase().includes(low) || 
+                                            return (i.invoiceNumber || '').toLowerCase().includes(low) ||
                                                    (i.customerName || '').toLowerCase().includes(low);
                                         }
                                         return true;

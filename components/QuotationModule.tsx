@@ -1,9 +1,9 @@
 import { ToggleSwitch } from './ToggleSwitch';
 import React, { useState, useMemo, useEffect } from 'react';
-import { Invoice, InvoiceItem, TabView } from '../types';
+import { Invoice, InvoiceItem, TabView, Lead, LeadStatus } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
-    History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical,
+    History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical, UserPlus,
     Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail, ChevronDown
 } from 'lucide-react';
 import { useData } from './DataContext';
@@ -111,8 +111,33 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData } = useData();
+    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addLead, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData, logs } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
+    // Author = the user who was logged in when the quotation was CREATED (from login activity logs),
+    // falling back to the stored createdBy. Never the person who closed/edited it later.
+    const authorMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        logs.forEach(l => {
+            if (l.category !== 'Billing') return;
+            if (l.action !== 'Invoice Generated' && l.action !== 'New Doc') return;
+            const ref = l.details?.trim();
+            if (!ref) return;
+            const ts = new Date(l.timestamp).getTime();
+            if (!map[ref] || ts < new Date(map[ref + '__ts']).getTime()) {
+                map[ref] = l.userName;
+                map[ref + '__ts'] = l.timestamp;
+            }
+        });
+        return map;
+    }, [logs]);
+    const resolveAuthor = (inv: Partial<Invoice>) => {
+        const ref = (inv.invoiceNumber || '').trim();
+        if (authorMap[ref]) return authorMap[ref];
+        if (inv.createdBy) return inv.createdBy;
+        // Fallback for older drafts: first 'Created' entry in the document's own edit history
+        const createdEntry = (inv.editHistory || []).find(e => e.action === 'Created');
+        return createdEntry?.user || 'System';
+    };
     const flatProducts = useMemo(() => {
         const list: any[] = [];
         products.forEach(p => {
@@ -298,6 +323,26 @@ Sree Meditec`;
         }
     };
 
+    const handleConvertToLead = async (inv: Partial<Invoice>) => {
+        const newLead: Lead = {
+            id: `LEAD-${Date.now()}`,
+            name: inv.customerName || 'Unknown',
+            hospital: inv.customerHospital || '',
+            source: 'Quotation',
+            status: LeadStatus.NEW,
+            value: inv.grandTotal || 0,
+            lastContact: new Date().toISOString().split('T')[0],
+            productInterest: inv.subject || inv.items?.[0]?.description || '',
+            phone: inv.phone,
+            email: inv.email,
+            address: inv.customerAddress,
+            followUps: [],
+            salesTakenBy: currentUser?.name
+        };
+        await addLead(newLead);
+        addNotification('Lead Created', `Quotation ${inv.invoiceNumber} converted to lead for ${inv.customerName}.`, 'success');
+    };
+
     const handleAddItem = (prod?: any, index?: number) => {
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
@@ -460,7 +505,8 @@ Sree Meditec`;
             grandTotal: totals.grandTotal,
             status: status === 'Draft' ? 'Draft' : 'Pending',
             documentType: 'Quotation',
-            createdBy: currentUser?.name || 'System'
+            // Author = the person who originally created the quotation; never overwritten by later editors
+            createdBy: editingId ? (quote.createdBy || currentUser?.name || 'System') : (currentUser?.name || 'System')
         };
         try {
             if (editingId) await updateInvoice(editingId, finalData);
@@ -691,11 +737,11 @@ Sree Meditec`;
                                         </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
                                         <td className="px-4 py-2 hidden md:table-cell">
-                                            <div 
-                                                title={inv.createdBy || 'System'}
+                                            <div
+                                                title={resolveAuthor(inv)}
                                                 className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
                                             >
-                                                {inv.createdBy?.charAt(0) || 'S'}
+                                                {resolveAuthor(inv).charAt(0)}
                                             </div>
                                         </td>
                                         <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
@@ -789,8 +835,20 @@ Sree Meditec`;
                                                         >
                                                             <ArrowUpRight size={18} />
                                                         </button>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); handleRevise(inv); setActiveMenuId(null); }} 
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                const confirmed = await showConfirm(`Convert quotation ${inv.invoiceNumber} into a new Lead?`);
+                                                                if (confirmed) await handleConvertToLead(inv);
+                                                                setActiveMenuId(null);
+                                                            }}
+                                                            className="p-2.5 text-violet-600 hover:bg-violet-50 rounded-[2rem] transition-all"
+                                                            title="Convert to Lead"
+                                                        >
+                                                            <UserPlus size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleRevise(inv); setActiveMenuId(null); }}
                                                             className="p-2.5 text-amber-500 hover:bg-amber-50 rounded-[2rem] transition-all"
                                                             title="Revise Quote"
                                                         >
