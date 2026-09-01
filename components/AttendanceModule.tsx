@@ -1444,42 +1444,56 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         const isFuture = date > today;
                                         const isSunday = date.getDay() === 0;
 
+                                        const approvedLeave = leaveRequests.find(lr => 
+                                            lr.userId === calendarSelectedUser.id && 
+                                            lr.status === 'Approved' && 
+                                            ds >= lr.startDate && 
+                                            ds <= lr.endDate
+                                        );
+
                                         let bgColor = 'bg-slate-50';
                                         let textColor = 'text-slate-400';
                                         let borderColor = 'border-slate-100';
                                         let statusText = '';
                                         let reasonText = '';
 
-                                        if (isFuture || isBeforeJoin) {
+                                        if (isBeforeJoin) {
                                             bgColor = 'bg-slate-50/50';
                                             textColor = 'text-slate-300';
-                                            statusText = isBeforeJoin ? 'Not Joined' : '';
-                                        } else if (record) {
-                                            if (record.status === 'OnLeave') {
-                                                bgColor = 'bg-rose-50';
-                                                textColor = 'text-rose-700';
-                                                borderColor = 'border-rose-100';
-                                                statusText = 'Leave';
-                                                reasonText = record.leaveReason || 'On Approved Leave';
-                                            } else if (record.workMode === 'Outstation') {
-                                                bgColor = 'bg-purple-50';
-                                                textColor = 'text-purple-700';
-                                                borderColor = 'border-purple-100';
-                                                statusText = 'Outstation';
-                                                reasonText = 'Outstation Duty';
-                                            } else if (record.status === 'Completed' || record.status === 'CheckedIn') {
-                                                bgColor = 'bg-emerald-50';
-                                                textColor = 'text-emerald-700';
-                                                borderColor = 'border-emerald-100';
-                                                statusText = 'Present';
-                                                reasonText = formatDuration(record.totalWorkedMs);
-                                            }
+                                            statusText = 'Not Joined';
+                                        } else if (record && record.status === 'OnLeave') {
+                                            bgColor = 'bg-rose-50';
+                                            textColor = 'text-rose-700';
+                                            borderColor = 'border-rose-100';
+                                            statusText = 'Leave';
+                                            reasonText = record.leaveReason || 'On Approved Leave';
+                                        } else if (approvedLeave) {
+                                            bgColor = 'bg-rose-50';
+                                            textColor = 'text-rose-700';
+                                            borderColor = 'border-rose-100';
+                                            statusText = 'Leave';
+                                            reasonText = approvedLeave.reason || 'Approved Leave';
+                                        } else if (record && record.workMode === 'Outstation') {
+                                            bgColor = 'bg-purple-50';
+                                            textColor = 'text-purple-700';
+                                            borderColor = 'border-purple-100';
+                                            statusText = 'Outstation';
+                                            reasonText = 'Outstation Duty';
+                                        } else if (record && (record.status === 'Completed' || record.status === 'CheckedIn' || record.status === 'Paused')) {
+                                            bgColor = 'bg-emerald-50';
+                                            textColor = 'text-emerald-700';
+                                            borderColor = 'border-emerald-100';
+                                            statusText = 'Present';
+                                            reasonText = formatDuration(record.totalWorkedMs);
                                         } else if (isHoliday) {
                                             bgColor = 'bg-amber-50';
                                             textColor = 'text-amber-600';
                                             borderColor = 'border-amber-100';
                                             statusText = 'Holiday';
                                             reasonText = isHoliday.name;
+                                        } else if (isFuture) {
+                                            bgColor = 'bg-slate-50/50';
+                                            textColor = 'text-slate-300';
                                         } else if (isSunday) {
                                             bgColor = 'bg-slate-100';
                                             textColor = 'text-slate-500';
