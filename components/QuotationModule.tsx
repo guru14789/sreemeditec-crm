@@ -4,7 +4,7 @@ import { Invoice, InvoiceItem, TabView, Lead, LeadStatus } from '../types';
 import { 
     Plus, Search, Trash2, PenTool, X,
     History, Download, Edit, Eye, List as ListIcon, RefreshCw, MoreVertical, UserPlus,
-    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail, ChevronDown
+    Image as ImageIcon, FileText, CheckCircle, Percent, CreditCard, ShieldCheck, User, ArrowUpRight, MessageSquare, Mail, ChevronDown, Users, Filter, PieChart as PieChartIcon
 } from 'lucide-react';
 import { useData } from './DataContext';
 import { FilingFilterDropdown } from './FilingFilterDropdown';
@@ -12,6 +12,7 @@ import { InventoryMappingPanel } from './InventoryMappingPanel';
 import { VendorSelectionModal } from './VendorSelectionModal';
 import { PDFService } from '../services/PDFService';
 import { FiledStatusIndicator } from './FiledStatusIndicator';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const formatDateDDMMYYYY = (dateStr?: string) => {
     if (!dateStr) return '---';
@@ -111,7 +112,7 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
 import { AutoSuggest } from './AutoSuggest';
 
 export const QuotationModule: React.FC = () => {
-    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addLead, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData, logs } = useData();
+    const { clients, products, invoices, allInvoicesKpi, addInvoice, updateInvoice, removeInvoice, addLead, addNotification, currentUser, pendingQuoteData, setPendingQuoteData, financialYear, companyProfiles, isSystemAdmin, bankDetailsList = [], setPendingInvoiceData, setActiveTab, showConfirm, previewPDF, showAlert, showPrompt, fetchMoreData, logs, employees } = useData();
     const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.QUOTES] === 'Admin';
     // Author = the user who was logged in when the quotation was CREATED (from login activity logs),
     // falling back to the stored createdBy. Never the person who closed/edited it later.
@@ -227,12 +228,15 @@ Sree Meditec`;
         window.open(url, '_blank');
     };
 
-    const [viewState, setViewState] = useState<'history' | 'builder'>('history');
+    const [viewState, setViewState] = useState<'history' | 'builder' | 'turnover'>('history');
     const [builderTab, setBuilderTab] = useState<'form' | 'preview' | 'catalog'>('form');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [catalogSearch, setCatalogSearch] = useState('');
     const [quoteSearch, setQuoteSearch] = useState('');
     const [filingFilter, setFilingFilter] = useState<'All' | 'Filed' | 'Not Filed' | 'Not Updated'>('All');
+    const [employeeFilter, setEmployeeFilter] = useState<string>('All');
+    const [selectedEmployeeForTurnover, setSelectedEmployeeForTurnover] = useState<string | null>(null);
+    const [selectedStatusForTurnover, setSelectedStatusForTurnover] = useState<'All' | 'Invoiced' | 'Pending' | 'Cancelled' | 'Draft'>('All');
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -578,6 +582,11 @@ Sree Meditec`;
             });
         }
 
+        // Employee filter
+        if (employeeFilter !== 'All') {
+            filtered = filtered.filter(i => i.handlingEmployee === employeeFilter);
+        }
+
         return filtered.sort((a, b) => {
                 const aData = getQuoteNumberParts(a.invoiceNumber);
                 const bData = getQuoteNumberParts(b.invoiceNumber);
@@ -600,7 +609,47 @@ Sree Meditec`;
                 // 4. Quaternary: Revision Number (Descending - R2 before R1)
                 return bData.revNum - aData.revNum;
             });
-    }, [invoices, quoteSearch, filingFilter]);
+    }, [invoices, quoteSearch, filingFilter, employeeFilter]);
+
+    // Employee-wise Quotation Summary
+    const employeeSummary = useMemo(() => {
+        const allQuotes = invoices.filter(i => i.documentType === 'Quotation');
+        // Get all active employees
+        const activeEmployees = employees.filter(e => e.status !== 'Resigned');
+        
+        // Get invoiced quotation IDs (invoices that reference a quotation)
+        const invoicedQuoteIds = new Set(
+            invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationId).map(i => i.refQuotationId)
+        );
+        
+        // Also include manually marked completed quotations
+        const manuallyCompletedQuoteIds = new Set(
+            allQuotes.filter(q => q.status === 'Completed').map(q => q.id)
+        );
+        
+        const allInvoicedQuoteIds = new Set([...invoicedQuoteIds, ...manuallyCompletedQuoteIds]);
+
+        return activeEmployees.map(emp => {
+            const assignedQuotes = allQuotes.filter(q => q.handlingEmployee === emp.id);
+            const total = assignedQuotes.length;
+            const invoiced = assignedQuotes.filter(q => allInvoicedQuoteIds.has(q.id)).length;
+            const cancelled = assignedQuotes.filter(q => q.status === 'Cancelled').length;
+            const draft = assignedQuotes.filter(q => q.status === 'Draft').length;
+            const pending = total - invoiced - cancelled - draft;
+            const totalValue = assignedQuotes.reduce((sum, q) => sum + (q.grandTotal || 0), 0);
+            
+            return {
+                employeeId: emp.id,
+                employeeName: emp.name,
+                total,
+                invoiced,
+                cancelled,
+                draft,
+                pending: Math.max(0, pending), // ensure no negative
+                totalValue
+            };
+        }).filter(s => s.total > 0); // Only show employees with assigned quotations
+    }, [invoices, employees]);
 
     const filteredCatalog = useMemo(() => {
         return products.filter(p => p.name.toLowerCase().includes(catalogSearch.toLowerCase()) || p.sku.toLowerCase().includes(catalogSearch.toLowerCase()));
@@ -625,41 +674,7 @@ Sree Meditec`;
                         </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
-                        <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
-                            <Percent size={16} />
-                        </div>
-                        <div className="flex flex-col truncate">
-                            <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Total Pipeline Value</p>
-                            <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
-                                ₹{invoices
-                                    .filter(i => i.documentType === 'Quotation' && i.status === 'Draft')
-                                    .reduce((sum, i) => sum + (i.grandTotal || 0), 0)
-                                    .toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="hidden md:flex items-center gap-4 bg-gradient-to-r from-emerald-600 to-indigo-500 border border-emerald-500/20 shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
-                        <div className="p-1.5 bg-white/10 text-white rounded-full shadow-inner shrink-0">
-                            <ArrowUpRight size={16} />
-                        </div>
-                        <div className="flex flex-col truncate">
-                            <p className="text-[8px] font-black text-emerald-100/80 uppercase tracking-widest leading-none mb-1 truncate">Converted Quotes</p>
-                            <p className="text-lg font-playfair font-bold tracking-tight text-white leading-none tabular-nums">
-                                {(() => {
-                                    // Count unique quotation IDs that have been invoiced (either manually updated or via invoice link)
-                                    const quoteIdsWithInvoice = new Set(
-                                        invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationId).map(i => i.refQuotationId)
-                                    );
-                                    const manualCompletedQuotes = invoices.filter(
-                                        i => i.documentType === 'Quotation' && i.status === 'Completed' && !quoteIdsWithInvoice.has(i.id)
-                                    );
-                                    return quoteIdsWithInvoice.size + manualCompletedQuotes.length;
-                                })()}
-                            </p>
-                        </div>
-                    </div>
+                    {/* Cards moved to Turnover view */}
                 </div>
 
                 {/* Bottom Row: Actions & Search */}
@@ -688,9 +703,28 @@ Sree Meditec`;
                                     </button>
                                 )}
                             </div>
+                            {viewState === 'history' && employeeSummary.length > 0 && (
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <select
+                                        value={employeeFilter}
+                                        onChange={(e) => setEmployeeFilter(e.target.value)}
+                                        className="w-full sm:w-48 bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-2 px-4 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase shadow-inner appearance-none cursor-pointer"
+                                    >
+                                        <option value="All">All Employees</option>
+                                        {employeeSummary.map(emp => (
+                                            <option key={emp.employeeId} value={emp.employeeId}>
+                                                {emp.employeeName} ({emp.total})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
                     )}
                     <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+                        <button onClick={() => setViewState('turnover')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'turnover' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                            <PieChartIcon as PieChartIcon size={16} /> Turnover
+                        </button>
                         <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <History size={16} /> History
                         </button>
@@ -709,7 +743,144 @@ Sree Meditec`;
                 </div>
             </div>
 
-            {viewState === 'history' ? (
+            {viewState === 'turnover' ? (
+                <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-auto custom-scrollbar flex flex-col p-4 md:p-6 animate-in fade-in">
+                    <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] mb-6">Employee Turnover Analytics</h3>
+                    
+                    <div className="flex flex-wrap gap-4 mb-8">
+                        {employeeSummary.map((emp, idx) => (
+                            <div key={emp.employeeId} onClick={() => { setSelectedEmployeeForTurnover(emp.employeeId); setSelectedStatusForTurnover('All'); }} className={`flex-1 min-w-[200px] border rounded-[1.5rem] p-4 shadow-sm transition-all cursor-pointer ${selectedEmployeeForTurnover === emp.employeeId ? 'bg-emerald-50 border-emerald-300 shadow-md ring-2 ring-emerald-500/20' : 'bg-slate-50 border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/50'}`}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest truncate">{emp.employeeName}</p>
+                                    <Users size={16} className="text-slate-400" />
+                                </div>
+                                <div className="grid grid-cols-4 gap-2 text-center">
+                                    <div className={`rounded-lg p-2 border shadow-sm transition-all hover:scale-105 ${selectedEmployeeForTurnover === emp.employeeId && selectedStatusForTurnover === 'All' ? 'bg-white border-emerald-400 ring-1 ring-emerald-400' : 'bg-white border-slate-100'}`} onClick={(e) => { e.stopPropagation(); setSelectedEmployeeForTurnover(emp.employeeId); setSelectedStatusForTurnover('All'); }}>
+                                        <p className="text-base font-playfair font-bold text-slate-800">{emp.total}</p>
+                                        <p className="text-[8px] font-black text-slate-500 uppercase mt-1">Total</p>
+                                    </div>
+                                    <div className={`rounded-lg p-2 border shadow-sm transition-all hover:scale-105 ${selectedEmployeeForTurnover === emp.employeeId && selectedStatusForTurnover === 'Invoiced' ? 'bg-emerald-100 border-emerald-400 ring-1 ring-emerald-400' : 'bg-emerald-50 border-emerald-100'}`} onClick={(e) => { e.stopPropagation(); setSelectedEmployeeForTurnover(emp.employeeId); setSelectedStatusForTurnover('Invoiced'); }}>
+                                        <p className="text-base font-playfair font-bold text-emerald-700">{emp.invoiced}</p>
+                                        <p className="text-[8px] font-black text-emerald-600 uppercase mt-1">Invoiced</p>
+                                    </div>
+                                    <div className={`rounded-lg p-2 border shadow-sm transition-all hover:scale-105 ${selectedEmployeeForTurnover === emp.employeeId && selectedStatusForTurnover === 'Pending' ? 'bg-amber-100 border-amber-400 ring-1 ring-amber-400' : 'bg-amber-50 border-amber-100'}`} onClick={(e) => { e.stopPropagation(); setSelectedEmployeeForTurnover(emp.employeeId); setSelectedStatusForTurnover('Pending'); }}>
+                                        <p className="text-base font-playfair font-bold text-amber-700">{emp.pending}</p>
+                                        <p className="text-[8px] font-black text-amber-600 uppercase mt-1">Pending</p>
+                                    </div>
+                                    <div className={`rounded-lg p-2 border shadow-sm transition-all hover:scale-105 ${selectedEmployeeForTurnover === emp.employeeId && selectedStatusForTurnover === 'Cancelled' ? 'bg-rose-100 border-rose-400 ring-1 ring-rose-400' : 'bg-rose-50 border-rose-100'}`} onClick={(e) => { e.stopPropagation(); setSelectedEmployeeForTurnover(emp.employeeId); setSelectedStatusForTurnover('Cancelled'); }}>
+                                        <p className="text-base font-playfair font-bold text-rose-700">{emp.cancelled}</p>
+                                        <p className="text-[8px] font-black text-rose-600 uppercase mt-1">Cancelled</p>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] font-bold text-emerald-600 mt-3 text-right">₹{emp.totalValue.toLocaleString('en-IN')} Value</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="min-h-[300px] mb-8">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={employeeSummary} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} onClick={(state) => {
+                                if (state && state.activePayload && state.activePayload.length > 0) {
+                                    setSelectedEmployeeForTurnover(state.activePayload[0].payload.employeeId);
+                                }
+                            }}>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                                <XAxis dataKey="employeeName" tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                                <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} />
+                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }} />
+                                <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }} />
+                                <Bar yAxisId="left" dataKey="invoiced" name="Invoiced Quotes" fill="#10b981" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} />
+                                <Bar yAxisId="left" dataKey="pending" name="Pending Quotes" fill="#f59e0b" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} />
+                                <Bar yAxisId="right" dataKey="totalValue" name="Pipeline Value (₹)" fill="#c5a059" radius={[4, 4, 0, 0]} style={{ cursor: 'pointer' }} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {selectedEmployeeForTurnover && (
+                        <div className="mt-4 border-t border-slate-200 pt-6 animate-in slide-in-from-bottom-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-black text-slate-800 uppercase tracking-widest text-[11px]">Detailed Breakdown - {employeeSummary.find(e => e.employeeId === selectedEmployeeForTurnover)?.employeeName} {selectedStatusForTurnover !== 'All' ? `(${selectedStatusForTurnover})` : ''}</h4>
+                                {selectedStatusForTurnover !== 'All' && (
+                                    <button onClick={() => setSelectedStatusForTurnover('All')} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest flex items-center gap-1">
+                                        <X size={12} /> Clear Filter
+                                    </button>
+                                )}
+                            </div>
+                            <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] overflow-hidden">
+                                <table className="w-full text-left text-[11px]">
+                                    <thead className="bg-slate-100 font-bold uppercase text-[8px] text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-4 py-3">Reference / Date</th>
+                                            <th className="px-4 py-3">Customer</th>
+                                            <th className="px-4 py-3">Subject</th>
+                                            <th className="px-4 py-3 text-center">Status</th>
+                                            <th className="px-4 py-3 text-right">Value (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {(() => {
+                                            const filteredQuotes = invoices.filter(i => {
+                                                if (i.documentType !== 'Quotation' || i.handlingEmployee !== selectedEmployeeForTurnover) return false;
+                                                
+                                                let displayStatus = i.status;
+                                                const quoteIdsWithInvoice = new Set(invoices.filter(inv => inv.documentType === 'Invoice' && inv.refQuotationId).map(inv => inv.refQuotationId));
+                                                if (quoteIdsWithInvoice.has(i.id) || i.status === 'Completed') {
+                                                    displayStatus = 'Invoiced';
+                                                } else if (i.status !== 'Draft' && i.status !== 'Cancelled') {
+                                                    displayStatus = 'Pending';
+                                                }
+                                                
+                                                if (selectedStatusForTurnover !== 'All' && displayStatus !== selectedStatusForTurnover) return false;
+                                                return true;
+                                            }).sort((a,b) => (b.grandTotal || 0) - (a.grandTotal || 0));
+
+                                            if (filteredQuotes.length === 0) {
+                                                return (
+                                                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-bold text-xs">No quotations found.</td></tr>
+                                                );
+                                            }
+
+                                            return filteredQuotes.map(inv => {
+                                                let displayStatus = inv.status;
+                                                const quoteIdsWithInvoice = new Set(invoices.filter(i => i.documentType === 'Invoice' && i.refQuotationId).map(i => i.refQuotationId));
+                                                if (quoteIdsWithInvoice.has(inv.id) || inv.status === 'Completed') {
+                                                    displayStatus = 'Invoiced';
+                                                } else if (inv.status !== 'Draft' && inv.status !== 'Cancelled') {
+                                                    displayStatus = 'Pending';
+                                                }
+                                                return (
+                                                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-black text-slate-800 tracking-widest">{inv.invoiceNumber}</div>
+                                                            <div className="text-slate-400 font-bold text-[9px] mt-0.5">{inv.date}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 font-bold text-slate-700">{inv.customerName}</td>
+                                                        <td className="px-4 py-3 text-slate-500 truncate max-w-[200px]">{inv.subject || '—'}</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className={`px-2 py-1 rounded-[2rem] text-[8px] font-black uppercase tracking-widest border ${
+                                                                displayStatus === 'Invoiced' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                                                displayStatus === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                displayStatus === 'Cancelled' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                                                                'bg-slate-100 text-slate-500 border-slate-200'
+                                                            }`}>
+                                                                {displayStatus}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-black text-slate-800">
+                                                            ₹{(inv.grandTotal || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : viewState === 'history' ? (
                 <div className="flex-1 bg-white rounded-none md:rounded-3xl border-0 md:border border-slate-300 shadow-sm overflow-hidden flex flex-col animate-in fade-in">
                     <div className="p-3 md:p-4 border-b border-slate-300 bg-slate-50/30 flex justify-between items-center gap-3">
                         <h3 className="font-black text-slate-800 uppercase tracking-widest text-[10px] w-full sm:w-auto">Quotations Archive</h3>
@@ -717,12 +888,12 @@ Sree Meditec`;
                     <div className="flex-1 overflow-auto custom-scrollbar">
                         <table className="w-full text-left text-[11px]">
                             <thead className="bg-slate-50 sticky top-0 z-10 font-bold uppercase text-[8px] text-slate-500 border-b">
-                                <tr><th className="px-4 py-2 font-inter">Reference / Date</th><th className="px-4 py-2">Consignee</th><th className="px-4 py-2 hidden md:table-cell">Author</th><th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th><th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th><th className="px-4 py-2 text-center hidden sm:table-cell">Status</th><th className="px-4 py-2 text-right">Action</th></tr>
+                                <tr><th className="px-4 py-2 font-inter">Reference / Date</th><th className="px-4 py-2">Consignee</th><th className="px-4 py-2 hidden md:table-cell">Author</th><th className="px-4 py-2 hidden md:table-cell">Handling Employee</th><th className="px-4 py-2 text-right hidden sm:table-cell">Grand Total</th><th className="px-4 py-2 text-center hidden sm:table-cell">Filed Status</th><th className="px-4 py-2 text-center hidden sm:table-cell">Status</th><th className="px-4 py-2 text-right">Action</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {sortedQuotes.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                                        <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                                             <div className="flex flex-col items-center gap-2">
                                                 <Search size={32} className="opacity-10" />
                                                 <p className="text-[10px] font-black uppercase tracking-widest">No matching quotations found</p>
@@ -736,15 +907,36 @@ Sree Meditec`;
                                             <div className="text-slate-400 font-bold text-[10px] mt-0.5 leading-tight">{inv.date || '—'}</div>
                                         </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{inv.customerName}</td>
-                                        <td className="px-4 py-2 hidden md:table-cell">
-                                            <div
-                                                title={resolveAuthor(inv)}
-                                                className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
-                                            >
-                                                {resolveAuthor(inv).charAt(0)}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
+<td className="px-4 py-2 hidden md:table-cell">
+                                             <div
+                                                 title={resolveAuthor(inv)}
+                                                 className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black uppercase text-slate-500 shadow-inner border border-slate-200 cursor-help"
+                                             >
+                                                 {resolveAuthor(inv).charAt(0)}
+                                             </div>
+                                         </td>
+                                         {/* Handling Employee Column */}
+                                         <td className="px-4 py-2 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                                             <select
+                                                 value={inv.handlingEmployee || ''}
+                                                 onChange={async (e) => {
+                                                     const selectedEmpId = e.target.value;
+                                                     const selectedEmp = employees.find(emp => emp.id === selectedEmpId);
+                                                     await updateInvoice(inv.id, {
+                                                         handlingEmployee: selectedEmpId,
+                                                         handlingEmployeeName: selectedEmp?.name || ''
+                                                     });
+                                                     addNotification('Employee Assigned', `Quotation ${inv.invoiceNumber} assigned to ${selectedEmp?.name || 'Unassigned'}`, 'success');
+                                                 }}
+                                                 className="w-full max-w-[150px] px-2 py-1 rounded-full text-[9px] font-black uppercase outline-none cursor-pointer border border-slate-200 transition-all hover:border-slate-400 bg-white"
+                                             >
+                                                 <option value="">Unassigned</option>
+                                                 {employees.filter(e => e.status !== 'Resigned').map(emp => (
+                                                     <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                                 ))}
+                                             </select>
+                                         </td>
+                                         <td className="px-4 py-2 text-right font-black text-teal-700 hidden sm:table-cell">₹{(inv.grandTotal || 0).toLocaleString('en-IN')}</td>
                                         <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={inv.id} 
@@ -1048,7 +1240,7 @@ Sree Meditec`;
                                                          </div>
                                                         <div className="grid grid-cols-2 md:col-span-4 gap-4">
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
-                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option><option value="kgs">kgs</option></select></div>
+                                                            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option><option value="kgs">kgs</option><option value="sqft">sqft</option></select></div>
                                                         </div>
                                                         <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
                                                         <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>

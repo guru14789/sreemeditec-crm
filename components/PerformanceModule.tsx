@@ -45,6 +45,7 @@ export const PerformanceModule: React.FC = () => {
 
       const list = employees
           .filter(emp => {
+              if (emp.status === 'Resigned') return false;
               if (isAdmin) return true;
               return !emp.hideFromLeaderboard;
           })

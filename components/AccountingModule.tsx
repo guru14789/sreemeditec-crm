@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useData } from './DataContext';
-import { Landmark, CreditCard, Building2, Copy, CheckCircle2, ShieldCheck, ArrowUpRight, ShieldAlert, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Landmark, CreditCard, Building2, Copy, CheckCircle2, ShieldCheck, ArrowUpRight, ShieldAlert, FileText, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import { BankLedger } from './BankLedger';
 import { PartyStatement } from './PartyStatement';
+import { CapitalAssetsTab } from './CapitalAssetsTab';
 
 export const AccountingModule: React.FC = () => {
   const { bankDetailsList, addNotification } = useData();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState<'accounts' | 'statements'>('accounts');
+  const [activeView, setActiveView] = useState<'accounts' | 'statements' | 'capital'>('accounts');
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -48,6 +49,17 @@ export const AccountingModule: React.FC = () => {
               {isSidebarOpen && "Bank Accounts"}
             </span>
           </button>
+
+          {isSidebarOpen && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-4 pt-5 pb-2">CAPITAL</p>}
+          <button 
+            onClick={() => { setActiveView('capital'); setSelectedBankId(null); }} 
+            className={`w-full flex items-center ${isSidebarOpen ? 'justify-between px-4' : 'justify-center'} py-3 text-[11px] font-semibold transition-all group ${activeView === 'capital' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-r-2 border-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
+          >
+            <span className="flex items-center gap-2">
+              <span className={activeView === 'capital' ? 'text-indigo-600 dark:text-indigo-400' : ''}><Layers size={isSidebarOpen ? 13 : 18} /></span>
+              {isSidebarOpen && "Capital & Assets"}
+            </span>
+          </button>
           
           {isSidebarOpen && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-4 pt-5 pb-2">REPORTS</p>}
           <button 
@@ -64,7 +76,9 @@ export const AccountingModule: React.FC = () => {
       
       <main className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
           
-          {activeView === 'statements' ? (
+          {activeView === 'capital' ? (
+            <CapitalAssetsTab />
+          ) : activeView === 'statements' ? (
             <PartyStatement />
           ) : selectedBankId ? (
             <BankLedger bankId={selectedBankId} onBack={() => setSelectedBankId(null)} />

@@ -674,7 +674,6 @@ export const ServiceOrderModule: React.FC = () => {
                                                                         list={`models-${item.id}`}
                                                                         className="w-full bg-slate-100 rounded-lg px-2 py-1 text-xs font-black outline-none border border-slate-200"
                                                                         value={item.model || ''}
-                                                                        value={item.model || ''}
                                                                         onChange={e => {
                                                                             const val = e.target.value;
                                                                             updateItem(item.id, 'model', val);

@@ -79,10 +79,10 @@ export interface DataContextType {
     products: Product[];
     invoices: Invoice[];
     // All SM invoices (no pagination limit) - used purely for KPI/report aggregation
-    allSmInvoicesKpi: Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[];
-    allInvoicesKpi: Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[];
+    allSmInvoicesKpi: Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'amountPaid' | 'closedBy' | 'customerName' | 'freightAmount' | 'freightTaxRate'>[];
+    allInvoicesKpi: Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'amountPaid' | 'closedBy' | 'customerName' | 'freightAmount' | 'freightTaxRate'>[];
     allExpensesKpi: Pick<ExpenseRecord, 'id' | 'date' | 'amount' | 'status'>[];
-    allPurchaseRecordsKpi: Pick<PurchaseRecord, 'id' | 'dateSupply' | 'materialReceivedDate' | 'total'>[];
+    allPurchaseRecordsKpi: Pick<PurchaseRecord, 'id' | 'dateSupply' | 'materialReceivedDate' | 'total' | 'freightCharges' | 'freightGstPercent' | 'supplier'>[];
     stockMovements: StockMovement[];
     stockBatches: StockBatch[];
     expenses: ExpenseRecord[];
@@ -340,12 +340,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [products, setProducts] = useState<Product[]>([]);
     const [invoiceSnap, setInvoiceSnap] = useState<Invoice[]>([]);
     const [pushedInvoices, setPushedInvoices] = useState<Invoice[]>([]);
-    const [allInvoicesKpi, setAllInvoicesKpi] = useState<Pick<Invoice, 'id' | 'invoiceNumber' | 'date' | 'status' | 'documentType' | 'subtotal' | 'grandTotal' | 'paidAmount' | 'closedBy' | 'customerName'>[]>([]);
     const [allExpensesKpi, setAllExpensesKpi] = useState<Pick<ExpenseRecord, 'id' | 'date' | 'amount' | 'status'>[]>([]);
-    const [allPurchaseRecordsKpi, setAllPurchaseRecordsKpi] = useState<Pick<PurchaseRecord, 'id' | 'dateSupply' | 'materialReceivedDate' | 'total'>[]>([]);
-    const allSmInvoicesKpi = useMemo(() => {
-        return allInvoicesKpi.filter(inv => (inv.invoiceNumber || '').startsWith('SM/'));
-    }, [allInvoicesKpi]);
+    const [allPurchaseRecordsKpi, setAllPurchaseRecordsKpi] = useState<Pick<PurchaseRecord, 'id' | 'dateSupply' | 'materialReceivedDate' | 'total' | 'freightCharges' | 'freightGstPercent' | 'supplier'>[]>([]);
     const invoices = useMemo(() => {
         const ids = new Set(invoiceSnap.map(i => i.id));
         const numKeys = new Set(invoiceSnap.map(i => `${i.documentType}_${(i.invoiceNumber || '').trim().toLowerCase()}`));
@@ -357,6 +353,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })];
         return merged.sort((a,b) => b.date.localeCompare(a.date));
     }, [invoiceSnap, pushedInvoices]);
+
+    const allInvoicesKpi = useMemo(() => invoices, [invoices]);
+    const allSmInvoicesKpi = useMemo(() => {
+        return allInvoicesKpi.filter(inv => (inv.invoiceNumber || '').startsWith('SM/'));
+    }, [allInvoicesKpi]);
+
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [lastLogDoc, setLastLogDoc] = useState<any>(null);
     const [hasMoreLogs, setHasMoreLogs] = useState(true);
@@ -847,17 +849,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy('id', 'desc'), limit(100)), (s) => handleSnap('tasks', s, setTaskSnap), (err) => console.warn("tasks listener:", err));
         const unsubInvoices = onSnapshot(query(collection(db, "invoices"), orderBy('date', 'desc')), (s) => handleSnap('invoices', s, setInvoiceSnap), (err) => console.warn("invoices listener:", err));
 
-        // ── Unlimited invoice listener for KPI totals (no pagination) ──────
-        // Fetches only lightweight fields needed for aggregation
-        const unsubAllInvoices = onSnapshot(
-            collection(db, "invoices"),
-            (snap) => {
-                setAllInvoicesKpi(
-                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
-                );
-            },
-            (err) => console.warn("allInvoicesKpi listener:", err)
-        );
+
 
         // ── Unlimited expenses listener for KPI totals (no pagination) ──────
         const unsubAllExpenses = onSnapshot(
@@ -908,7 +900,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
-            unsubServiceTemplates(); unsubAllInvoices(); unsubAllExpenses(); unsubAllPurchases();
+            unsubServiceTemplates(); unsubAllExpenses(); unsubAllPurchases();
             unsubProducts();
             unsubStats();
         };

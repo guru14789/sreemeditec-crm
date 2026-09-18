@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Product, ProductVendorInfo } from '../types';
-import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw, FileText, Eye, EyeOff, ChevronDown, ChevronRight, Barcode } from 'lucide-react';
+import { Package, AlertTriangle, Search, X, CheckCircle, Trash2, Plus, History, ScanBarcode, Send, Building2, MapPin, Edit2, RefreshCw, ArrowUpRight, ArrowDownLeft, RotateCcw, FileText, Eye, EyeOff, ChevronDown, ChevronRight, Barcode, Info, Tag, Layers } from 'lucide-react';
 import { useData } from './DataContext';
 import { AutoSuggest } from './AutoSuggest';
 
@@ -42,6 +42,7 @@ export const InventoryModule: React.FC = () => {
 
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [showEditProductModal, setShowEditProductModal] = useState(false);
+    const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [inlineEdit, setInlineEdit] = useState<{ id: string, field: string } | null>(null);
 
@@ -267,13 +268,38 @@ export const InventoryModule: React.FC = () => {
         
         if (serverProducts.length > 0) return baseList;
         
-        return baseList.filter(p =>
-            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (p.supplier && p.supplier.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (p.model && p.model.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
+        return baseList.filter(p => {
+            const q = searchQuery.toLowerCase();
+            const matchesBasic = (
+                p.name.toLowerCase().includes(q) ||
+                p.sku.toLowerCase().includes(q) ||
+                p.category.toLowerCase().includes(q) ||
+                (p.subcategory && p.subcategory.toLowerCase().includes(q)) ||
+                (p.supplier && p.supplier.toLowerCase().includes(q)) ||
+                (p.model && p.model.toLowerCase().includes(q)) ||
+                (p.location && p.location.toLowerCase().includes(q)) ||
+                (p.hsn && p.hsn.toLowerCase().includes(q))
+            );
+            if (matchesBasic) return true;
+
+            const matchesVendors = p.vendors?.some(v => 
+                v.vendorName.toLowerCase().includes(q) || 
+                v.vendorId.toLowerCase().includes(q)
+            );
+            if (matchesVendors) return true;
+
+            const matchesBrands = p.brands?.some(b => 
+                b.name.toLowerCase().includes(q) ||
+                b.models?.some(m => 
+                    m.name.toLowerCase().includes(q) ||
+                    m.hsnCode?.toLowerCase().includes(q) ||
+                    m.category?.toLowerCase().includes(q) ||
+                    m.description?.toLowerCase().includes(q) ||
+                    m.vendors?.some(mv => mv.vendorName.toLowerCase().includes(q) || mv.sku.toLowerCase().includes(q))
+                )
+            );
+            return !!matchesBrands;
+        });
     }, [products, searchQuery, serverProducts]);
 
     // Auto-focus input when scan modal opens and is in idle state
@@ -793,28 +819,63 @@ export const InventoryModule: React.FC = () => {
                                 {filteredProducts.map((product) => {
                                     let calculatedStock = 0;
                                     let calculatedAsset = 0;
+                                    let purchasePricesList: number[] = [];
+                                    let sellingPricesList: number[] = [];
+                                    let locationsList: string[] = [];
+
+                                    if (product.location) locationsList.push(product.location);
+                                    if (product.godown && !locationsList.includes(product.godown)) locationsList.push(product.godown);
                                     
                                     if (product.brands && product.brands.length > 0) {
                                         product.brands.forEach(brand => {
                                             if (brand.models) {
                                                 brand.models.forEach(model => {
-                                                    if (model.vendors) {
+                                                    if (model.shelfNumber && !locationsList.includes(model.shelfNumber)) locationsList.push(model.shelfNumber);
+                                                    if (model.boxNumber && !locationsList.includes(model.boxNumber)) locationsList.push(model.boxNumber);
+
+                                                    if (model.vendors && model.vendors.length > 0) {
                                                         model.vendors.forEach(v => {
-                                                            calculatedStock += (v.stock || 0);
-                                                            calculatedAsset += (v.stock || 0) * (v.purchasePrice || 0);
+                                                            const vStock = Number(v.stock || 0);
+                                                            const vPPrice = Number(v.purchasePrice || 0);
+                                                            const vSPrice = Number(v.sellingPrice || 0);
+                                                            calculatedStock += vStock;
+                                                            calculatedAsset += vStock * vPPrice;
+                                                            if (vPPrice > 0) purchasePricesList.push(vPPrice);
+                                                            if (vSPrice > 0) sellingPricesList.push(vSPrice);
                                                         });
                                                     }
                                                 });
                                             }
                                         });
                                     } else {
-                                        calculatedStock = product.stock || 0;
-                                        calculatedAsset = calculatedStock * (product.purchasePrice || 0);
+                                        calculatedStock = Number(product.stock || 0);
+                                        calculatedAsset = calculatedStock * Number(product.purchasePrice || 0);
+                                        if (product.purchasePrice) purchasePricesList.push(Number(product.purchasePrice));
+                                        if (product.sellingPrice) sellingPricesList.push(Number(product.sellingPrice));
+
+                                        if (product.vendors && product.vendors.length > 0) {
+                                            product.vendors.forEach(pv => {
+                                                if (pv.purchasePrice) purchasePricesList.push(Number(pv.purchasePrice));
+                                            });
+                                        }
+                                    }
+
+                                    // Fallback to top-level prices if arrays are empty
+                                    if (purchasePricesList.length === 0 && (product.purchasePrice || 0) > 0) {
+                                        purchasePricesList.push(Number(product.purchasePrice));
+                                    }
+                                    if (sellingPricesList.length === 0 && (product.sellingPrice || 0) > 0) {
+                                        sellingPricesList.push(Number(product.sellingPrice));
                                     }
 
                                     const stock = calculatedStock;
-                                    const purchasePrice = product.purchasePrice || 0;
-                                    const sellingPrice = product.sellingPrice || 0;
+                                    const avgPurchasePrice = purchasePricesList.length > 0 
+                                        ? purchasePricesList.reduce((a, b) => a + b, 0) / purchasePricesList.length 
+                                        : Number(product.purchasePrice || 0);
+                                    const avgSellingPrice = sellingPricesList.length > 0 
+                                        ? sellingPricesList.reduce((a, b) => a + b, 0) / sellingPricesList.length 
+                                        : Number(product.sellingPrice || 0);
+                                    const displayLocation = locationsList.length > 0 ? locationsList.join(' • ') : (product.location || 'Warehouse A');
                                     const isExpanded = !!expandedProductsTree[product.id];
 
                                     return (
@@ -867,10 +928,14 @@ export const InventoryModule: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-1.5 text-right font-black text-slate-400 italic">
-                                                    <span className="text-[11px]">₹{purchasePrice.toLocaleString('en-IN')}</span>
+                                                    <span className="text-[11px]">
+                                                        {avgPurchasePrice > 0 ? `₹${Math.round(avgPurchasePrice).toLocaleString('en-IN')}` : '₹0'}
+                                                    </span>
                                                 </td>
                                                 <td className="px-3 py-1.5 text-right font-black text-teal-700">
-                                                    <span className="text-[11px]">₹{sellingPrice.toLocaleString('en-IN')}</span>
+                                                    <span className="text-[11px]">
+                                                        {avgSellingPrice > 0 ? `₹${Math.round(avgSellingPrice).toLocaleString('en-IN')}` : '₹0'}
+                                                    </span>
                                                 </td>
                                                 <td className="px-3 py-1.5 text-center">
                                                     <div className="flex flex-col items-center">
@@ -881,9 +946,9 @@ export const InventoryModule: React.FC = () => {
                                                     ₹{calculatedAsset.toLocaleString('en-IN')}
                                                 </td>
                                                 <td className="px-3 py-1.5">
-                                                    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate">
+                                                    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 truncate" title={displayLocation}>
                                                         <MapPin size={10} className="shrink-0" />
-                                                        <span className="truncate">{product.location}</span>
+                                                        <span className="truncate max-w-[120px]">{displayLocation}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-1.5">
@@ -892,7 +957,20 @@ export const InventoryModule: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-1.5 text-right" onClick={(e) => e.stopPropagation()}>
-                                                    <div className="relative flex justify-end menu-container">
+                                                    <div className="relative flex items-center justify-end gap-1 menu-container">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDetailsProduct(product);
+                                                            }}
+                                                            title="View Full Brand, Model & Supplier Details"
+                                                            className="p-1.5 md:p-2 rounded-[2rem] bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-800 transition-all flex items-center gap-1 text-[10px] font-black uppercase tracking-wider shadow-sm"
+                                                        >
+                                                            <Eye size={13} />
+                                                            <span className="hidden sm:inline">View</span>
+                                                        </button>
+
                                                         <button 
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
@@ -904,9 +982,12 @@ export const InventoryModule: React.FC = () => {
                                                         </button>
                                                         
                                                         {activeMenuId === product.id && (
-                                                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-[2rem] shadow-xl border border-slate-200 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                                            <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-800 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
                                                                 <div className="p-2 space-y-1">
-                                                                    <button onClick={() => { handleOpenEdit(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-[2rem] transition-colors">
+                                                                    <button onClick={() => { setDetailsProduct(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-[2rem] transition-colors">
+                                                                        <Eye size={14} className="text-indigo-500" /> View Details
+                                                                    </button>
+                                                                    <button onClick={() => { handleOpenEdit(product); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-[2rem] transition-colors">
                                                                         <Edit2 size={14} className="text-indigo-500" /> Edit Product
                                                                     </button>
                                                                     <button onClick={() => { setPendingDelete({ id: product.id, name: product.name }); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-[2rem] transition-colors">
@@ -919,56 +1000,159 @@ export const InventoryModule: React.FC = () => {
                                                 </td>
                                             </tr>
 
-                                            {/* Expandable Hierarchical Brand → Model → Vendor Tree */}
-                                            {isExpanded && product.brands && product.brands.length > 0 && (
-                                                <tr className="bg-slate-50/50">
-                                                    <td colSpan={11} className="p-3 pl-8">
-                                                        <div className="space-y-4 border-l-2 border-indigo-100 pl-4 py-2">
-                                                            <h5 className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">Brands & Models Registry</h5>
-                                                            {product.brands.map((brand: any) => (
-                                                                <div key={brand.id} className="space-y-2">
-                                                                    <div className="text-[11px] font-black text-slate-800 uppercase">Brand: {brand.name || 'Generic'}</div>
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4">
-                                                                        {(brand.models || []).map((model: any) => (
-                                                                            <div key={model.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                                                                                <div className="flex justify-between items-center border-b border-slate-100 pb-1">
-                                                                                    <span className="font-black text-xs text-indigo-600">Model: {model.name}</span>
-                                                                                </div>
-                                                                                
-                                                                                {/* Specs */}
-                                                                                {model.specs && model.specs.length > 0 && (
-                                                                                    <div className="text-[10px] space-y-0.5">
-                                                                                        <span className="font-bold text-slate-400">Specifications:</span>
-                                                                                        <div className="grid grid-cols-2 gap-1 bg-slate-50 p-1.5 rounded">
-                                                                                            {model.specs.map((spec: any, idx: number) => (
-                                                                                                <div key={idx} className="truncate"><span className="font-bold text-slate-500">{spec.key}:</span> {spec.value}</div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-
-                                                                                {/* Vendors pricing details */}
-                                                                                {model.vendors && model.vendors.length > 0 && (
-                                                                                    <div className="text-[10px] space-y-1">
-                                                                                        <span className="font-bold text-slate-400">Vendor Pricing & Stock:</span>
-                                                                                        <div className="space-y-1">
-                                                                                            {model.vendors.map((v: any, idx: number) => (
-                                                                                                <div key={idx} className="flex justify-between items-center text-[10px] bg-indigo-50/30 p-1 rounded font-medium">
-                                                                                                    <span className="font-bold truncate max-w-[80px]">{v.vendorName}</span>
-                                                                                                    <span className="font-mono text-slate-400 text-[8px]">{v.sku}</span>
-                                                                                                    <span>Stock: <b className="text-indigo-700">{v.stock}</b></span>
-                                                                                                    <span>P: <b>₹{v.purchasePrice}</b></span>
-                                                                                                    <span>S: <b>₹{v.sellingPrice}</b></span>
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
+                                            {/* Expandable Hierarchical Brand → Model → Vendor Tree or Direct Specs / Suppliers */}
+                                            {isExpanded && (
+                                                <tr className="bg-slate-50/70 dark:bg-slate-850">
+                                                    <td colSpan={11} className="p-4 pl-6 md:pl-10">
+                                                        <div className="space-y-4 border-l-2 border-indigo-400 pl-4 py-1">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Layers size={14} className="text-indigo-600" />
+                                                                    <h5 className="text-[11px] font-black text-indigo-700 uppercase tracking-wider">Product Master Breakdown & Hierarchy</h5>
                                                                 </div>
-                                                            ))}
+                                                                <button
+                                                                    onClick={() => setDetailsProduct(product)}
+                                                                    className="text-[9px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-[2rem] uppercase tracking-wider flex items-center gap-1 transition-all"
+                                                                >
+                                                                    <Eye size={11} /> Open Full Details Modal
+                                                                </button>
+                                                            </div>
+
+                                                            {/* If product has brands & models */}
+                                                            {product.brands && product.brands.length > 0 ? (
+                                                                <div className="space-y-3">
+                                                                    {product.brands.map((brand: any) => (
+                                                                        <div key={brand.id} className="space-y-2 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                                                                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-[8px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded">Brand</span>
+                                                                                    <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase">{brand.name || 'Generic / Unbranded'}</span>
+                                                                                </div>
+                                                                                <span className="text-[9px] font-bold text-slate-400">{(brand.models || []).length} Models</span>
+                                                                            </div>
+
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                                                                                {(brand.models || []).map((model: any) => (
+                                                                                    <div key={model.id} className="bg-slate-50/70 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-2.5">
+                                                                                        <div className="flex justify-between items-start border-b border-slate-200/60 pb-1.5">
+                                                                                            <div>
+                                                                                                <div className="font-black text-[11px] text-indigo-600 uppercase flex items-center gap-1.5">
+                                                                                                    <Tag size={11} /> {model.name || 'Standard Model'}
+                                                                                                </div>
+                                                                                                {model.category && (
+                                                                                                    <span className="text-[8px] font-bold text-slate-400 uppercase">{model.category}</span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            {model.hsnCode && (
+                                                                                                <span className="text-[8px] font-mono bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border text-slate-500">HSN: {model.hsnCode}</span>
+                                                                                            )}
+                                                                                        </div>
+
+                                                                                        {model.description && (
+                                                                                            <p className="text-[9px] text-slate-600 dark:text-slate-300 italic line-clamp-2">{model.description}</p>
+                                                                                        )}
+
+                                                                                        {/* Specs */}
+                                                                                        {model.specs && model.specs.length > 0 && (
+                                                                                            <div className="text-[9px] space-y-1">
+                                                                                                <span className="font-black text-slate-400 uppercase text-[8px] tracking-wider">Specifications:</span>
+                                                                                                <div className="grid grid-cols-2 gap-1 bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                                                                    {model.specs.map((spec: any, idx: number) => (
+                                                                                                        <div key={idx} className="truncate" title={`${spec.key}: ${spec.value}`}>
+                                                                                                            <span className="font-bold text-slate-400">{spec.key}:</span> <span className="font-black text-slate-700 dark:text-slate-200">{spec.value}</span>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+
+                                                                                        {/* Vendors pricing details */}
+                                                                                        {model.vendors && model.vendors.length > 0 ? (
+                                                                                            <div className="text-[9px] space-y-1">
+                                                                                                <span className="font-black text-slate-400 uppercase text-[8px] tracking-wider flex items-center gap-1">
+                                                                                                    <Building2 size={10} /> Suppliers & Stock:
+                                                                                                </span>
+                                                                                                <div className="space-y-1">
+                                                                                                    {model.vendors.map((v: any, idx: number) => (
+                                                                                                        <div key={idx} className="bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800 space-y-0.5">
+                                                                                                            <div className="flex justify-between items-center font-black text-slate-700 dark:text-slate-200">
+                                                                                                                <span className="truncate max-w-[130px] flex items-center gap-1">
+                                                                                                                    <Building2 size={9} className="text-slate-400" /> {v.vendorName || 'Supplier'}
+                                                                                                                </span>
+                                                                                                                <span className="text-emerald-600 text-[8px] font-black bg-emerald-50 px-1 py-0.2 rounded">Stock: {v.stock}</span>
+                                                                                                            </div>
+                                                                                                            <div className="flex justify-between items-center text-[8px] text-slate-500 font-bold">
+                                                                                                                <span>SKU: <span className="font-mono text-slate-700 dark:text-slate-300">{v.sku || '—'}</span></span>
+                                                                                                                <span>P: <b className="text-slate-700 dark:text-slate-200">₹{v.purchasePrice}</b> | S: <b className="text-teal-700">₹{v.sellingPrice}</b></span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div className="text-[8px] text-slate-400 italic">No specific supplier mapped to this model</div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                /* Non-hierarchical / standard product details fallback */
+                                                                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Model / Reference</span>
+                                                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100 mt-0.5 block">{product.model || 'Standard'}</span>
+                                                                        </div>
+                                                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Primary Supplier</span>
+                                                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100 mt-0.5 flex items-center gap-1">
+                                                                                <Building2 size={12} className="text-slate-400" /> {product.supplier || 'Not Specified'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Storage / Godown</span>
+                                                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100 mt-0.5 flex items-center gap-1">
+                                                                                <MapPin size={12} className="text-slate-400" /> {product.location || 'Warehouse A'} {product.godown ? `(${product.godown})` : ''}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {product.vendors && product.vendors.length > 0 && (
+                                                                        <div className="space-y-1.5">
+                                                                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Associated Suppliers ({product.vendors.length})</span>
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                                                                {product.vendors.map((pv, idx) => (
+                                                                                    <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-[10px]">
+                                                                                        <span className="font-black text-slate-700 dark:text-slate-200 flex items-center gap-1 truncate">
+                                                                                            <Building2 size={10} className="text-slate-400" /> {pv.vendorName}
+                                                                                        </span>
+                                                                                        {pv.purchasePrice > 0 && (
+                                                                                            <span className="font-bold text-slate-500">₹{pv.purchasePrice}</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {product.specs && Object.keys(product.specs).length > 0 && (
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider block">Technical Specifications</span>
+                                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                                                {Object.entries(product.specs).map(([k, v], idx) => (
+                                                                                    <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800 text-[9px]">
+                                                                                        <span className="font-bold text-slate-400 block">{k}:</span>
+                                                                                        <span className="font-black text-slate-700 dark:text-slate-200">{v}</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1977,6 +2161,347 @@ export const InventoryModule: React.FC = () => {
                         <div className="p-8 border-t border-slate-300 dark:border-slate-800 flex gap-2.5 bg-slate-50/50 dark:bg-slate-800/50">
                             <button onClick={() => setShowDemoModal(false)} className="flex-1 py-4 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-[2rem] font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
                             <button onClick={handleSendForDemo} className="flex-[2] py-4 bg-purple-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-xl shadow-purple-500/20 active:scale-95 transition-all">Authorize Dispatch</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Product Details Modal (Brand, Model, Supplier/Vendor, Pricing, Specs) */}
+            {detailsProduct && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-3 sm:p-6 animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95">
+                        {/* Modal Header */}
+                        <div className="p-6 md:p-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-start bg-slate-50/80 dark:bg-slate-800/60">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                                        {detailsProduct.category}
+                                    </span>
+                                    {detailsProduct.subcategory && (
+                                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                                            {detailsProduct.subcategory}
+                                        </span>
+                                    )}
+                                    <span className="text-[10px] font-mono text-slate-400">SKU: {detailsProduct.sku}</span>
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-playfair font-bold text-slate-800 dark:text-slate-100">
+                                    {detailsProduct.name}
+                                </h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        const p = detailsProduct;
+                                        setDetailsProduct(null);
+                                        handleOpenEdit(p);
+                                    }}
+                                    className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 rounded-full transition-colors"
+                                    title="Edit Product"
+                                >
+                                    <Edit2 size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setDetailsProduct(null)}
+                                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full transition-colors"
+                                >
+                                    <X size={22} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        {(() => {
+                            let mCalculatedStock = 0;
+                            let mPurchasePrices: number[] = [];
+                            let mSellingPrices: number[] = [];
+                            let mLocations: string[] = [];
+
+                            if (detailsProduct.location) mLocations.push(detailsProduct.location);
+                            if (detailsProduct.godown && !mLocations.includes(detailsProduct.godown)) mLocations.push(detailsProduct.godown);
+
+                            if (detailsProduct.brands && detailsProduct.brands.length > 0) {
+                                detailsProduct.brands.forEach(brand => {
+                                    if (brand.models) {
+                                        brand.models.forEach(model => {
+                                            if (model.shelfNumber && !mLocations.includes(model.shelfNumber)) mLocations.push(model.shelfNumber);
+                                            if (model.boxNumber && !mLocations.includes(model.boxNumber)) mLocations.push(model.boxNumber);
+
+                                            if (model.vendors && model.vendors.length > 0) {
+                                                model.vendors.forEach(v => {
+                                                    const vStock = Number(v.stock || 0);
+                                                    const vPPrice = Number(v.purchasePrice || 0);
+                                                    const vSPrice = Number(v.sellingPrice || 0);
+                                                    mCalculatedStock += vStock;
+                                                    if (vPPrice > 0) mPurchasePrices.push(vPPrice);
+                                                    if (vSPrice > 0) mSellingPrices.push(vSPrice);
+                                                });
+                                            }
+                                        });
+                                    }
+                                });
+                            } else {
+                                mCalculatedStock = Number(detailsProduct.stock || 0);
+                                if (detailsProduct.purchasePrice) mPurchasePrices.push(Number(detailsProduct.purchasePrice));
+                                if (detailsProduct.sellingPrice) mSellingPrices.push(Number(detailsProduct.sellingPrice));
+
+                                if (detailsProduct.vendors && detailsProduct.vendors.length > 0) {
+                                    detailsProduct.vendors.forEach(pv => {
+                                        if (pv.purchasePrice) mPurchasePrices.push(Number(pv.purchasePrice));
+                                    });
+                                }
+                            }
+
+                            if (mPurchasePrices.length === 0 && (detailsProduct.purchasePrice || 0) > 0) {
+                                mPurchasePrices.push(Number(detailsProduct.purchasePrice));
+                            }
+                            if (mSellingPrices.length === 0 && (detailsProduct.sellingPrice || 0) > 0) {
+                                mSellingPrices.push(Number(detailsProduct.sellingPrice));
+                            }
+
+                            const mAvgPurchase = mPurchasePrices.length > 0 ? mPurchasePrices.reduce((a, b) => a + b, 0) / mPurchasePrices.length : Number(detailsProduct.purchasePrice || 0);
+                            const mAvgSelling = mSellingPrices.length > 0 ? mSellingPrices.reduce((a, b) => a + b, 0) / mSellingPrices.length : Number(detailsProduct.sellingPrice || 0);
+                            const mDisplayLoc = mLocations.length > 0 ? mLocations.join(' • ') : (detailsProduct.location || 'Warehouse A');
+
+                            return (
+                                <div className="p-6 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+                                    {/* Key Summary Cards */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        <div className="bg-slate-50 dark:bg-slate-850 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Total Stock</span>
+                                            <div className="text-lg font-black text-slate-800 dark:text-slate-100 mt-1">
+                                                {mCalculatedStock} <span className="text-xs font-bold text-slate-400 uppercase">{detailsProduct.unit || 'nos'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-50 dark:bg-slate-850 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Avg Purchase Price</span>
+                                            <div className="text-lg font-black text-slate-600 dark:text-slate-300 mt-1">
+                                                ₹{Math.round(mAvgPurchase).toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-50 dark:bg-slate-850 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Avg Selling Price</span>
+                                            <div className="text-lg font-black text-teal-600 dark:text-teal-400 mt-1">
+                                                ₹{Math.round(mAvgSelling).toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-50 dark:bg-slate-850 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Location(s)</span>
+                                            <div className="text-xs font-black text-slate-700 dark:text-slate-200 mt-1.5 flex items-center gap-1 truncate" title={mDisplayLoc}>
+                                                <MapPin size={12} className="text-indigo-500 shrink-0" />
+                                                <span className="truncate">{mDisplayLoc}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                            {/* Main Supplier / Primary Vendor Info */}
+                            <div className="bg-white dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                    <Building2 size={14} /> Supplier & Vendor Details
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Primary Supplier</span>
+                                        <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
+                                            {detailsProduct.supplier || 'Not Specified'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Tax & HSN Compliance</span>
+                                        <span className="text-xs font-black text-slate-700 dark:text-slate-200 mt-0.5 block">
+                                            GST: {detailsProduct.taxRate || 0}% {detailsProduct.hsn ? `| HSN: ${detailsProduct.hsn}` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {detailsProduct.vendors && detailsProduct.vendors.length > 0 && (
+                                    <div className="pt-2">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block mb-2">
+                                            Associated Vendors ({detailsProduct.vendors.length})
+                                        </span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {detailsProduct.vendors.map((v, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <Building2 size={14} className="text-indigo-500 shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <span className="font-black text-slate-800 dark:text-slate-100 block truncate">{v.vendorName || 'Supplier'}</span>
+                                                            <span className="text-[9px] font-mono text-slate-400 block">{v.vendorId}</span>
+                                                        </div>
+                                                    </div>
+                                                    {v.purchasePrice > 0 && (
+                                                        <span className="font-black text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border text-[11px]">
+                                                            ₹{v.purchasePrice.toLocaleString('en-IN')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                                    {/* Brand & Model Hierarchical Details */}
+                                    {detailsProduct.brands && detailsProduct.brands.length > 0 ? (
+                                        <div className="space-y-4">
+                                            <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                <Layers size={14} /> Brands & Models Details ({detailsProduct.brands.length} Brands)
+                                            </h4>
+
+                                            <div className="space-y-4">
+                                                {detailsProduct.brands.map((brand: any) => (
+                                                    <div key={brand.id} className="bg-slate-50/70 dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/60 pb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-2.5 py-1 rounded-lg">
+                                                                    Brand
+                                                                </span>
+                                                                <h5 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">
+                                                                    {brand.name || 'Generic / Unbranded'}
+                                                                </h5>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                                                {(brand.models || []).length} Models
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                                            {(brand.models || []).map((model: any) => (
+                                                                <div key={model.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+                                                                    <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                                        <div>
+                                                                            <div className="font-black text-xs text-indigo-600 uppercase flex items-center gap-1.5">
+                                                                                <Tag size={12} /> {model.name || 'Standard Model'}
+                                                                            </div>
+                                                                            {model.category && (
+                                                                                <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5 block">{model.category}</span>
+                                                                            )}
+                                                                        </div>
+                                                                        {model.hsnCode && (
+                                                                            <span className="text-[9px] font-mono bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded border text-slate-500 font-bold">
+                                                                                HSN: {model.hsnCode}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {model.description && (
+                                                                        <p className="text-[10px] text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                                                                            {model.description}
+                                                                        </p>
+                                                                    )}
+
+                                                                    {/* Model Specifications */}
+                                                                    {model.specs && model.specs.length > 0 && (
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
+                                                                                Specifications:
+                                                                            </span>
+                                                                            <div className="grid grid-cols-2 gap-1.5 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg border border-slate-100 dark:border-slate-800 text-[10px]">
+                                                                                {model.specs.map((spec: any, idx: number) => (
+                                                                                    <div key={idx} className="truncate">
+                                                                                        <span className="font-bold text-slate-400">{spec.key}: </span>
+                                                                                        <span className="font-black text-slate-700 dark:text-slate-200">{spec.value}</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Model Vendors & Stock */}
+                                                                    {model.vendors && model.vendors.length > 0 ? (
+                                                                        <div className="space-y-1.5">
+                                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                                                                <Building2 size={11} /> Suppliers, Pricing & Stock:
+                                                                            </span>
+                                                                            <div className="space-y-1.5">
+                                                                                {model.vendors.map((mv: any, vIdx: number) => (
+                                                                                    <div key={vIdx} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 space-y-1 text-[10px]">
+                                                                                        <div className="flex justify-between items-center font-black text-slate-800 dark:text-slate-100">
+                                                                                            <span className="flex items-center gap-1 truncate max-w-[150px]">
+                                                                                                <Building2 size={10} className="text-slate-400" /> {mv.vendorName || 'Supplier'}
+                                                                                            </span>
+                                                                                            <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded font-black">
+                                                                                                Stock: {mv.stock || 0}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold flex-wrap gap-1">
+                                                                                            <span>SKU: <b className="font-mono text-slate-700 dark:text-slate-300">{mv.sku || '—'}</b></span>
+                                                                                            <span>Purchase: <b className="text-slate-800 dark:text-slate-200">₹{mv.purchasePrice}</b></span>
+                                                                                            <span>Selling: <b className="text-teal-700 dark:text-teal-400">₹{mv.sellingPrice}</b></span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-[9px] text-slate-400 italic">No specific supplier mapped to this model</div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Direct Model / Description / Specs */
+                                        <div className="space-y-3">
+                                            <div className="bg-white dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                                <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                    <Tag size={14} /> Model & Description
+                                                </h4>
+                                                <div>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Model / Reference</span>
+                                                    <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">{detailsProduct.model || 'Standard'}</span>
+                                                </div>
+                                                {detailsProduct.description && (
+                                                    <div>
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Description</span>
+                                                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line leading-relaxed">{detailsProduct.description}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {detailsProduct.specs && Object.keys(detailsProduct.specs).length > 0 && (
+                                                <div className="bg-white dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                                                    <h4 className="text-[11px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                                        Technical Specifications
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                                        {Object.entries(detailsProduct.specs).map(([k, v], idx) => (
+                                                            <div key={idx} className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700 text-xs">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase block">{k}</span>
+                                                                <span className="font-black text-slate-800 dark:text-slate-100 mt-0.5 block">{String(v)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Modal Footer */}
+                        <div className="p-4 md:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 flex justify-between items-center">
+                            <span className="text-[10px] font-mono text-slate-400">ID: {detailsProduct.id}</span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setDetailsProduct(null)}
+                                    className="px-5 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-[2rem] font-black text-xs uppercase tracking-wider hover:bg-slate-300 transition-colors"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const p = detailsProduct;
+                                        setDetailsProduct(null);
+                                        handleOpenEdit(p);
+                                    }}
+                                    className="px-5 py-2.5 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-1.5"
+                                >
+                                    <Edit2 size={13} /> Edit Product
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

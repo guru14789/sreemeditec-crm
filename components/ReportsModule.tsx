@@ -180,6 +180,7 @@ export const ReportsModule: React.FC = () => {
   
   // Use un-paginated collections for reports so they are not affected by paginated screens
   const invoices = allInvoicesKpi;
+  const smInvoices = allSmInvoicesKpi;
   const expenses = allExpensesKpi;
   const purchaseRecords = allPurchaseRecordsKpi;
   const [dateRange, setDateRange] = useState('This Year');
@@ -281,6 +282,10 @@ export const ReportsModule: React.FC = () => {
     return true;
   };
 
+  // Helper to determine if current filter is Year-based or Month-based
+  const isYearFilter = dateRange === 'This Year';
+  const isMonthFilter = dateRange === 'This Month' || ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].includes(dateRange);
+
   const analyticsData = useMemo(() => {
     // 1. Top Customers (based on invoiced amounts)
     const customerMap: Record<string, number> = {};
@@ -305,14 +310,25 @@ export const ReportsModule: React.FC = () => {
       .slice(0, 10);
 
     // 1b. Employee Sales & Service Performance against targets (Grand Total, incl. GST)
-    const employeeSalesMap: Record<string, { total: number; invoices: number; name: string; target: number; department: string }> = {};
+    const employeeSalesMap: Record<string, { total: number; invoices: number; name: string; target: number; department: string; monthlyTarget: number; yearlyTarget: number }> = {};
     
-    // Initialize map with active employees' target parameters
-    (employees || []).forEach(emp => {
+    // Initialize map with active employees' target parameters (exclude Resigned employees)
+    (employees || []).filter(emp => emp.status !== 'Resigned').forEach(emp => {
       const scaleRule = SALARY_SCALE.find(s => s.position === emp.position);
-      const targetVal = scaleRule?.monthlyTarget || 0;
+      const monthlyTargetVal = scaleRule?.monthlyTarget || 0;
+      const yearlyTargetVal = monthlyTargetVal * 12;
       const dept = scaleRule?.department || 'Sales';
-      employeeSalesMap[emp.id] = { total: 0, invoices: 0, name: emp.name, target: targetVal, department: dept };
+      // Use yearly target for Year filter, monthly target for Month filter
+      const effectiveTarget = isYearFilter ? yearlyTargetVal : monthlyTargetVal;
+      employeeSalesMap[emp.id] = { 
+        total: 0, 
+        invoices: 0, 
+        name: emp.name, 
+        target: effectiveTarget, 
+        department: dept,
+        monthlyTarget: monthlyTargetVal,
+        yearlyTarget: yearlyTargetVal
+      };
     });
 
     (allSmInvoicesKpi || []).forEach((inv) => {
@@ -321,13 +337,24 @@ export const ReportsModule: React.FC = () => {
       if (!filterByDateRange(inv.date)) return;
       
       const closedById = inv.closedBy || '';
-      const matchedEmp = (employees || []).find(e => e.id === closedById || e.name.trim().toLowerCase() === closedById.trim().toLowerCase());
+      const matchedEmp = (employees || []).find(e => (e.id === closedById || e.name.trim().toLowerCase() === closedById.trim().toLowerCase()) && e.status !== 'Resigned');
       if (matchedEmp) {
         const id = matchedEmp.id;
         const amt = inv.grandTotal || 0; // Full invoice Grand Total (incl. GST)
         if (!employeeSalesMap[id]) {
           const scaleRule = SALARY_SCALE.find(s => s.position === matchedEmp.position);
-          employeeSalesMap[id] = { total: 0, invoices: 0, name: matchedEmp.name, target: scaleRule?.monthlyTarget || 0, department: scaleRule?.department || 'Sales' };
+          const monthlyTargetVal = scaleRule?.monthlyTarget || 0;
+          const yearlyTargetVal = monthlyTargetVal * 12;
+          const effectiveTarget = isYearFilter ? yearlyTargetVal : monthlyTargetVal;
+          employeeSalesMap[id] = { 
+            total: 0, 
+            invoices: 0, 
+            name: matchedEmp.name, 
+            target: effectiveTarget, 
+            department: scaleRule?.department || 'Sales',
+            monthlyTarget: monthlyTargetVal,
+            yearlyTarget: yearlyTargetVal
+          };
         }
         employeeSalesMap[id].total += amt;
         employeeSalesMap[id].invoices += 1;
@@ -340,6 +367,8 @@ export const ReportsModule: React.FC = () => {
         name: data.name,
         total: data.total,
         target: data.target,
+        monthlyTarget: data.monthlyTarget,
+        yearlyTarget: data.yearlyTarget,
         invoices: data.invoices,
         department: data.department,
         percentage: totalSales > 0 ? (data.total / totalSales) * 100 : 0
@@ -435,12 +464,13 @@ export const ReportsModule: React.FC = () => {
       bucket.count += 1;
     });
 
-    // 6. Freight Charges Analysis
+    // 6. Freight Charges Analysis - Client (from Invoices/SM Bills)
     const freightByCustomer: Record<string, { freight: number; gst: number; invoices: number }> = {};
     let totalFreightAmount = 0;
     let totalFreightGst = 0;
     invoices.forEach((inv) => {
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
       const amt = Number(inv.freightAmount) || 0;
       const rate = Number(inv.freightTaxRate) || 0;
@@ -460,6 +490,30 @@ export const ReportsModule: React.FC = () => {
       .sort((a, b) => b.freight - a.freight)
       .slice(0, 10);
 
+    // 6b. Freight Charges Analysis - Vendor (from Purchase Entries)
+    const freightByVendor: Record<string, { freight: number; gst: number; entries: number }> = {};
+    let totalVendorFreightAmount = 0;
+    let totalVendorFreightGst = 0;
+    (purchaseRecords || []).forEach((rec: any) => {
+      if (!filterByDateRange(rec.dateSupply || rec.materialReceivedDate)) return;
+      const amt = Number(rec.freightCharges) || 0;
+      const rate = Number(rec.freightGstPercent) || 0;
+      const gst = (amt * rate) / 100;
+      if (amt > 0) {
+        const name = rec.supplier || 'Unknown Vendor';
+        if (!freightByVendor[name]) freightByVendor[name] = { freight: 0, gst: 0, entries: 0 };
+        freightByVendor[name].freight += amt;
+        freightByVendor[name].gst += gst;
+        freightByVendor[name].entries += 1;
+        totalVendorFreightAmount += amt;
+        totalVendorFreightGst += gst;
+      }
+    });
+    const topFreightVendors = Object.entries(freightByVendor)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.freight - a.freight)
+      .slice(0, 10);
+
     return {
       topCustomers,
       topEmployees,
@@ -471,6 +525,9 @@ export const ReportsModule: React.FC = () => {
       totalFreightAmount,
       totalFreightGst,
       topFreightCustomers,
+      totalVendorFreightAmount,
+      totalVendorFreightGst,
+      topFreightVendors,
     };
   }, [invoices, allSmInvoicesKpi, expenses, purchaseRecords, dateRange]);
  
@@ -593,9 +650,9 @@ export const ReportsModule: React.FC = () => {
       return 'Unknown';
     };
 
-    invoices.forEach(inv => {
+    // Use SM invoices (Sales Module bills) only for LTV calculation - excludes quotations
+    (smInvoices || []).forEach(inv => {
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (inv.documentType && inv.documentType !== 'Invoice') return;
       if (!filterByDateRange(inv.date)) return;
 
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
@@ -636,6 +693,7 @@ export const ReportsModule: React.FC = () => {
           ltv: 0, daysSinceLastOrder: 0, avgOrderGapDays: 0,
           salesRep,
           purchasedProducts: {} as Record<string, { name: string; qty: number; revenue: number; lastDate: string }>,
+          invoiceDetails: [] as Array<{ invoiceNumber: string; date: string; amount: number; items: string }>,
         };
       }
 
@@ -655,11 +713,23 @@ export const ReportsModule: React.FC = () => {
         c.purchasedProducts[pName].revenue += item.amount || 0;
         if (date > c.purchasedProducts[pName].lastDate) c.purchasedProducts[pName].lastDate = date;
       });
+
+      // Store invoice details
+      const itemsStr = (inv.items || [])
+        .map((item: any) => `${item.description || 'N/A'} (Qty: ${item.quantity || 0}, Rate: ₹${(item.rate || 0).toFixed(2)}, Amt: ₹${(item.amount || 0).toFixed(2)})`)
+        .join(' | ');
+      
+      c.invoiceDetails.push({
+        invoiceNumber: inv.invoiceNumber || inv.id,
+        date: inv.date,
+        amount: inv.grandTotal || 0,
+        items: itemsStr,
+      });
     });
 
     return Object.values(customerMap).map((c: any) => {
       c.aov = c.totalOrders > 0 ? c.totalSpend / c.totalOrders : 0;
-      c.ltv = c.totalSpend;
+      c.ltv = c.totalSpend; // LTV based on SM invoices only
 
       // Income category
       if (c.totalSpend >= 500000) c.incomeCategory = 'Premium';
@@ -715,9 +785,20 @@ export const ReportsModule: React.FC = () => {
         .sort((a: any, b: any) => b.revenue - a.revenue);
       delete c.purchasedProducts;
 
+      // Sort invoice details by date (newest first)
+      c.invoiceDetails.sort((a: any, b: any) => b.date.localeCompare(a.date));
+
+      // Calculate total outstanding from SM invoices
+      const customerSMInvoices = (smInvoices || []).filter(inv => 
+        (inv.customerName === c.name || (inv as any).clientName === c.name) &&
+        inv.status !== 'Draft' && inv.status !== 'Cancelled'
+      );
+      c.totalOutstanding = customerSMInvoices.reduce((sum: number, inv: any) => 
+        sum + Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0)), 0);
+
       return c;
     }).sort((a: any, b: any) => b.totalSpend - a.totalSpend);
-  }, [invoices, employees, clients, dateRange]);
+  }, [smInvoices, employees, clients, dateRange]);
 
   const employeeClosuresList = useMemo(() => {
     if (!selectedEmployeeForClosures) return [];
@@ -794,6 +875,7 @@ export const ReportsModule: React.FC = () => {
     });
     invoices.forEach((inv) => {
       if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
       const d = inv.date;
       if (!d) return;
       const monthKey = d.substring(0, 7);
@@ -808,6 +890,30 @@ export const ReportsModule: React.FC = () => {
     });
     return data;
   }, [invoices]);
+
+  const vendorFreightMonthly = useMemo(() => {
+    const monthsShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const now = new Date();
+    const data = Array.from({ length: 12 }, (_, i) => {
+      const m = now.getMonth() - 11 + i;
+      const date = new Date(now.getFullYear(), m, 1);
+      return { label: monthsShort[date.getMonth()], month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, freight: 0, gst: 0, entries: 0 };
+    });
+    (purchaseRecords || []).forEach((rec: any) => {
+      const d = rec.dateSupply || rec.materialReceivedDate;
+      if (!d) return;
+      const monthKey = d.substring(0, 7);
+      const entry = data.find(e => e.month === monthKey);
+      if (entry) {
+        const amt = Number(rec.freightCharges) || 0;
+        const rate = Number(rec.freightGstPercent) || 0;
+        entry.freight += amt;
+        entry.gst += (amt * rate) / 100;
+        if (amt > 0) entry.entries += 1;
+      }
+    });
+    return data;
+  }, [purchaseRecords]);
 
   useEffect(() => {
     const q = query(collection(db, 'summaries'), orderBy('month', 'desc'), limit(60));
@@ -1279,6 +1385,74 @@ export const ReportsModule: React.FC = () => {
     link.click();
   };
 
+  const handleExportSalesLeaderboardCSV = () => {
+    // Get invoices filtered by date range and matched to employees (same logic as analyticsData)
+    const employeeInvoices: Record<string, any[]> = {};
+    
+    (allSmInvoicesKpi || []).forEach((inv) => {
+      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
+      if (inv.documentType && inv.documentType !== 'Invoice') return;
+      if (!filterByDateRange(inv.date)) return;
+      
+      const closedById = inv.closedBy || '';
+      const matchedEmp = (employees || []).find(e => (e.id === closedById || e.name.trim().toLowerCase() === closedById.trim().toLowerCase()) && e.status !== 'Resigned');
+      if (matchedEmp) {
+        const id = matchedEmp.id;
+        if (!employeeInvoices[id]) employeeInvoices[id] = [];
+        employeeInvoices[id].push(inv);
+      }
+    });
+
+    const targetLabel = isYearFilter ? 'Yearly Target (₹)' : 'Monthly Target (₹)';
+    const headers = ['Rank', 'Employee Name', 'Department', targetLabel, 'Employee Total (₹)', 'Achievement %', 'Invoice #', 'Invoice Date', 'Customer', 'Invoice Amount (₹)', 'Items'];
+    const rows: string[][] = [];
+    
+    analyticsData.topEmployees.forEach((emp, idx) => {
+      const invoices = employeeInvoices[emp.id] || [];
+      const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
+      const achievementPct = targetValue > 0 ? ((emp.total / targetValue) * 100).toFixed(1) : 'N/A';
+      
+      if (invoices.length === 0) {
+        rows.push([
+          String(idx + 1),
+          `"${emp.name.replace(/"/g, '""')}"`,
+          emp.department || 'Sales',
+          targetValue.toFixed(2),
+          emp.total.toFixed(2),
+          achievementPct,
+          '', '', '', '', ''
+        ]);
+      } else {
+        invoices.forEach((inv, invIdx) => {
+          const itemsStr = (inv.items || [])
+            .map((item: any) => `${item.description || 'N/A'} (Qty: ${item.quantity || 0}, Rate: ₹${(item.rate || 0).toFixed(2)}, Amt: ₹${(item.amount || 0).toFixed(2)})`)
+            .join(' | ');
+          
+          rows.push([
+            invIdx === 0 ? String(idx + 1) : '',
+            invIdx === 0 ? `"${emp.name.replace(/"/g, '""')}"` : '',
+            invIdx === 0 ? (emp.department || 'Sales') : '',
+            invIdx === 0 ? targetValue.toFixed(2) : '',
+            invIdx === 0 ? emp.total.toFixed(2) : '',
+            invIdx === 0 ? achievementPct : '',
+            inv.invoiceNumber || inv.id,
+            inv.date,
+            `"${(inv.customerName || (inv as any).clientName || 'Unknown').replace(/"/g, '""')}"`,
+            (inv.grandTotal || 0).toFixed(2),
+            `"${itemsStr.replace(/"/g, '""')}"`
+          ]);
+        });
+      }
+    });
+    
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Sales_Leaderboard_Detail_${dateRange.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
   // ══════════════════════════════════════════════════════════════════════════
   // VIEW: CUSTOMER INTELLIGENCE (3-TAB)
   // ══════════════════════════════════════════════════════════════════════════
@@ -1419,11 +1593,11 @@ export const ReportsModule: React.FC = () => {
     };
     const sortIcon = (col: string) => segmentSort === col ? (segmentSortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
 
-    // Customer invoices for modal
+    // Customer invoices for modal - use SM invoices (SM bills) for consistency with LTV
     const customerInvoices = selectedSegmentCustomer
-      ? invoices.filter(inv =>
+      ? (smInvoices || []).filter(inv =>
           (inv.customerName === selectedSegmentCustomer.name || (inv as any).clientName === selectedSegmentCustomer.name) &&
-          inv.documentType === 'Invoice' && inv.status !== 'Draft' && inv.status !== 'Cancelled'
+          inv.status !== 'Cancelled'
         ).sort((a, b) => b.date.localeCompare(a.date))
       : [];
 
@@ -1837,13 +2011,14 @@ export const ReportsModule: React.FC = () => {
         {/* ── CUSTOMER INVOICE MODAL ── */}
         {selectedSegmentCustomer && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedSegmentCustomer(null)}>
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col m-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col m-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b border-slate-200">
                 <div>
                   <h3 className="font-black text-[14px] text-slate-800">{selectedSegmentCustomer.name}</h3>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="text-[9px] text-slate-400 font-bold">{customerInvoices.length} Invoices</span>
-                    <span className="text-[9px] font-black text-emerald-600">₹{formatIndianNumber(selectedSegmentCustomer.totalSpend)} Total</span>
+                    <span className="text-[9px] text-slate-400 font-bold">{customerInvoices.length} SM Invoices</span>
+                    <span className="text-[9px] font-black text-emerald-600">₹{formatIndianNumber(selectedSegmentCustomer.totalSpend)} Total Billed</span>
+                    <span className="text-[9px] font-black text-amber-600">₹{formatIndianNumber(selectedSegmentCustomer.totalOutstanding || 0)} Outstanding</span>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded ${rfmBadge(selectedSegmentCustomer.rfmLabel)}`}>{selectedSegmentCustomer.rfmLabel}</span>
                     <span className={`text-[9px] font-black px-2 py-0.5 rounded ${churnBadge(selectedSegmentCustomer.churnRisk)}`}>{selectedSegmentCustomer.churnRisk === 'High' ? '🔴' : selectedSegmentCustomer.churnRisk === 'Medium' ? '🟡' : '🟢'} Churn: {selectedSegmentCustomer.churnRisk}</span>
                     <span className="text-[9px] text-slate-400">{selectedSegmentCustomer.daysSinceLastOrder}d since last order</span>
@@ -1867,23 +2042,45 @@ export const ReportsModule: React.FC = () => {
                     <tr className="border-b border-slate-100">
                       <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Invoice #</th>
                       <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Date</th>
-                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Status</th>
-                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Amount</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Payment Status</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Billed (₹)</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Paid (₹)</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider text-right">Outstanding (₹)</th>
+                      <th className="pb-2 text-[9px] font-black text-slate-400 uppercase tracking-wider">Items</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {customerInvoices.map((inv, i) => (
-                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 text-[11px] font-bold text-indigo-600">{inv.invoiceNumber}</td>
-                        <td className="py-2.5 text-[10px] text-slate-600">{inv.date}</td>
-                        <td className="py-2.5">
-                          <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${inv.status==='Paid'?'bg-emerald-100 text-emerald-700':inv.status==='Pending'?'bg-yellow-100 text-yellow-700':'bg-slate-100 text-slate-600'}`}>{inv.status}</span>
-                        </td>
-                        <td className="py-2.5 text-[11px] font-black text-emerald-700 text-right">₹{formatIndianNumber(inv.grandTotal)}</td>
-                      </tr>
-                    ))}
-                    {customerInvoices.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-slate-400 font-bold">No invoices found.</td></tr>}
+                    {customerInvoices.map((inv, i) => {
+                      const paid = inv.paidAmount || 0;
+                      const billed = inv.grandTotal || 0;
+                      const outstanding = billed - paid;
+                      const paymentStatus = paid >= billed ? 'Paid' : paid > 0 ? 'Partially Paid' : 'Unpaid';
+                      const statusClass = paid >= billed ? 'bg-emerald-100 text-emerald-700' : paid > 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700';
+                      return (
+                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 text-[11px] font-bold text-indigo-600">{inv.invoiceNumber}</td>
+                          <td className="py-2.5 text-[10px] text-slate-600">{inv.date}</td>
+                          <td className="py-2.5">
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${statusClass}`}>{paymentStatus}</span>
+                          </td>
+                          <td className="py-2.5 text-[11px] font-black text-slate-800 text-right">₹{formatIndianNumber(billed)}</td>
+                          <td className="py-2.5 text-[11px] font-black text-emerald-700 text-right">₹{formatIndianNumber(paid)}</td>
+                          <td className="py-2.5 text-[11px] font-black text-rose-600 text-right">₹{formatIndianNumber(Math.max(0, outstanding))}</td>
+                          <td className="py-2.5 text-[8px] text-slate-500 max-w-[300px] truncate" title={(inv.items || []).map((it: any) => `${it.description} (Qty: ${it.quantity}, Amt: ₹${it.amount})`).join(' | ')}>{(inv.items || []).map((it: any) => `${it.description} (Qty: ${it.quantity}, Amt: ₹${it.amount})`).join(' | ')}</td>
+                        </tr>
+                      );
+                    })}
+                    {customerInvoices.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-slate-400 font-bold">No SM invoices found.</td></tr>}
                   </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50">
+                    <tr>
+                      <td colSpan={3} className="py-2 text-[9px] font-black text-slate-500 text-right">Totals:</td>
+                      <td className="py-2 text-[10px] font-black text-slate-800 text-right">₹{formatIndianNumber(customerInvoices.reduce((s, inv) => s + (inv.grandTotal || 0), 0))}</td>
+                      <td className="py-2 text-[10px] font-black text-emerald-700 text-right">₹{formatIndianNumber(customerInvoices.reduce((s, inv) => s + (inv.paidAmount || 0), 0))}</td>
+                      <td className="py-2 text-[10px] font-black text-rose-600 text-right">₹{formatIndianNumber(customerInvoices.reduce((s, inv) => s + Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0)), 0))}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
@@ -2652,55 +2849,71 @@ export const ReportsModule: React.FC = () => {
             onClick={() => { if (expandedSection !== 'employees') setExpandedSection('employees'); }}
             className={getCardClasses('employees', 'md:col-span-2 min-h-[350px]')}
           >
-            {expandedSection === 'employees' && (
-              <CardFilterAndClose 
-                dateRange={dateRange} 
-                setDateRange={setDateRange} 
-                onClose={() => setExpandedSection(null)} 
-              />
-            )}
+{expandedSection === 'employees' && (
+                <CardFilterAndClose 
+                  dateRange={dateRange} 
+                  setDateRange={setDateRange} 
+                  onClose={() => setExpandedSection(null)} 
+                />
+              )}
               <div className={`flex justify-between items-center ${expandedSection === 'employees' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
                   <p className="text-[7px] text-slate-400 font-bold uppercase">Employee Performance</p>
                 </div>
-                <Users size={12} className="text-slate-400" />
+                <div className="flex items-center gap-2">
+                  {expandedSection === 'employees' && (
+                    <button
+                      onClick={handleExportSalesLeaderboardCSV}
+                      className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm active:scale-95"
+                      title="Export Sales Leaderboard"
+                    >
+                      <Download size={12} className="text-slate-400" /> Export
+                    </button>
+                  )}
+                  <Users size={12} className="text-slate-400" />
+                </div>
               </div>
 
               {expandedSection === 'employees' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                   <div className="flex flex-col justify-between">
                     <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                      {analyticsData.topEmployees.map((emp, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                            <div>
-                              <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px] block">{emp.name}</span>
-                              <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider block">Target: {emp.target > 0 ? `₹${formatIndianNumber(emp.target)}` : 'N/A'}</span>
+                      {analyticsData.topEmployees.map((emp, idx) => {
+                        const targetLabel = isYearFilter ? 'Yearly Target' : 'Monthly Target';
+                        const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
+                        const achievementPct = targetValue > 0 ? Math.round((emp.total / targetValue) * 100) : 0;
+                        return (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
+                              <div>
+                                <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px] block">{emp.name}</span>
+                                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider block">{targetLabel}: {targetValue > 0 ? `₹${formatIndianNumber(targetValue)}` : 'N/A'}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <span 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
-                                }}
-                                className="text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
-                              >
-                                {emp.invoices} Closures
-                              </span>
-                              {emp.target > 0 && (
-                                <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= emp.target ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
-                                  {Math.round((emp.total / emp.target) * 100)}%
+                            <div className="text-right">
+                              <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <span 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
+                                  }}
+                                  className="text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
+                                >
+                                  {emp.invoices} Closures
                                 </span>
-                              )}
+                                {targetValue > 0 && (
+                                  <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= targetValue ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                    {achievementPct}%
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
@@ -2710,8 +2923,8 @@ export const ReportsModule: React.FC = () => {
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend verticalAlign="top" height={24} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase' }} />
-                        <Bar dataKey="total" name="Achieved (Pre-Tax)" fill="url(#colorProfit)" radius={[0, 4, 4, 0]} barSize={8} />
-                        <Bar dataKey="target" name="Monthly Target" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
+                        <Bar dataKey="total" name="Achieved" fill="url(#colorProfit)" radius={[0, 4, 4, 0]} barSize={8} />
+                        <Bar dataKey="target" name={isYearFilter ? 'Yearly Target' : 'Monthly Target'} fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -2719,14 +2932,15 @@ export const ReportsModule: React.FC = () => {
               ) : (
                 <div className="space-y-2 mt-2 flex-1 flex flex-col justify-center">
                   {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => {
-                    const percentage = emp.target > 0 ? Math.round((emp.total / emp.target) * 100) : 0;
+                    const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
+                    const percentage = targetValue > 0 ? Math.round((emp.total / targetValue) * 100) : 0;
                     return (
                       <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
                         <span className="font-black text-slate-700 uppercase">{idx + 1}. {emp.name}</span>
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-slate-600">{formatCurrency(emp.total)}</span>
-                          {emp.target > 0 && (
-                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= emp.target ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                          {targetValue > 0 && (
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= targetValue ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                               {percentage}%
                             </span>
                           )}
@@ -2810,18 +3024,19 @@ export const ReportsModule: React.FC = () => {
               <div className={`flex justify-between items-center ${expandedSection === 'freight' ? 'mb-3 pb-2 border-b' : ''}`}>
                 <div>
                   <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Freight Charges</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Collected</p>
+                  <p className="text-[7px] text-slate-400 font-bold uppercase">Client (SM Bills) & Vendor (Purchase Entries)</p>
                 </div>
                 <Truck size={12} className="text-slate-400" />
               </div>
 
               {expandedSection === 'freight' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                  {/* Client Freight Charges (from Invoices/SM Bills) */}
                   <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
                         <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
-                        <span className="text-[7px] font-bold text-amber-400 uppercase">Freight Amount</span>
+                        <span className="text-[7px] font-bold text-amber-400 uppercase">Client Freight Amount</span>
                       </div>
                       <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
                         <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
@@ -2829,7 +3044,7 @@ export const ReportsModule: React.FC = () => {
                       </div>
                     </div>
                     <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Customers by Freight</h4>
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Clients by Freight</h4>
                       {analyticsData.topFreightCustomers.map((cust, idx) => (
                         <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
                           <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
@@ -2841,7 +3056,7 @@ export const ReportsModule: React.FC = () => {
                       ))}
                     </div>
                     <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Trend</h4>
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Client Monthly Trend</h4>
                       {freightMonthly.filter(m => m.freight > 0).map((m, idx) => (
                         <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
                           <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
@@ -2855,15 +3070,44 @@ export const ReportsModule: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={freightMonthly} margin={{ left: -10, right: 10 }}>
-                        <XAxis dataKey="label" tick={{ fontSize: 7, fontWeight: 'bold' }} />
-                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="freight" fill="url(#colorExp)" radius={[6, 6, 0, 0]} barSize={15} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {/* Vendor Freight Charges (from Purchase Entries) */}
+                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightAmount)}</span>
+                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Vendor Freight Amount</span>
+                      </div>
+                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightGst)}</span>
+                        <span className="text-[7px] font-bold text-indigo-400 uppercase">GST Paid</span>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Vendors by Freight</h4>
+                      {analyticsData.topFreightVendors.map((vend, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{vend.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-black text-indigo-700">{formatCurrency(vend.freight)}</span>
+                            <span className="text-[7px] font-bold text-slate-400">{vend.entries} entries</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3">
+                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Vendor Monthly Trend</h4>
+                      {vendorFreightMonthly.filter(m => m.freight > 0).map((m, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.freight / Math.max(...vendorFreightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
+                            </div>
+                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

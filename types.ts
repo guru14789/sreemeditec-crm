@@ -255,16 +255,28 @@ export interface CostCentre {
 export interface FixedAsset {
   id: string;
   name: string;
-  ledgerId: string;
+  ledgerId?: string;
+  productId?: string;
+  assetTag?: string;
+  serialNumber?: string;
+  category?: string;
+  condition?: 'Brand New' | 'Second Hand / Used';
+  priorUsageMonths?: number;
+  location?: string;
+  department?: string;
+  vendorName?: string;
+  invoiceRef?: string;
   purchaseDate: string;
   purchaseCost: number;
   usefulLifeYears: number;
   salvageValue: number;
   depreciationMethod: 'SLM' | 'WDV';
+  customDepRatePercent?: number;
   accumulatedDepreciation: number;
   netBookValue: number;
   status: 'Active' | 'Disposed' | 'Fully Depreciated';
   disposalDate?: string;
+  notes?: string;
 }
 
 export interface DepreciationScheduleEntry {
@@ -570,6 +582,8 @@ export interface Invoice {
   editHistory?: AuditLogEntry[];
   filedStatus?: 'Not Updated' | 'Filed' | 'Not Filed';
   filedHistory?: FiledHistoryEntry[];
+  handlingEmployee?: string; // Employee ID assigned to handle this quotation
+  handlingEmployeeName?: string; // Employee name for display
 }
 
 export interface StockMovement {
