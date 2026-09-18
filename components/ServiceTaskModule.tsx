@@ -5,8 +5,9 @@ import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
-  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2
+  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2, ListFilter
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useData } from './DataContext';
 
 interface ServiceTaskModuleProps {
@@ -22,12 +23,13 @@ const STATUS_CONFIG: Record<ServiceTaskStatus, { label: string; color: string; d
   'Waiting for Customer': { label: 'Service Finished Waiting', color: 'bg-purple-500', dotColor: 'bg-purple-500' },
   'Cancelled': { label: 'Cancelled', color: 'bg-rose-500', dotColor: 'bg-rose-500' },
   'Reopened': { label: 'Reopened', color: 'bg-orange-500', dotColor: 'bg-orange-500' },
+  'Non Billed': { label: 'Non Billed', color: 'bg-rose-500', dotColor: 'bg-rose-500' },
   'Billed': { label: 'Billed', color: 'bg-slate-500', dotColor: 'bg-slate-500' },
 };
 
 const STATUS_FLOW: ServiceTaskStatus[] = [
   'New', 'Claimed', 'In Progress', 'Completed',
-  'On Hold', 'Waiting for Customer', 'Cancelled', 'Reopened', 'Billed'
+  'On Hold', 'Waiting for Customer', 'Cancelled', 'Reopened', 'Non Billed', 'Billed'
 ];
 
 const getNextStatuses = (current: ServiceTaskStatus, isAdmin: boolean = false): ServiceTaskStatus[] => {
@@ -35,19 +37,23 @@ const getNextStatuses = (current: ServiceTaskStatus, isAdmin: boolean = false): 
     case 'New': return ['Claimed', 'Cancelled'];
     case 'Claimed': return ['In Progress', 'On Hold', 'Waiting for Customer', 'Cancelled'];
     case 'In Progress': return ['Completed', 'On Hold', 'Waiting for Customer', 'Cancelled'];
-    case 'Completed': return isAdmin ? ['Billed', 'Reopened'] : ['Reopened'];
+    case 'Completed': return isAdmin ? ['Non Billed', 'Billed', 'Reopened'] : ['Reopened'];
     case 'On Hold': return ['In Progress', 'Waiting for Customer', 'Cancelled'];
     case 'Waiting for Customer': return ['In Progress', 'On Hold', 'Cancelled'];
     case 'Cancelled': return ['Reopened'];
     case 'Reopened': return ['Claimed', 'In Progress', 'On Hold', 'Cancelled'];
+    case 'Non Billed': return isAdmin ? ['Billed', 'Reopened'] : ['Reopened'];
     case 'Billed': return [];
     default: return ['Claimed', 'Cancelled'];
   }
 };
 
 export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }) => {
-  const { serviceTasks, addServiceTask, updateServiceTask, removeServiceTask, currentUser, showConfirm, addNotification } = useData();
+  const { serviceTasks, employees, addServiceTask, updateServiceTask, removeServiceTask, currentUser, showConfirm, addNotification } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewState, setViewState] = useState<'registry' | 'turnover'>('registry');
+  const [selectedEmployeeForTurnover, setSelectedEmployeeForTurnover] = useState<string | null>(null);
+  const [selectedStatusForTurnover, setSelectedStatusForTurnover] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
@@ -88,7 +94,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const groupedTasks = useMemo(() => {
     const groups: Record<ServiceTaskStatus, ServiceTask[]> = {
       'New': [], 'Claimed': [], 'In Progress': [], 'Completed': [],
-      'On Hold': [], 'Waiting for Customer': [], 'Cancelled': [], 'Reopened': [], 'Billed': []
+      'On Hold': [], 'Waiting for Customer': [], 'Cancelled': [], 'Reopened': [], 'Non Billed': [], 'Billed': []
     };
     filteredTasks.forEach(t => {
       if (groups[t.status]) groups[t.status].push(t);
@@ -111,6 +117,37 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     ).length;
     return { total, newTasks, unassigned, claimed, inProgress, completed, overdue };
   }, [serviceTasks]);
+
+  const employeeSummary = useMemo(() => {
+    const summary: Record<string, { employeeName: string; total: number; attended: number; completed: number; billed: number; notBilled: number; pending: number }> = {};
+    employees.forEach(emp => {
+      summary[emp.id] = { employeeName: emp.name, total: 0, attended: 0, completed: 0, billed: 0, notBilled: 0, pending: 0 };
+    });
+    serviceTasks.forEach(t => {
+      if (t.assignedToId && summary[t.assignedToId]) {
+        const empStat = summary[t.assignedToId];
+        empStat.total++;
+        if (t.status !== 'New' && t.status !== 'Cancelled') empStat.attended++;
+        if (['Completed', 'Non Billed', 'Billed'].includes(t.status)) empStat.completed++;
+        if (t.status === 'Non Billed') empStat.notBilled++;
+        if (t.status === 'Billed') empStat.billed++;
+        if (['New', 'Claimed', 'In Progress', 'On Hold', 'Waiting for Customer', 'Reopened'].includes(t.status)) empStat.pending++;
+      } else if (t.assignedTo) {
+        // Fallback if ID is missing but name matches
+        const emp = employees.find(e => e.name === t.assignedTo);
+        if (emp && summary[emp.id]) {
+          const empStat = summary[emp.id];
+          empStat.total++;
+          if (t.status !== 'New' && t.status !== 'Cancelled') empStat.attended++;
+          if (['Completed', 'Non Billed', 'Billed'].includes(t.status)) empStat.completed++;
+          if (t.status === 'Non Billed') empStat.notBilled++;
+          if (t.status === 'Billed') empStat.billed++;
+          if (['New', 'Claimed', 'In Progress', 'On Hold', 'Waiting for Customer', 'Reopened'].includes(t.status)) empStat.pending++;
+        }
+      }
+    });
+    return Object.values(summary).filter(s => s.total > 0).sort((a,b) => b.total - a.total);
+  }, [serviceTasks, employees]);
 
   const addActivity = async (taskId: string, action: string, details?: string) => {
     const task = serviceTasks.find(t => t.id === taskId);
@@ -369,6 +406,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   };
 
   return (
+    <>
     <div className="flex-1 flex flex-col min-h-0 gap-4 overflow-hidden relative p-0 md:p-1">
       {/* Header */}
       <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-4 md:p-5 pt-6 rounded-none rounded-b-[1.5rem] md:rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group m-0 md:m-3 lg:m-4">
@@ -378,7 +416,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             <QrCode size={20} className="hidden xl:block" />
             <QrCode size={16} className="xl:hidden" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3">
               <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">Service Task</h2>
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
@@ -386,7 +424,21 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Live</span>
               </div>
             </div>
-            <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Service Desk</p>
+            
+            <div className="flex bg-emerald-900/40 border border-emerald-700/50 p-1 rounded-full w-fit">
+              <button 
+                onClick={() => setViewState('registry')}
+                className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${viewState === 'registry' ? 'bg-white text-emerald-900 shadow-md' : 'text-emerald-100/70 hover:text-white'}`}
+              >
+                Registry
+              </button>
+              <button 
+                onClick={() => setViewState('turnover')}
+                className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${viewState === 'turnover' ? 'bg-white text-emerald-900 shadow-md' : 'text-emerald-100/70 hover:text-white'}`}
+              >
+                Turnover
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto relative z-10">
@@ -419,8 +471,10 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         </div>
       </div>
 
-      {/* Dashboard Metrics */}
-      <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-1.5 shrink-0 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
+      {viewState === 'registry' ? (
+        <>
+          {/* Dashboard Metrics */}
+          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-1.5 shrink-0 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
         <MetricCard label="Total" value={metrics.total} icon={<BarChart3 size={14} />} color="bg-slate-600" />
         <MetricCard label="New" value={metrics.newTasks} icon={<AlertCircle size={14} />} color="bg-blue-600" />
         <MetricCard label="Unassigned" value={metrics.unassigned} icon={<User size={14} />} color="bg-amber-600" />
@@ -472,6 +526,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
         <KanbanColumn status="Waiting for Customer" />
         <KanbanColumn status="Cancelled" />
         <KanbanColumn status="Reopened" />
+        {isAdmin && <KanbanColumn status="Non Billed" />}
         {isAdmin && <KanbanColumn status="Billed" />}
       </div>
 
@@ -856,13 +911,129 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
           </div>
         </div>
       )}
-    </div>
-  );
-
-  const SERVICE_CATEGORIES = ['Installation', 'Repair', 'Maintenance', 'AMC Service', 'Calibration', 'Upgrade', 'Demo', 'Training', 'Other'];
-
-  return (
-    <>
+      </>
+      ) : (
+        <div className="flex-1 flex flex-col p-4 md:p-6 overflow-y-auto space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+            {employeeSummary.map(emp => (
+              <div 
+                key={emp.employeeName}
+                onClick={() => setSelectedEmployeeForTurnover(selectedEmployeeForTurnover === emp.employeeName ? null : emp.employeeName)}
+                className={`bg-white dark:bg-slate-900 rounded-[2rem] p-5 border cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col gap-3 ${selectedEmployeeForTurnover === emp.employeeName ? 'border-emerald-500 shadow-md' : 'border-slate-200 dark:border-slate-800 shadow-sm'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                    <User size={18} className="text-slate-500" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 leading-tight">{emp.employeeName}</h4>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Tasks: {emp.total}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-2.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Attended</p>
+                    <p className="text-sm font-bold text-indigo-600">{emp.attended}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-2.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Completed</p>
+                    <p className="text-sm font-bold text-emerald-600">{emp.completed}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-2.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Billed</p>
+                    <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{emp.billed}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-2.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Not Billed</p>
+                    <p className="text-sm font-bold text-rose-600">{emp.notBilled}</p>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-2.5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Pending</p>
+                    <p className="text-sm font-bold text-amber-600">{emp.pending}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {employeeSummary.length === 0 && (
+              <div className="col-span-full py-10 text-center opacity-30 italic font-bold text-slate-400 text-sm">No tasks assigned yet.</div>
+            )}
+          </div>
+          
+          {selectedEmployeeForTurnover && (
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden shrink-0">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase leading-none">{selectedEmployeeForTurnover}</h3>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2">Performance Analytics</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setSelectedStatusForTurnover('Attended')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatusForTurnover === 'Attended' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>Attended</button>
+                  <button onClick={() => setSelectedStatusForTurnover('Completed')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatusForTurnover === 'Completed' ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>Completed</button>
+                  <button onClick={() => setSelectedStatusForTurnover('Pending')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatusForTurnover === 'Pending' ? 'bg-amber-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>Pending</button>
+                  <button onClick={() => setSelectedStatusForTurnover('Billed')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatusForTurnover === 'Billed' ? 'bg-slate-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>Billed</button>
+                  <button onClick={() => setSelectedStatusForTurnover('Not Billed')} className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${selectedStatusForTurnover === 'Not Billed' ? 'bg-rose-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>Not Billed</button>
+                  {selectedStatusForTurnover && <button onClick={() => setSelectedStatusForTurnover(null)} className="px-3 py-2 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 transition-all"><X size={14} /></button>}
+                </div>
+              </div>
+              
+              <div className="p-6 h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={employeeSummary.filter(e => e.employeeName === selectedEmployeeForTurnover)}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="employeeName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }} />
+                    <RechartsTooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }} />
+                    <Bar dataKey="attended" name="Attended" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar dataKey="completed" name="Completed" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar dataKey="billed" name="Billed" fill="#475569" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar dataKey="notBilled" name="Not Billed" fill="#e11d48" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Bar dataKey="pending" name="Pending" fill="#d97706" radius={[4, 4, 0, 0]} barSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Drill-down list */}
+              {selectedStatusForTurnover && (
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                  <div className="p-4 px-6 border-b border-slate-200 dark:border-slate-800">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <ListFilter size={12} /> {selectedStatusForTurnover} Tasks
+                    </h4>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto p-2 space-y-1">
+                    {serviceTasks.filter(t => {
+                      const assignedMatch = t.assignedTo === selectedEmployeeForTurnover || (employees.find(e => e.id === t.assignedToId)?.name === selectedEmployeeForTurnover);
+                      if (!assignedMatch) return false;
+                      if (selectedStatusForTurnover === 'Attended') return t.status !== 'New' && t.status !== 'Cancelled';
+                      if (selectedStatusForTurnover === 'Completed') return ['Completed', 'Non Billed', 'Billed'].includes(t.status);
+                      if (selectedStatusForTurnover === 'Billed') return t.status === 'Billed';
+                      if (selectedStatusForTurnover === 'Not Billed') return t.status === 'Non Billed';
+                      if (selectedStatusForTurnover === 'Pending') return ['New', 'Claimed', 'In Progress', 'On Hold', 'Waiting for Customer', 'Reopened'].includes(t.status);
+                      return false;
+                    }).map(task => (
+                      <div key={task.id} className="flex items-center justify-between p-3 px-4 hover:bg-white dark:hover:bg-slate-800 rounded-[1rem] transition-colors group cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded uppercase tracking-wider">{task.taskNumber}</span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{task.customerName}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-medium truncate max-w-sm">{task.issue}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${STATUS_CONFIG[task.status].color} text-white`}>{STATUS_CONFIG[task.status].label}</span>
+                          <span className="text-[9px] font-bold text-slate-400">{new Date(task.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      
       {showCreateModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowCreateModal(false)}></div>
@@ -934,6 +1105,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
           </div>
         </div>
       )}
+    </div>
     </>
   );
 };

@@ -844,7 +844,7 @@ export interface ServiceReport {
   referenceOrderId?: string;
 }
 
-export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened' | 'Billed';
+export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'Non Billed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened' | 'Billed';
 
 export interface ServiceTaskAttachment {
   name: string;
