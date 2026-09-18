@@ -1353,6 +1353,7 @@ Email: sreemeditec@gmail.com`;
                                                                  <option value="meter">meter</option>
                                                                  <option value="kgs">kgs</option>
                                                                  <option value="sqft">sqft</option>
+                                                                 <option value="sqm">sqm</option>
                                                              </select>
                                                          </div>
                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-2">
