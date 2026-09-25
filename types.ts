@@ -269,8 +269,9 @@ export interface FixedAsset {
   purchaseDate: string;
   purchaseCost: number;
   usefulLifeYears: number;
+  lifetimeType?: 'Predictable' | 'Unpredictable' | 'Indefinite';
   salvageValue: number;
-  depreciationMethod: 'SLM' | 'WDV';
+  depreciationMethod: 'SLM' | 'WDV' | 'SYD' | 'NONE';
   customDepRatePercent?: number;
   accumulatedDepreciation: number;
   netBookValue: number;

@@ -16,7 +16,11 @@ import {
     increment,
     startAfter,
     runTransaction,
-    documentId
+    documentId,
+    writeBatch,
+    getAggregateFromServer,
+    sum,
+    count
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
@@ -73,7 +77,18 @@ const calculateTotalStockFromBrands = (brands: any[] | undefined, fallbackStock:
     return total;
 };
 
+export interface KpiSummaryData {
+    totalRevenue: number;
+    totalExpenses: number;
+    totalInvoices: number;
+    totalClients: number;
+    totalProducts: number;
+    lastUpdated: string;
+}
+
 export interface DataContextType {
+    kpiSummary: KpiSummaryData | null;
+    fetchCollectionAggregate: (collectionName: string, sumField?: string) => Promise<{ count: number; totalSum: number; }>;
     clients: Client[];
     vendors: Vendor[];
     products: Product[];
@@ -418,6 +433,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [bankRules, setBankRules] = useState<BankRule[]>([]);
     const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
     const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
+    const [kpiSummary, setKpiSummary] = useState<KpiSummaryData | null>(null);
+
+    // Reads Pillar 1: Native Server-Side Aggregation Query
+    const fetchCollectionAggregate = async (collectionName: string, sumField?: string) => {
+        try {
+            const q = collection(db, collectionName);
+            const spec: any = { count: count() };
+            if (sumField) spec.totalSum = sum(sumField);
+            const snap = await getAggregateFromServer(q, spec);
+            return {
+                count: snap.data().count || 0,
+                totalSum: sumField ? (snap.data().totalSum || 0) : 0
+            };
+        } catch (err) {
+            console.error(`Aggregate calculation failed for ${collectionName}:`, err);
+            return { count: 0, totalSum: 0 };
+        }
+    };
 
     const [showWinnerPopup, setShowWinnerPopup] = useState(false);
     const [latestWinner, setLatestWinner] = useState<MonthlyWinner | null>(null);
@@ -851,27 +884,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
 
-        // ── Unlimited expenses listener for KPI totals (no pagination) ──────
-        const unsubAllExpenses = onSnapshot(
-            collection(db, "expenses"),
-            (snap) => {
-                setAllExpensesKpi(
-                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
-                );
-            },
-            (err) => console.warn("allExpensesKpi listener:", err)
-        );
-
-        // ── Unlimited purchase records listener for KPI totals (no pagination) ──────
-        const unsubAllPurchases = onSnapshot(
-            collection(db, "purchaseRecords"),
-            (snap) => {
-                setAllPurchaseRecordsKpi(
-                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
-                );
-            },
-            (err) => console.warn("allPurchaseRecordsKpi listener:", err)
-        );
         const unsubLeads = onSnapshot(query(collection(db, "leads"), orderBy('lastContact', 'desc'), limit(100)), (s) => handleSnap('leads', s, setLeadSnap), (err) => console.warn("leads listener:", err));
         const unsubExpenses = onSnapshot(query(collection(db, "expenses"), orderBy('date', 'desc'), limit(100)), (s) => handleSnap('expenses', s, setExpenseSnap), (err) => console.warn("expenses listener:", err));
         const unsubPurchases = onSnapshot(query(collection(db, "purchaseRecords"), orderBy('dateSupply', 'desc'), limit(100)), (s) => handleSnap('purchaseRecords', s, setPurchaseRecordSnap), (err) => console.warn("purchaseRecords listener:", err));
@@ -900,11 +912,59 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
-            unsubServiceTemplates(); unsubAllExpenses(); unsubAllPurchases();
+            unsubServiceTemplates();
             unsubProducts();
             unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
+
+    // ─── READS PILLAR 4: KPI SUMMARY DOCUMENT LISTENER (1 doc read for dashboard metrics) ──────
+    useEffect(() => {
+        if (!firebaseUser || !currentUser) return;
+        const unsubKpi = onSnapshot(doc(db, "stats", "kpi_summary"), (snap) => {
+            if (snap.exists()) {
+                setKpiSummary(snap.data() as KpiSummaryData);
+            }
+        }, (err) => console.warn("kpi_summary listener:", err));
+        return () => unsubKpi();
+    }, [firebaseUser?.uid, currentUser?.id]);
+
+    // ─── READS PILLAR 2: TAB-GATED HEAVY KPI LISTENERS ──────────────────────────
+    // Only subscribe to full expenses & purchase records when viewing financial/reports tabs
+    useEffect(() => {
+        if (!firebaseUser || !currentUser) return;
+        const isFinancialOrReportsTab = [
+            TabView.EXPENSES, TabView.PURCHASE_REGISTER,
+            TabView.REPORTS, TabView.ACCOUNTING, TabView.PERFORMANCE
+        ].includes(activeTab);
+
+        if (!isFinancialOrReportsTab) return;
+
+        const unsubAllExpenses = onSnapshot(
+            collection(db, "expenses"),
+            (snap) => {
+                setAllExpensesKpi(
+                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
+                );
+            },
+            (err) => console.warn("allExpensesKpi listener:", err)
+        );
+
+        const unsubAllPurchases = onSnapshot(
+            collection(db, "purchaseRecords"),
+            (snap) => {
+                setAllPurchaseRecordsKpi(
+                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
+                );
+            },
+            (err) => console.warn("allPurchaseRecordsKpi listener:", err)
+        );
+
+        return () => {
+            unsubAllExpenses();
+            unsubAllPurchases();
+        };
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     // ─── TAB-GATED LISTENERS ──────────────────────────────────────────────────
     // Only subscribe when their corresponding tab is active to reduce Firestore reads.
@@ -1439,8 +1499,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const addClient = async (c: Client) => { 
         setClients(prev => [...prev, c].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-        setDoc(doc(db, "clients", c.id), sanitizeData(c)).catch(err => console.error("addClient DB error:", err)); 
-        addLog('System', 'Added Client', `New client: ${c.name}`).catch(err => {}); 
+        try {
+            const batch = writeBatch(db);
+            batch.set(doc(db, "clients", c.id), sanitizeData(c));
+            batch.set(doc(db, "stats", "kpi_summary"), { totalClients: increment(1), lastUpdated: new Date().toISOString() }, { merge: true });
+            await batch.commit();
+            addLog('System', 'Added Client', `New client: ${c.name}`).catch(err => {}); 
+        } catch (err) {
+            console.error("addClient DB error:", err);
+        }
         try {
             await ensurePartyLedger(c.name, 'GRP-DEBTORS', { email: c.email, phone: c.phone });
         } catch (err) { console.warn('Ledger auto-create failed for client:', err); }
@@ -1468,7 +1535,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const originalProducts = [...products];
         setProducts(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)));
         try {
-            await setDoc(doc(db, "products", p.id), sanitizeData(p)); 
+            const batch = writeBatch(db);
+            batch.set(doc(db, "products", p.id), sanitizeData(p)); 
+            batch.set(doc(db, "stats", "kpi_summary"), { totalProducts: increment(1), lastUpdated: new Date().toISOString() }, { merge: true });
+            await batch.commit();
             await addLog('Inventory', 'Added Product', `Item: ${p.name}`); 
         } catch (error: any) {
             console.error("Failed to add product:", error);
@@ -1629,7 +1699,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
                     if (productId) {
-                        const p = currentProducts.find(p => p.id === productId);
+                        const baseId = productId.split('::')[0];
+                        const p = currentProducts.find(p => p.id === productId || p.id === baseId);
                         if (p) return p;
                     }
                     if (sku) {
@@ -1708,72 +1779,68 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         }
                     }
                     
-                    const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
-                    const oldQty = oldInfo?.qty || 0;
-                    const newQty = newInfo?.qty || 0;
-                    
-                    const availableStock = dbStock + oldQty;
-                    
-                    if (newQty > availableStock && !allowNegativeStock) {
-                        insufficientItems.push({
-                            name: prodName,
-                            requested: newQty,
-                            available: availableStock
-                        });
-                    } else if (ref && dbProduct) {
-                        let updatedProduct = { ...dbProduct };
-                        if (oldInfo && oldInfo.brand && oldInfo.model) {
-                            updatedProduct = updateBrandModelStock(updatedProduct, oldInfo.brand, oldInfo.model, oldQty, 'In');
-                        }
-                        if (newInfo && newInfo.brand && newInfo.model) {
-                            updatedProduct = updateBrandModelStock(updatedProduct, newInfo.brand, newInfo.model, newQty, 'Out');
-                        }
+                    // Only enforce inventory stock checks & updates if item is linked to a Master Product
+                    if (ref && dbProduct) {
+                        const dbStock = Number(dbProduct.stock || 0);
+                        const oldQty = oldInfo?.qty || 0;
+                        const newQty = newInfo?.qty || 0;
                         
-                        if (updatedProduct.brands) {
-                            updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock + oldQty - newQty);
-                        } else {
-                            updatedProduct.stock = dbStock + oldQty - newQty;
-                        }
+                        const availableStock = dbStock + oldQty;
                         
-                        productsToUpdate.push({
-                            ref,
-                            newStock: updatedProduct.stock,
-                            productData: updatedProduct
-                        });
-                        
-                        const netChange = oldQty - newQty;
-                        if (netChange > 0) {
-                            stockMovementsToCreate.push({
-                                id: `MVT-INV-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                                productId: dbProduct.id,
-                                productName: dbProduct.name,
-                                type: 'In',
-                                quantity: netChange,
-                                date: dateSupply,
-                                reference: `Rev/Mod: Invoice #${existing.invoiceNumber || existing.id}`,
-                                purpose: 'Restock'
-                            });
-                        } else if (netChange < 0) {
-                            stockMovementsToCreate.push({
-                                id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                                productId: dbProduct.id,
-                                productName: dbProduct.name,
-                                type: 'Out',
-                                quantity: Math.abs(netChange),
-                                date: dateSupply,
-                                reference: `Invoice #${existing.invoiceNumber || existing.id}`,
-                                purpose: 'Sale'
-                            });
-                        }
-                    } else {
-                        if (newQty > 0 && !allowNegativeStock) {
+                        if (newQty > availableStock && !allowNegativeStock) {
                             insufficientItems.push({
                                 name: prodName,
                                 requested: newQty,
-                                available: 0
+                                available: availableStock
                             });
+                        } else {
+                            let updatedProduct = { ...dbProduct };
+                            if (oldInfo && oldInfo.brand && oldInfo.model) {
+                                updatedProduct = updateBrandModelStock(updatedProduct, oldInfo.brand, oldInfo.model, oldQty, 'In');
+                            }
+                            if (newInfo && newInfo.brand && newInfo.model) {
+                                updatedProduct = updateBrandModelStock(updatedProduct, newInfo.brand, newInfo.model, newQty, 'Out');
+                            }
+                            
+                            if (updatedProduct.brands) {
+                                updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock + oldQty - newQty);
+                            } else {
+                                updatedProduct.stock = dbStock + oldQty - newQty;
+                            }
+                            
+                            productsToUpdate.push({
+                                ref,
+                                newStock: updatedProduct.stock,
+                                productData: updatedProduct
+                            });
+                            
+                            const netChange = oldQty - newQty;
+                            if (netChange > 0) {
+                                stockMovementsToCreate.push({
+                                    id: `MVT-INV-REV-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                    productId: dbProduct.id,
+                                    productName: dbProduct.name,
+                                    type: 'In',
+                                    quantity: netChange,
+                                    date: dateSupply,
+                                    reference: `Rev/Mod: Invoice #${existing.invoiceNumber || existing.id}`,
+                                    purpose: 'Restock'
+                                });
+                            } else if (netChange < 0) {
+                                stockMovementsToCreate.push({
+                                    id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                    productId: dbProduct.id,
+                                    productName: dbProduct.name,
+                                    type: 'Out',
+                                    quantity: Math.abs(netChange),
+                                    date: dateSupply,
+                                    reference: `Invoice #${existing.invoiceNumber || existing.id}`,
+                                    purpose: 'Sale'
+                                });
+                            }
                         }
                     }
+                    // Untracked / custom items without master products are safely ignored
                 }
                 
                 if (insufficientItems.length > 0) {
@@ -2131,7 +2198,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addExpense = async (e: ExpenseRecord) => { 
-        await setDoc(doc(db, "expenses", e.id), sanitizeData(e)); 
+        const batch = writeBatch(db);
+        batch.set(doc(db, "expenses", e.id), sanitizeData(e)); 
+        batch.set(doc(db, "stats", "kpi_summary"), { totalExpenses: increment(e.amount || 0), lastUpdated: new Date().toISOString() }, { merge: true });
+        await batch.commit();
         await addLog('Billing', 'New Expense', `₹${e.amount}`); 
         
         if (e.status === 'Approved') {
@@ -3239,15 +3309,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const addVoucher = async (v: AccountingVoucher) => {
+        const batch = writeBatch(db);
         const auditEntry = createAuditEntry('Created', null, v);
         const voucherWithAudit = { ...v, editHistory: [auditEntry] };
 
-        await setDoc(doc(db, "vouchers", v.id), sanitizeData(voucherWithAudit));
+        batch.set(doc(db, "vouchers", v.id), sanitizeData(voucherWithAudit));
         // Update current balances of ledgers involved
         for (const entry of v.entries) {
             const diff = entry.debit - entry.credit;
             if (diff !== 0 && entry.ledgerId && entry.ledgerId.trim() !== '') {
-                await updateDoc(doc(db, "ledgers", entry.ledgerId), {
+                batch.update(doc(db, "ledgers", entry.ledgerId), {
                     currentBalance: increment(diff)
                 });
             }
@@ -3260,7 +3331,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (inv) {
                     const currentBalance = inv.balanceDue !== undefined ? inv.balanceDue : inv.grandTotal;
                     const newBalance = Math.max(0, currentBalance - settlement.amount);
-                    await updateDoc(doc(db, "invoices", inv.id), {
+                    batch.update(doc(db, "invoices", inv.id), {
                         balanceDue: newBalance,
                         status: newBalance <= 0 ? 'Completed' : inv.status
                     });
@@ -3268,6 +3339,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
 
+        await batch.commit();
         await addLog('Billing', 'Voucher Generated', `${v.type} - ${v.voucherNumber}`);
     };
 
@@ -3905,7 +3977,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
                     if (productId) {
-                        const p = currentProducts.find(p => p.id === productId);
+                        const baseId = productId.split('::')[0];
+                        const p = currentProducts.find(p => p.id === productId || p.id === baseId);
                         if (p) return p;
                     }
                     if (sku) {
@@ -3952,57 +4025,53 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         }
                     }
                     
-                    const dbStock = dbProduct ? Number(dbProduct.stock || 0) : 0;
-                    const availableStock = dbStock; // New invoice, so oldQty is 0
-                    
-                    if (info.qty > availableStock && !allowNegativeStock) {
-                        insufficientItems.push({
-                            name: info.name,
-                            requested: info.qty,
-                            available: availableStock
-                        });
-                    } else if (ref && dbProduct) {
-                        let updatedProduct = { ...dbProduct };
-                        if (info.brand && info.model) {
-                            updatedProduct = updateBrandModelStock(updatedProduct, info.brand, info.model, info.qty, 'Out');
-                            updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock - info.qty);
-                        } else {
-                            updatedProduct.stock = dbStock - info.qty;
-                        }
+                    if (ref && dbProduct) {
+                        const dbStock = Number(dbProduct.stock || 0);
+                        const availableStock = dbStock; // New invoice, so oldQty is 0
                         
-                        productsToUpdate.push({
-                            ref,
-                            newStock: updatedProduct.stock,
-                            productData: updatedProduct
-                        });
-                        
-                        stockMovementsToCreate.push({
-                            id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-                            productId: dbProduct.id,
-                            productName: dbProduct.name,
-                            type: 'Out',
-                            quantity: info.qty,
-                            date: i.date || new Date().toISOString().split('T')[0],
-                            reference: `Invoice #${i.invoiceNumber || i.id}`,
-                            purpose: 'Sale'
-                        });
-                    } else {
-                        if (!allowNegativeStock) {
+                        if (info.qty > availableStock && !allowNegativeStock) {
                             insufficientItems.push({
                                 name: info.name,
                                 requested: info.qty,
-                                available: 0
+                                available: availableStock
+                            });
+                        } else {
+                            let updatedProduct = { ...dbProduct };
+                            if (info.brand && info.model) {
+                                updatedProduct = updateBrandModelStock(updatedProduct, info.brand, info.model, info.qty, 'Out');
+                                updatedProduct.stock = calculateTotalStockFromBrands(updatedProduct.brands, dbStock - info.qty);
+                            } else {
+                                updatedProduct.stock = dbStock - info.qty;
+                            }
+                            
+                            productsToUpdate.push({
+                                ref,
+                                newStock: updatedProduct.stock,
+                                productData: updatedProduct
+                            });
+                            
+                            stockMovementsToCreate.push({
+                                id: `MVT-INV-OUT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+                                productId: dbProduct.id,
+                                productName: dbProduct.name,
+                                type: 'Out',
+                                quantity: info.qty,
+                                date: i.date || new Date().toISOString().split('T')[0],
+                                reference: `Invoice #${i.invoiceNumber || i.id}`,
+                                purpose: 'Sale'
                             });
                         }
                     }
+                    // Untracked / custom items without master products are safely ignored
                 }
                 
                 if (insufficientItems.length > 0) {
                     throw new Error(JSON.stringify({ type: 'INSUFFICIENT_STOCK', items: insufficientItems }));
                 }
                 
-                // Write Invoice
+                // Write Invoice & update KPI summary
                 tx.set(doc(db, "invoices", i.id), sanitizeData(i));
+                tx.set(doc(db, "stats", "kpi_summary"), { totalRevenue: increment(i.grandTotal || 0), totalInvoices: increment(1), lastUpdated: new Date().toISOString() }, { merge: true });
                 
                 // Update product stocks
                 productsToUpdate.forEach(({ ref, newStock, productData }) => {
@@ -4038,7 +4107,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             });
         } else {
             // Non-inventory affecting (Draft, Quotation, ServiceOrder, etc.)
-            await setDoc(doc(db, "invoices", i.id), sanitizeData(i)); 
+            const batch = writeBatch(db);
+            batch.set(doc(db, "invoices", i.id), sanitizeData(i)); 
+            batch.set(doc(db, "stats", "kpi_summary"), { totalRevenue: increment(i.grandTotal || 0), totalInvoices: increment(1), lastUpdated: new Date().toISOString() }, { merge: true });
+            await batch.commit();
             await addLog('Billing', 'Invoice Generated', i.invoiceNumber); 
         }
 
@@ -4102,7 +4174,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
                 const findProduct = (name: string, productId?: string, sku?: string, barcode?: string) => {
                     if (productId) {
-                        const p = currentProducts.find(p => p.id === productId);
+                        const baseId = productId.split('::')[0];
+                        const p = currentProducts.find(p => p.id === productId || p.id === baseId);
                         if (p) return p;
                     }
                     if (sku) {
@@ -4750,6 +4823,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return (
         <DataContext.Provider value={{
+            kpiSummary, fetchCollectionAggregate,
             clients, vendors, products, invoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, stockMovements, expenses, employees, notifications, tasks, purchaseRecords, stockBatches, addStockBatch, updateStockBatch, leads, serviceTickets,
             eodReports, addEodReport, updateEodReport,
             pendingQuoteData, setPendingQuoteData,

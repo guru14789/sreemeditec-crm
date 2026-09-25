@@ -255,7 +255,7 @@ const AppContent: React.FC<{
       case TabView.REPORTS: return <ReportsModule />;
       case TabView.LOGS: return <LogsModule />;
       case TabView.EXPENSES: return <ExpenseModule userRole={tabRole} currentUser={currentUserName} />;
-      case TabView.PERFORMANCE: return <PerformanceModule />;
+      case TabView.PERFORMANCE: return <PerformanceModule defaultTab="leaderboard" showDirectoryTab={false} />;
       case TabView.SERVICE_TASK: return <ServiceTaskModule userRole={tabRole} />;
       case TabView.EOD_REPORTS: return <EodReportsModule userRole={tabRole} />;
       case TabView.BILLING: return <BillingModule variant="billing" />;

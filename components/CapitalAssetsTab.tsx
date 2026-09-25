@@ -2,36 +2,41 @@ import React, { useState, useMemo } from 'react';
 import { useData } from './DataContext';
 import { FixedAsset, Product } from '../types';
 import { 
-  Building2, Plus, Search, Filter, TrendingDown, DollarSign, 
-  Calendar, Layers, Tag, MapPin, CheckCircle2, AlertCircle, 
-  Trash2, Edit3, X, Eye, FileSpreadsheet, ArrowUpRight, 
-  Sparkles, History, RefreshCw, Calculator, ShieldAlert, 
-  ChevronDown, ChevronUp, Clock, PackageCheck, Archive
+  Building2, Plus, Search, TrendingDown, DollarSign, 
+  Layers, Tag, MapPin, Trash2, Edit3, X, Eye, 
+  Sparkles, RefreshCw, Calculator, Clock, PackageCheck, 
+  TrendingUp, ShieldCheck, Archive
 } from 'lucide-react';
 
-// Helper function to calculate real-time live depreciation metrics
+// Helper function to calculate real-time live depreciation & financial valuation metrics
 export const calculateAssetDepreciation = (asset: {
   purchaseDate: string;
   purchaseCost: number;
   usefulLifeYears: number;
-  salvageValue: number;
-  depreciationMethod: 'SLM' | 'WDV';
+  salvageValue?: number;
+  depreciationMethod?: 'SLM' | 'WDV' | 'SYD' | 'NONE';
+  lifetimeType?: 'Predictable' | 'Unpredictable' | 'Indefinite';
   customDepRatePercent?: number;
-  condition?: 'Brand New' | 'Second Hand / Used';
+  condition?: string;
   priorUsageMonths?: number;
 }) => {
-  const purchaseCost = Number(asset.purchaseCost || 0);
-  const salvageValue = Number(asset.salvageValue || 0);
-  const usefulLifeYears = Math.max(0.5, Number(asset.usefulLifeYears || 3));
-  const usefulLifeMonths = usefulLifeYears * 12;
+  const purchaseCost = Math.max(0, Number(asset.purchaseCost || 0));
+  const salvageValue = Math.max(0, Number(asset.salvageValue || 0));
+  const usefulLifeYears = Math.max(0, Number(asset.usefulLifeYears || 0));
+  const lifetimeType = asset.lifetimeType || (usefulLifeYears === 0 ? 'Indefinite' : 'Predictable');
+  const method = asset.depreciationMethod || (lifetimeType === 'Indefinite' ? 'NONE' : 'SLM');
 
   if (purchaseCost <= 0) {
     return {
       monthsElapsed: 0,
+      yearsElapsed: 0,
       annualDepRatePercent: 0,
       monthlyDepAmount: 0,
       currentAccumulatedDep: 0,
       currentNetBookValue: 0,
+      retentionPercent: 100,
+      valueNextYear: 0,
+      valueIn3Years: 0,
       isFullyDepreciated: false,
       schedule: []
     };
@@ -41,28 +46,45 @@ export const calculateAssetDepreciation = (asset: {
   const pDate = asset.purchaseDate ? new Date(asset.purchaseDate) : new Date();
   const now = new Date();
   let monthsElapsed = (now.getFullYear() - pDate.getFullYear()) * 12 + (now.getMonth() - pDate.getMonth());
+  if (now.getDate() < pDate.getDate()) monthsElapsed = Math.max(0, monthsElapsed - 1);
   if (monthsElapsed < 0) monthsElapsed = 0;
 
-  // Add prior usage if second hand
-  const totalMonthsForStatus = monthsElapsed + (asset.priorUsageMonths || 0);
+  const usefulLifeMonths = usefulLifeYears * 12;
+  const totalMonthsForStatus = monthsElapsed + Number(asset.priorUsageMonths || 0);
+
+  // Non-Depreciating / Indefinite / Unpredictable Lifetime
+  if (lifetimeType === 'Indefinite' || lifetimeType === 'Unpredictable' || method === 'NONE' || usefulLifeYears <= 0) {
+    return {
+      monthsElapsed,
+      yearsElapsed: Math.round((monthsElapsed / 12) * 10) / 10,
+      annualDepRatePercent: 0,
+      monthlyDepAmount: 0,
+      currentAccumulatedDep: 0,
+      currentNetBookValue: purchaseCost,
+      retentionPercent: 100,
+      valueNextYear: purchaseCost,
+      valueIn3Years: purchaseCost,
+      isFullyDepreciated: false,
+      schedule: []
+    };
+  }
 
   let annualDepRatePercent = 0;
   let monthlyDepAmount = 0;
   let currentAccumulatedDep = 0;
   let currentNetBookValue = purchaseCost;
-
   const schedule: { month: number; dateStr: string; depAmount: number; accumulatedDep: number; netBookValue: number }[] = [];
 
-  if (asset.depreciationMethod === 'SLM') {
+  if (method === 'SLM') {
     // Straight Line Method: (Cost - Salvage) / Useful Life
     const depreciableAmount = Math.max(0, purchaseCost - salvageValue);
     annualDepRatePercent = asset.customDepRatePercent || (usefulLifeYears > 0 ? (100 / usefulLifeYears) : 0);
-    monthlyDepAmount = depreciableAmount / usefulLifeMonths;
+    monthlyDepAmount = usefulLifeMonths > 0 ? depreciableAmount / usefulLifeMonths : 0;
 
     let runningAccum = 0;
     let runningNBV = purchaseCost;
-
     const maxMonths = Math.ceil(usefulLifeMonths);
+
     for (let m = 1; m <= maxMonths; m++) {
       const entryDate = new Date(pDate);
       entryDate.setMonth(entryDate.getMonth() + m);
@@ -96,15 +118,55 @@ export const calculateAssetDepreciation = (asset: {
       currentNetBookValue = purchaseCost;
     }
 
+  } else if (method === 'SYD') {
+    // Sum of Years Digits Method
+    const depreciableAmount = Math.max(0, purchaseCost - salvageValue);
+    const n = Math.ceil(usefulLifeYears);
+    const sydSum = (n * (n + 1)) / 2;
+    annualDepRatePercent = usefulLifeYears > 0 ? (100 / usefulLifeYears) : 0;
+
+    let runningAccum = 0;
+    let runningNBV = purchaseCost;
+    const maxMonths = Math.ceil(usefulLifeMonths);
+
+    for (let m = 1; m <= maxMonths; m++) {
+      const currentYearIndex = Math.floor((m - 1) / 12) + 1;
+      const remainingYears = Math.max(1, n - currentYearIndex + 1);
+      const annualDepForYear = (remainingYears / sydSum) * depreciableAmount;
+      const monthDep = annualDepForYear / 12;
+
+      runningAccum += monthDep;
+      runningNBV = Math.max(salvageValue, purchaseCost - runningAccum);
+
+      const entryDate = new Date(pDate);
+      entryDate.setMonth(entryDate.getMonth() + m);
+      schedule.push({
+        month: m,
+        dateStr: entryDate.toISOString().split('T')[0],
+        depAmount: Math.round(monthDep),
+        accumulatedDep: Math.round(runningAccum),
+        netBookValue: Math.round(runningNBV)
+      });
+    }
+
+    const effectiveMonths = Math.min(monthsElapsed, schedule.length);
+    if (effectiveMonths > 0 && schedule[effectiveMonths - 1]) {
+      currentAccumulatedDep = schedule[effectiveMonths - 1].accumulatedDep;
+      currentNetBookValue = schedule[effectiveMonths - 1].netBookValue;
+    }
+    monthlyDepAmount = schedule[0]?.depAmount || 0;
+
   } else {
     // Written Down Value (WDV / Reducing Balance)
     if (asset.customDepRatePercent && asset.customDepRatePercent > 0) {
       annualDepRatePercent = asset.customDepRatePercent;
-    } else if (salvageValue > 0 && purchaseCost > salvageValue) {
+    } else if (salvageValue > 0 && purchaseCost > salvageValue && usefulLifeYears > 0) {
       const calcRate = (1 - Math.pow(salvageValue / purchaseCost, 1 / usefulLifeYears)) * 100;
       annualDepRatePercent = Math.min(95, Math.max(5, calcRate));
-    } else {
+    } else if (usefulLifeYears > 0) {
       annualDepRatePercent = Math.min(95, (2 / usefulLifeYears) * 100);
+    } else {
+      annualDepRatePercent = 15;
     }
 
     const monthlyRate = 1 - Math.pow(1 - (annualDepRatePercent / 100), 1 / 12);
@@ -133,10 +195,7 @@ export const calculateAssetDepreciation = (asset: {
         netBookValue: Math.round(runningNBV)
       });
 
-      if (m === 1) {
-        monthlyDepAmount = monthDep;
-      }
-
+      if (m === 1) monthlyDepAmount = monthDep;
       if (runningNBV <= salvageValue + 1) break;
     }
 
@@ -150,14 +209,26 @@ export const calculateAssetDepreciation = (asset: {
     }
   }
 
+  const retentionPercent = purchaseCost > 0 ? Math.round((currentNetBookValue / purchaseCost) * 100) : 0;
+  
+  // Future forecast values
+  const next12MIdx = Math.min(monthsElapsed + 12, schedule.length - 1);
+  const next36MIdx = Math.min(monthsElapsed + 36, schedule.length - 1);
+  const valueNextYear = schedule[next12MIdx]?.netBookValue ?? Math.max(salvageValue, currentNetBookValue);
+  const valueIn3Years = schedule[next36MIdx]?.netBookValue ?? Math.max(salvageValue, currentNetBookValue);
+
   const isFullyDepreciated = currentNetBookValue <= salvageValue + 5 || totalMonthsForStatus >= usefulLifeMonths;
 
   return {
     monthsElapsed,
+    yearsElapsed: Math.round((monthsElapsed / 12) * 10) / 10,
     annualDepRatePercent: Math.round(annualDepRatePercent * 100) / 100,
     monthlyDepAmount: Math.round(monthlyDepAmount),
     currentAccumulatedDep: Math.round(currentAccumulatedDep),
     currentNetBookValue: Math.round(currentNetBookValue),
+    retentionPercent,
+    valueNextYear: Math.round(valueNextYear),
+    valueIn3Years: Math.round(valueIn3Years),
     isFullyDepreciated,
     schedule
   };
@@ -253,9 +324,10 @@ export const CapitalAssetsTab: React.FC = () => {
     return calculateAssetDepreciation({
       purchaseDate: formData.purchaseDate || new Date().toISOString().split('T')[0],
       purchaseCost: Number(formData.purchaseCost || 0),
-      usefulLifeYears: Number(formData.usefulLifeYears || 3),
+      usefulLifeYears: Number(formData.usefulLifeYears ?? 3),
+      lifetimeType: formData.lifetimeType || (formData.usefulLifeYears === 0 ? 'Indefinite' : 'Predictable'),
       salvageValue: Number(formData.salvageValue || 0),
-      depreciationMethod: (formData.depreciationMethod as 'SLM' | 'WDV') || 'SLM',
+      depreciationMethod: (formData.depreciationMethod as any) || 'SLM',
       customDepRatePercent: Number(formData.customDepRatePercent || 0),
       condition: formData.condition,
       priorUsageMonths: Number(formData.priorUsageMonths || 0)
@@ -277,9 +349,10 @@ export const CapitalAssetsTab: React.FC = () => {
     const calculated = calculateAssetDepreciation({
       purchaseDate: formData.purchaseDate || new Date().toISOString().split('T')[0],
       purchaseCost: Number(formData.purchaseCost || 0),
-      usefulLifeYears: Number(formData.usefulLifeYears || 3),
+      usefulLifeYears: Number(formData.usefulLifeYears ?? 3),
+      lifetimeType: formData.lifetimeType || (formData.usefulLifeYears === 0 ? 'Indefinite' : 'Predictable'),
       salvageValue: Number(formData.salvageValue || 0),
-      depreciationMethod: (formData.depreciationMethod as 'SLM' | 'WDV') || 'SLM',
+      depreciationMethod: (formData.depreciationMethod as any) || 'SLM',
       customDepRatePercent: Number(formData.customDepRatePercent || 0),
       condition: formData.condition,
       priorUsageMonths: Number(formData.priorUsageMonths || 0)
@@ -834,24 +907,24 @@ export const CapitalAssetsTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, condition: 'Brand New', priorUsageMonths: 0 })}
-                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
                       formData.condition !== 'Second Hand / Used'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    ✨ Brand New
+                    <PackageCheck size={15} /> Brand New
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, condition: 'Second Hand / Used' })}
-                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-2 ${
                       formData.condition === 'Second Hand / Used'
                         ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-500/20'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    🔄 Second Hand / Used
+                    <RefreshCw size={15} /> Second Hand / Used
                   </button>
                 </div>
 
@@ -924,35 +997,121 @@ export const CapitalAssetsTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Depreciation Method & Useful Life */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                    Depreciation Method
+              {/* Lifetime Predictability & Useful Life Selector */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Clock size={13} className="text-indigo-500" /> Lifetime Predictability & Depreciation Engine
                   </label>
-                  <select
-                    value={formData.depreciationMethod || 'SLM'}
-                    onChange={e => setFormData({ ...formData, depreciationMethod: e.target.value as 'SLM' | 'WDV' })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="SLM">SLM (Straight Line Method)</option>
-                    <option value="WDV">WDV (Written Down Value / Reducing Balance)</option>
-                  </select>
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">
+                    {formData.lifetimeType === 'Indefinite' || formData.lifetimeType === 'Unpredictable' || formData.depreciationMethod === 'NONE'
+                      ? 'Indefinite (Non-Depreciating)'
+                      : `${formData.usefulLifeYears ?? 3} Years (${((Number(formData.usefulLifeYears ?? 3)) * 12).toFixed(0)} Months)`}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                    Useful Life (Years)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
-                    value={formData.usefulLifeYears || 3}
-                    onChange={e => setFormData({ ...formData, usefulLifeYears: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
-                  />
+                {/* Predictability Selector Mode */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ 
+                      ...prev, 
+                      lifetimeType: 'Predictable', 
+                      usefulLifeYears: prev.usefulLifeYears || 3, 
+                      depreciationMethod: prev.depreciationMethod === 'NONE' ? 'SLM' : (prev.depreciationMethod || 'SLM') 
+                    }))}
+                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
+                      formData.lifetimeType !== 'Indefinite' && formData.lifetimeType !== 'Unpredictable' && formData.depreciationMethod !== 'NONE'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/20'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Clock size={14} /> Predictable Lifetime
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ 
+                      ...prev, 
+                      lifetimeType: 'Indefinite', 
+                      usefulLifeYears: 0, 
+                      depreciationMethod: 'NONE' 
+                    }))}
+                    className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 ${
+                      formData.lifetimeType === 'Indefinite' || formData.lifetimeType === 'Unpredictable' || formData.depreciationMethod === 'NONE'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <ShieldCheck size={14} /> Unpredictable / Indefinite
+                  </button>
                 </div>
+
+                {/* Predictable Useful Life Inputs */}
+                {formData.lifetimeType !== 'Indefinite' && formData.lifetimeType !== 'Unpredictable' && formData.depreciationMethod !== 'NONE' ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Quick Presets:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {[1, 2, 3, 5, 7, 10, 15, 20].map(yr => (
+                          <button
+                            key={yr}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, usefulLifeYears: yr }))}
+                            className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase border transition-all ${
+                              Number(formData.usefulLifeYears) === yr
+                                ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 font-black'
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            {yr}Y
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                          Useful Life (Years) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          required
+                          value={formData.usefulLifeYears ?? 3}
+                          onChange={e => setFormData({ ...formData, usefulLifeYears: parseFloat(e.target.value) || 0 })}
+                          placeholder="Type custom years (e.g. 2.5, 4, 12)"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                          Depreciation Method
+                        </label>
+                        <select
+                          value={formData.depreciationMethod || 'SLM'}
+                          onChange={e => setFormData({ ...formData, depreciationMethod: e.target.value as any })}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="SLM">SLM (Straight Line Method)</option>
+                          <option value="WDV">WDV (Written Down Value / Reducing Balance)</option>
+                          <option value="SYD">SYD (Sum of Years Digits)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                    <div className="flex items-center gap-1.5 font-black uppercase text-[10px] text-emerald-700 dark:text-emerald-400 mb-0.5">
+                      <ShieldCheck size={14} /> Non-Depreciating Capital Asset / Indefinite Life
+                    </div>
+                    <p className="text-[11px] font-medium">
+                      This entry is flagged with <b>Unpredictable / Indefinite Useful Life</b>. Net Book Value will remain 100% equal to the initial investment cost without automated depreciation deductions.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Asset Tag, Serial, Location, Supplier */}
@@ -997,25 +1156,25 @@ export const CapitalAssetsTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* LIVE VALUATION PREVIEW BOX */}
-              <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              {/* LIVE VALUATION PREVIEW & FUTURE FORECAST BOX */}
+              <div className="bg-slate-900 text-white p-4.5 rounded-2xl space-y-3 shadow-xl border border-slate-800">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
-                    <Calculator size={13} /> Live Calculated Valuation
+                    <Calculator size={14} /> Live Calculated Valuation & Financial Forecast
                   </span>
                   <span className="text-[10px] font-mono text-slate-400">
-                    {livePreview.monthsElapsed} Months in service
+                    {livePreview.monthsElapsed} Months ({livePreview.yearsElapsed} Yrs) in service
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                   <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
-                    <span className="text-[9px] font-black uppercase text-slate-400 block">Annual Rate</span>
+                    <span className="text-[9px] font-black uppercase text-slate-400 block">Annual Dep Rate</span>
                     <span className="text-sm font-black text-indigo-300 mt-0.5 block">{livePreview.annualDepRatePercent}%</span>
                   </div>
 
                   <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
-                    <span className="text-[9px] font-black uppercase text-slate-400 block">Monthly Dep</span>
+                    <span className="text-[9px] font-black uppercase text-slate-400 block">Monthly Expense</span>
                     <span className="text-sm font-black text-slate-200 mt-0.5 block">₹{livePreview.monthlyDepAmount.toLocaleString('en-IN')}</span>
                   </div>
 
@@ -1025,9 +1184,27 @@ export const CapitalAssetsTab: React.FC = () => {
                   </div>
 
                   <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/50">
-                    <span className="text-[9px] font-black uppercase text-emerald-400 block">Current Net Value</span>
+                    <span className="text-[9px] font-black uppercase text-emerald-400 block">Current Net Book Value</span>
                     <span className="text-sm font-black text-emerald-400 mt-0.5 block">₹{livePreview.currentNetBookValue.toLocaleString('en-IN')}</span>
+                    <span className="text-[8px] font-extrabold text-emerald-500/80 block mt-0.5">{livePreview.retentionPercent}% Retained</span>
                   </div>
+                </div>
+
+                {/* Future Valuation Forecast Bar */}
+                <div className="pt-2 border-t border-slate-800 flex flex-wrap justify-between items-center text-[10px] font-bold text-slate-400 gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp size={12} className="text-emerald-400" />
+                    <span>1-Yr Forecast: <b className="text-slate-200">₹{livePreview.valueNextYear.toLocaleString('en-IN')}</b></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <TrendingDown size={12} className="text-amber-400" />
+                    <span>3-Yr Forecast: <b className="text-slate-200">₹{livePreview.valueIn3Years.toLocaleString('en-IN')}</b></span>
+                  </div>
+                  {formData.productId && (
+                    <div className="text-[9px] text-indigo-300 font-mono">
+                      Catalog Product Linked
+                    </div>
+                  )}
                 </div>
               </div>
 

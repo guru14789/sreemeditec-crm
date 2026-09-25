@@ -15,10 +15,19 @@ import { db } from '../firebase';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
 import { SALARY_SCALE } from '../types';
+import { PerformanceModule } from './PerformanceModule';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatIndianNumber = (num: number) => {
   return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+};
+
+const formatCompactIndianNumber = (num: number) => {
+  if (!num) return '0';
+  if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `${(num / 100000).toFixed(0)}L`;
+  if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
+  return `${num}`;
 };
 
 const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -34,12 +43,13 @@ const CardFilterAndClose: React.FC<{
   dateRange: string;
   setDateRange: (val: string) => void;
   onClose: () => void;
-}> = ({ dateRange, setDateRange, onClose }) => {
+  extraActions?: React.ReactNode;
+}> = ({ dateRange, setDateRange, onClose, extraActions }) => {
   return (
-    <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
+    <div className="flex items-center gap-2 sm:gap-3 z-10" onClick={(e) => e.stopPropagation()}>
+      {extraActions}
       <select
-        onClick={(e) => e.stopPropagation()}
-        className="px-3 py-1.5 bg-slate-50 border border-slate-300 text-slate-700 text-[10px] font-black uppercase rounded-xl outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+        className="px-3 py-1.5 bg-slate-50 border border-slate-300 text-slate-700 text-[10px] font-black uppercase rounded-xl outline-none cursor-pointer hover:bg-slate-100 transition-colors shadow-sm"
         value={dateRange}
         onChange={(e) => setDateRange(e.target.value)}
       >
@@ -64,9 +74,10 @@ const CardFilterAndClose: React.FC<{
       </select>
       <button 
         onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all bg-white shadow-sm"
+        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all bg-white border border-slate-200 shadow-sm cursor-pointer"
+        title="Close"
       >
-        <X size={20} />
+        <X size={18} />
       </button>
     </div>
   );
@@ -111,6 +122,10 @@ const GlobalChartDefs: React.FC = () => (
       <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
         <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
         <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+      </linearGradient>
+      <linearGradient id="colorDarkGreen" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#10b981" />
+        <stop offset="100%" stopColor="#064e3b" />
       </linearGradient>
       <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#34d399" />
@@ -210,7 +225,7 @@ export const ReportsModule: React.FC = () => {
 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [deadStockCategoryFilter, setDeadStockCategoryFilter] = useState('All');
-  const [reportsTab, setReportsTab] = useState<'overview' | 'analytics'>('overview');
+  const [reportsTab, setReportsTab] = useState<'overview' | 'analytics' | 'employeePerformance'>('overview');
   const [selectedSupplier, setSelectedSupplier] = useState<{ name: string; transactions: any[] } | null>(null);
   const [selectedEmployeeForClosures, setSelectedEmployeeForClosures] = useState<{ id: string; name: string } | null>(null);
 
@@ -243,7 +258,7 @@ export const ReportsModule: React.FC = () => {
     const isExpanded = expandedSection === sectionId;
 
     if (isExpanded) {
-      return `fixed inset-4 md:inset-10 z-[90] bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl flex flex-col overflow-y-auto animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default`;
+      return `fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-6xl h-[85vh] z-[90] bg-white p-5 md:p-7 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default`;
     }
     const collapsedSpan = defaultSpan.replace(/min-h-\[\d+px\]/g, '');
     return `col-span-full ${collapsedSpan} bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md relative`;
@@ -2424,6 +2439,12 @@ export const ReportsModule: React.FC = () => {
                 >
                 Analytics <span className={`${reportsTab === 'analytics' ? 'bg-amber-950 text-amber-100' : 'bg-emerald-900 text-emerald-300'} px-1 rounded-sm text-[7px]`}>BETA</span>
                 </button>
+                <button
+                onClick={() => { setReportsTab('employeePerformance'); setExpandedSection(null); }}
+                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'employeePerformance' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-5px_rgba(79,70,229,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                <Users size={14} /> Employee 360° Performance
+                </button>
             </div>
             
             <div className="flex items-center gap-3">
@@ -2614,7 +2635,11 @@ export const ReportsModule: React.FC = () => {
         </div>
       )}
 
-      {reportsTab === 'overview' ? (
+      {reportsTab === 'employeePerformance' ? (
+        <div className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] p-2 md:p-4 border border-slate-200 dark:border-slate-800 shadow-sm min-h-[600px]">
+          <PerformanceModule />
+        </div>
+      ) : reportsTab === 'overview' ? (
         <>
           {/* Charts Section */}
           <div className="flex flex-col lg:flex-row gap-4 mb-4 lg:min-h-[500px]">
@@ -2776,7 +2801,14 @@ export const ReportsModule: React.FC = () => {
         </>
       ) : (
         /* Detailed Analytics Tab with click-to-zoom sections */
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <>
+          {expandedSection && (
+            <div 
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] animate-in fade-in-0 duration-200"
+              onClick={() => setExpandedSection(null)}
+            />
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
 
           {/* Customer Intelligence Card */}
           <div
@@ -2797,139 +2829,141 @@ export const ReportsModule: React.FC = () => {
             onClick={() => { if (expandedSection !== 'clients') setExpandedSection('clients'); }}
             className={getCardClasses('clients', 'md:col-span-2 min-h-[350px]')}
           >
-            {expandedSection === 'clients' && (
-              <CardFilterAndClose 
-                dateRange={dateRange} 
-                setDateRange={setDateRange} 
-                onClose={() => setExpandedSection(null)} 
-              />
-            )}
-              <div className={`flex justify-between items-center ${expandedSection === 'clients' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Top Clients</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Share of Sales Revenue</p>
-                </div>
-                <Users size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'clients' ? 'mb-4 pb-3 border-b border-slate-200' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs md:text-sm text-slate-800 uppercase tracking-widest">Top Clients</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase">Share of Sales Revenue</p>
               </div>
-
-              {expandedSection === 'clients' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="flex flex-col justify-between">
-                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                      {analyticsData.topCustomers.map((cust, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[10px] font-black text-slate-800">{formatCurrency(cust.total)}</span>
-                            <span className="block text-[7px] font-bold text-emerald-600">{cust.percentage.toFixed(1)}% of total</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ left: -10, right: 10 }}>
-                        <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="url(#colorRev)" radius={[0, 6, 6, 0]} barSize={12} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+              {expandedSection === 'clients' ? (
+                <CardFilterAndClose 
+                  dateRange={dateRange} 
+                  setDateRange={setDateRange} 
+                  onClose={() => setExpandedSection(null)} 
+                />
+              ) : (
+                <Users size={12} className="text-slate-400" />
               )}
             </div>
+
+            {expandedSection === 'clients' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col min-h-0 h-full">
+                  <div className="space-y-2.5 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                    {analyticsData.topCustomers.map((cust, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-[1.5rem] bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 transition-all shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-full bg-slate-200/70 text-slate-600 flex items-center justify-center text-[10px] font-black">#{idx+1}</span>
+                          <span className="text-[11px] font-black text-slate-800 uppercase truncate max-w-[160px]">{cust.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[11px] font-black text-slate-900 block">{formatCurrency(cust.total)}</span>
+                          <span className="block text-[8px] font-bold text-emerald-600">{cust.percentage.toFixed(1)}% of total</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-full min-h-[300px] bg-slate-50/70 border border-slate-200/60 rounded-[2rem] p-4 flex flex-col">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart layout="vertical" data={analyticsData.topCustomers} margin={{ top: 10, right: 25, left: 25, bottom: 10 }}>
+                      <XAxis type="number" tick={{ fontSize: 9, fontWeight: 700, fill: '#64748b' }} tickFormatter={(v) => `₹${formatCompactIndianNumber(v)}`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fontWeight: 700, fill: '#334155' }} width={90} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="total" fill="url(#colorRev)" radius={[0, 6, 6, 0]} barSize={12} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* 1b. Sales Leaderboard */}
           <div
             onClick={() => { if (expandedSection !== 'employees') setExpandedSection('employees'); }}
             className={getCardClasses('employees', 'md:col-span-2 min-h-[350px]')}
           >
-{expandedSection === 'employees' && (
-                <CardFilterAndClose 
-                  dateRange={dateRange} 
-                  setDateRange={setDateRange} 
-                  onClose={() => setExpandedSection(null)} 
-                />
-              )}
-              <div className={`flex justify-between items-center ${expandedSection === 'employees' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Employee Performance</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {expandedSection === 'employees' && (
-                    <button
-                      onClick={handleExportSalesLeaderboardCSV}
-                      className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm active:scale-95"
-                      title="Export Sales Leaderboard"
-                    >
-                      <Download size={12} className="text-slate-400" /> Export
-                    </button>
-                  )}
-                  <Users size={12} className="text-slate-400" />
-                </div>
+            <div className={`flex justify-between items-center ${expandedSection === 'employees' ? 'mb-4 pb-3 border-b border-slate-200' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs md:text-sm text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase">Employee Performance</p>
               </div>
+              <div className="flex items-center gap-2">
+                {expandedSection === 'employees' ? (
+                  <CardFilterAndClose 
+                    dateRange={dateRange} 
+                    setDateRange={setDateRange} 
+                    onClose={() => setExpandedSection(null)} 
+                    extraActions={
+                      <button
+                        onClick={handleExportSalesLeaderboardCSV}
+                        className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                        title="Export Sales Leaderboard"
+                      >
+                        <Download size={12} className="text-slate-400" /> Export
+                      </button>
+                    }
+                  />
+                ) : (
+                  <Users size={12} className="text-slate-400" />
+                )}
+              </div>
+            </div>
 
-              {expandedSection === 'employees' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="flex flex-col justify-between">
-                    <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                      {analyticsData.topEmployees.map((emp, idx) => {
-                        const targetLabel = isYearFilter ? 'Yearly Target' : 'Monthly Target';
-                        const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
-                        const achievementPct = targetValue > 0 ? Math.round((emp.total / targetValue) * 100) : 0;
-                        return (
-                          <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-slate-400">#{idx+1}</span>
-                              <div>
-                                <span className="text-[10px] font-black text-slate-700 uppercase truncate max-w-[140px] md:max-w-[130px] block">{emp.name}</span>
-                                <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider block">{targetLabel}: {targetValue > 0 ? `₹${formatIndianNumber(targetValue)}` : 'N/A'}</span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[10px] font-black text-slate-800">{formatCurrency(emp.total)}</span>
-                              <div className="flex items-center gap-1.5 justify-end">
-                                <span 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
-                                  }}
-                                  className="text-[7px] font-bold text-indigo-600 cursor-pointer hover:underline hover:text-indigo-800 transition-colors"
-                                >
-                                  {emp.invoices} Closures
-                                </span>
-                                {targetValue > 0 && (
-                                  <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= targetValue ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
-                                    {achievementPct}%
-                                  </span>
-                                )}
-                              </div>
+            {expandedSection === 'employees' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col min-h-0 h-full">
+                  <div className="space-y-2.5 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                    {analyticsData.topEmployees.map((emp, idx) => {
+                      const targetLabel = isYearFilter ? 'Yearly Target' : 'Monthly Target';
+                      const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
+                      const achievementPct = targetValue > 0 ? Math.round((emp.total / targetValue) * 100) : 0;
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-[1.5rem] bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 transition-all shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-slate-200/70 text-slate-600 flex items-center justify-center text-[10px] font-black">#{idx+1}</span>
+                            <div>
+                              <span className="text-[11px] font-black text-slate-800 uppercase truncate max-w-[160px] block">{emp.name}</span>
+                              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">{targetLabel}: {targetValue > 0 ? `₹${formatIndianNumber(targetValue)}` : 'N/A'}</span>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart layout="vertical" data={analyticsData.topEmployees} margin={{ left: -10, right: 10 }}>
-                        <XAxis type="number" tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} width={80} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend verticalAlign="top" height={24} iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase' }} />
-                        <Bar dataKey="total" name="Achieved" fill="url(#colorProfit)" radius={[0, 4, 4, 0]} barSize={8} />
-                        <Bar dataKey="target" name={isYearFilter ? 'Yearly Target' : 'Monthly Target'} fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={8} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                          <div className="text-right">
+                            <span className="text-[11px] font-black text-slate-900 block">{formatCurrency(emp.total)}</span>
+                            <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                              <span 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedEmployeeForClosures({ id: emp.id, name: emp.name });
+                                }}
+                                className="text-[8px] font-bold text-emerald-700 cursor-pointer hover:underline hover:text-emerald-900 transition-colors"
+                              >
+                                {emp.invoices} Closures
+                              </span>
+                              {targetValue > 0 && (
+                                <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border uppercase ${emp.total >= targetValue ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                  {achievementPct}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ) : (
+                <div className="h-full min-h-[300px] bg-slate-50/70 border border-slate-200/60 rounded-[2rem] p-4 flex flex-col">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart layout="vertical" data={analyticsData.topEmployees} margin={{ top: 10, right: 25, left: 25, bottom: 10 }}>
+                      <XAxis type="number" tick={{ fontSize: 9, fontWeight: 700, fill: '#64748b' }} tickFormatter={(v) => `₹${formatCompactIndianNumber(v)}`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fontWeight: 700, fill: '#334155' }} width={90} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend verticalAlign="top" height={32} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase' }} />
+                      <Bar dataKey="total" name="Achieved" fill="url(#colorDarkGreen)" radius={[0, 6, 6, 0]} barSize={12} />
+                      <Bar dataKey="target" name={isYearFilter ? 'Yearly Target' : 'Monthly Target'} fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={12} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
                 <div className="space-y-2 mt-2 flex-1 flex flex-col justify-center">
                   {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => {
                     const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
@@ -3544,6 +3578,7 @@ export const ReportsModule: React.FC = () => {
           </div>
  
         </div>
+        </>
       )}
 
       {selectedEmployeeForClosures && (
@@ -3573,7 +3608,7 @@ export const ReportsModule: React.FC = () => {
                       <div>
                         <span 
                           onClick={() => handleViewInvoicePDF(inv.invoiceNumber || inv.id)} 
-                          className="text-[11px] font-black text-indigo-600 uppercase block cursor-pointer hover:underline"
+                          className="text-[11px] font-black text-emerald-700 uppercase block cursor-pointer hover:underline hover:text-emerald-900"
                         >
                           {inv.invoiceNumber || inv.id}
                         </span>

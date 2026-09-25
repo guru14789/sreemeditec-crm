@@ -490,15 +490,23 @@ export const HRModule: React.FC = () => {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Dept</label>
                                     <select 
-                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none" 
-                                        value={employeeFormData.department} 
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-sm font-black outline-none focus:border-medical-500 transition-all appearance-none cursor-pointer" 
+                                        value={employeeFormData.department || 'Sales'} 
                                         onChange={(e) => {
                                             const newDept = e.target.value;
-                                            const mapDept: Record<string, string> = { 'Administration': 'Admin', 'Sales': 'Sales', 'Service': 'Service', 'Support': 'Admin' };
-                                            const targetDept = mapDept[newDept] || 'Admin';
+                                            const mapDept: Record<string, string> = { 
+                                                'Administration': 'Admin', 
+                                                'Admin': 'Admin',
+                                                'Sales': 'Sales', 
+                                                'Service': 'Service', 
+                                                'Finance': 'Finance',
+                                                'Accounts': 'Finance',
+                                                'Support': 'Admin' 
+                                            };
+                                            const targetDept = mapDept[newDept] || newDept;
                                             const positionOptions = SALARY_SCALE.filter(s => s.department === targetDept);
                                             const defaultPos = positionOptions[0]?.position || '';
-                                            const defaultSal = positionOptions[0]?.monthlySalary || 0;
+                                            const defaultSal = positionOptions[0]?.monthlySalary || employeeFormData.baseSalary || 0;
                                             setEmployeeFormData({ 
                                                 ...employeeFormData, 
                                                 department: newDept,
@@ -507,13 +515,17 @@ export const HRModule: React.FC = () => {
                                             });
                                         }}
                                     >
-                                        <option>Administration</option><option>Sales</option><option>Service</option><option>Support</option>
+                                        <option value="Sales">Sales</option>
+                                        <option value="Service">Service</option>
+                                        <option value="Finance">Finance & Accounts</option>
+                                        <option value="Administration">Administration</option>
+                                        <option value="Support">Support</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Position</label>
                                     <select 
-                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 transition-all appearance-none"
+                                        className="w-full border border-slate-300 bg-slate-50/50 rounded-[2rem] px-3 py-2 text-xs font-black outline-none focus:border-medical-500 transition-all appearance-none cursor-pointer"
                                         value={employeeFormData.position || ''} 
                                         onChange={(e) => {
                                             const newPos = e.target.value;
@@ -526,13 +538,26 @@ export const HRModule: React.FC = () => {
                                         }}
                                     >
                                         <option value="">Select Designation...</option>
-                                        {SALARY_SCALE.filter(s => {
-                                            const mapDept: Record<string, string> = { 'Administration': 'Admin', 'Sales': 'Sales', 'Service': 'Service', 'Support': 'Admin' };
-                                            const currentDept = mapDept[employeeFormData.department || 'Administration'] || 'Admin';
-                                            return s.department === currentDept;
-                                        }).map(rule => (
-                                            <option key={rule.position} value={rule.position}>{rule.position}</option>
-                                        ))}
+                                        {(() => {
+                                            const mapDept: Record<string, string> = { 
+                                                'Administration': 'Admin', 
+                                                'Admin': 'Admin',
+                                                'Sales': 'Sales', 
+                                                'Service': 'Service', 
+                                                'Finance': 'Finance',
+                                                'Finance & Accounts': 'Finance',
+                                                'Accounts': 'Finance',
+                                                'Support': 'Admin' 
+                                            };
+                                            const currentDept = mapDept[employeeFormData.department || 'Sales'] || 'Sales';
+                                            const matchingPositions = SALARY_SCALE.filter(s => s.department === currentDept);
+                                            const displayList = matchingPositions.length > 0 ? matchingPositions : SALARY_SCALE;
+                                            return displayList.map(rule => (
+                                                <option key={rule.position} value={rule.position}>
+                                                    {rule.position} (₹{rule.monthlySalary.toLocaleString('en-IN')})
+                                                </option>
+                                            ));
+                                        })()}
                                     </select>
                                 </div>
                             </div>
