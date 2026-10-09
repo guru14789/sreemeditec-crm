@@ -567,33 +567,56 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const saveAndShareNativePDF = async (blob: Blob, filename: string, isShare: boolean = false) => {
-        try {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                try {
-                    const base64Data = (reader.result as string).split(',')[1];
-                    const savedFile = await Filesystem.writeFile({
-                        path: filename,
-                        data: base64Data,
-                        directory: Directory.Cache
-                    });
+        const safeFilename = filename.replace(/[/\\?%*:|"<>]/g, '_');
+        return new Promise<void>((resolve) => {
+            try {
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        const base64Data = (reader.result as string).split(',')[1];
+                        let savedFile;
+                        try {
+                            savedFile = await Filesystem.writeFile({
+                                path: safeFilename,
+                                data: base64Data,
+                                directory: Directory.Cache,
+                                recursive: true
+                            });
+                        } catch (errCache) {
+                            console.warn("Writing to Cache failed, falling back to Documents...", errCache);
+                            savedFile = await Filesystem.writeFile({
+                                path: safeFilename,
+                                data: base64Data,
+                                directory: Directory.Documents,
+                                recursive: true
+                            });
+                        }
 
-                    await Share.share({
-                        title: filename,
-                        text: filename,
-                        url: savedFile.uri,
-                        dialogTitle: isShare ? `Share ${filename}` : `Save / Open ${filename}`
-                    });
-                } catch (fsErr) {
-                    console.error("Capacitor Native File Save failed:", fsErr);
-                    webDownloadPDF(blob, filename);
-                }
-            };
-            reader.readAsDataURL(blob);
-        } catch (err) {
-            console.error("Error reading blob for Capacitor Native Save:", err);
-            webDownloadPDF(blob, filename);
-        }
+                        await Share.share({
+                            title: safeFilename,
+                            text: safeFilename,
+                            url: savedFile.uri,
+                            dialogTitle: isShare ? `Share ${safeFilename}` : `Save / Open ${safeFilename}`
+                        });
+                        resolve();
+                    } catch (fsErr) {
+                        console.error("Capacitor Native File Save/Share failed:", fsErr);
+                        webDownloadPDF(blob, safeFilename);
+                        resolve();
+                    }
+                };
+                reader.onerror = (err) => {
+                    console.error("FileReader error:", err);
+                    webDownloadPDF(blob, safeFilename);
+                    resolve();
+                };
+                reader.readAsDataURL(blob);
+            } catch (err) {
+                console.error("Error reading blob for Capacitor Native Save:", err);
+                webDownloadPDF(blob, safeFilename);
+                resolve();
+            }
+        });
     };
 
     const downloadPDF = async (blob: Blob, filename: string) => {
@@ -638,9 +661,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const previewPDF = (blob: Blob, filename: string) => {
+        const safeFilename = filename.replace(/[/\\?%*:|"<>]/g, '_');
         const url = URL.createObjectURL(blob);
-        setPdfPreviewData({ url, filename, blob });
-        addLog('System', 'Generated/Viewed Document', `Previewed/Downloaded PDF: ${filename}`);
+        setPdfPreviewData({ url, filename: safeFilename, blob });
+        addLog('System', 'Generated/Viewed Document', `Previewed/Downloaded PDF: ${safeFilename}`);
+        if (Capacitor.isNativePlatform()) {
+            saveAndShareNativePDF(blob, safeFilename, false);
+        }
     };
 
     // Active Notifications state

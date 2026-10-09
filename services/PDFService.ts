@@ -301,9 +301,9 @@ export const PDFService = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         const displayBank = bankDetails || data.selectedBank || (isQuotation ? BANK_DETAILS.icici : BANK_DETAILS.kvb);
-        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${displayBank.bankName}`, midX + 30, bottomY + 10);
-        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${displayBank.accountNo}`, midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank.branchIfsc || ((displayBank as any).branch && (displayBank as any).ifsc ? (displayBank as any).branch + ' & ' + (displayBank as any).ifsc : '')}`, midX + 30, bottomY + 18);
+        doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${displayBank?.bankName || ''}`, midX + 30, bottomY + 10);
+        doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${displayBank?.accountNo || ''}`, midX + 30, bottomY + 14);
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank?.branchIfsc || ((displayBank as any)?.branch && (displayBank as any)?.ifsc ? (displayBank as any)?.branch + ' & ' + (displayBank as any)?.ifsc : '')}`, midX + 30, bottomY + 18);
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
