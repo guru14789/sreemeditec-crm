@@ -31,8 +31,23 @@ const numberToWords = (num: number): string => {
 
 export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     const items = data.items || [];
-    const subtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
-    const itemGstTotal = items.reduce((sum, p) => sum + ((Number(p.quantity) * Number(p.unitPrice)) * (Number(p.taxRate) / 100)), 0);
+    const grossSubtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
+    const totalRowDiscount = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        return sum + ((qty * price) * (discPct / 100));
+    }, 0);
+    
+    const subtotal = grossSubtotal - totalRowDiscount;
+
+    const itemGstTotal = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        const taxableLine = (qty * price) * (1 - (discPct / 100));
+        return sum + (taxableLine * ((Number(p.taxRate) || 0) / 100));
+    }, 0);
     
     const freight = Number(data.freightAmount) || 0;
     const freightGst = freight * ((Number(data.freightTaxRate) || 0) / 100);
@@ -55,7 +70,7 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
         grandTotal = Math.round(grandTotalRaw);
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
-    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue, roundOff, grandTotalRaw };
+    return { grossSubtotal, totalRowDiscount, subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue, roundOff, grandTotalRaw };
 };
 
 
@@ -149,7 +164,10 @@ export const PDFService = {
             const qty = Number(it.quantity) || 0;
             const price = Number(it.unitPrice) || 0;
             const tax = Number(it.taxRate) || 0;
-            const base = qty * price;
+            const rawBase = qty * price;
+            const discPct = Number(it.discountPercent) || 0;
+            const discAmt = rawBase * (discPct / 100);
+            const lineTaxable = rawBase - discAmt;
             
             let descText = '';
             if (it.brand && !it.hideBrand) descText += `${it.brand} `;
@@ -172,8 +190,8 @@ export const PDFService = {
                 `${(Number(qty) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${it.unit || 'nos'}`, 
                 (Number(price) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 
                 it.unit || 'nos', 
-                '', 
-                (Number(base) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                discPct > 0 ? `${discPct}%` : '', 
+                (Number(lineTaxable) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             ];
         });
 
@@ -843,13 +861,14 @@ export const PDFService = {
         doc.text(`Mob: ${seller.phone}`, pageWidth / 2, 27, { align: 'center' });
         
         // 2. Service Report Banner
+        const isPipeline = data.serviceCategory === 'Pipeline';
         doc.setLineWidth(0.2);
         doc.setDrawColor(0);
         doc.setFillColor(slate50[0], slate50[1], slate50[2]);
         doc.rect(margin, 32, pageWidth - (margin * 2), 8, 'FD');
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('SERVICE REPORT', pageWidth / 2, 37.5, { align: 'center' });
+        doc.text(isPipeline ? 'SERVICE REPORT - PIPELINE SYSTEM' : 'SERVICE REPORT - MEDICAL EQUIPMENT', pageWidth / 2, 37.5, { align: 'center' });
 
         // 3. Info Grid (5 Columns)
         autoTable(doc, {
@@ -882,14 +901,18 @@ export const PDFService = {
             body: [
                 [
                     { content: `Customer: ${(data.customerName || '').toUpperCase()}` },
-                    { content: `Machine: ${(data.equipmentName || '').toUpperCase()}` }
+                    { content: `${isPipeline ? 'Pipeline System' : 'Machine'}: ${(data.equipmentName || '').toUpperCase()}` }
                 ]
             ]
         });
 
-        // 5. Address & Machine Status Grid
+        // 5. Address & Machine/Pipeline Status Grid
         const status = data.machineStatus || 'Warranty';
         const checkboxSize = 3;
+        const statusTitle = isPipeline ? 'System Status:' : 'Machine Status:';
+        const detailInfoText = isPipeline 
+            ? `Location / Ward: ${data.pipelineLocation || '---'}\nGas / Pressure Status: ${data.gasType ? data.gasType + ' | ' : ''}${data.pressureTestStatus || '---'}`
+            : `Software version: ${data.softwareVersion || '---'}`;
         
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,
@@ -904,7 +927,7 @@ export const PDFService = {
                         styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' , textColor: [0, 0, 0] } 
                     },
                     { 
-                        content: `Machine Status:\n\n\n\n\n\nSoftware version: ${data.softwareVersion || '---'}`, 
+                        content: `${statusTitle}\n\n\n\n\n\n${detailInfoText}`, 
                         styles: { minCellHeight: 25, fontSize: 7.5, fontStyle: 'bold' , textColor: [0, 0, 0] } 
                     }
                 ]

@@ -59,6 +59,12 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
     const [lead, setLead] = useState<Partial<Lead>>(DEFAULT_LEAD);
 
+    const existingHospitalLead = useMemo(() => {
+        if (!lead.hospital || !lead.hospital.trim()) return null;
+        const target = lead.hospital.trim().toLowerCase();
+        return leads.find(l => l.id !== lead.id && (l.hospital || '').trim().toLowerCase() === target) || null;
+    }, [leads, lead.hospital, lead.id]);
+
     const handleSelectClient = (field: 'name' | 'hospital', value: string) => {
         const client = clients.find(c => (field === 'name' ? c.name === value : c.hospital === value));
         if (client) {
@@ -162,7 +168,17 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
             return;
         }
 
-        // Duplicate detection
+        // Strict duplicate check for Hospital / Organization
+        if (existingHospitalLead) {
+            addNotification(
+                'Duplicate Hospital Entry Blocked', 
+                `A lead entry for Hospital/Organization "${lead.hospital?.trim()}" already exists in Lead CRM (Created for: ${existingHospitalLead.name}). Duplicate Hospital / Organization entries are not allowed.`, 
+                'alert'
+            );
+            return;
+        }
+
+        // Duplicate detection for name/phone confirmation
         const isDuplicate = leads.some(l => 
             (l.id !== lead.id) && 
             ((lead.phone && l.phone === lead.phone) || 
@@ -588,9 +604,16 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
                                             onSelect={client => handleSelectClient('hospital', client.hospital || '')}
                                             suggestions={clients}
                                             filterKey="hospital"
-                                            className="w-full h-[40px] md:h-[48px] bg-slate-50 border border-slate-300 rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-bold outline-none"
+                                            className={`w-full h-[40px] md:h-[48px] bg-slate-50 border rounded-[1rem] md:rounded-[2rem] px-3.5 md:px-5 text-xs md:text-sm font-bold outline-none transition-all ${
+                                                existingHospitalLead ? 'border-rose-500 focus:ring-4 focus:ring-rose-500/10 bg-rose-50/30 text-rose-900' : 'border-slate-300'
+                                            }`}
                                             placeholder="FACILITY NAME"
                                         />
+                                        {existingHospitalLead && (
+                                            <p className="text-[10px] font-black text-rose-600 mt-1 uppercase flex items-center gap-1">
+                                                ⚠️ Hospital/Organization already registered under lead: "{existingHospitalLead.name}" (ID: {existingHospitalLead.id})
+                                            </p>
+                                        )}
                                     </FormRow>
                                 </div>
                                 <div className="sm:col-span-4">

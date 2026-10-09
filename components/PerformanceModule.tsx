@@ -3,8 +3,12 @@ import {
   Trophy, Star, Target, Award, Crown, Info, History, Medal, 
   X, Edit2, Search, User, Filter, DollarSign, 
   FileText, Wrench, PieChart, ChevronRight, Briefcase, CheckCircle2,
-  ArrowLeft, Calendar, Clock, CheckCircle, Linkedin
+  ArrowLeft, Calendar, Clock, CheckCircle, Linkedin, TrendingUp
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, 
+  PieChart as RePieChart, Pie, Cell, AreaChart, Area, Line 
+} from 'recharts';
 import { useData } from './DataContext';
 import ReactConfetti from 'react-confetti';
 import { Employee, SALARY_SCALE } from '../types';
@@ -35,6 +39,50 @@ const DEFAULT_EMPLOYEE_PHOTOS = [
   'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80',
   'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
 ];
+
+export const parseDateRobust = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+  const str = String(dateStr).trim();
+  if (!str) return null;
+
+  // 1. YYYY-MM-DD or ISO format (starts with 4 digits)
+  if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(str)) {
+    const parts = str.split(/[-/.T ]/);
+    const yyyy = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10) - 1;
+    const dd = parseInt(parts[2], 10);
+    if (!isNaN(yyyy) && !isNaN(mm) && !isNaN(dd)) {
+      return new Date(yyyy, mm, dd);
+    }
+  }
+
+  // 2. DD/MM/YYYY or DD-MM-YYYY (starts with 1-2 digits, 4 digit year at end)
+  if (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}/.test(str)) {
+    const parts = str.split(/[-/.T ]/);
+    const dd = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10) - 1;
+    const yyyy = parseInt(parts[2], 10);
+    if (!isNaN(dd) && !isNaN(mm) && !isNaN(yyyy)) {
+      return new Date(yyyy, mm, dd);
+    }
+  }
+
+  // Fallback to JS default Date constructor
+  const parsed = new Date(str);
+  return isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const formatYearMonth = (d: Date | null | undefined): string => {
+  if (!d) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${yyyy}-${mm}`;
+};
+
+export const getYearMonthFromDate = (dateStr: string | null | undefined): string => {
+  const d = parseDateRobust(dateStr);
+  return formatYearMonth(d);
+};
 
 const getEmployeePhoto = (emp: Employee) => {
   if (emp.photo) return emp.photo;
@@ -162,7 +210,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   // 1. Dynamic Leaderboard Generation
   // ---------------------------------------------------------
   const dynamicLeaderboard = useMemo(() => {
-    const currentMonthId = new Date().toISOString().slice(0, 7);
+    const currentMonthId = formatYearMonth(new Date());
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
@@ -187,18 +235,18 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       })
       .map(emp => {
         const empPoints = pointHistory
-          .filter(p => p.userId === emp.id && p.date?.startsWith(currentMonthId))
+          .filter(p => p.userId === emp.id && p.date && getYearMonthFromDate(p.date) === currentMonthId)
           .reduce((sum, p) => sum + p.points, 0);
         
         const empTasks = pointHistory.filter(p => 
           p.userId === emp.id && 
           p.category === 'Task' && 
-          p.date?.startsWith(currentMonthId)
+          p.date && getYearMonthFromDate(p.date) === currentMonthId
         ).length;
         
         const empAttendanceCount = attendanceRecords.filter(r => 
           r.userId === emp.id && 
-          r.date.startsWith(currentMonthId) && 
+          r.date && getYearMonthFromDate(r.date) === currentMonthId && 
           (r.status === 'Completed' || r.status === 'CheckedIn' || r.status === 'Paused')
         ).length;
 
@@ -290,7 +338,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
 
   // Single Employee Metrics Computation Function
   const calculateEmployee360Metrics = (emp: Employee) => {
-    // Ultra-robust fuzzy employee matcher function
+    // Strict employee matcher function (matching Sales Leaderboard logic)
     const isEmployeeMatch = (fieldVal: string | undefined | null) => {
       if (!fieldVal) return false;
       const val = fieldVal.trim().toLowerCase();
@@ -299,20 +347,11 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       const empName = emp.name.trim().toLowerCase();
       const empId = emp.id.trim().toLowerCase();
       const empCode = (emp.employeeId || '').trim().toLowerCase();
-      const cleanId = empId.replace(/[^a-z0-9]/g, '');
-      const cleanCode = empCode.replace(/[^a-z0-9]/g, '');
-      const firstName = empName.split(' ')[0];
       const email = (emp.email || '').trim().toLowerCase();
-      const cleanVal = val.replace(/[^a-z0-9]/g, '');
 
-      if (val === empName || val === empId || val === empCode || (email && val === email)) return true;
-      if (cleanId && cleanId.length >= 3 && cleanVal.includes(cleanId)) return true;
-      if (cleanCode && cleanCode.length >= 3 && cleanVal.includes(cleanCode)) return true;
-      if (firstName && firstName.length >= 3 && (val.includes(firstName) || val.startsWith(firstName))) return true;
-      if (val.includes(empId) || val.includes(empName) || empName.includes(val)) return true;
-      if (empCode && (val.includes(empCode) || empCode.includes(val))) return true;
-      if (email && (val.includes(email) || email.includes(val))) return true;
-
+      if (val === empName || val === empId || (empCode && val === empCode) || (email && val === email)) return true;
+      if (empName.length >= 4 && val.includes(empName)) return true;
+      if (val.length >= 4 && empName.includes(val)) return true;
       return false;
     };
 
@@ -351,20 +390,21 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       : 0;
     const totalQuotedAmount = quotesGiven.reduce((sum, q) => sum + Number(q.grandTotal || 0), 0);
 
-    // 2. Sales & Revenue Closed
+    // 2. Sales & Revenue Closed (matching Sales Leaderboard closedBy logic)
     const salesInvoices = invoiceList.filter(inv => {
-      const isInvoiceDoc = inv.documentType === 'Invoice' || (!inv.documentType && !inv.invoiceNumber?.startsWith('QT') && !inv.invoiceNumber?.startsWith('QUOT') && !inv.invoiceNumber?.startsWith('SMQ'));
+      const isInvoiceDoc = inv.documentType === 'Invoice' || 
+        (!inv.documentType && inv.invoiceNumber && (inv.invoiceNumber.startsWith('SM/') || (!inv.invoiceNumber.startsWith('QT') && !inv.invoiceNumber.startsWith('QUOT'))));
       if (!isInvoiceDoc || inv.status === 'Draft' || inv.status === 'Cancelled') return false;
-      const closed = inv.closedBy || (inv as any).createdBy || (inv as any).salesPerson || (inv as any).author || '';
-      const handling = inv.handlingEmployee || '';
-      return isEmployeeMatch(closed) || isEmployeeMatch(handling) || handling === emp.id || handling === emp.employeeId;
+      const closed = inv.closedBy || (inv as any).salesPerson || (inv as any).createdBy || '';
+      return isEmployeeMatch(closed);
     });
     const totalSalesRevenue = salesInvoices.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0);
     const averageDealSize = salesInvoices.length > 0 ? Math.round(totalSalesRevenue / salesInvoices.length) : 0;
     
     // Dynamic Sales Target based on Employee Position Scale
     const salesTarget = getEmployeePositionTarget(emp);
-    const targetAchievementPercent = Math.min(100, Math.round((totalSalesRevenue / salesTarget) * 100));
+    const rawTargetAchievementPercent = salesTarget > 0 ? Math.round((totalSalesRevenue / salesTarget) * 100) : 0;
+    const targetAchievementPercent = Math.min(100, rawTargetAchievementPercent);
 
     // 3. Expenses Breakdown
     const empExpenses = expenses.filter(exp => {
@@ -438,23 +478,95 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       ? Math.min(100, Number(((totalSalesRevenue / totalCompanySales) * 100).toFixed(1))) 
       : 0;
 
-    // 6. Leaderboard & Gamification Stats
+    // 6. Leaderboard & Gamification & Dynamic Attendance Stats
     const rankIndex = dynamicLeaderboard.findIndex(r => r.id === emp.id || r.name.toLowerCase().includes(emp.name.toLowerCase()));
     const rankEntry = rankIndex !== -1 ? dynamicLeaderboard[rankIndex] : null;
     const leaderboardPoints = rankEntry ? rankEntry.points : 0;
     const leaderboardRank = rankEntry && rankEntry.rank > 0 ? rankEntry.rank : (rankIndex !== -1 ? rankIndex + 1 : 1);
-    const attendancePercentageStr = rankEntry ? rankEntry.attendance : '85%';
+    
+    // Comprehensive Attendance Records matching employee
+    const empAttendanceRecords = (attendanceRecords || []).filter(ar => 
+      isEmployeeMatch((ar as any).userName || (ar as any).userId || (ar as any).employeeId || (ar as any).name)
+    );
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const todayDate = today.getDate();
+
+    let workingDaysSoFar = 0;
+    for (let d = 1; d <= todayDate; d++) {
+      const date = new Date(currentYear, currentMonth, d);
+      const dateStr = date.toISOString().split('T')[0];
+      const isSunday = date.getDay() === 0;
+      const isHoliday = (holidays || []).some(h => h.date === dateStr);
+      if (!isSunday && !isHoliday) {
+        workingDaysSoFar++;
+      }
+    }
+
+    const currentMonthId = formatYearMonth(today);
+    const monthAttendanceCount = empAttendanceRecords.filter(r => 
+      r.date && getYearMonthFromDate(r.date) === currentMonthId && 
+      (r.status === 'Completed' || r.status === 'CheckedIn' || r.status === 'Paused')
+    ).length;
+
+    const dynamicAttendancePct = rankEntry
+      ? (parseInt(rankEntry.attendance) || 0)
+      : (workingDaysSoFar > 0 ? Math.min(100, Math.round((monthAttendanceCount / workingDaysSoFar) * 100)) : (empAttendanceRecords.length > 0 ? 100 : 0));
+
+    const attendancePercentageStr = `${dynamicAttendancePct}%`;
 
     // 7. Composite 360° Rating Score (0 to 100)
-    const attendanceNum = parseInt(attendancePercentageStr) || 85;
     const compositeScore = Math.min(100, Math.round(
       (targetAchievementPercent * 0.35) + 
       (overallTaskRate * 0.30) + 
       (quotationConversionRate * 0.20) + 
-      (attendanceNum * 0.15)
+      (dynamicAttendancePct * 0.15)
     ));
 
+    // Calculate 6-month historical trend for visual graphs
+    const monthlyTrendData = (() => {
+      const trend = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mStr = formatYearMonth(d);
+        const mLabel = d.toLocaleString('en-US', { month: 'short' });
+        
+        const mInvoices = salesInvoices.filter(inv => {
+          const invDate = inv.date || inv.invoiceDate || (inv as any).createdAt || '';
+          return getYearMonthFromDate(invDate) === mStr;
+        });
+        const mRev = mInvoices.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0);
+        const mTarget = getEmployeePositionTarget(emp);
+        
+        const mQuotes = quotesGiven.filter(q => {
+          const qDate = q.date || q.invoiceDate || (q as any).createdAt || '';
+          return getYearMonthFromDate(qDate) === mStr;
+        }).length;
+
+        const mTasksCount = (tasks || []).filter(t => {
+          const isAssigned = isEmployeeMatch(t.assignedTo) || isEmployeeMatch(t.assignedEmployee) || t.userId === emp.id;
+          const tDate = t.completedAt || t.dueDate || t.createdAt || '';
+          return isAssigned && (t.status === 'Done' || t.status === 'Completed') && getYearMonthFromDate(tDate) === mStr;
+        }).length;
+
+        trend.push({
+          month: mLabel,
+          yearMonth: mStr,
+          sales: mRev,
+          target: mTarget,
+          closures: mInvoices.length,
+          quotes: mQuotes,
+          tasks: mTasksCount
+        });
+      }
+      return trend;
+    })();
+
     return {
+      monthlyTrendData,
       totalQuotesCount,
       convertedQuotesCount,
       quotationConversionRate,
@@ -465,6 +577,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       salesInvoicesCount: salesInvoices.length,
       totalSalesRevenue,
       salesTarget,
+      rawTargetAchievementPercent,
       targetAchievementPercent,
       averageDealSize,
       empExpenses,
@@ -484,16 +597,20 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
       revenueContributionPercent,
       leaderboardPoints,
       leaderboardRank,
+      monthAttendanceCount,
+      workingDaysSoFar,
       attendancePercentageStr,
+      attendancePctNum: dynamicAttendancePct,
       compositeScore,
       empPointLogs: (pointHistory || []).filter(ph => isEmployeeMatch((ph as any).employeeName || (ph as any).userId || (ph as any).employeeId || (ph as any).name)),
-      empAttendanceRecords: (attendanceRecords || []).filter(ar => isEmployeeMatch((ar as any).userName || (ar as any).userId || (ar as any).employeeId))
+      empAttendanceRecords
     };
   };
 
-  // State for 360° Employee Detail Modal
+  // State for 360° Employee Detail Modal (defaults to current month)
+  const currentMonthStr = useMemo(() => formatYearMonth(new Date()), []);
   const [targetFilter, setTargetFilter] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [activeDrilldown, setActiveDrilldown] = useState<'none' | 'quotes_given' | 'quotes_converted' | 'sales_invoices' | 'general_tasks' | 'service_tasks' | 'expenses' | 'gamification'>('none');
   const [drillSubFilter, setDrillSubFilter] = useState<string>('all');
 
@@ -503,7 +620,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     const now = new Date();
     for (let i = 0; i < 18; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthId = d.toISOString().slice(0, 7); // YYYY-MM
+      const monthId = formatYearMonth(d); // YYYY-MM in local timezone
       const monthLabel = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
       months.push({ id: monthId, label: monthLabel });
     }
@@ -623,20 +740,50 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                       </span>
                     </div>
 
-                    {/* Floating Info Box Banner at Bottom (Matching User's Image) */}
-                    <div className="relative z-10 m-3 p-3.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl flex items-center justify-between shadow-xl border border-white/40 dark:border-slate-800 group-hover:border-indigo-400 transition-colors">
-                      <div className="min-w-0 pr-2">
-                        <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                          {emp.name}
-                        </h3>
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                          {emp.position || emp.role || 'Staff'}
-                        </p>
+                    {/* Floating Info Box Banner at Bottom */}
+                    <div className="relative z-10 m-3 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl flex flex-col gap-2 shadow-xl border border-white/40 dark:border-slate-800 group-hover:border-indigo-400 transition-colors">
+                      <div className="flex items-center justify-between min-w-0">
+                        <div className="min-w-0 pr-2">
+                          <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {emp.name}
+                          </h3>
+                          <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {emp.position || emp.role || 'Staff'}
+                          </p>
+                        </div>
+
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 p-1.5 shadow-sm border border-slate-200/60 dark:border-slate-700">
+                          <img src="/images/sreemeditec-logo.png" alt="Sreemeditec" className="w-full h-full object-contain" />
+                        </div>
                       </div>
 
-                      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 p-1.5 shadow-sm border border-slate-200/60 dark:border-slate-700">
-                        <img src="/images/sreemeditec-logo.png" alt="Sreemeditec" className="w-full h-full object-contain" />
-                      </div>
+                      {/* Sales & Target Fulfillment Performance Indicator */}
+                      {(() => {
+                        const metrics = calculateEmployee360Metrics(emp);
+                        const monthInvoices = metrics.salesInvoices.filter(inv => {
+                          const invDate = inv.date || inv.invoiceDate || (inv as any).createdAt || '';
+                          return getYearMonthFromDate(invDate) === currentMonthStr;
+                        });
+                        const monthRevenue = monthInvoices.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0);
+                        const monthPct = metrics.salesTarget > 0 ? Math.round((monthRevenue / metrics.salesTarget) * 100) : 0;
+                        const isFulfilled = monthPct >= 100;
+
+                        return (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-black">
+                            <span className="text-slate-700 dark:text-slate-300 font-extrabold flex items-center gap-1 truncate">
+                              <DollarSign size={12} className="text-emerald-500 shrink-0" />
+                              ₹{monthRevenue > 0 ? monthRevenue.toLocaleString('en-IN') : '0'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider border shrink-0 ${
+                              isFulfilled 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-800' 
+                                : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/60 dark:border-amber-800'
+                            }`}>
+                              {monthPct}% Target
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -697,16 +844,16 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               const activeInvoices = targetFilter === 'monthly' && selectedMonth !== 'all'
                 ? m.salesInvoices.filter(inv => {
                     const invDate = inv.date || inv.invoiceDate || (inv as any).createdAt || '';
-                    return invDate.startsWith(selectedMonth);
+                    return getYearMonthFromDate(invDate) === selectedMonth;
                   })
                 : m.salesInvoices;
 
               const activeRevenue = activeInvoices.reduce((sum, inv) => sum + Number(inv.grandTotal || 0), 0);
 
-              // Calculate Target based on Monthly vs Yearly toggle filter
+              // Calculate Target based on Monthly vs Yearly toggle filter (matching Sales Leaderboard logic)
               const targetVal = targetFilter === 'monthly' ? m.salesTarget : m.salesTarget * 12;
               const targetAchievementPercent = targetVal > 0 
-                ? Math.min(100, Math.round((activeRevenue / targetVal) * 100)) 
+                ? Math.round((activeRevenue / targetVal) * 100) 
                 : 0;
 
               return (
@@ -765,216 +912,353 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                   )}
 
                   {/* ========================================================================= */}
-                  {/* MAIN OVERVIEW 4 METRIC PANELS GRID */}
+                  {/* MAIN OVERVIEW 4 METRIC PANELS GRID & GRAPH ANALYTICS */}
                   {/* ========================================================================= */}
                   {activeDrilldown === 'none' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* PANEL 1: QUOTATIONS PERFORMANCE */}
+                    <div className="space-y-5">
+                      {/* 6-MONTH SALES & PERFORMANCE TREND GRAPH */}
                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
                           <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <FileText size={16} className="text-blue-500" /> Quotations Performance
+                            <TrendingUp size={16} className="text-emerald-500" /> 6-Month Performance Trend Graph
                           </h4>
-                          <span className="text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-800">
-                            {m.quotationConversionRate}% Conversion
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            Historical Revenue Closed vs Target
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {/* QUOTES GIVEN CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('quotes_given'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-500 transition-colors">Quotes Given</span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-blue-500 transition-transform group-hover:translate-x-0.5" />
-                            </div>
-                            <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
-                              {m.totalQuotesCount} Quotes
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-400 block">₹{m.totalQuotedAmount.toLocaleString('en-IN')}</span>
-                            <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 block mt-1">Click to view quotes →</span>
-                          </div>
-
-                          {/* CONVERTED TO SALES CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('quotes_converted'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-emerald-500 transition-colors">Converted to Sales</span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-500 transition-transform group-hover:translate-x-0.5" />
-                            </div>
-                            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-                              {m.convertedQuotesCount} Converted
-                            </span>
-                            <span className="text-[10px] font-mono text-emerald-500 font-bold block">{m.quotationConversionRate}% Success Rate</span>
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 block mt-1">Click for converted →</span>
-                          </div>
+                        <div className="h-44 w-full pt-1">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={m.monthlyTrendData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="colorSalesTrend" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <XAxis dataKey="month" tick={{ fontSize: 10, fontWeight: 800 }} />
+                              <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                              <Tooltip formatter={(value: any, name: string) => [
+                                `₹${Number(value).toLocaleString('en-IN')}`,
+                                name === 'sales' ? 'Closed Revenue' : 'Target'
+                              ]} />
+                              <Area type="monotone" dataKey="sales" name="sales" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorSalesTrend)" />
+                              <Line type="monotone" dataKey="target" name="target" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
                         </div>
                       </div>
 
-                      {/* PANEL 2: SALES & TARGET ACHIEVED */}
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5 gap-2">
-                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <DollarSign size={16} className="text-emerald-500" /> Sales & Target Fulfillment
-                          </h4>
-
-                          <div className="flex items-center gap-2">
-                            {/* Month Select Dropdown for Monthly Target View */}
-                            {targetFilter === 'monthly' && (
-                              <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[10px] font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 shadow-sm cursor-pointer"
-                              >
-                                {availableMonths.map(mo => (
-                                  <option key={mo.id} value={mo.id}>{mo.label}</option>
-                                ))}
-                              </select>
-                            )}
-
-                            {/* Monthly / Yearly Target Filter Toggle */}
-                            <div className="flex items-center bg-slate-200 dark:bg-slate-700 p-0.5 rounded-xl text-[9px] font-black uppercase">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setTargetFilter('monthly'); }}
-                                className={`px-2 py-0.5 rounded-lg transition-all ${targetFilter === 'monthly' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}
-                              >
-                                Monthly
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setTargetFilter('yearly'); }}
-                                className={`px-2 py-0.5 rounded-lg transition-all ${targetFilter === 'yearly' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}
-                              >
-                                Yearly
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div 
-                          onClick={() => { setActiveDrilldown('sales_invoices'); setDrillSubFilter('all'); }}
-                          className="space-y-2.5 cursor-pointer p-2.5 rounded-2xl hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all group"
-                        >
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-500 flex items-center gap-1 group-hover:text-emerald-600">
-                              Total Sales Revenue Closed {targetFilter === 'monthly' && selectedMonth !== 'all' && `(${availableMonths.find(mo => mo.id === selectedMonth)?.label})`} <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-600" />
+                      {/* 4 METRIC PANELS WITH EMBEDDED RECHARTS MINI-GRAPHS */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* PANEL 1: QUOTATIONS PERFORMANCE */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                              <FileText size={16} className="text-blue-500" /> Quotations Performance
+                            </h4>
+                            <span className="text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-800">
+                              {m.quotationConversionRate}% Conversion
                             </span>
-                            <span className="font-black text-slate-900 dark:text-slate-100 text-sm">₹{activeRevenue.toLocaleString('en-IN')}</span>
                           </div>
 
-                          {/* Progress Bar */}
-                          <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
-                              style={{ width: `${targetAchievementPercent}%` }}
-                            ></div>
-                          </div>
-
-                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                            <span>
-                              Target: ₹{targetVal.toLocaleString('en-IN')}{' '}
-                              <span className="text-[8px] font-normal uppercase">({targetFilter} • {selectedEmployee.position || selectedEmployee.role || 'Scale'})</span>
-                            </span>
-                            <span>Avg Deal: ₹{m.averageDealSize.toLocaleString('en-IN')}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* PANEL 3: DUAL TASK MANAGEMENT ENGINE */}
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
-                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <CheckCircle2 size={16} className="text-emerald-500" /> Dual Task Engine
-                          </h4>
-                          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                            {m.completedGeneralTasks + m.completedServiceTasks} Resolved
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {/* GENERAL TASKS CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('general_tasks'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-emerald-500 transition-colors flex items-center gap-1">
-                                <Target size={12} className="text-emerald-500" /> General Tasks
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {/* QUOTES GIVEN CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('quotes_given'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-blue-500 transition-colors">Quotes Given</span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-blue-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
+                                {m.totalQuotesCount} Quotes
                               </span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-500 transition-transform group-hover:translate-x-0.5" />
+                              <span className="text-[10px] font-mono text-slate-400 block">₹{m.totalQuotedAmount.toLocaleString('en-IN')}</span>
+                              <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 block mt-1">Click to view quotes →</span>
                             </div>
-                            <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
-                              {m.completedGeneralTasks} / {m.totalGeneralTasks}
-                            </span>
-                            <span className="text-[10px] text-emerald-500 font-bold block">{m.generalTaskCompletionRate}% Completed</span>
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 block mt-1">Click to view tasks →</span>
-                          </div>
 
-                          {/* FIELD SERVICE TASKS CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('service_tasks'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-amber-500 transition-colors flex items-center gap-1">
-                                <Wrench size={12} className="text-amber-500" /> Field Service
+                            {/* CONVERTED TO SALES CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('quotes_converted'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-emerald-500 transition-colors">Converted to Sales</span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                                {m.convertedQuotesCount} Converted
                               </span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-amber-500 transition-transform group-hover:translate-x-0.5" />
+                              <span className="text-[10px] font-mono text-emerald-500 font-bold block">{m.quotationConversionRate}% Success Rate</span>
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 block mt-1">Click for converted →</span>
                             </div>
-                            <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
-                              {m.completedServiceTasks} / {m.totalServiceTasks}
-                            </span>
-                            <span className="text-[10px] text-amber-500 font-bold block">{m.serviceReportsCount} Service Reports</span>
-                            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mt-1">Click for service →</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* PANEL 4: EXPENSES & COMPANY CONTRIBUTION */}
-                      <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                        <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
-                          <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <PieChart size={16} className="text-purple-500" /> Financial Expenses & Contribution
-                          </h4>
-                          <span className="text-xs font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2.5 py-1 rounded-xl border border-purple-200 dark:border-purple-800">
-                            {m.revenueContributionPercent}% Revenue Share
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2.5">
-                          {/* EXPENSES CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('expenses'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-purple-500 transition-colors">Expenses Claimed</span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-purple-500 transition-transform group-hover:translate-x-0.5" />
-                            </div>
-                            <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
-                              ₹{m.totalExpensesClaimed.toLocaleString('en-IN')}
-                            </span>
-                            <span className="text-[10px] text-emerald-500 font-bold block">Approved: ₹{m.approvedExpenses.toLocaleString('en-IN')}</span>
-                            <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 block mt-1">Click for expense list →</span>
                           </div>
 
-                          {/* GAMIFICATION & ATTENDANCE CARD */}
-                          <div 
-                            onClick={() => { setActiveDrilldown('gamification'); setDrillSubFilter('all'); }}
-                            className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-amber-500 transition-colors">Rank & Attendance</span>
-                              <ChevronRight size={12} className="text-slate-300 group-hover:text-amber-500 transition-transform group-hover:translate-x-0.5" />
+                          {/* Quotation Conversion Mini Donut Chart */}
+                          <div className="h-28 w-full flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div className="w-1/2 h-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RePieChart>
+                                  <Pie
+                                    data={[
+                                      { name: 'Converted', value: m.convertedQuotesCount || (m.totalQuotesCount === 0 ? 0 : 0) },
+                                      { name: 'Unconverted', value: Math.max(0, m.totalQuotesCount - m.convertedQuotesCount) || (m.totalQuotesCount === 0 ? 1 : 0) }
+                                    ]}
+                                    cx="50%" cy="50%" innerRadius={20} outerRadius={36} paddingAngle={4} dataKey="value"
+                                  >
+                                    <Cell fill="#10b981" />
+                                    <Cell fill="#3b82f6" />
+                                  </Pie>
+                                  <Tooltip formatter={(v: any) => [`${v} Quotes`, 'Count']} />
+                                </RePieChart>
+                              </ResponsiveContainer>
                             </div>
-                            <span className="text-sm font-black text-amber-500 mt-0.5 block flex items-center gap-1">
-                              <Trophy size={14} /> #{m.leaderboardRank} ({m.leaderboardPoints} Pts)
+                            <div className="w-1/2 flex flex-col justify-center gap-1.5 pl-2 text-[10px] font-bold">
+                              <div className="flex items-center gap-1.5 text-emerald-600">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                <span>Converted: {m.convertedQuotesCount}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-blue-600">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                                <span>Unconverted: {Math.max(0, m.totalQuotesCount - m.convertedQuotesCount)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* PANEL 2: SALES & TARGET ACHIEVED */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5 gap-2">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                              <DollarSign size={16} className="text-emerald-500" /> Sales & Target Fulfillment
+                            </h4>
+
+                            <div className="flex items-center gap-2">
+                              {/* Target Fulfillment Achievement Badge */}
+                              <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl border uppercase ${targetAchievementPercent >= 100 ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'}`}>
+                                {targetAchievementPercent}% Fulfilled ({activeInvoices.length} Closures)
+                              </span>
+
+                              {/* Month Select Dropdown for Monthly Target View */}
+                              {targetFilter === 'monthly' && (
+                                <select
+                                  value={selectedMonth}
+                                  onChange={(e) => setSelectedMonth(e.target.value)}
+                                  className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[10px] font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 shadow-sm cursor-pointer"
+                                >
+                                  {availableMonths.map(mo => (
+                                    <option key={mo.id} value={mo.id}>{mo.label}</option>
+                                  ))}
+                                </select>
+                              )}
+
+                              {/* Monthly / Yearly Target Filter Toggle */}
+                              <div className="flex items-center bg-slate-200 dark:bg-slate-700 p-0.5 rounded-xl text-[9px] font-black uppercase">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setTargetFilter('monthly'); }}
+                                  className={`px-2 py-0.5 rounded-lg transition-all ${targetFilter === 'monthly' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}
+                                >
+                                  Monthly
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setTargetFilter('yearly'); }}
+                                  className={`px-2 py-0.5 rounded-lg transition-all ${targetFilter === 'yearly' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-300'}`}
+                                >
+                                  Yearly
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div 
+                            onClick={() => { setActiveDrilldown('sales_invoices'); setDrillSubFilter('all'); }}
+                            className="space-y-2.5 cursor-pointer p-2.5 rounded-2xl hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all group"
+                          >
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-slate-500 flex items-center gap-1 group-hover:text-emerald-600">
+                                Total Sales Revenue Closed {targetFilter === 'monthly' && selectedMonth !== 'all' && `(${availableMonths.find(mo => mo.id === selectedMonth)?.label})`} <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-600" />
+                              </span>
+                              <span className="font-black text-slate-900 dark:text-slate-100 text-sm">₹{activeRevenue.toLocaleString('en-IN')}</span>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
+                                style={{ width: `${Math.min(100, targetAchievementPercent)}%` }}
+                              ></div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                              <span>
+                                Target: ₹{targetVal.toLocaleString('en-IN')}{' '}
+                                <span className="text-[8px] font-normal uppercase">({targetFilter} • {selectedEmployee.position || selectedEmployee.role || 'Scale'})</span>
+                              </span>
+                              <span>Avg Deal: ₹{(activeInvoices.length > 0 ? Math.round(activeRevenue / activeInvoices.length) : 0).toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+
+                          {/* Sales vs Target Mini Bar Chart */}
+                          <div className="h-28 w-full bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={[
+                                { name: 'Target', amount: targetVal },
+                                { name: 'Closed', amount: activeRevenue }
+                              ]} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 800 }} />
+                                <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                                <Tooltip formatter={(value: any) => [`₹${Number(value).toLocaleString('en-IN')}`, 'Amount']} />
+                                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                                  <Cell fill="#94a3b8" />
+                                  <Cell fill="#10b981" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* PANEL 3: DUAL TASK MANAGEMENT ENGINE */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                              <CheckCircle2 size={16} className="text-emerald-500" /> Dual Task Engine
+                            </h4>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                              {m.completedGeneralTasks + m.completedServiceTasks} Resolved
                             </span>
-                            <span className="text-[10px] text-slate-400 font-bold block">Attendance: {m.attendancePercentageStr}</span>
-                            <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mt-1">Click for details →</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {/* GENERAL TASKS CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('general_tasks'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-emerald-500 transition-colors flex items-center gap-1">
+                                  <Target size={12} className="text-emerald-500" /> General Tasks
+                                </span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-emerald-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
+                                {m.completedGeneralTasks} / {m.totalGeneralTasks}
+                              </span>
+                              <span className="text-[10px] text-emerald-500 font-bold block">{m.generalTaskCompletionRate}% Completed</span>
+                              <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 block mt-1">Click to view tasks →</span>
+                            </div>
+
+                            {/* FIELD SERVICE TASKS CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('service_tasks'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-amber-500 transition-colors flex items-center gap-1">
+                                  <Wrench size={12} className="text-amber-500" /> Field Service
+                                </span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-amber-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
+                                {m.completedServiceTasks} / {m.totalServiceTasks}
+                              </span>
+                              <span className="text-[10px] text-amber-500 font-bold block">{m.serviceReportsCount} Service Reports</span>
+                              <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mt-1">Click for service →</span>
+                            </div>
+                          </div>
+
+                          {/* Task Engine Mini Bar Chart */}
+                          <div className="h-28 w-full bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={[
+                                { name: 'General', Completed: m.completedGeneralTasks, Pending: Math.max(0, m.totalGeneralTasks - m.completedGeneralTasks) },
+                                { name: 'Service', Completed: m.completedServiceTasks, Pending: Math.max(0, m.totalServiceTasks - m.completedServiceTasks) }
+                              ]} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 800 }} />
+                                <YAxis tick={{ fontSize: 8 }} />
+                                <Tooltip />
+                                <Bar dataKey="Completed" fill="#10b981" stackId="a" radius={[0, 0, 4, 4]} />
+                                <Bar dataKey="Pending" fill="#f59e0b" stackId="a" radius={[6, 6, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* PANEL 4: EXPENSES & COMPANY CONTRIBUTION */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                              <PieChart size={16} className="text-purple-500" /> Financial Expenses & Contribution
+                            </h4>
+                            <span className="text-xs font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2.5 py-1 rounded-xl border border-purple-200 dark:border-purple-800">
+                              {m.revenueContributionPercent}% Revenue Share
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {/* EXPENSES CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('expenses'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-purple-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-purple-500 transition-colors">Expenses Claimed</span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-purple-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5 block">
+                                ₹{m.totalExpensesClaimed.toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[10px] text-emerald-500 font-bold block">Approved: ₹{m.approvedExpenses.toLocaleString('en-IN')}</span>
+                              <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 block mt-1">Click for expense list →</span>
+                            </div>
+
+                            {/* GAMIFICATION & ATTENDANCE CARD */}
+                            <div 
+                              onClick={() => { setActiveDrilldown('gamification'); setDrillSubFilter('all'); }}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-500/50 hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer group"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-amber-500 transition-colors">Rank & Attendance</span>
+                                <ChevronRight size={12} className="text-slate-300 group-hover:text-amber-500 transition-transform group-hover:translate-x-0.5" />
+                              </div>
+                              <span className="text-sm font-black text-amber-500 mt-0.5 block flex items-center gap-1">
+                                <Trophy size={14} /> #{m.leaderboardRank} ({m.leaderboardPoints} Pts)
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-bold block">Attendance: {m.attendancePercentageStr}</span>
+                              <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 block mt-1">Click for details →</span>
+                            </div>
+                          </div>
+
+                          {/* Expense Status Mini Donut Chart */}
+                          <div className="h-28 w-full flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <div className="w-1/2 h-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RePieChart>
+                                  <Pie
+                                    data={[
+                                      { name: 'Approved', value: m.approvedExpenses || (m.totalExpensesClaimed === 0 ? 0 : 0) },
+                                      { name: 'Pending', value: m.pendingExpenses || (m.totalExpensesClaimed === 0 ? 1 : 0) }
+                                    ]}
+                                    cx="50%" cy="50%" innerRadius={20} outerRadius={36} paddingAngle={4} dataKey="value"
+                                  >
+                                    <Cell fill="#a855f7" />
+                                    <Cell fill="#f59e0b" />
+                                  </Pie>
+                                  <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Amount']} />
+                                </RePieChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="w-1/2 flex flex-col justify-center gap-1.5 pl-2 text-[10px] font-bold">
+                              <div className="flex items-center gap-1.5 text-purple-600">
+                                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                                <span>Approved: ₹{(m.approvedExpenses || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-amber-600">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                <span>Pending: ₹{(m.pendingExpenses || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1128,22 +1412,35 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                             Sales & Target Fulfillment Invoices
                           </h4>
                           <p className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold mt-0.5">
-                            Total Revenue Closed: ₹{m.totalSalesRevenue.toLocaleString('en-IN')} | Target ({targetFilter}): ₹{targetVal.toLocaleString('en-IN')} ({targetAchievementPercent}%)
+                            Total Revenue Closed: ₹{activeRevenue.toLocaleString('en-IN')} | Target ({targetFilter}): ₹{targetVal.toLocaleString('en-IN')} ({targetAchievementPercent}% Fulfilled • {activeInvoices.length} Closures)
                           </p>
                         </div>
-                        <div className="flex items-center bg-white dark:bg-slate-800 p-1 rounded-xl text-xs font-black border border-emerald-200">
-                          <button
-                            onClick={() => setTargetFilter('monthly')}
-                            className={`px-3 py-1 rounded-lg transition-all ${targetFilter === 'monthly' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
-                          >
-                            Monthly
-                          </button>
-                          <button
-                            onClick={() => setTargetFilter('yearly')}
-                            className={`px-3 py-1 rounded-lg transition-all ${targetFilter === 'yearly' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
-                          >
-                            Yearly
-                          </button>
+                        <div className="flex items-center gap-2">
+                          {targetFilter === 'monthly' && (
+                            <select
+                              value={selectedMonth}
+                              onChange={(e) => setSelectedMonth(e.target.value)}
+                              className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl text-[10px] font-black text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 shadow-sm cursor-pointer"
+                            >
+                              {availableMonths.map(mo => (
+                                <option key={mo.id} value={mo.id}>{mo.label}</option>
+                              ))}
+                            </select>
+                          )}
+                          <div className="flex items-center bg-white dark:bg-slate-800 p-1 rounded-xl text-xs font-black border border-emerald-200">
+                            <button
+                              onClick={() => setTargetFilter('monthly')}
+                              className={`px-3 py-1 rounded-lg transition-all ${targetFilter === 'monthly' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
+                            >
+                              Monthly
+                            </button>
+                            <button
+                              onClick={() => setTargetFilter('yearly')}
+                              className={`px-3 py-1 rounded-lg transition-all ${targetFilter === 'yearly' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}
+                            >
+                              Yearly
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1160,7 +1457,7 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
-                              {m.salesInvoices.map((inv, idx) => (
+                              {activeInvoices.map((inv, idx) => (
                                 <tr key={inv.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                   <td className="p-3 font-black text-slate-900 dark:text-slate-100">{inv.invoiceNumber || inv.id}</td>
                                   <td className="p-3 font-mono text-slate-500">{inv.date || '—'}</td>
@@ -1173,8 +1470,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                                   </td>
                                 </tr>
                               ))}
-                              {m.salesInvoices.length === 0 && (
-                                <tr><td colSpan={5} className="p-6 text-center text-slate-400 font-bold">No sales invoices found for this employee.</td></tr>
+                              {activeInvoices.length === 0 && (
+                                <tr><td colSpan={5} className="p-6 text-center text-slate-400 font-bold">No sales invoices found for this employee in the selected period.</td></tr>
                               )}
                             </tbody>
                           </table>
@@ -1430,26 +1727,44 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
                               <thead>
                                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase font-black tracking-wider text-[10px]">
                                   <th className="p-3">Date</th>
+                                  <th className="p-3">Work Mode</th>
                                   <th className="p-3">Check In</th>
                                   <th className="p-3">Check Out</th>
                                   <th className="p-3 text-center">Status</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
-                                {m.empAttendanceRecords.map((ar, idx) => (
-                                  <tr key={ar.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="p-3 font-mono text-slate-500">{ar.date || '—'}</td>
-                                    <td className="p-3 font-mono">{(ar as any).checkInTime || '—'}</td>
-                                    <td className="p-3 font-mono">{(ar as any).checkOutTime || '—'}</td>
-                                    <td className="p-3 text-center">
-                                      <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase border bg-emerald-50 text-emerald-700 border-emerald-200">
-                                        {ar.status || 'Present'}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
+                                {m.empAttendanceRecords.map((ar, idx) => {
+                                  const st = (ar.status || 'Present').toLowerCase();
+                                  let statusBadgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800";
+                                  if (st === 'paused') {
+                                    statusBadgeClass = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800";
+                                  } else if (st === 'onleave' || st === 'leave') {
+                                    statusBadgeClass = "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:border-purple-800";
+                                  } else if (st === 'checkedin') {
+                                    statusBadgeClass = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:border-blue-800";
+                                  }
+
+                                  return (
+                                    <tr key={ar.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                      <td className="p-3 font-mono text-slate-500 font-bold">{ar.date || '—'}</td>
+                                      <td className="p-3 font-bold text-slate-700 dark:text-slate-200">
+                                        <span className="px-2 py-0.5 rounded-lg text-[9px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                          {ar.workMode || 'Office'}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{(ar as any).checkInTime || '—'}</td>
+                                      <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{(ar as any).checkOutTime || '—'}</td>
+                                      <td className="p-3 text-center">
+                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${statusBadgeClass}`}>
+                                          {ar.status || 'Completed'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                                 {m.empAttendanceRecords.length === 0 && (
-                                  <tr><td colSpan={4} className="p-6 text-center text-slate-400 font-bold">No attendance logs found.</td></tr>
+                                  <tr><td colSpan={5} className="p-6 text-center text-slate-400 font-bold">No attendance logs found for this employee.</td></tr>
                                 )}
                               </tbody>
                             </table>

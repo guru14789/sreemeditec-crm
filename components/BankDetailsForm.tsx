@@ -139,6 +139,7 @@ export const BankDetailsForm: React.FC = () => {
                                 <option value="Current">Current Account</option>
                                 <option value="Savings">Savings Account</option>
                                 <option value="OD">Overdraft</option>
+                                <option value="Cash">Cash Account</option>
                             </select>
                         </div>
                     </div>

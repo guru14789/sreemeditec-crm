@@ -595,7 +595,7 @@ Email: sreemeditec@gmail.com`;
             const updatedItems = (prev.items || []).map(item => {
                 if (item.id === id) {
                     let finalVal = value;
-                    if (field === 'quantity' || field === 'unitPrice' || field === 'taxRate') {
+                    if (field === 'quantity' || field === 'unitPrice' || field === 'taxRate' || field === 'discountPercent') {
                         // Allow typing decimals by only converting if it is a safe complete number strings
                         // we keep the raw string so user can type "10."
                         finalVal = value === '' ? '' : (isNaN(Number(value)) ? item[field] : value);
@@ -655,8 +655,12 @@ Email: sreemeditec@gmail.com`;
                         }
                     }
 
-                    // Calculations work with strings automatically in JS math
-                    updated.amount = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
+                    // Calculations with row discount %:
+                    const rawBase = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
+                    const discPct = Number(updated.discountPercent) || 0;
+                    const discAmt = rawBase * (discPct / 100);
+                    updated.discountAmount = discAmt;
+                    updated.amount = rawBase - discAmt;
                     updated.gstValue = updated.amount * ((Number(updated.taxRate) || 0) / 100);
                     updated.priceWithGst = updated.amount + updated.gstValue;
                     return updated;
@@ -1360,6 +1364,10 @@ Email: sreemeditec@gmail.com`;
                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-right">Rate</label>
                                                             <input type="text" inputMode="decimal" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black text-right" value={item.unitPrice || ''} onChange={e => updateItem(item.id, 'unitPrice', e.target.value)} />
+                                                        </div>
+                                                        <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+                                                            <label className="text-[9px] font-black text-amber-600 uppercase block mb-1 text-center">Disc %</label>
+                                                            <input type="text" inputMode="decimal" className="w-full bg-white border border-amber-300 dark:border-amber-700/60 rounded-[2rem] px-3 py-1.5 text-xs font-black text-center text-amber-600 focus:border-amber-500" placeholder="0%" value={item.discountPercent ?? ''} onChange={e => updateItem(item.id, 'discountPercent', e.target.value)} />
                                                         </div>
                                                         <div className="col-span-1 sm:col-span-1 lg:col-span-1">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase block mb-1 text-center">GST %</label>

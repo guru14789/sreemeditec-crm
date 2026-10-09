@@ -153,6 +153,7 @@ export interface DataContextType {
     showConfirm: (message: string, title?: string) => Promise<boolean>;
     showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
     previewPDF: (blob: Blob, filename: string) => void;
+    downloadPDF: (blob: Blob, filename: string) => void;
 
     currentUser: Employee | null;
     isAuthenticated: boolean;
@@ -179,11 +180,11 @@ export interface DataContextType {
     updateBankRule: (id: string, rule: Partial<BankRule>) => Promise<void>;
     removeBankRule: (id: string) => Promise<void>;
     bankTransactions: BankTransaction[];
-    processClientPayment: (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
-    processVendorPayment: (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
-    processContraTransfer: (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => Promise<void>;
+    processClientPayment: (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => Promise<void>;
+    processVendorPayment: (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => Promise<void>;
+    processContraTransfer: (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, date?: string) => Promise<void>;
     deleteBankTransaction: (id: string) => Promise<void>;
-    updateBankTransaction: (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => Promise<void>;
+    updateBankTransaction: (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => Promise<void>;
     companyProfiles: CompanyProfile[];
     addCompanyProfile: (profile: CompanyProfile) => Promise<void>;
     updateCompanyProfile: (id: string, profile: Partial<CompanyProfile>) => Promise<void>;
@@ -527,12 +528,75 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
     };
 
-    // PDF Preview state
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<{ url: string, filename: string } | null>(null);
+    // PDF Preview state & Download Helper
+    const [pdfPreviewData, setPdfPreviewData] = useState<{ url: string; filename: string; blob: Blob } | null>(null);
+
+    const downloadPDF = (blob: Blob, filename: string) => {
+        try {
+            // Convert Blob to Data URL for universal compatibility (Safari iOS, Android WebViews, PWAs)
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const dataUrl = reader.result as string;
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                link.setAttribute('target', '_blank');
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                    if (document.body.contains(link)) {
+                        document.body.removeChild(link);
+                    }
+                }, 200);
+            };
+            reader.readAsDataURL(blob);
+        } catch (err) {
+            console.error('DataURL download fallback failed, attempting direct blob link', err);
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                if (document.body.contains(link)) document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            }, 200);
+        }
+    };
+
+    const handleSharePDF = async (blob: Blob, filename: string) => {
+        try {
+            const file = new File([blob], filename, { type: 'application/pdf' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: filename,
+                    text: filename
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn('Native share cancelled or not supported', e);
+        }
+        downloadPDF(blob, filename);
+    };
+
+    const handleOpenPDFInNewTab = (blob: Blob) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const dataUrl = reader.result as string;
+            const w = window.open(dataUrl, '_blank');
+            if (!w) {
+                window.location.href = dataUrl;
+            }
+        };
+        reader.readAsDataURL(blob);
+    };
+
     const previewPDF = (blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob);
-        setPdfPreviewUrl({ url, filename });
-        // Track the download/preview in audit logs
+        setPdfPreviewData({ url, filename, blob });
         addLog('System', 'Generated/Viewed Document', `Previewed/Downloaded PDF: ${filename}`);
     };
 
@@ -849,8 +913,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     if (data.prizePool) setPrizePool(data.prizePool);
                     if (data.financialYear) setFinancialYear(data.financialYear);
                     if (data.bankDetails) {
-                        const banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                        let banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                        if (!banks.some((b: any) => b.id === 'cash-account' || b.accountType === 'Cash')) {
+                            banks = [...banks, {
+                                id: 'cash-account',
+                                bankName: 'Cash Account',
+                                accountNo: 'CASH-IN-HAND',
+                                branchIfsc: 'CASH',
+                                accountType: 'Cash',
+                                isDefault: false,
+                                initialBalance: 0
+                            }];
+                        }
                         setBankDetailsList(banks);
+                    } else {
+                        setBankDetailsList([{
+                            id: 'cash-account',
+                            bankName: 'Cash Account',
+                            accountNo: 'CASH-IN-HAND',
+                            branchIfsc: 'CASH',
+                            accountType: 'Cash',
+                            isDefault: false,
+                            initialBalance: 0
+                        }]);
                     }
                     if (data.bankRules) {
                         setBankRules(data.bankRules);
@@ -3941,6 +4026,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             let updatedProductsList: Product[] = [];
             let productsToLog: Product[] = [];
             let stockMovementsToCreate: StockMovement[] = [];
+            let newGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }> = {};
             
             await runTransaction(db, async (tx) => {
                 const currentProducts = [...products];
@@ -3995,7 +4081,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const newItems = getItems(i);
                 
                 // Group new items by unique match key (including brand/model)
-                const newGrouped: Record<string, { qty: number, name: string, productId?: string, sku?: string, barcode?: string, brand?: string, model?: string }> = {};
+                newGrouped = {};
                 newItems.forEach(item => {
                     if (!item.name) return;
                     const key = `${item.productId || item.name}::${item.brand || ''}::${item.model || ''}`;
@@ -4361,7 +4447,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('System', 'Updated Fiscal Period', `New Period: ${fy}`);
     };
 
-    const processClientPayment = async (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
+    const processClientPayment = async (bankId: string, clientId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => {
         const client = clients.find(c => c.id === clientId);
         if (!client) throw new Error("Client not found");
 
@@ -4407,10 +4493,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         const txId = doc(collection(db, "bankTransactions")).id;
+        const txDate = date || new Date().toISOString().split('T')[0];
         const tx: BankTransaction = {
             id: txId,
             bankId,
-            date: new Date().toISOString().split('T')[0],
+            date: txDate,
             partyType: 'Client',
             partyId: clientId,
             partyName: client.name,
@@ -4430,7 +4517,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Sales', 'Client Payment Processed', `Received ₹${amount} from ${client.name}`);
     };
 
-    const processVendorPayment = async (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
+    const processVendorPayment = async (bankId: string, vendorId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => {
         const vendor = vendors.find(v => v.id === vendorId);
         if (!vendor) throw new Error("Vendor not found");
 
@@ -4471,10 +4558,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         const txId = doc(collection(db, "bankTransactions")).id;
+        const txDate = date || new Date().toISOString().split('T')[0];
         const tx: BankTransaction = {
             id: txId,
             bankId,
-            date: new Date().toISOString().split('T')[0],
+            date: txDate,
             partyType: 'Vendor',
             partyId: vendorId,
             partyName: vendor.name,
@@ -4494,7 +4582,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Purchases', 'Vendor Payment Processed', `Paid ₹${amount} to ${vendor.name}`);
     };
 
-    const processContraTransfer = async (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string) => {
+    const processContraTransfer = async (sourceBankId: string, targetBankId: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, date?: string) => {
         const sourceBank = bankDetailsList.find(b => b.id === sourceBankId);
         const targetBank = bankDetailsList.find(b => b.id === targetBankId);
         
@@ -4503,12 +4591,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const debitTxId = doc(collection(db, "bankTransactions")).id;
         const creditTxId = doc(collection(db, "bankTransactions")).id;
         const now = new Date().toISOString();
-        const date = now.split('T')[0];
+        const txDate = date || now.split('T')[0];
 
         const debitTx: BankTransaction = {
             id: debitTxId,
             bankId: sourceBankId,
-            date,
+            date: txDate,
             partyType: 'Contra',
             partyId: targetBankId,
             partyName: `Contra Transfer to ${targetBank.bankName}`,
@@ -4526,7 +4614,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const creditTx: BankTransaction = {
             id: creditTxId,
             bankId: targetBankId,
-            date,
+            date: txDate,
             partyType: 'Contra',
             partyId: sourceBankId,
             partyName: `Contra Transfer from ${sourceBank.bankName}`,
@@ -4597,11 +4685,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await addLog('Banking', 'Deleted Transaction', `Reversed transaction ${id}`);
     };
 
-    const updateBankTransaction = async (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[]) => {
+    const updateBankTransaction = async (id: string, amount: number, paymentMode: string, notes?: string, referenceNumber?: string, selectedInvoiceIds?: string[], date?: string) => {
         const tx = bankTransactions.find(t => t.id === id);
         if (!tx) throw new Error("Transaction not found");
 
         const updates: Promise<void>[] = [];
+        const txDate = date || tx.date;
         const simulatedInvoices = invoices.map(inv => {
             const alloc = tx.allocations?.find(a => a.documentId === inv.id);
             if (alloc) {
@@ -4671,7 +4760,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             updates.push(updateDoc(doc(db, "bankTransactions", id), {
                 amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || '',
-                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0
+                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0,
+                date: txDate
             }));
             
         } else if (tx.partyType === 'Vendor') {
@@ -4723,12 +4813,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             updates.push(updateDoc(doc(db, "bankTransactions", id), {
                 amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || '',
-                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0
+                allocations: newAllocations, unallocatedAmount: remaining > 0 ? remaining : 0,
+                date: txDate
             }));
             
         } else if (tx.partyType === 'Contra') {
             updates.push(updateDoc(doc(db, "bankTransactions", id), {
-                amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || ''
+                amount, paymentMode, notes: notes || '', referenceNumber: referenceNumber || '',
+                date: txDate
             }));
         }
         await Promise.all(updates);
@@ -4832,7 +4924,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             pendingChallanData, setPendingChallanData,
             pendingSupplierPOData, setPendingSupplierPOData,
             activeTab, setActiveTab,
-            showAlert, showConfirm, showPrompt, previewPDF,
+            showAlert, showConfirm, showPrompt, previewPDF, downloadPDF,
             currentUser, isAuthenticated, login, loginWithGoogle, logout, seedDatabase,
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
@@ -4921,34 +5013,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 </div>
             )}
 
-            {/* PDF Preview Modal */}
-            {pdfPreviewUrl && (
-                <div className="fixed inset-0 z-[9999] flex flex-col bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-                    <div className="flex justify-between items-center bg-slate-900 border border-slate-800 px-6 py-4 rounded-t-2xl w-full max-w-5xl mx-auto mt-4">
- <h3 className="text-lg font-bold tracking-tight text-teal-400 truncate">{pdfPreviewUrl.filename}</h3>
-                        <div className="flex gap-3">
-                            <a
-                                href={pdfPreviewUrl.url}
-                                download={pdfPreviewUrl.filename}
-                                className="px-4 py-2 rounded-[2rem] bg-slate-800 hover:bg-slate-700 text-teal-400 hover:text-teal-300 text-sm font-medium transition-all"
+            {/* PDF Preview & Download Modal */}
+            {pdfPreviewData && (
+                <div className="fixed inset-0 z-[9999] flex flex-col bg-black/85 backdrop-blur-md p-2 sm:p-4 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 border border-slate-800 px-4 sm:px-6 py-3.5 rounded-t-2xl w-full max-w-5xl mx-auto mt-2 sm:mt-4 gap-3">
+                        <div className="min-w-0 flex-1">
+                            <h3 className="text-base sm:text-lg font-extrabold tracking-tight text-emerald-400 truncate">
+                                📄 {pdfPreviewData.filename}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-medium">Document generated successfully</p>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+                            {/* DOWNLOAD BUTTON */}
+                            <button
+                                onClick={() => downloadPDF(pdfPreviewData.blob, pdfPreviewData.filename)}
+                                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                             >
-                                Download PDF
-                            </a>
+                                📥 Download PDF
+                            </button>
+
+                            {/* SHARE / SAVE BUTTON FOR MOBILE */}
+                            {typeof navigator !== 'undefined' && 'share' in navigator && (
+                                <button
+                                    onClick={() => handleSharePDF(pdfPreviewData.blob, pdfPreviewData.filename)}
+                                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-bold transition-all border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                                    title="Share or save to device"
+                                >
+                                    📤 Share / Save
+                                </button>
+                            )}
+
+                            {/* OPEN IN NEW TAB BUTTON */}
+                            <button
+                                onClick={() => handleOpenPDFInNewTab(pdfPreviewData.blob)}
+                                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-bold transition-all border border-slate-700 cursor-pointer hidden sm:flex"
+                                title="Open in browser tab"
+                            >
+                                🔗 Open
+                            </button>
+
+                            {/* CLOSE BUTTON */}
                             <button
                                 onClick={() => {
-                                    URL.revokeObjectURL(pdfPreviewUrl.url);
-                                    setPdfPreviewUrl(null);
+                                    URL.revokeObjectURL(pdfPreviewData.url);
+                                    setPdfPreviewData(null);
                                 }}
-                                className="px-4 py-2 rounded-[2rem] bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 text-sm font-medium transition-all border border-rose-900/30"
+                                className="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs sm:text-sm font-bold transition-all border border-rose-800/40 cursor-pointer"
                             >
-                                Close
+                                ✖ Close
                             </button>
                         </div>
                     </div>
-                    <div className="flex-1 bg-slate-900 rounded-b-2xl overflow-hidden w-full max-w-5xl mx-auto mb-4 p-2">
+
+                    <div className="flex-1 bg-slate-950 rounded-b-2xl overflow-hidden w-full max-w-5xl mx-auto mb-2 sm:mb-4 p-2 border-x border-b border-slate-800 flex flex-col">
                         <iframe
-                            src={pdfPreviewUrl.url}
-                            className="w-full h-full border-none rounded-[2rem] bg-white"
+                            src={pdfPreviewData.url}
+                            className="w-full h-full border-none rounded-xl bg-white flex-1"
                             title="PDF Preview"
                         />
                     </div>

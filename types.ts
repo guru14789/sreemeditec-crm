@@ -93,6 +93,10 @@ export interface Client {
   id: string;
   name: string;
   hospital?: string;
+  branchName?: string;
+  parentClientId?: string;
+  parentClientName?: string;
+  isParentGroup?: boolean;
   address: string;
   gstin?: string;
   email?: string;
@@ -492,6 +496,8 @@ export interface InvoiceItem {
   hsn?: string;
   quantity: number;
   unitPrice: number;
+  discountPercent?: number;
+  discountAmount?: number;
   taxRate: number;
   cgstRate?: number;
   sgstRate?: number;
@@ -813,6 +819,10 @@ export interface ServiceReport {
   actionTaken: string;
   engineerName: string;
   status: 'Draft' | 'Completed';
+  serviceCategory?: 'Medical Equipment' | 'Pipeline';
+  pipelineLocation?: string;
+  gasType?: string;
+  pressureTestStatus?: string;
   itemsUsed?: ServiceReportItem[];
   documentType?: string;
   serialNumber?: string;

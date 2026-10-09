@@ -442,7 +442,13 @@ Sree Meditec`;
                         }
                     }
 
-                    updated.amount = updated.quantity * updated.unitPrice;
+                    const rawBase = (Number(updated.quantity) || 0) * (Number(updated.unitPrice) || 0);
+                    const discPct = Number(updated.discountPercent) || 0;
+                    const discAmt = rawBase * (discPct / 100);
+                    updated.discountAmount = discAmt;
+                    updated.amount = rawBase - discAmt;
+                    updated.gstValue = updated.amount * ((Number(updated.taxRate) || 0) / 100);
+                    updated.priceWithGst = updated.amount + updated.gstValue;
                     return updated;
                 }
                 return item;
@@ -1238,13 +1244,14 @@ Sree Meditec`;
                                                                  })()}
                                                              </datalist>
                                                          </div>
-                                                        <div className="grid grid-cols-2 md:col-span-4 gap-4">
+                                                        <div className="grid grid-cols-2 md:col-span-3 gap-3">
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Qty</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} /></div>
                                                             <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Type</label><select className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold appearance-none" value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}><option value="nos">nos</option><option value="no">no</option><option value="jar">jar</option><option value="packet">packet</option><option value="meter">meter</option><option value="kgs">kgs</option><option value="sqft">sqft</option><option value="sqm">sqm</option><option value="RMT">RMT</option></select></div>
                                                         </div>
                                                         <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Rate</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-right" value={item.unitPrice} onChange={e => updateItem(item.id, 'unitPrice', Number(e.target.value))} /></div>
+                                                        <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-amber-600 uppercase ml-1">Disc %</label><input type="number" className="w-full bg-white border border-amber-300 rounded-[2rem] px-3 py-2 text-xs font-black text-amber-600 text-center" placeholder="0%" value={item.discountPercent ?? ''} onChange={e => updateItem(item.id, 'discountPercent', Number(e.target.value))} /></div>
                                                         <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">GST %</label><input type="number" className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold text-center" value={item.taxRate} onChange={e => updateItem(item.id, 'taxRate', Number(e.target.value))} /></div>
-                                                        <div className="md:col-span-3 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{(item.unitPrice * item.quantity * (1 + item.taxRate/100)).toLocaleString('en-IN')}</div></div>
+                                                        <div className="md:col-span-2 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Total</label><div className="w-full bg-slate-100 border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-black text-right text-medical-700 truncate">₹{((item.amount || (item.quantity * item.unitPrice * (1 - (item.discountPercent || 0)/100))) * (1 + (item.taxRate || 0)/100)).toLocaleString('en-IN')}</div></div>
                                                         <div className="md:col-span-12 space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Features</label><textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-2 text-xs font-bold resize-y" rows={4} value={item.features || ''} onChange={e => updateItem(item.id, 'features', e.target.value)} /></div>
                                                         
                                                         <div className="md:col-span-12">

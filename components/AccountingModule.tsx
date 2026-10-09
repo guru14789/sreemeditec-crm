@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from './DataContext';
-import { Landmark, CreditCard, Building2, Copy, CheckCircle2, ShieldCheck, ArrowUpRight, ShieldAlert, FileText, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { Landmark, CreditCard, Building2, Copy, CheckCircle2, ShieldCheck, ArrowUpRight, ShieldAlert, FileText, ChevronLeft, ChevronRight, Layers, Wallet } from 'lucide-react';
 import { BankLedger } from './BankLedger';
 import { PartyStatement } from './PartyStatement';
 import { CapitalAssetsTab } from './CapitalAssetsTab';
@@ -97,7 +97,7 @@ export const AccountingModule: React.FC = () => {
                         Corporate Banking
                       </h1>
                     </div>
-                    <p className="text-sm font-bold text-slate-500 ml-1">Secure overview of registered business accounts.</p>
+                    <p className="text-sm font-bold text-slate-500 ml-1">Secure overview of registered business & cash accounts.</p>
                   </div>
                   
                   <div className="hidden md:flex items-center gap-4 bg-white dark:bg-slate-900 p-2 pr-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
@@ -119,59 +119,74 @@ export const AccountingModule: React.FC = () => {
                       <p className="text-sm font-bold mt-2">Add bank details in System Settings &gt; Banking Configuration</p>
                     </div>
                   ) : (
-                    bankDetailsList.map((bank, index) => (
-                      <div key={bank.id} className="relative group perspective-1000" onClick={() => setSelectedBankId(bank.id)}>
-                        <div className={`relative w-full rounded-3xl p-6 xl:p-8 text-white overflow-hidden shadow-2xl transition-all duration-500 transform group-hover:-translate-y-2 group-hover:shadow-3xl ${getGradientForBank(index)} aspect-[1.6/1] flex flex-col justify-between`}>
-                          
-                          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                          <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500 opacity-10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
-                          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+                    bankDetailsList.map((bank, index) => {
+                      const isCash = bank.accountType === 'Cash' || bank.id === 'cash-account';
+                      const cardGradient = isCash 
+                        ? 'bg-gradient-to-br from-emerald-800 via-teal-900 to-slate-950'
+                        : getGradientForBank(index);
 
-                          <div className="flex justify-between items-start relative z-10">
-                            <div>
-                              <h3 className="text-xl font-black tracking-tight leading-none mb-1 text-white/90 drop-shadow-md">{bank.bankName}</h3>
-                              {bank.isDefault && (
-                                 <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-white/20 text-white px-2 py-0.5 rounded backdrop-blur-md border border-white/10">
-                                    <CheckCircle2 size={10} /> Default
-                                 </span>
+                      return (
+                        <div key={bank.id} className="relative group perspective-1000 cursor-pointer" onClick={() => setSelectedBankId(bank.id)}>
+                          <div className={`relative w-full rounded-3xl p-6 xl:p-8 text-white overflow-hidden shadow-2xl transition-all duration-500 transform group-hover:-translate-y-2 group-hover:shadow-3xl ${cardGradient} aspect-[1.6/1] flex flex-col justify-between`}>
+                            
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500 opacity-10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+
+                            <div className="flex justify-between items-start relative z-10">
+                              <div>
+                                <h3 className="text-xl font-black tracking-tight leading-none mb-1 text-white/90 drop-shadow-md">{bank.bankName}</h3>
+                                {bank.isDefault ? (
+                                   <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-white/20 text-white px-2 py-0.5 rounded backdrop-blur-md border border-white/10">
+                                      <CheckCircle2 size={10} /> Default
+                                   </span>
+                                ) : isCash ? (
+                                   <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded backdrop-blur-md border border-emerald-400/20">
+                                      <Wallet size={10} /> Cash Account
+                                   </span>
+                                ) : null}
+                              </div>
+                              {isCash ? (
+                                <Wallet className="opacity-40 text-white" size={32} />
+                              ) : (
+                                <CreditCard className="opacity-40 text-white" size={32} />
                               )}
                             </div>
-                            <CreditCard className="opacity-40 text-white" size={32} />
-                          </div>
 
-                          <div className="w-14 h-10 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 opacity-90 relative overflow-hidden shadow-inner flex items-center justify-center mt-2">
-                              <div className="absolute inset-0 border border-white/30 rounded-lg"></div>
-                              <div className="w-full h-[1px] bg-white/30"></div>
-                              <div className="absolute w-[1px] h-full bg-white/30"></div>
-                          </div>
-
-                          <div className="relative z-10 group/copy cursor-pointer my-4" onClick={(e) => { e.stopPropagation(); handleCopy(bank.accountNo, bank.id + 'acc'); }}>
-                            <div className="flex items-center justify-between">
-                               <div className="font-mono text-lg xl:text-xl tracking-[0.15em] text-white/90 drop-shadow-sm font-medium">
-                                  {bank.accountNo.replace(/(.{4})/g, '$1 ').trim()}
-                               </div>
-                               <div className="opacity-0 group-hover/copy:opacity-100 transition-opacity p-2 bg-white/10 rounded-xl backdrop-blur-sm">
-                                  {copiedId === bank.id + 'acc' ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Copy size={16} className="text-white/70" />}
-                               </div>
+                            <div className="w-14 h-10 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 opacity-90 relative overflow-hidden shadow-inner flex items-center justify-center mt-2">
+                                <div className="absolute inset-0 border border-white/30 rounded-lg"></div>
+                                <div className="w-full h-[1px] bg-white/30"></div>
+                                <div className="absolute w-[1px] h-full bg-white/30"></div>
                             </div>
-                          </div>
 
-                          <div className="flex justify-between items-end relative z-10 pt-4 mt-auto border-t border-white/10">
-                            <div>
-                              <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/50 mb-0.5">Account Type</p>
-                              <p className="text-xs font-bold tracking-wider text-white/90">{bank.accountType || 'Current'}</p>
+                            <div className="relative z-10 group/copy cursor-pointer my-4" onClick={(e) => { e.stopPropagation(); handleCopy(bank.accountNo, bank.id + 'acc'); }}>
+                              <div className="flex items-center justify-between">
+                                 <div className="font-mono text-lg xl:text-xl tracking-[0.15em] text-white/90 drop-shadow-sm font-medium">
+                                    {bank.accountNo.replace(/(.{4})/g, '$1 ').trim()}
+                                 </div>
+                                 <div className="opacity-0 group-hover/copy:opacity-100 transition-opacity p-2 bg-white/10 rounded-xl backdrop-blur-sm">
+                                    {copiedId === bank.id + 'acc' ? <CheckCircle2 size={16} className="text-emerald-400" /> : <Copy size={16} className="text-white/70" />}
+                                 </div>
+                              </div>
                             </div>
-                            <div className="text-right group/ifsc cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCopy(bank.branchIfsc, bank.id + 'ifsc'); }}>
-                              <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/50 mb-0.5 flex items-center justify-end gap-1">
-                                IFSC / Routing 
-                                {copiedId === bank.id + 'ifsc' ? <CheckCircle2 size={8} className="text-emerald-400" /> : <Copy size={8} className="opacity-0 group-hover/ifsc:opacity-100 transition-opacity" />}
-                              </p>
-                              <p className="text-xs font-bold font-mono tracking-wider text-white/90">{bank.branchIfsc}</p>
+
+                            <div className="flex justify-between items-end relative z-10 pt-4 mt-auto border-t border-white/10">
+                              <div>
+                                <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/50 mb-0.5">Account Type</p>
+                                <p className="text-xs font-bold tracking-wider text-white/90">{bank.accountType || 'Current'}</p>
+                              </div>
+                              <div className="text-right group/ifsc cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCopy(bank.branchIfsc, bank.id + 'ifsc'); }}>
+                                <p className="text-[7px] font-black uppercase tracking-[0.2em] text-white/50 mb-0.5 flex items-center justify-end gap-1">
+                                  IFSC / Routing 
+                                  {copiedId === bank.id + 'ifsc' ? <CheckCircle2 size={8} className="text-emerald-400" /> : <Copy size={8} className="opacity-0 group-hover/ifsc:opacity-100 transition-opacity" />}
+                                </p>
+                                <p className="text-xs font-bold font-mono tracking-wider text-white/90">{bank.branchIfsc}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

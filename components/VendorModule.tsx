@@ -4,7 +4,7 @@ import {
     Truck, MapPin, FileText, 
     X, Lock, User, Trash2, 
     RefreshCw, AlertTriangle, ShieldCheck, 
-    Globe, Building2, List, Plus, Edit2, Search
+    Globe, Building2, List, Plus, Edit2, Search, Download
 } from 'lucide-react';
 import { useData } from './DataContext';
 
@@ -110,6 +110,40 @@ export const VendorModule: React.FC = () => {
             });
     }, [vendors, searchQuery]);
 
+    const handleExportCSV = () => {
+        if (filteredVendors.length === 0) {
+            addNotification('Export Failed', 'No supplier records available to export.', 'alert');
+            return;
+        }
+
+        const headers = ['S.No', 'Vendor ID', 'Vendor Name', 'Contact Person', 'Address', 'GSTIN', 'Email', 'Phone', 'CIN No', 'PAN No', 'DL No', 'Udyam No', 'Status', 'Procurement Volume (₹)', 'Outstanding Amount (₹)'];
+        const rows = filteredVendors.map((v, idx) => [
+            idx + 1,
+            `"${(v.id || '').replace(/"/g, '""')}"`,
+            `"${(v.name || '').replace(/"/g, '""')}"`,
+            `"${(v.contactPerson || '').replace(/"/g, '""')}"`,
+            `"${(v.address || '').replace(/"/g, '""')}"`,
+            `"${(v.gstin || '').replace(/"/g, '""')}"`,
+            `"${(v.email || '').replace(/"/g, '""')}"`,
+            `"${(v.phone || '').replace(/"/g, '""')}"`,
+            `"${(v.cinNo || '').replace(/"/g, '""')}"`,
+            `"${(v.panNo || '').replace(/"/g, '""')}"`,
+            `"${(v.dlNo || '').replace(/"/g, '""')}"`,
+            `"${(v.udyamNo || '').replace(/"/g, '""')}"`,
+            `"${(v.status || 'Finalized').replace(/"/g, '""')}"`,
+            (v.procurementVolume || 0).toFixed(2),
+            getVendorOutstanding(v.name).toFixed(2)
+        ]);
+
+        const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Vendor_Database_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        addNotification('Export Complete', `${filteredVendors.length} supplier records exported to CSV.`, 'success');
+    };
+
     if (!isAuthenticated) {
         return (
             <div className="h-full flex items-center justify-center bg-slate-50 p-4 animate-in fade-in">
@@ -191,11 +225,14 @@ export const VendorModule: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                            <div className="relative w-full sm:w-72">
+                            <div className="relative w-full sm:w-64">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/50" size={16} />
                                 <input type="text" placeholder="Search suppliers..." className="w-full bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/50 rounded-[2rem] py-3 md:py-2.5 pl-11 pr-4 text-[11px] font-bold outline-none focus:border-emerald-400 focus:bg-emerald-900/60 transition-all uppercase placeholder:normal-case shadow-inner" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                             </div>
-                            <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderMode('add'); setVendor(DEFAULT_VENDOR); setActiveFormTab('profile'); }} className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-7 py-3 md:py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><Plus size={16} /> New Vendor</button>
+                            <button onClick={handleExportCSV} className="w-full sm:w-auto bg-emerald-900/60 border border-emerald-700/50 hover:bg-emerald-800/80 text-emerald-100 px-5 py-3 md:py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0 shadow-inner" title="Export Vendor Registry CSV">
+                                <Download size={14} className="text-[#c5a059]" /> Export CSV
+                            </button>
+                            <button onClick={() => { setEditingId(null); setViewState('builder'); setBuilderMode('add'); setVendor(DEFAULT_VENDOR); setActiveFormTab('profile'); }} className="w-full sm:w-auto bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 px-6 py-3 md:py-2.5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] hover:scale-[1.02] hover:shadow-[0_20px_40px_-5px_rgba(197,160,89,0.6)] transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><Plus size={16} /> New Vendor</button>
                         </div>
                     </div>
                     

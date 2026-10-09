@@ -14,6 +14,11 @@ interface ServiceTaskModuleProps {
   userRole?: 'Admin' | 'Employee';
 }
 
+const SERVICE_CATEGORIES = [
+  'Medical Equipment', 'Pipeline Service', 'Installation', 'Repair', 'Maintenance', 'AMC Service',
+  'Calibration', 'Upgrade', 'Demo', 'Training', 'Other'
+];
+
 const STATUS_CONFIG: Record<ServiceTaskStatus, { label: string; color: string; dotColor: string }> = {
   'New': { label: 'New', color: 'bg-blue-500', dotColor: 'bg-blue-500' },
   'Claimed': { label: 'Claimed', color: 'bg-indigo-600', dotColor: 'bg-indigo-600' },

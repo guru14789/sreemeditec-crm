@@ -8,14 +8,14 @@ import {
   DollarSign, PieChart as PieChartIcon, ArrowDownRight,
   MoreHorizontal, Users, ArrowLeft, Search, Package,
   ShoppingCart, Award, ChevronRight, X, Truck,
-  AlertTriangle,
+  AlertTriangle, Eye, EyeOff, Lock, GitBranch,
 } from 'lucide-react';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useData } from './DataContext';
 import { PDFService } from '../services/PDFService';
 import { SALARY_SCALE } from '../types';
-import { PerformanceModule } from './PerformanceModule';
+import { PerformanceModule, parseDateRobust } from './PerformanceModule';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatIndianNumber = (num: number) => {
@@ -31,6 +31,51 @@ const formatCompactIndianNumber = (num: number) => {
 };
 
 const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const getInvoiceParentGroup = (inv: any, clientsList: any[], clientToParentMap?: Map<string, string>) => {
+  const custName = (inv.customerName || (inv as any).clientName || '').trim();
+  const custHosp = ((inv as any).customerHospital || '').trim();
+
+  if (!custName && !custHosp) return 'Unknown Customer';
+
+  const lowCustName = custName.toLowerCase();
+  const lowCustHosp = custHosp.toLowerCase();
+
+  if (clientToParentMap) {
+    if (lowCustName && clientToParentMap.has(lowCustName)) {
+      return clientToParentMap.get(lowCustName)!;
+    }
+    if (lowCustHosp && clientToParentMap.has(lowCustHosp)) {
+      return clientToParentMap.get(lowCustHosp)!;
+    }
+  }
+
+  const clientObj = (clientsList || []).find(c => {
+    const cName = (c.name || '').trim().toLowerCase();
+    const cHosp = (c.hospital || '').trim().toLowerCase();
+    return (cName && (cName === lowCustName || cName === lowCustHosp)) ||
+           (cHosp && (cHosp === lowCustName || cHosp === lowCustHosp));
+  });
+
+  if (clientObj) {
+    return (clientObj.parentClientName || clientObj.hospital || clientObj.name || custName).trim();
+  }
+
+  const parentMatch = (clientsList || []).find(c => {
+    const cParent = (c.parentClientName || '').trim().toLowerCase();
+    const cName = (c.name || '').trim().toLowerCase();
+    const cHosp = (c.hospital || '').trim().toLowerCase();
+    return (cParent && (cParent === lowCustName || cParent === lowCustHosp || lowCustName.includes(cParent))) ||
+           (cName && (lowCustName.includes(cName) || cName.includes(lowCustName))) ||
+           (cHosp && (lowCustName.includes(cHosp) || cHosp.includes(lowCustName)));
+  });
+
+  if (parentMatch) {
+    return (parentMatch.parentClientName || parentMatch.hospital || parentMatch.name).trim();
+  }
+
+  return (custHosp || custName).trim();
+};
 
 const COLORS = ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1', '#0ea5e9', '#f97316', '#14b8a6', '#a855f7'];
 
@@ -191,17 +236,29 @@ type ProductDetail = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export const ReportsModule: React.FC = () => {
-  const { invoices: paginatedInvoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, expenses: paginatedExpenses, leads, products, purchaseRecords: paginatedPurchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients } = useData();
+  const { invoices: paginatedInvoices, allSmInvoicesKpi, allInvoicesKpi, allExpensesKpi, allPurchaseRecordsKpi, expenses: paginatedExpenses, leads, products, purchaseRecords: paginatedPurchaseRecords, employees, deliveryChallans, serviceReports, installationReports, previewPDF, clients, addNotification } = useData();
   
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+
+  const verifyPassword = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (password === 'admin') setIsAuthenticated(true);
+    else { addNotification('Access Denied', 'Incorrect security password.', 'alert'); setPassword(''); }
+  };
+
   // Use un-paginated collections for reports so they are not affected by paginated screens
   const invoices = allInvoicesKpi;
   const smInvoices = allSmInvoicesKpi;
   const expenses = allExpensesKpi;
   const purchaseRecords = allPurchaseRecordsKpi;
   const [dateRange, setDateRange] = useState('This Year');
+  const [showKpiCards, setShowKpiCards] = useState(false);
   const [activeChart, setActiveChart] = useState<'revenue' | 'profit'>('revenue');
   const [viewMode, setViewMode] = useState<'month' | 'year' | 'overall'>('year');
   const [summaries, setSummaries] = useState<any[]>([]);
+
+
 
   // ── View state machine ──────────────────────────────────────────────────
   type ViewState = 'main' | 'topProducts' | 'productDetail' | 'customerSegments';
@@ -254,19 +311,19 @@ export const ReportsModule: React.FC = () => {
     return { total, filed, notFiled, notUpdated, filedRatio, notFiledRatio, notUpdatedRatio };
   }, [invoices, purchaseRecords, deliveryChallans, serviceReports, installationReports]);
 
-  const getCardClasses = (sectionId: string, defaultSpan: string) => {
+  const getCardClasses = (sectionId: string, defaultSpan?: string) => {
     const isExpanded = expandedSection === sectionId;
 
     if (isExpanded) {
       return `fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[94vw] max-w-6xl h-[85vh] z-[90] bg-white p-5 md:p-7 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 cursor-default`;
     }
-    const collapsedSpan = defaultSpan.replace(/min-h-\[\d+px\]/g, '');
-    return `col-span-full ${collapsedSpan} bg-white p-3 md:p-4 rounded-[1.25rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md relative`;
+    return `col-span-1 h-[230px] bg-white p-4 rounded-[1.5rem] md:rounded-[2rem] border border-slate-300 shadow-sm flex flex-col justify-between transition-all duration-300 cursor-pointer hover:border-slate-400 hover:shadow-md relative overflow-hidden`;
   };
 
   const filterByDateRange = (dateStr: string) => {
     if (!dateStr) return false;
-    const d = new Date(dateStr);
+    const d = parseDateRobust(dateStr);
+    if (!d) return false;
     const now = new Date();
     
     if (dateRange === 'Today') {
@@ -301,15 +358,27 @@ export const ReportsModule: React.FC = () => {
   const isYearFilter = dateRange === 'This Year';
   const isMonthFilter = dateRange === 'This Month' || ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].includes(dateRange);
 
+  const clientToParentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (clients || []).forEach(c => {
+      const parentName = (c.parentClientName || c.hospital || c.name || '').trim();
+      if (!parentName) return;
+      if (c.name) map.set(c.name.toLowerCase().trim(), parentName);
+      if (c.hospital) map.set(c.hospital.toLowerCase().trim(), parentName);
+      if (c.parentClientName) map.set(c.parentClientName.toLowerCase().trim(), parentName);
+    });
+    return map;
+  }, [clients]);
+
   const analyticsData = useMemo(() => {
-    // 1. Top Customers (based on invoiced amounts)
+    // 1. Top Customers (based on invoiced amounts grouped by Parent Organization - only SM/ bills)
     const customerMap: Record<string, number> = {};
     let totalSales = 0;
-    invoices.forEach((inv) => {
-      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (inv.documentType && inv.documentType !== 'Invoice') return;
-      if (!filterByDateRange(inv.date)) return;
-      const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
+    (invoices || []).forEach((inv) => {
+      const invNum = inv.invoiceNumber || inv.id || '';
+      if (!invNum.startsWith('SM/')) return;
+      if (inv.documentType === 'Quotation') return;
+      const name = getInvoiceParentGroup(inv, clients, clientToParentMap);
       const amt = inv.grandTotal || 0;
       customerMap[name] = (customerMap[name] || 0) + amt;
       totalSales += amt;
@@ -665,24 +734,23 @@ export const ReportsModule: React.FC = () => {
       return 'Unknown';
     };
 
-    // Use SM invoices (Sales Module bills) only for LTV calculation - excludes quotations
-    (smInvoices || []).forEach(inv => {
-      if (inv.status === 'Draft' || inv.status === 'Cancelled') return;
-      if (!filterByDateRange(inv.date)) return;
+    // Use SM/ bills for LTV calculation - excludes quotations and non-SM bills (SMCSO, SMCPO, etc.)
+    (invoices || []).forEach(inv => {
+      const invNum = inv.invoiceNumber || inv.id || '';
+      if (!invNum.startsWith('SM/')) return;
+      if (inv.documentType === 'Quotation') return;
 
+      const parentGroupName = getInvoiceParentGroup(inv, clients, clientToParentMap);
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
       const clientObj = (clients || []).find(c => {
         const cName = c.name?.trim().toLowerCase() || '';
         const cHosp = c.hospital?.trim().toLowerCase() || '';
-        const invName = name?.trim().toLowerCase() || '';
-        return (
-          cName === invName || 
-          cHosp === invName ||
-          (cName && invName.includes(cName)) ||
-          (cHosp && invName.includes(cHosp)) ||
-          (cName && cName.includes(invName))
-        );
+        const lowName = name.trim().toLowerCase();
+        return (cName && (cName === lowName || lowName.includes(cName))) ||
+               (cHosp && (cHosp === lowName || lowName.includes(cHosp)));
       });
+      const branchIdentifier = (clientObj?.branchName || name).trim();
+
       const email = inv.email || clientObj?.email || '';
       const phone = inv.phone || clientObj?.phone || '';
       const address = inv.customerAddress || clientObj?.address || '';
@@ -695,9 +763,9 @@ export const ReportsModule: React.FC = () => {
         return emp ? emp.name : inv.closedBy;
       })();
 
-      if (!customerMap[name]) {
-        customerMap[name] = {
-          id: name, name, email, phone,
+      if (!customerMap[parentGroupName]) {
+        customerMap[parentGroupName] = {
+          id: parentGroupName, name: parentGroupName, email, phone,
           location: address,
           region: getRegion(address, gstin),
           totalOrders: 0, totalSpend: 0, aov: 0,
@@ -707,16 +775,33 @@ export const ReportsModule: React.FC = () => {
           rfmR: 0, rfmF: 0, rfmM: 0,
           ltv: 0, daysSinceLastOrder: 0, avgOrderGapDays: 0,
           salesRep,
+          branchesMap: {} as Record<string, { branchName: string; clientName: string; address: string; gstin: string; totalSpend: number; totalOrders: number; lastDate: string }>,
           purchasedProducts: {} as Record<string, { name: string; qty: number; revenue: number; lastDate: string }>,
-          invoiceDetails: [] as Array<{ invoiceNumber: string; date: string; amount: number; items: string }>,
+          invoiceDetails: [] as Array<{ invoiceNumber: string; date: string; amount: number; items: string; branchName?: string }>,
         };
       }
 
-      const c = customerMap[name];
+      const c = customerMap[parentGroupName];
       c.totalOrders += 1;
       c.totalSpend += amt;
       if (date > c.lastOrderDate) { c.lastOrderDate = date; c.salesRep = salesRep; }
       if (c.customerSince === '' || date < c.customerSince) c.customerSince = date;
+
+      // Track branch level stats
+      if (!c.branchesMap[branchIdentifier]) {
+        c.branchesMap[branchIdentifier] = {
+          branchName: branchIdentifier,
+          clientName: name,
+          address,
+          gstin,
+          totalSpend: 0,
+          totalOrders: 0,
+          lastDate: date
+        };
+      }
+      c.branchesMap[branchIdentifier].totalSpend += amt;
+      c.branchesMap[branchIdentifier].totalOrders += 1;
+      if (date > c.branchesMap[branchIdentifier].lastDate) c.branchesMap[branchIdentifier].lastDate = date;
 
       // Track products per customer
       (inv.items || []).forEach((item: any) => {
@@ -739,6 +824,7 @@ export const ReportsModule: React.FC = () => {
         date: inv.date,
         amount: inv.grandTotal || 0,
         items: itemsStr,
+        branchName: branchIdentifier
       });
     });
 
@@ -800,6 +886,11 @@ export const ReportsModule: React.FC = () => {
         .sort((a: any, b: any) => b.revenue - a.revenue);
       delete c.purchasedProducts;
 
+      // Flatten branches to array
+      c.branchesList = Object.values(c.branchesMap || {});
+      c.branchCount = c.branchesList.length;
+      delete c.branchesMap;
+
       // Sort invoice details by date (newest first)
       c.invoiceDetails.sort((a: any, b: any) => b.date.localeCompare(a.date));
 
@@ -813,7 +904,7 @@ export const ReportsModule: React.FC = () => {
 
       return c;
     }).sort((a: any, b: any) => b.totalSpend - a.totalSpend);
-  }, [smInvoices, employees, clients, dateRange]);
+  }, [invoices, employees, clients, dateRange]);
 
   const employeeClosuresList = useMemo(() => {
     if (!selectedEmployeeForClosures) return [];
@@ -1468,6 +1559,37 @@ export const ReportsModule: React.FC = () => {
     link.click();
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-50 p-4 animate-in fade-in min-h-[500px]">
+        <div className="max-w-md w-full bg-gradient-to-br from-emerald-950 to-green-900 rounded-[2.5rem] shadow-[0_20px_40px_-10px_rgba(4,47,46,0.5)] border border-emerald-800/30 p-10 text-center scale-100 animate-in zoom-in-95 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-[2.5rem]"></div>
+          <div className="w-24 h-24 bg-emerald-900/60 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-[#d4af37] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] border border-emerald-700/50 relative z-10">
+            <Lock size={48} />
+          </div>
+          <h2 className="text-2xl font-playfair font-bold tracking-widest text-white mb-3 uppercase relative z-10 px-2">Analytics DB Locked</h2>
+          <p className="text-emerald-100/80 text-[11px] md:text-xs font-semibold leading-relaxed">Admin privileges required to access reports and analytics module.</p>
+          <form onSubmit={verifyPassword} className="space-y-4 relative z-10 mt-6">
+            <input 
+              type="password" 
+              placeholder="ENTER ACCESS KEY" 
+              className="w-full px-6 py-5 bg-emerald-900/40 border border-emerald-700/50 text-white placeholder-emerald-100/30 rounded-[2rem] outline-none focus:border-[#d4af37]/60 focus:bg-emerald-900/60 font-bold text-center tracking-[0.5em] transition-all shadow-inner" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              autoFocus 
+            />
+            <button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 font-black py-5 rounded-[2rem] shadow-[0_15px_30px_-5px_rgba(197,160,89,0.4)] uppercase tracking-[0.2em] text-xs hover:scale-[1.02] transition-all active:scale-95 border border-[#d4af37]/40 cursor-pointer"
+            >
+              Authorize Access
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // VIEW: CUSTOMER INTELLIGENCE (3-TAB)
   // ══════════════════════════════════════════════════════════════════════════
@@ -1608,12 +1730,19 @@ export const ReportsModule: React.FC = () => {
     };
     const sortIcon = (col: string) => segmentSort === col ? (segmentSortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
 
-    // Customer invoices for modal - use SM invoices (SM bills) for consistency with LTV
+    // Customer invoices for modal - include all branch invoices under parent organization
     const customerInvoices = selectedSegmentCustomer
-      ? (smInvoices || []).filter(inv =>
-          (inv.customerName === selectedSegmentCustomer.name || (inv as any).clientName === selectedSegmentCustomer.name) &&
-          inv.status !== 'Cancelled'
-        ).sort((a, b) => b.date.localeCompare(a.date))
+      ? (smInvoices || []).filter(inv => {
+          if (inv.status === 'Cancelled' || inv.status === 'Draft') return false;
+          const invName = (inv.customerName || (inv as any).clientName || '').trim().toLowerCase();
+          const targetParent = selectedSegmentCustomer.name.trim().toLowerCase();
+          const clientObj = (clients || []).find(c => 
+            c.name?.trim().toLowerCase() === invName || 
+            c.hospital?.trim().toLowerCase() === invName
+          );
+          const parentName = (clientObj?.parentClientName || clientObj?.hospital || invName).trim().toLowerCase();
+          return parentName === targetParent || invName === targetParent;
+        }).sort((a, b) => b.date.localeCompare(a.date))
       : [];
 
     const rfmBadge = (label: string) => {
@@ -2051,6 +2180,21 @@ export const ReportsModule: React.FC = () => {
                   </div>
                 </div>
               )}
+              {(selectedSegmentCustomer.branchesList || []).length > 0 && (
+                <div className="px-5 py-3 border-b border-slate-100 bg-emerald-50/40">
+                  <p className="text-[9px] font-black text-emerald-800 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <GitBranch size={12} /> Member Hospital Branches ({selectedSegmentCustomer.branchesList.length})
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSegmentCustomer.branchesList.map((b: any, i: number) => (
+                      <div key={i} className="bg-white border border-emerald-200 rounded-xl px-3 py-1.5 text-[10px] shadow-sm">
+                        <span className="font-bold text-slate-800 uppercase">{b.branchName}</span>
+                        <span className="text-emerald-700 font-bold ml-2">₹{formatIndianNumber(b.totalSpend)} ({b.totalOrders} {b.totalOrders === 1 ? 'order' : 'orders'})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="overflow-y-auto flex-1 custom-scrollbar p-5">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -2397,8 +2541,8 @@ export const ReportsModule: React.FC = () => {
       <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-4 md:p-5 pt-6 flex flex-col gap-4 shadow-[0_20px_40px_-10px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative z-10 m-0 md:m-3 lg:m-4 rounded-none rounded-b-[1.5rem] md:rounded-[2rem]">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none rounded-none rounded-b-[1.5rem] md:rounded-[2rem]"></div>
         
-        {/* Top Row: Title & Stats */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10 w-full">
+        {/* Top Row: Title & Actions */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 relative z-10 w-full">
             <div className="flex items-center gap-3 md:gap-4 group">
                 <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
                     <FileText size={20} className="hidden xl:block" />
@@ -2410,49 +2554,26 @@ export const ReportsModule: React.FC = () => {
                 </div>
             </div>
 
-            <div className="hidden sm:flex items-center gap-4 bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 shadow-[0_10px_20px_-5px_rgba(212,175,55,0.4)] rounded-[1.5rem] px-5 py-2 w-full sm:w-auto shrink-0">
-                <div className="p-1.5 bg-amber-950/10 text-amber-950 rounded-full shadow-inner shrink-0">
-                    <TrendingUp size={16} />
-                </div>
-                <div className="flex flex-col truncate">
-                    <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-0.5 truncate">Total Sales (SM)</p>
-                    <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
-                        {formatCurrency(totalRevenue)}
-                    </p>
-                    <p className="text-[6px] font-bold text-amber-900/50 uppercase tracking-wider mt-0.5">Excl. GST · Pre-tax</p>
-                </div>
-            </div>
-        </div>
-
-        {/* Bottom Row: Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-            <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner w-full sm:w-fit shrink-0 flex gap-1">
+            {/* Action Controls */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0 max-w-full">
                 <button
-                onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
-                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'overview' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                    onClick={() => setShowKpiCards(prev => !prev)}
+                    className={`h-[36px] px-3.5 sm:px-4 rounded-[2rem] text-[9px] sm:text-[10px] font-black uppercase flex items-center justify-center gap-1.5 sm:gap-2 transition-all active:scale-95 shadow-sm border whitespace-nowrap shrink-0 ${
+                        showKpiCards
+                            ? 'bg-emerald-700/80 border-emerald-500/50 text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)]'
+                            : 'bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/50 hover:text-white'
+                    }`}
+                    title={showKpiCards ? 'Hide Status Cards' : 'View Status Cards'}
                 >
-                Overview
+                    {showKpiCards ? <EyeOff size={14} className="text-emerald-300 shrink-0" /> : <Eye size={14} className="text-emerald-300 shrink-0" />}
+                    <span className="whitespace-nowrap tracking-wider">{showKpiCards ? 'Hide Cards' : 'View Cards'}</span>
                 </button>
-                <button
-                onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
-                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'analytics' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
-                >
-                Analytics <span className={`${reportsTab === 'analytics' ? 'bg-amber-950 text-amber-100' : 'bg-emerald-900 text-emerald-300'} px-1 rounded-sm text-[7px]`}>BETA</span>
-                </button>
-                <button
-                onClick={() => { setReportsTab('employeePerformance'); setExpandedSection(null); }}
-                className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${reportsTab === 'employeePerformance' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-5px_rgba(79,70,229,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
-                >
-                <Users size={14} /> Employee 360° Performance
-                </button>
-            </div>
-            
-            <div className="flex items-center gap-3">
-                <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-200" size={14} />
-                    <select className="pl-9 pr-6 py-2 bg-emerald-900/40 border border-emerald-700/50 text-emerald-100 text-[10px] font-black uppercase rounded-[2rem] outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer hover:bg-emerald-800/50 transition-colors appearance-none"
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
+                <div className="relative shrink-0">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-200 pointer-events-none" size={14} />
+                    <select 
+                        className="h-[36px] pl-8 sm:pl-9 pr-6 sm:pr-8 bg-emerald-900/40 border border-emerald-700/50 text-emerald-100 text-[9px] sm:text-[10px] font-black uppercase rounded-[2rem] outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer hover:bg-emerald-800/50 transition-colors appearance-none whitespace-nowrap tracking-wider flex items-center"
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value)}
                     >
                     <option>Today</option>
                     <option>This Week</option>
@@ -2476,122 +2597,148 @@ export const ReportsModule: React.FC = () => {
                 </div>
                 <button
                     onClick={handleExportCSV}
-                    className="bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 text-amber-950 px-4 py-2 rounded-[2rem] text-[10px] font-black uppercase flex items-center gap-1.5 transition-all active:scale-95 shadow-[0_5px_15px_-3px_rgba(212,175,55,0.4)] hover:shadow-[0_8px_20px_-3px_rgba(212,175,55,0.5)]"
+                    className="h-[36px] bg-gradient-to-r from-[#c5a059] to-[#e5c185] border border-[#d4af37]/40 text-amber-950 px-4 rounded-[2rem] text-[9px] sm:text-[10px] font-black uppercase flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-[0_5px_15px_-3px_rgba(212,175,55,0.4)] hover:shadow-[0_8px_20px_-3px_rgba(212,175,55,0.5)] whitespace-nowrap shrink-0"
                 >
-                    <Download size={14} className="text-amber-900" />
-                    <span className="hidden sm:inline">Export</span>
+                    <Download size={14} className="text-amber-900 shrink-0" />
+                    <span className="inline whitespace-nowrap tracking-wider">Export</span>
+                </button>
+            </div>
+        </div>
+
+        {/* Bottom Row: Navigation Tabs */}
+        <div className="flex items-center relative z-10 w-full mt-1">
+            <div className="bg-emerald-900/40 p-1.5 rounded-[2.5rem] border border-emerald-700/50 shadow-inner max-w-full overflow-x-auto [&::-webkit-scrollbar]:hidden shrink-0 flex items-center gap-1">
+                <button
+                onClick={() => { setReportsTab('overview'); setExpandedSection(null); }}
+                className={`px-4 sm:px-5 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 whitespace-nowrap shrink-0 ${reportsTab === 'overview' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                Overview
+                </button>
+                <button
+                onClick={() => { setReportsTab('analytics'); setExpandedSection(null); }}
+                className={`px-4 sm:px-5 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 whitespace-nowrap shrink-0 ${reportsTab === 'analytics' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                Analytics <span className={`${reportsTab === 'analytics' ? 'bg-amber-950 text-amber-100' : 'bg-emerald-900 text-emerald-300'} px-1 py-0.5 rounded text-[7px] font-black`}>BETA</span>
+                </button>
+                <button
+                onClick={() => { setReportsTab('employeePerformance'); setExpandedSection(null); }}
+                className={`px-4 sm:px-5 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 whitespace-nowrap shrink-0 ${reportsTab === 'employeePerformance' ? 'bg-indigo-600 text-white shadow-[0_10px_20px_-5px_rgba(79,70,229,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}
+                >
+                <Users size={14} className="shrink-0" /> Employee 360° Performance
                 </button>
             </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-3 md:gap-4 shrink-0 pb-2 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x">
-        {/* Card 1: Total Sales (SM invoices, Grand Total incl. GST) */}
-        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
-          <div className="flex justify-between items-start mb-2">
-            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
-              <DollarSign size={14} className="md:w-[15px] md:h-[15px]" />
+      {/* KPI Cards (Hidden by default, toggleable via View/Hide Cards button) */}
+      {showKpiCards && (
+        <div className="flex overflow-x-auto lg:grid lg:grid-cols-5 gap-3 md:gap-4 shrink-0 pb-2 px-2 md:px-0 [&::-webkit-scrollbar]:hidden snap-x animate-in fade-in duration-200">
+          {/* Card 1: Total Sales (SM invoices, Grand Total incl. GST) */}
+          <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-300 group-hover:scale-110 transition-transform">
+                <DollarSign size={14} className="md:w-[15px] md:h-[15px]" />
+              </div>
+              <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+                salesTrend >= 0
+                  ? 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/20'
+              }`}>
+                {salesTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                {salesTrend >= 0 ? '+' : ''}{salesTrend.toFixed(1)}%
+              </span>
             </div>
-            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
-              salesTrend >= 0
-                ? 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
-                : 'bg-rose-500/20 text-rose-300 border-rose-500/20'
-            }`}>
-              {salesTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-              {salesTrend >= 0 ? '+' : ''}{salesTrend.toFixed(1)}%
-            </span>
+            <div>
+              <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
+              <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
+              <p className="text-[6px] text-emerald-400/60 font-bold mt-0.5 uppercase tracking-wider">Incl. GST</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-300/80 uppercase tracking-widest leading-none">Total Sales</p>
-            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalRevenue)}</h3>
-            <p className="text-[6px] text-emerald-400/60 font-bold mt-0.5 uppercase tracking-wider">Incl. GST</p>
-          </div>
-        </div>
 
-        {/* Card 2: Net Profit */}
-        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
-          <div className="flex justify-between items-start mb-2">
-            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
-              <TrendingUp size={14} className="md:w-[15px] md:h-[15px]" />
+          {/* Card 2: Net Profit */}
+          <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start">
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-emerald-700/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-emerald-100 group-hover:scale-110 transition-transform">
+                <TrendingUp size={14} className="md:w-[15px] md:h-[15px]" />
+              </div>
+              <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+                profitTrend >= 0
+                  ? 'bg-emerald-300/20 text-emerald-100 border-emerald-400/20'
+                  : 'bg-rose-500/25 text-rose-200 border-rose-400/30'
+              }`}>
+                {profitTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                {profitTrend >= 0 ? '+' : ''}{profitTrend.toFixed(1)}%
+              </span>
             </div>
-            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
-              profitTrend >= 0
-                ? 'bg-emerald-300/20 text-emerald-100 border-emerald-400/20'
-                : 'bg-rose-500/25 text-rose-200 border-rose-400/30'
-            }`}>
-              {profitTrend >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-              {profitTrend >= 0 ? '+' : ''}{profitTrend.toFixed(1)}%
-            </span>
+            <div>
+              <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
+              <h3 className={`text-sm md:text-base font-black mt-1 ${totalProfit < 0 ? 'text-rose-300' : 'text-white'}`}>₹{formatIndianNumber(totalProfit)}</h3>
+              <p className="text-[6px] text-emerald-200/50 font-bold mt-0.5 uppercase tracking-wider">Sales − (Expenses + Procurement)</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-emerald-100/80 uppercase tracking-widest leading-none">Net Profit</p>
-            <h3 className={`text-sm md:text-base font-black mt-1 ${totalProfit < 0 ? 'text-rose-300' : 'text-white'}`}>₹{formatIndianNumber(totalProfit)}</h3>
-            <p className="text-[6px] text-emerald-200/50 font-bold mt-0.5 uppercase tracking-wider">Sales − (Expenses + Procurement)</p>
-          </div>
-        </div>
 
-        {/* Card 3: Expense */}
-        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(75,54,33,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(75,54,33,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #4b3621 0%, #6f4e37 100%)' }}>
-          <div className="flex justify-between items-start mb-2">
-            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
-              <ArrowDownRight size={14} className="md:w-[15px] md:h-[15px]" />
+          {/* Card 3: Expense */}
+          <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(75,54,33,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(75,54,33,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #4b3621 0%, #6f4e37 100%)' }}>
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-950/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_1px_2px_rgba(255,255,255,0.1)] text-amber-200 group-hover:scale-110 transition-transform">
+                <ArrowDownRight size={14} className="md:w-[15px] md:h-[15px]" />
+              </div>
+              <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
+                expenseTrend > 0
+                  ? 'bg-rose-500/25 text-rose-300 border-rose-500/30'
+                  : 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
+              }`}>
+                {expenseTrend > 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                {expenseTrend >= 0 ? '+' : ''}{expenseTrend.toFixed(1)}%
+              </span>
             </div>
-            <span className={`flex items-center gap-1 text-[6px] md:text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap border ${
-              expenseTrend > 0
-                ? 'bg-rose-500/25 text-rose-300 border-rose-500/30'
-                : 'bg-emerald-400/20 text-emerald-300 border-emerald-500/20'
-            }`}>
-              {expenseTrend > 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-              {expenseTrend >= 0 ? '+' : ''}{expenseTrend.toFixed(1)}%
-            </span>
+            <div>
+              <p className="text-[7px] md:text-[8px] font-extrabold text-amber-200/80 uppercase tracking-widest leading-none">Expense</p>
+              <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
+            </div>
           </div>
-          <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-200/80 uppercase tracking-widest leading-none">Expense</p>
-            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalExpenses)}</h3>
-          </div>
-        </div>
 
-        {/* Card 4: Procurement */}
-        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(109,40,217,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(109,40,217,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)' }}>
-          <div className="flex justify-between items-start mb-2">
-            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-violet-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-violet-200 group-hover:scale-110 transition-transform">
-              <ShoppingCart size={14} className="md:w-[15px] md:h-[15px]" />
+          {/* Card 4: Procurement */}
+          <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(109,40,217,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(109,40,217,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)' }}>
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-violet-900/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5),_0_1px_2px_rgba(255,255,255,0.1)] text-violet-200 group-hover:scale-110 transition-transform">
+                <ShoppingCart size={14} className="md:w-[15px] md:h-[15px]" />
+              </div>
+              <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                <Package size={8} /> {filteredPurchaseRecords.length} Bills
+              </span>
             </div>
-            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-violet-300/20 text-violet-200 border border-violet-400/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              <Package size={8} /> {filteredPurchaseRecords.length} Bills
-            </span>
+            <div>
+              <p className="text-[7px] md:text-[8px] font-extrabold text-violet-200/80 uppercase tracking-widest leading-none">Procurement</p>
+              <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalPurchaseRecords)}</h3>
+            </div>
           </div>
-          <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-violet-200/80 uppercase tracking-widest leading-none">Procurement</p>
-            <h3 className="text-sm md:text-base font-black text-white mt-1">₹{formatIndianNumber(totalPurchaseRecords)}</h3>
-          </div>
-        </div>
 
-        {/* Card 5: Sales Growth (real, vs previous period) */}
-        <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
-          <div className="flex justify-between items-start mb-2">
-            <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
-              <PieChartIcon size={14} className="md:w-[15px] md:h-[15px]" />
+          {/* Card 5: Sales Growth (real, vs previous period) */}
+          <div className="p-3 md:p-4 rounded-2xl md:rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 min-h-[90px] md:min-h-[120px] min-w-[140px] md:min-w-0 flex-1 snap-start" style={{ background: 'linear-gradient(135deg, #c5a059 0%, #e5c185 100%)' }}>
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center bg-amber-900/40 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),_0_1px_2px_rgba(255,255,255,0.2)] text-amber-950 group-hover:scale-110 transition-transform">
+                <PieChartIcon size={14} className="md:w-[15px] md:h-[15px]" />
+              </div>
+              <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-amber-950/25 text-amber-950 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
+                vs prev period
+              </span>
             </div>
-            <span className="flex items-center gap-1 text-[6px] md:text-[7px] font-black bg-amber-950/25 text-amber-950 px-1.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap">
-              vs prev period
-            </span>
-          </div>
-          <div>
-            <p className="text-[7px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Sales Growth</p>
-            <h3 className={`text-sm md:text-base font-black mt-1 ${growthRate >= 0 ? 'text-amber-950' : 'text-red-900'}`}>
-              {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
-            </h3>
-            {prevRevenue > 0 && (
-              <p className="text-[6px] text-amber-900/60 font-bold mt-0.5">prev: ₹{formatIndianNumber(prevRevenue)}</p>
-            )}
+            <div>
+              <p className="text-[7px] md:text-[8px] font-extrabold text-amber-950/80 uppercase tracking-widest leading-none">Sales Growth</p>
+              <h3 className={`text-sm md:text-base font-black mt-1 ${growthRate >= 0 ? 'text-amber-950' : 'text-red-900'}`}>
+                {growthRate >= 0 ? '+' : ''}{growthRate.toFixed(1)}%
+              </h3>
+              {prevRevenue > 0 && (
+                <p className="text-[6px] text-amber-900/60 font-bold mt-0.5">prev: ₹{formatIndianNumber(prevRevenue)}</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Why Net Profit is Negative — Diagnostic Card */}
-      {totalProfit < 0 && (
+      {showKpiCards && totalProfit < 0 && (
         <div className="mx-2 md:mx-0 mb-4 p-3 md:p-4 rounded-2xl border border-rose-200 bg-rose-50/70 shadow-sm shrink-0">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 shrink-0 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
@@ -2808,31 +2955,44 @@ export const ReportsModule: React.FC = () => {
               onClick={() => setExpandedSection(null)}
             />
           )}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
 
           {/* Customer Intelligence Card */}
           <div
             onClick={() => { setView('customerSegments'); setSegmentSubView('overview'); }}
-            className={getCardClasses('segmentation', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('segmentation')}
           >
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Customer Intelligence</h3>
-                <p className="text-[7px] text-slate-400 font-bold uppercase">RFM · Churn · Segments</p>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Customer Intelligence</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">RFM · Churn · Segments</p>
               </div>
-              <Users size={12} className="text-indigo-400" />
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <Users size={16} />
+              </div>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center items-center text-center my-2 bg-slate-50/60 rounded-xl p-3 border border-slate-100">
+              <Users size={24} className="text-indigo-400 mb-1" />
+              <span className="text-[10px] font-black text-slate-700 uppercase">Customer Behavioral Analytics</span>
+              <span className="text-[8px] text-slate-400 font-bold uppercase mt-0.5">RFM Segmentation & Churn Prevention</span>
+            </div>
+
+            <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+              <span>View Segmentation</span>
+              <ChevronRight size={12} className="text-slate-400" />
             </div>
           </div>
           
           {/* 1. Top Clients */}
           <div
             onClick={() => { if (expandedSection !== 'clients') setExpandedSection('clients'); }}
-            className={getCardClasses('clients', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('clients')}
           >
             <div className={`flex justify-between items-center ${expandedSection === 'clients' ? 'mb-4 pb-3 border-b border-slate-200' : ''}`}>
               <div>
-                <h3 className="font-black text-xs md:text-sm text-slate-800 uppercase tracking-widest">Top Clients</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">Share of Sales Revenue</p>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Top Clients</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Share of Sales Revenue</p>
               </div>
               {expandedSection === 'clients' ? (
                 <CardFilterAndClose 
@@ -2841,11 +3001,13 @@ export const ReportsModule: React.FC = () => {
                   onClose={() => setExpandedSection(null)} 
                 />
               ) : (
-                <Users size={12} className="text-slate-400" />
+                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Users size={16} />
+                </div>
               )}
             </div>
 
-            {expandedSection === 'clients' && (
+            {expandedSection === 'clients' ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
                 <div className="flex flex-col min-h-0 h-full">
                   <div className="space-y-2.5 overflow-y-auto flex-1 pr-2 custom-scrollbar">
@@ -2874,18 +3036,37 @@ export const ReportsModule: React.FC = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
+            ) : (
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.topCustomers.slice(0, 3).map((cust, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-black text-slate-700 uppercase truncate max-w-[130px]">{idx + 1}. {cust.name}</span>
+                      <span className="font-extrabold text-slate-800">{formatCurrency(cust.total)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.topCustomers.length === 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-2">No Revenue Recorded</span>
+                  )}
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
             )}
           </div>
 
           {/* 1b. Sales Leaderboard */}
           <div
             onClick={() => { if (expandedSection !== 'employees') setExpandedSection('employees'); }}
-            className={getCardClasses('employees', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('employees')}
           >
             <div className={`flex justify-between items-center ${expandedSection === 'employees' ? 'mb-4 pb-3 border-b border-slate-200' : ''}`}>
               <div>
-                <h3 className="font-black text-xs md:text-sm text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">Employee Performance</p>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Sales Leaderboard</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Employee Performance</p>
               </div>
               <div className="flex items-center gap-2">
                 {expandedSection === 'employees' ? (
@@ -2904,7 +3085,9 @@ export const ReportsModule: React.FC = () => {
                     }
                   />
                 ) : (
-                  <Users size={12} className="text-slate-400" />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <Award size={16} />
+                  </div>
                 )}
               </div>
             </div>
@@ -2964,15 +3147,16 @@ export const ReportsModule: React.FC = () => {
                 </div>
               </div>
             ) : (
-                <div className="space-y-2 mt-2 flex-1 flex flex-col justify-center">
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
                   {analyticsData.topEmployees.slice(0, 3).map((emp, idx) => {
                     const targetValue = isYearFilter ? emp.yearlyTarget : emp.monthlyTarget;
                     const percentage = targetValue > 0 ? Math.round((emp.total / targetValue) * 100) : 0;
                     return (
-                      <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
-                        <span className="font-black text-slate-700 uppercase">{idx + 1}. {emp.name}</span>
+                      <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                        <span className="font-black text-slate-700 uppercase truncate max-w-[110px]">{idx + 1}. {emp.name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-600">{formatCurrency(emp.total)}</span>
+                          <span className="font-extrabold text-slate-800">{formatCurrency(emp.total)}</span>
                           {targetValue > 0 && (
                             <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full border uppercase ${emp.total >= targetValue ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                               {percentage}%
@@ -2983,174 +3167,223 @@ export const ReportsModule: React.FC = () => {
                     );
                   })}
                   {analyticsData.topEmployees.length === 0 && (
-                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-4">No Sales Performance Recorded</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-2">No Sales Performance Recorded</span>
                   )}
                 </div>
-              )}
-            </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
 
           {/* 2. Expense Breakdown */}
           <div
             onClick={() => { if (expandedSection !== 'expenses') setExpandedSection('expenses'); }}
-            className={getCardClasses('expenses', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('expenses')}
           >
-            {expandedSection === 'expenses' && (
-              <CardFilterAndClose 
-                dateRange={dateRange} 
-                setDateRange={setDateRange} 
-                onClose={() => setExpandedSection(null)} 
-              />
-            )}
-              <div className={`flex justify-between items-center ${expandedSection === 'expenses' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Expense Breakdown</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Outflow categories</p>
-                </div>
-                <DollarSign size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'expenses' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Expense Breakdown</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Outflow Categories</p>
               </div>
-
-              {expandedSection === 'expenses' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    {analyticsData.expenseCategories.map((exp, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
-                        <span className="text-[10px] font-black text-slate-700 uppercase">{exp.name}</span>
-                        <span className="text-[10px] font-black text-rose-600">{formatCurrency(exp.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
-                    <ResponsiveContainer width="100%" height="90%">
-                      <PieChart>
-                        <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} stroke="none" dataKey="value">
-                          {analyticsData.expenseCategories.map((_, idx) => (
-                            <Cell key={idx} fill={GRADIENT_COLORS[idx % GRADIENT_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
-                      {analyticsData.expenseCategories.map((entry, idx) => (
-                        <div key={idx} className="flex items-center gap-1">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                          <span className="text-slate-500">{entry.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              {expandedSection === 'expenses' ? (
+                <CardFilterAndClose 
+                  dateRange={dateRange} 
+                  setDateRange={setDateRange} 
+                  onClose={() => setExpandedSection(null)} 
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                  <DollarSign size={16} />
                 </div>
               )}
             </div>
+
+            {expandedSection === 'expenses' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  {analyticsData.expenseCategories.map((exp, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] font-black text-slate-700 uppercase">{exp.name}</span>
+                      <span className="text-[10px] font-black text-rose-600">{formatCurrency(exp.value)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie data={analyticsData.expenseCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={60} stroke="none" dataKey="value">
+                        {analyticsData.expenseCategories.map((_, idx) => (
+                          <Cell key={idx} fill={GRADIENT_COLORS[idx % GRADIENT_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
+                    {analyticsData.expenseCategories.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        <span className="text-slate-500">{entry.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.expenseCategories.slice(0, 3).map((exp, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-black text-slate-700 uppercase truncate max-w-[130px]">{exp.name}</span>
+                      <span className="font-extrabold text-rose-600">{formatCurrency(exp.value)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.expenseCategories.length === 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-2">No Expenses Recorded</span>
+                  )}
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
 
           {/* 3. Freight Charges */}
           <div
             onClick={() => { if (expandedSection !== 'freight') setExpandedSection('freight'); }}
-            className={getCardClasses('freight', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('freight')}
           >
-            {expandedSection === 'freight' && (
-              <CardFilterAndClose 
-                dateRange={dateRange} 
-                setDateRange={setDateRange} 
-                onClose={() => setExpandedSection(null)} 
-              />
-            )}
-              <div className={`flex justify-between items-center ${expandedSection === 'freight' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Freight Charges</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Client (SM Bills) & Vendor (Purchase Entries)</p>
-                </div>
-                <Truck size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'freight' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Freight Charges</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Client & Vendor Logistics</p>
               </div>
-
-              {expandedSection === 'freight' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  {/* Client Freight Charges (from Invoices/SM Bills) */}
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
-                        <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
-                        <span className="text-[7px] font-bold text-amber-400 uppercase">Client Freight Amount</span>
-                      </div>
-                      <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
-                        <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
-                        <span className="text-[7px] font-bold text-amber-400 uppercase">GST Collected</span>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Clients by Freight</h4>
-                      {analyticsData.topFreightCustomers.map((cust, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                          <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] font-black text-amber-700">{formatCurrency(cust.freight)}</span>
-                            <span className="text-[7px] font-bold text-slate-400">{cust.invoices} inv</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Client Monthly Trend</h4>
-                      {freightMonthly.filter(m => m.freight > 0).map((m, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(m.freight / Math.max(...freightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
-                            </div>
-                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Vendor Freight Charges (from Purchase Entries) */}
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
-                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightAmount)}</span>
-                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Vendor Freight Amount</span>
-                      </div>
-                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
-                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightGst)}</span>
-                        <span className="text-[7px] font-bold text-indigo-400 uppercase">GST Paid</span>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Vendors by Freight</h4>
-                      {analyticsData.topFreightVendors.map((vend, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                          <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{vend.name}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] font-black text-indigo-700">{formatCurrency(vend.freight)}</span>
-                            <span className="text-[7px] font-bold text-slate-400">{vend.entries} entries</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Vendor Monthly Trend</h4>
-                      {vendorFreightMonthly.filter(m => m.freight > 0).map((m, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.freight / Math.max(...vendorFreightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
-                            </div>
-                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              {expandedSection === 'freight' ? (
+                <CardFilterAndClose 
+                  dateRange={dateRange} 
+                  setDateRange={setDateRange} 
+                  onClose={() => setExpandedSection(null)} 
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                  <Truck size={16} />
                 </div>
               )}
             </div>
 
+            {expandedSection === 'freight' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                {/* Client Freight Charges (from Invoices/SM Bills) */}
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightAmount)}</span>
+                      <span className="text-[7px] font-bold text-amber-400 uppercase">Client Freight Amount</span>
+                    </div>
+                    <div className="bg-amber-50 rounded-[2rem] p-3 text-center border border-amber-100">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-amber-700 block">{formatCurrency(analyticsData.totalFreightGst)}</span>
+                      <span className="text-[7px] font-bold text-amber-400 uppercase">GST Collected</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Clients by Freight</h4>
+                    {analyticsData.topFreightCustomers.map((cust, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{cust.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[9px] font-black text-amber-700">{formatCurrency(cust.freight)}</span>
+                          <span className="text-[7px] font-bold text-slate-400">{cust.invoices} inv</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Client Monthly Trend</h4>
+                    {freightMonthly.filter(m => m.freight > 0).map((m, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(m.freight / Math.max(...freightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
+                          </div>
+                          <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Vendor Freight Charges (from Purchase Entries) */}
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightAmount)}</span>
+                      <span className="text-[7px] font-bold text-indigo-400 uppercase">Vendor Freight Amount</span>
+                    </div>
+                    <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(analyticsData.totalVendorFreightGst)}</span>
+                      <span className="text-[7px] font-bold text-indigo-400 uppercase">GST Paid</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Top Vendors by Freight</h4>
+                    {analyticsData.topFreightVendors.map((vend, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-[9px] font-black text-slate-600 uppercase truncate max-w-[140px] md:max-w-[130px]">{vend.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[9px] font-black text-indigo-700">{formatCurrency(vend.freight)}</span>
+                          <span className="text-[7px] font-bold text-slate-400">{vend.entries} entries</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Vendor Monthly Trend</h4>
+                    {vendorFreightMonthly.filter(m => m.freight > 0).map((m, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.freight / Math.max(...vendorFreightMonthly.filter(x => x.freight > 0).map(x => x.freight), 1)) * 100}%` }} />
+                          </div>
+                          <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.freight)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 my-2 flex-1 items-center">
+                  <div className="bg-amber-50/70 rounded-xl p-3 text-center border border-amber-100 flex flex-col justify-center">
+                    <span className="text-xs font-black text-amber-700 block truncate">{formatCurrency(analyticsData.totalFreightAmount)}</span>
+                    <span className="text-[8px] font-bold text-amber-600 uppercase mt-0.5">Client Freight</span>
+                  </div>
+                  <div className="bg-indigo-50/70 rounded-xl p-3 text-center border border-indigo-100 flex flex-col justify-center">
+                    <span className="text-xs font-black text-indigo-700 block truncate">{formatCurrency(analyticsData.totalVendorFreightAmount)}</span>
+                    <span className="text-[8px] font-bold text-indigo-600 uppercase mt-0.5">Vendor Freight</span>
+                  </div>
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 4. Supplier Volume */}
           <div
             onClick={() => { if (expandedSection !== 'suppliers') setExpandedSection('suppliers'); }}
-            className={getCardClasses('suppliers', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('suppliers')}
           >
             {expandedSection === 'suppliers' && (
               <CardFilterAndClose 
@@ -3159,50 +3392,73 @@ export const ReportsModule: React.FC = () => {
                 onClose={() => setExpandedSection(null)} 
               />
             )}
-              <div className={`flex justify-between items-center ${expandedSection === 'suppliers' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Supplier Volume</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Procurement Totals</p>
-                </div>
-                <ShoppingCart size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'suppliers' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Supplier Volume</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Procurement Totals</p>
               </div>
-
-              {expandedSection === 'suppliers' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    {analyticsData.topSuppliers.map((sup, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100 cursor-pointer hover:bg-violet-50 hover:border-violet-200 transition-colors" onClick={(e) => { e.stopPropagation(); setSelectedSupplier({ name: sup.name, transactions: supplierTransactions[sup.name] || [] }); }}>
-                        <div>
-                          <span className="text-[10px] font-black text-slate-700 uppercase block">{sup.name}</span>
-                          <span className="text-[7px] font-bold text-slate-400 uppercase">{sup.transactions} transactions</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[10px] font-black text-slate-800 block">{formatCurrency(sup.total)}</span>
-                          {sup.osAmount > 0 && (
-                            <span className="text-[7px] font-black text-rose-500 uppercase">O/S: {formatCurrency(sup.osAmount)}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
-                        <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
-                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+              {expandedSection === 'suppliers' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600">
+                  <ShoppingCart size={16} />
                 </div>
               )}
             </div>
 
+            {expandedSection === 'suppliers' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  {analyticsData.topSuppliers.map((sup, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100 cursor-pointer hover:bg-violet-50 hover:border-violet-200 transition-colors" onClick={(e) => { e.stopPropagation(); setSelectedSupplier({ name: sup.name, transactions: supplierTransactions[sup.name] || [] }); }}>
+                      <div>
+                        <span className="text-[10px] font-black text-slate-700 uppercase block">{sup.name}</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase">{sup.transactions} transactions</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-black text-slate-800 block">{formatCurrency(sup.total)}</span>
+                        {sup.osAmount > 0 && (
+                          <span className="text-[7px] font-black text-rose-500 uppercase">O/S: {formatCurrency(sup.osAmount)}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsData.topSuppliers} margin={{ left: -10, right: 10 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 7, fontWeight: 'bold' }} />
+                      <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.topSuppliers.slice(0, 3).map((sup, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-black text-slate-700 uppercase truncate max-w-[130px]">{sup.name}</span>
+                      <span className="font-extrabold text-slate-800">{formatCurrency(sup.total)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.topSuppliers.length === 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-2">No Procurement Recorded</span>
+                  )}
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 5. Procurement Overview */}
           <div
             onClick={() => { if (expandedSection !== 'procurement') setExpandedSection('procurement'); }}
-            className={getCardClasses('procurement', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('procurement')}
           >
             {expandedSection === 'procurement' && (
               <CardFilterAndClose 
@@ -3211,61 +3467,83 @@ export const ReportsModule: React.FC = () => {
                 onClose={() => setExpandedSection(null)} 
               />
             )}
-              <div className={`flex justify-between items-center ${expandedSection === 'procurement' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Procurement</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Purchase Overview</p>
-                </div>
-                <Package size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'procurement' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Procurement</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Purchase Overview</p>
               </div>
-
-              {expandedSection === 'procurement' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
-                        <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(totalPurchaseRecords)}</span>
-                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Total Procurement</span>
-                      </div>
-                      <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
- <span className="text-lg font-bold tracking-tight text-indigo-700 block">{filteredPurchaseRecords.length}</span>
-                        <span className="text-[7px] font-bold text-indigo-400 uppercase">Transactions</span>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Trend</h4>
-                      {procurementMonthly.filter(m => m.total > 0).map((m, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-                          <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.total / Math.max(...procurementMonthly.filter(x => x.total > 0).map(x => x.total))) * 100}%` }} />
-                            </div>
-                            <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.total)}</span>
-                            <span className="text-[7px] font-bold text-slate-400 w-8 text-right">{m.count}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={procurementMonthly} margin={{ left: -10, right: 10 }}>
-                        <XAxis dataKey="label" tick={{ fontSize: 7, fontWeight: 'bold' }} />
-                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+              {expandedSection === 'procurement' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                  <Package size={16} />
                 </div>
               )}
             </div>
 
+            {expandedSection === 'procurement' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                      <span className="text-lg font-playfair font-bold tracking-tight text-indigo-700 block">{formatCurrency(totalPurchaseRecords)}</span>
+                      <span className="text-[7px] font-bold text-indigo-400 uppercase">Total Procurement</span>
+                    </div>
+                    <div className="bg-indigo-50 rounded-[2rem] p-3 text-center border border-indigo-100">
+                      <span className="text-lg font-bold tracking-tight text-indigo-700 block">{filteredPurchaseRecords.length}</span>
+                      <span className="text-[7px] font-bold text-indigo-400 uppercase">Transactions</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Monthly Trend</h4>
+                    {procurementMonthly.filter(m => m.total > 0).map((m, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                        <span className="text-[9px] font-black text-slate-600 uppercase">{m.label}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(m.total / Math.max(...procurementMonthly.filter(x => x.total > 0).map(x => x.total))) * 100}%` }} />
+                          </div>
+                          <span className="text-[9px] font-black text-slate-700 w-20 text-right">{formatCurrency(m.total)}</span>
+                          <span className="text-[7px] font-bold text-slate-400 w-8 text-right">{m.count}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={procurementMonthly} margin={{ left: -10, right: 10 }}>
+                      <XAxis dataKey="label" tick={{ fontSize: 7, fontWeight: 'bold' }} />
+                      <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="total" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} barSize={15} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 my-2 flex-1 items-center">
+                  <div className="bg-purple-50/70 rounded-xl p-3 text-center border border-purple-100 flex flex-col justify-center">
+                    <span className="text-xs font-black text-purple-700 block truncate">{formatCurrency(totalPurchaseRecords)}</span>
+                    <span className="text-[8px] font-bold text-purple-600 uppercase mt-0.5">Total Spent</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-200 flex flex-col justify-center">
+                    <span className="text-xs font-black text-slate-700 block truncate">{filteredPurchaseRecords.length}</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase mt-0.5">Orders</span>
+                  </div>
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 6. Product Line Analysis */}
           <div
             onClick={() => { if (expandedSection !== 'products') setExpandedSection('products'); }}
-            className={getCardClasses('products', 'md:col-span-3 min-h-[250px]')}
+            className={getCardClasses('products')}
           >
             {expandedSection === 'products' && (
               <CardFilterAndClose 
@@ -3274,45 +3552,68 @@ export const ReportsModule: React.FC = () => {
                 onClose={() => setExpandedSection(null)} 
               />
             )}
-              <div className={`flex justify-between items-center ${expandedSection === 'products' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Product Line Analysis</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Units and revenue</p>
-                </div>
-                <Package size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'products' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Product Line Analysis</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Units and Revenue</p>
               </div>
-
-              {expandedSection === 'products' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    {analyticsData.topProducts.map((prod, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
-                        <div>
-                          <span className="text-[10px] font-black text-slate-700 uppercase block truncate max-w-[200px]">{prod.name}</span>
-                          <span className="text-[7px] font-bold text-slate-400 uppercase">{prod.qty} units sold</span>
-                        </div>
-                        <span className="text-[10px] font-black text-slate-800">{formatCurrency(prod.total)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
-                        <XAxis dataKey="name" tick={{ fontSize: 7 }} />
-                        <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="total" fill="url(#grad-2)" radius={[6, 6, 0, 0]} barSize={15} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+              {expandedSection === 'products' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
+                  <Package size={16} />
                 </div>
               )}
             </div>
 
+            {expandedSection === 'products' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  {analyticsData.topProducts.map((prod, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-[2rem] bg-slate-50 border border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-black text-slate-700 uppercase block truncate max-w-[200px]">{prod.name}</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase">{prod.qty} units sold</span>
+                      </div>
+                      <span className="text-[10px] font-black text-slate-800">{formatCurrency(prod.total)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsData.topProducts} margin={{ left: -10, right: 10 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 7 }} />
+                      <YAxis tick={{ fontSize: 8 }} tickFormatter={(v) => `₹${formatIndianNumber(v)}`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="total" fill="url(#grad-2)" radius={[6, 6, 0, 0]} barSize={15} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.topProducts.slice(0, 3).map((prod, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-black text-slate-700 uppercase truncate max-w-[130px]">{prod.name}</span>
+                      <span className="font-extrabold text-slate-800">{formatCurrency(prod.total)}</span>
+                    </div>
+                  ))}
+                  {analyticsData.topProducts.length === 0 && (
+                    <span className="text-[10px] text-slate-400 font-bold uppercase text-center block py-2">No Product Sales</span>
+                  )}
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 7. Receivables Aging */}
           <div
             onClick={() => { if (expandedSection !== 'aging') setExpandedSection('aging'); }}
-            className={getCardClasses('aging', 'md:col-span-3 min-h-[250px]')}
+            className={getCardClasses('aging')}
           >
             {expandedSection === 'aging' && (
               <CardFilterAndClose 
@@ -3321,55 +3622,75 @@ export const ReportsModule: React.FC = () => {
                 onClose={() => setExpandedSection(null)} 
               />
             )}
-              <div className={`flex justify-between items-center ${expandedSection === 'aging' ? 'mb-3 pb-2 border-b' : ''}`}>
-                <div>
-                  <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Receivables Aging (Sales Ledger)</h3>
-                  <p className="text-[7px] text-slate-400 font-bold uppercase">Outstanding Ledger Terms</p>
-                </div>
-                <Calendar size={12} className="text-slate-400" />
+            <div className={`flex justify-between items-center ${expandedSection === 'aging' ? 'mb-3 pb-2 border-b' : ''}`}>
+              <div>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Receivables Aging</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Outstanding Ledger Terms</p>
               </div>
-
-              {expandedSection === 'aging' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                  <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
-                    {analyticsData.agingBuckets.map((bucket, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100">
-                        <div>
-                          <span className="text-[10px] font-black text-slate-700 uppercase block">{bucket.name}</span>
-                          <span className="text-[7px] font-bold text-slate-400 uppercase">{bucket.count} outstanding invoices</span>
-                        </div>
-                        <span className="text-[10px] font-black text-rose-600">{formatCurrency(bucket.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
-                    <ResponsiveContainer width="100%" height="90%">
-                      <PieChart>
-                        <Pie data={analyticsData.agingBuckets} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
-                          {analyticsData.agingBuckets.map((_, idx) => (
-                            <Cell key={idx} fill={GRADIENT_COLORS[(idx + 2) % GRADIENT_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
-                      {analyticsData.agingBuckets.map((entry, idx) => (
-                        <div key={idx} className="flex items-center gap-1">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[(idx + 2) % COLORS.length] }} />
-                          <span className="text-slate-500">{entry.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              {expandedSection === 'aging' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
+                  <Calendar size={16} />
                 </div>
               )}
             </div>
 
+            {expandedSection === 'aging' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+                <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                  {analyticsData.agingBuckets.map((bucket, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-[2rem] bg-slate-50 border border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-black text-slate-700 uppercase block">{bucket.name}</span>
+                        <span className="text-[7px] font-bold text-slate-400 uppercase">{bucket.count} outstanding invoices</span>
+                      </div>
+                      <span className="text-[10px] font-black text-rose-600">{formatCurrency(bucket.value)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-[250px] bg-slate-50/50 rounded-[2rem] p-2 flex flex-col justify-center">
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie data={analyticsData.agingBuckets} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                        {analyticsData.agingBuckets.map((_, idx) => (
+                          <Cell key={idx} fill={GRADIENT_COLORS[(idx + 2) % GRADIENT_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-[7px] font-black uppercase">
+                    {analyticsData.agingBuckets.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COLORS[(idx + 2) % COLORS.length] }} />
+                        <span className="text-slate-500">{entry.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5 my-2 flex-1 flex flex-col justify-center">
+                  {analyticsData.agingBuckets.slice(0, 3).map((bucket, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-black text-slate-700 uppercase">{bucket.name}</span>
+                      <span className="font-extrabold text-rose-600">{formatCurrency(bucket.value)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
+            )}
+          </div>
+
           {/* 8. Filing Status Tracker */}
           <div
             onClick={() => { if (expandedSection !== 'filing') setExpandedSection('filing'); }}
-            className={getCardClasses('filing', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('filing')}
           >
             {expandedSection === 'filing' && (
               <CardFilterAndClose 
@@ -3380,50 +3701,52 @@ export const ReportsModule: React.FC = () => {
             )}
             <div className={`flex justify-between items-center ${expandedSection === 'filing' ? 'mb-3 pb-2 border-b' : ''}`}>
               <div>
-                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Document Filing Tracker</h3>
-                <p className="text-[7px] text-slate-400 font-bold uppercase">Physical Archive Audits</p>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Document Filing Tracker</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Physical Archive Audits</p>
               </div>
-              <FileText size={12} className="text-slate-400" />
+              {expandedSection === 'filing' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                  <FileText size={16} />
+                </div>
+              )}
             </div>
 
             {expandedSection !== 'filing' ? (
-              <div className="space-y-4 my-auto">
-                <div className="flex justify-between items-baseline">
- <span className="text-2xl font-bold tracking-tight text-slate-800">{filingStats.filed}</span>
-                  <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    {filingStats.filedRatio.toFixed(1)}% Filed
-                  </span>
-                </div>
-                <div className="space-y-2 text-[9px] font-black uppercase">
-                  <div>
-                    <div className="flex justify-between text-slate-500 mb-1">
-                      <span>Filed</span>
-                      <span>{filingStats.filed}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${filingStats.filedRatio}%` }} />
-                    </div>
+              <>
+                <div className="my-2 space-y-2 flex-1 flex flex-col justify-center">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xl font-bold tracking-tight text-slate-800">{filingStats.filed}</span>
+                    <span className="text-[8px] font-black uppercase text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                      {filingStats.filedRatio.toFixed(1)}% Filed
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex justify-between text-slate-500 mb-1">
-                      <span>Pending Filing</span>
-                      <span>{filingStats.notFiled}</span>
+                  <div className="space-y-1 text-[8px] font-black uppercase">
+                    <div>
+                      <div className="flex justify-between text-slate-500 mb-0.5">
+                        <span>Filed</span>
+                        <span>{filingStats.filed}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${filingStats.filedRatio}%` }} />
+                      </div>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-400 rounded-full" style={{ width: `${filingStats.notFiledRatio}%` }} />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-slate-500 mb-1">
-                      <span>Not Updated</span>
-                      <span>{filingStats.notUpdated}</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-slate-200 rounded-full" style={{ width: `${filingStats.notUpdatedRatio}%` }} />
+                    <div>
+                      <div className="flex justify-between text-slate-500 mb-0.5">
+                        <span>Pending Filing</span>
+                        <span>{filingStats.notFiled}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-slate-400 rounded-full" style={{ width: `${filingStats.notFiledRatio}%` }} />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
                 <div className="space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
@@ -3482,29 +3805,33 @@ export const ReportsModule: React.FC = () => {
               </div>
             )}
           </div>
- 
+
           {/* 9. Dead Stock Inventory */}
           <div
             onClick={() => { if (expandedSection !== 'deadStock') setExpandedSection('deadStock'); }}
-            className={getCardClasses('deadStock', 'md:col-span-2 min-h-[350px]')}
+            className={getCardClasses('deadStock')}
           >
-            {expandedSection === 'deadStock' && (
+            {expandedSection === 'deadStock' ? (
               <button 
                 onClick={(e) => { e.stopPropagation(); setExpandedSection(null); }}
                 className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all z-50 bg-white shadow-sm"
               >
                 <X size={20} />
               </button>
-            )}
+            ) : null}
             <div className={`flex justify-between items-center ${expandedSection === 'deadStock' ? 'mb-3 pb-2 border-b' : ''}`}>
               <div>
-                <h3 className="font-black text-[10px] text-slate-800 uppercase tracking-widest">Dead Stock Inventory</h3>
-                <p className="text-[7px] text-slate-400 font-bold uppercase">180+ Days Static Stock</p>
+                <h3 className="font-black text-xs text-slate-800 uppercase tracking-widest">Dead Stock Inventory</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">180+ Days Static Stock</p>
               </div>
-              <AlertTriangle size={12} className="text-rose-500" />
+              {expandedSection === 'deadStock' ? null : (
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
+                  <AlertTriangle size={16} />
+                </div>
+              )}
             </div>
 
-            {expandedSection === 'deadStock' && (
+            {expandedSection === 'deadStock' ? (
               <div className="flex flex-col gap-3 flex-1 overflow-hidden">
                 <div className="flex flex-wrap justify-between items-center gap-3 bg-slate-50 p-3 rounded-[1.5rem] border border-slate-200">
                   <div className="flex items-center gap-4">
@@ -3574,6 +3901,24 @@ export const ReportsModule: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 my-2 flex-1 items-center">
+                  <div className="bg-rose-50/70 rounded-xl p-3 text-center border border-rose-100 flex flex-col justify-center">
+                    <span className="text-xs font-black text-rose-600 block truncate">₹{formatIndianNumber(Math.round(filteredDeadStockCostValue))}</span>
+                    <span className="text-[8px] font-bold text-rose-400 uppercase mt-0.5">Locked Capital</span>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-200 flex flex-col justify-center">
+                    <span className="text-xs font-black text-slate-700 block truncate">{Math.round(filteredDeadStockItemsCount * 100) / 100}</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Total Units</span>
+                  </div>
+                </div>
+
+                <div className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span>Click to expand</span>
+                  <ChevronRight size={12} className="text-slate-400" />
+                </div>
+              </>
             )}
           </div>
  

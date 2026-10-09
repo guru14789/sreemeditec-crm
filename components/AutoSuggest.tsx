@@ -31,9 +31,14 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
         setFiltered(suggestions.slice(0, 50));
       } else {
         const results = suggestions.filter(item => {
+          const valLower = value.toLowerCase();
           const primary = String(item[filterKey] || '').toLowerCase();
-          const secondary = filterKey === 'hospital' ? String(item.name || '').toLowerCase() : '';
-          return primary.includes(value.toLowerCase()) || secondary.includes(value.toLowerCase());
+          const name = String(item.name || '').toLowerCase();
+          const hospital = String(item.hospital || '').toLowerCase();
+          const branch = String(item.branchName || '').toLowerCase();
+          const parent = String(item.parentClientName || '').toLowerCase();
+          const gstin = String(item.gstin || '').toLowerCase();
+          return primary.includes(valLower) || name.includes(valLower) || hospital.includes(valLower) || branch.includes(valLower) || parent.includes(valLower) || gstin.includes(valLower);
         });
         setFiltered(results.slice(0, 50));
       }
@@ -70,14 +75,32 @@ export const AutoSuggest: React.FC<AutoSuggestProps> = ({
           {filtered.map((item, index) => (
             <div
               key={index}
-              className="px-4 py-2 hover:bg-medical-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
+              className="px-4 py-2 hover:bg-emerald-50 cursor-pointer transition-colors border-b border-slate-100 last:border-0"
               onClick={() => {
                 onSelect(item);
                 setShowSuggestions(false);
               }}
             >
               {renderSuggestion ? renderSuggestion(item) : (
-                <div className="text-xs font-bold text-slate-700">{item[filterKey] || item.name || ''}</div>
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-xs font-bold text-slate-800 flex items-center justify-between gap-2">
+                    <span>{item[filterKey] || item.name || ''}</span>
+                    {item.branchName && (
+                      <span className="text-[8px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 uppercase shrink-0">
+                        {item.branchName}
+                      </span>
+                    )}
+                  </div>
+                  {(item.parentClientName || item.hospital || item.address || item.gstin) && (
+                    <div className="text-[9px] text-slate-500 font-medium truncate flex items-center gap-1.5">
+                      {item.parentClientName && item.parentClientName !== item.name && (
+                        <span className="font-semibold text-slate-700">Group: {item.parentClientName} •</span>
+                      )}
+                      {item.address && <span className="truncate">{item.address}</span>}
+                      {item.gstin && <span className="font-mono text-emerald-700 font-bold shrink-0">• GST: {item.gstin}</span>}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ))}

@@ -708,7 +708,6 @@ Sree Meditec`;
                                                                     list={`models-${item.id}`}
                                                                     className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 text-xs font-black outline-none"
                                                                     value={item.model || ''}
-                                                                    value={item.model || ''}
                                                                     onChange={e => {
                                                                         const val = e.target.value;
                                                                         updateItem(item.id, 'model', val);

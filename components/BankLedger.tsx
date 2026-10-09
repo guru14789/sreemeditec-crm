@@ -25,12 +25,19 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     updateBankDetails
   } = useData();
 
+  const bank = bankDetailsList.find(b => b.id === bankId);
+  if (!bank) return null;
+
+  const isCashAccount = bank.accountType === 'Cash' || bank.id === 'cash-account';
+  const today = new Date().toISOString().split('T')[0];
+
   const [activeTab, setActiveTab] = useState<'transactions' | 'clientPayment' | 'vendorPayment' | 'contraTransfer'>('transactions');
   
   // Client Payment State
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientAmount, setClientAmount] = useState<string>('');
-  const [clientMode, setClientMode] = useState<string>('Bank Transfer');
+  const [clientMode, setClientMode] = useState<string>(isCashAccount ? 'Cash' : 'Bank Transfer');
+  const [clientDate, setClientDate] = useState<string>(today);
   const [clientRef, setClientRef] = useState<string>('');
   const [clientNotes, setClientNotes] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,26 +47,36 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
   const [selectedVendorId, setSelectedVendorId] = useState<string>('');
   const [selectedVendorInvoiceIds, setSelectedVendorInvoiceIds] = useState<Set<string>>(new Set());
   const [vendorAmount, setVendorAmount] = useState<string>('');
-  const [vendorMode, setVendorMode] = useState<string>('Bank Transfer');
+  const [vendorMode, setVendorMode] = useState<string>(isCashAccount ? 'Cash' : 'Bank Transfer');
+  const [vendorDate, setVendorDate] = useState<string>(today);
   const [vendorRef, setVendorRef] = useState<string>('');
   const [vendorNotes, setVendorNotes] = useState<string>('');
 
   // Contra Transfer State
   const [contraTargetBankId, setContraTargetBankId] = useState<string>('');
   const [contraAmount, setContraAmount] = useState<string>('');
-  const [contraMode, setContraMode] = useState<string>('Bank Transfer');
+  const [contraMode, setContraMode] = useState<string>(isCashAccount ? 'Cash' : 'Bank Transfer');
+  const [contraDate, setContraDate] = useState<string>(today);
   const [contraRef, setContraRef] = useState<string>('');
   const [contraNotes, setContraNotes] = useState<string>('');
 
   const [editingTransaction, setEditingTransaction] = useState<BankTransaction | null>(null);
   const [editAmount, setEditAmount] = useState<string>('');
   const [editMode, setEditMode] = useState<string>('');
+  const [editDate, setEditDate] = useState<string>(today);
   const [editRef, setEditRef] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
   const [editSelectedInvoiceIds, setEditSelectedInvoiceIds] = useState<Set<string>>(new Set());
 
-  const bank = bankDetailsList.find(b => b.id === bankId);
-  if (!bank) return null;
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const cleanDate = dateStr.split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
 
   const bankTxs = bankTransactions.filter(t => t.bankId === bankId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -99,8 +116,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!editingTransaction) return;
     try {
       setIsProcessing(true);
-      setIsProcessing(true);
-      await updateBankTransaction(editingTransaction.id, parseFloat(editAmount), editMode, editNotes, editRef, Array.from(editSelectedInvoiceIds));
+      await updateBankTransaction(editingTransaction.id, parseFloat(editAmount), editMode, editNotes, editRef, Array.from(editSelectedInvoiceIds), editDate);
       addNotification('Success', 'Transaction updated successfully', 'success');
       setEditingTransaction(null);
     } catch (err: any) {
@@ -114,6 +130,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     setEditingTransaction(tx);
     setEditAmount(String(tx.amount));
     setEditMode(tx.paymentMode);
+    setEditDate(tx.date ? tx.date.split('T')[0] : today);
     setEditRef(tx.referenceNumber || '');
     setEditNotes(tx.notes || '');
     setEditSelectedInvoiceIds(new Set((tx.allocations || []).map(a => a.documentId)));
@@ -146,7 +163,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!selectedClientId || !clientAmount) return;
     try {
       setIsProcessing(true);
-      await processClientPayment(bankId, selectedClientId, parseFloat(clientAmount), clientMode, clientNotes, clientRef, Array.from(selectedClientInvoiceIds));
+      await processClientPayment(bankId, selectedClientId, parseFloat(clientAmount), clientMode, clientNotes, clientRef, Array.from(selectedClientInvoiceIds), clientDate);
       addNotification('Success', 'Client payment processed successfully', 'success');
       setActiveTab('transactions');
       setClientAmount('');
@@ -154,6 +171,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
       setClientRef('');
       setSelectedClientId('');
       setSelectedClientInvoiceIds(new Set());
+      setClientDate(today);
     } catch (error: any) {
       addNotification('Error', error.message || 'Failed to process payment', 'error');
     } finally {
@@ -166,7 +184,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!selectedVendorId || !vendorAmount) return;
     try {
       setIsProcessing(true);
-      await processVendorPayment(bankId, selectedVendorId, parseFloat(vendorAmount), vendorMode, vendorNotes, vendorRef, Array.from(selectedVendorInvoiceIds));
+      await processVendorPayment(bankId, selectedVendorId, parseFloat(vendorAmount), vendorMode, vendorNotes, vendorRef, Array.from(selectedVendorInvoiceIds), vendorDate);
       addNotification('Success', 'Vendor payment processed successfully', 'success');
       setActiveTab('transactions');
       setVendorAmount('');
@@ -174,6 +192,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
       setVendorRef('');
       setSelectedVendorId('');
       setSelectedVendorInvoiceIds(new Set());
+      setVendorDate(today);
     } catch (error: any) {
       addNotification('Error', error.message || 'Failed to process payment', 'error');
     } finally {
@@ -186,13 +205,14 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
     if (!contraTargetBankId || !contraAmount) return;
     try {
       setIsProcessing(true);
-      await processContraTransfer(bankId, contraTargetBankId, parseFloat(contraAmount), contraMode, contraNotes, contraRef);
+      await processContraTransfer(bankId, contraTargetBankId, parseFloat(contraAmount), contraMode, contraNotes, contraRef, contraDate);
       addNotification('Success', 'Contra transfer processed successfully', 'success');
       setActiveTab('transactions');
       setContraAmount('');
       setContraNotes('');
       setContraRef('');
       setContraTargetBankId('');
+      setContraDate(today);
     } catch (error: any) {
       addNotification('Error', error.message || 'Failed to process transfer', 'error');
     } finally {
@@ -283,7 +303,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                 {bankTxs.map(tx => (
                   <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
                     <td className="py-4 px-4 whitespace-nowrap">
-                      <p className="font-bold text-slate-700 dark:text-slate-300">{new Date(tx.date).toLocaleDateString('en-GB')}</p>
+                      <p className="font-bold text-slate-700 dark:text-slate-300">{formatDateDisplay(tx.date)}</p>
                       <p className="text-xs text-slate-400 font-mono mt-1 opacity-0 group-hover:opacity-100 transition-opacity">{tx.id.substring(0,8)}</p>
                     </td>
                     <td className="py-4 px-4">
@@ -411,6 +431,17 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
               )}
 
               <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Transaction Date</label>
+                <input 
+                  type="date" 
+                  value={clientDate}
+                  onChange={e => setClientDate(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Amount Received (₹)</label>
                 <input 
                   type="number" 
@@ -431,6 +462,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                   onChange={e => setClientMode(e.target.value)}
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-emerald-500"
                 >
+                  <option>Cash</option>
                   <option>Bank Transfer</option>
                   <option>NEFT</option>
                   <option>RTGS</option>
@@ -552,6 +584,17 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
               )}
 
               <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Transaction Date</label>
+                <input 
+                  type="date" 
+                  value={vendorDate}
+                  onChange={e => setVendorDate(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Amount Paid (₹)</label>
                 <input 
                   type="number" 
@@ -572,6 +615,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                   onChange={e => setVendorMode(e.target.value)}
                   className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-rose-500"
                 >
+                  <option>Cash</option>
                   <option>Bank Transfer</option>
                   <option>NEFT</option>
                   <option>RTGS</option>
@@ -636,6 +680,17 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Transaction Date</label>
+                  <input 
+                    type="date" 
+                    value={contraDate}
+                    onChange={e => setContraDate(e.target.value)}
+                    className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Transfer Amount (₹)</label>
                   <input 
                     type="number" 
@@ -656,6 +711,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                     onChange={e => setContraMode(e.target.value)}
                     className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-indigo-500"
                   >
+                    <option>Cash</option>
                     <option>Bank Transfer</option>
                     <option>NEFT</option>
                     <option>RTGS</option>
@@ -717,6 +773,17 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
                 </p>
               </div>
               
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Transaction Date</label>
+                <input 
+                  type="date" 
+                  value={editDate}
+                  onChange={e => setEditDate(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 py-3 font-medium focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Amount</label>
                 <div className="relative">

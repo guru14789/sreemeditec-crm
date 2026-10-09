@@ -29,6 +29,10 @@ const FormRow = ({ label, children }: { label: string, children?: React.ReactNod
 interface DetailedServiceReport extends Partial<ServiceReport> {
     office?: string;
     time?: string;
+    serviceCategory?: 'Medical Equipment' | 'Pipeline';
+    pipelineLocation?: string;
+    gasType?: string;
+    pressureTestStatus?: string;
     machineStatus?: 'Warranty' | 'Out Of Warranty' | 'AMC';
     softwareVersion?: string;
     engineerObservations?: string;
@@ -45,6 +49,29 @@ interface DetailedServiceReport extends Partial<ServiceReport> {
     isRoundOff?: boolean;
     roundOff?: number;
 }
+
+const PIPELINE_SYSTEM_SUGGESTIONS = [
+    { name: 'Medical Oxygen (O2) Pipeline System' },
+    { name: 'Medical Suction / Vacuum (VAC) Pipeline System' },
+    { name: 'Medical Compressed Air (4 Bar) System' },
+    { name: 'Medical Compressed Air (7 Bar) System' },
+    { name: 'Nitrous Oxide (N2O) Pipeline System' },
+    { name: 'Medical Gas Manifold & Control Panel' },
+    { name: 'Area Valve Service Unit (AVSU) Box' },
+    { name: 'Medical Gas Master Alarm Panel' },
+    { name: 'Bedhead Unit Outlet & Rail System' },
+    { name: 'Anesthetic Gas Scavenging System (AGSS)' }
+];
+
+const PIPELINE_GAS_TYPES = [
+    'Oxygen (O2)', 'Vacuum (VAC)', 'Medical Air 4 Bar', 'Medical Air 7 Bar',
+    'Nitrous Oxide (N2O)', 'AGSS', 'Multi-Gas Central Station'
+];
+
+const PIPELINE_TEST_STATUSES = [
+    'Normal Operating Pressure', 'Pressure Drop - Rectified', 'Leakage Fixed at Valve/Joint',
+    'Hydrostatic/Pneumatic Test Passed', 'Sensor Calibration Completed', 'Under Maintenance'
+];
 
 export const ServiceReportModule: React.FC = () => {
     const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin, pendingServiceReportData, setPendingServiceReportData, showConfirm, previewPDF } = useData();
@@ -73,9 +100,13 @@ export const ServiceReportModule: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
         office: 'Chennai',
+        serviceCategory: 'Medical Equipment',
         customerName: '',
         customerAddress: '',
         equipmentName: '',
+        pipelineLocation: '',
+        gasType: '',
+        pressureTestStatus: '',
         machineStatus: 'Warranty',
         softwareVersion: '',
         problemReported: '',
@@ -243,7 +274,9 @@ export const ServiceReportModule: React.FC = () => {
                 <p className="text-[11px] font-bold">{data.sellerProfile?.phone ? `Mob: ${data.sellerProfile.phone}` : 'Mob: 9884818398'}</p>
             </div>
             
-            <div className="text-center py-2 font-black text-sm uppercase tracking-widest border border-black bg-slate-50 mb-0">SERVICE REPORT</div>
+            <div className="text-center py-2 font-black text-sm uppercase tracking-widest border border-black bg-slate-50 mb-0">
+                SERVICE REPORT {data.serviceCategory === 'Pipeline' ? '- PIPELINE SYSTEM' : '- MEDICAL EQUIPMENT'}
+            </div>
 
             <div className="grid grid-cols-5 border-x border-b border-black text-[10px] font-bold">
                 <div className="border-r border-black p-1.5 flex gap-1"><span>Sr No:</span><span className="font-black text-medical-600"><span className="font-inter font-bold tracking-widest">{data.reportNumber}</span></span></div>
@@ -255,7 +288,7 @@ export const ServiceReportModule: React.FC = () => {
 
             <div className="grid grid-cols-2 border-x border-b border-black text-[11px] font-bold">
                 <div className="border-r border-black p-2 flex gap-2"><span>Customer:</span><span className="font-black uppercase">{data.customerName}</span></div>
-                <div className="p-2 flex gap-2"><span>Machine:</span><span className="font-black uppercase">{data.equipmentName}</span></div>
+                <div className="p-2 flex gap-2"><span>{data.serviceCategory === 'Pipeline' ? 'Pipeline System:' : 'Machine:'}</span><span className="font-black uppercase">{data.equipmentName}</span></div>
             </div>
 
             <div className="grid grid-cols-2 border-x border-b border-black text-[11px]">
@@ -265,7 +298,7 @@ export const ServiceReportModule: React.FC = () => {
                 </div>
                 <div className="p-0 flex flex-col">
                     <div className="p-2 border-b border-black flex-1">
-                        <p className="font-bold text-[10px] mb-2 uppercase tracking-tighter">Machine Status:</p>
+                        <p className="font-bold text-[10px] mb-2 uppercase tracking-tighter">{data.serviceCategory === 'Pipeline' ? 'System Status:' : 'Machine Status:'}</p>
                         <div className="flex gap-4">
                             {['Warranty', 'Out Of Warranty', 'AMC'].map(s => (
                                 <div key={s} className="flex items-center gap-1.5">
@@ -275,10 +308,17 @@ export const ServiceReportModule: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                    <div className="p-2 flex items-center gap-2">
-                        <p className="font-bold text-[10px] uppercase">Software version:</p>
-                        <span className="font-black">{data.softwareVersion || '---'}</span>
-                    </div>
+                    {data.serviceCategory === 'Pipeline' ? (
+                        <div className="p-2 text-[10px] space-y-1">
+                            <p className="font-bold"><span className="uppercase">Location / Ward:</span> <span className="font-black">{data.pipelineLocation || '---'}</span></p>
+                            <p className="font-bold"><span className="uppercase">Gas / Test Status:</span> <span className="font-black">{data.gasType ? data.gasType + ' | ' : ''}{data.pressureTestStatus || '---'}</span></p>
+                        </div>
+                    ) : (
+                        <div className="p-2 flex items-center gap-2">
+                            <p className="font-bold text-[10px] uppercase">Software version:</p>
+                            <span className="font-black">{data.softwareVersion || '---'}</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -566,10 +606,28 @@ export const ServiceReportModule: React.FC = () => {
                                     </section>
 
                                     <section className="space-y-4">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b pb-1 flex items-center gap-2">
-                                            <Shield size={14} className="text-medical-500" />
-                                            3. Equipment & Facility
-                                        </h3>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-2 gap-2">
+                                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                                                <Shield size={14} className="text-medical-500" />
+                                                3. Service Target & Facility Details
+                                            </h3>
+                                            <div className="flex bg-slate-200 p-1 rounded-[2rem] border border-slate-300 w-fit">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setReport(prev => ({ ...prev, serviceCategory: 'Medical Equipment' }))}
+                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-[2rem] transition-all flex items-center gap-1.5 ${report.serviceCategory !== 'Pipeline' ? 'bg-medical-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                                                >
+                                                    Medical Equipment
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setReport(prev => ({ ...prev, serviceCategory: 'Pipeline' }))}
+                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-[2rem] transition-all flex items-center gap-1.5 ${report.serviceCategory === 'Pipeline' ? 'bg-amber-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'}`}
+                                                >
+                                                    Pipeline System
+                                                </button>
+                                            </div>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Facility / Client *">
@@ -583,32 +641,89 @@ export const ServiceReportModule: React.FC = () => {
                                                         className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
                                                     />
                                                 </FormRow>
-                                                <FormRow label="Machine Model *">
-                                                    <AutoSuggest
-                                                        value={report.equipmentName || ''}
-                                                        onChange={(val) => setReport({ ...report, equipmentName: val })}
-                                                        onSelect={(prod) => setReport({ ...report, equipmentName: prod.name })}
-                                                        suggestions={products}
-                                                        filterKey="name"
-                                                        placeholder="Select equipment..."
-                                                        className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
-                                                    />
-                                                </FormRow>
-                                                <FormRow label="Machine Status">
+
+                                                {report.serviceCategory === 'Pipeline' ? (
+                                                    <>
+                                                        <FormRow label="Pipeline System / Gas Line *">
+                                                            <AutoSuggest
+                                                                value={report.equipmentName || ''}
+                                                                onChange={(val) => setReport({ ...report, equipmentName: val })}
+                                                                onSelect={(prod) => setReport({ ...report, equipmentName: prod.name })}
+                                                                suggestions={PIPELINE_SYSTEM_SUGGESTIONS as any}
+                                                                filterKey="name"
+                                                                placeholder="e.g. Oxygen Pipeline System..."
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
+                                                            />
+                                                        </FormRow>
+                                                        <FormRow label="Pipeline Location / Ward">
+                                                            <input 
+                                                                type="text" 
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" 
+                                                                value={report.pipelineLocation || ''} 
+                                                                onChange={e => setReport({ ...report, pipelineLocation: e.target.value })} 
+                                                                placeholder="e.g. OT-1 & 2 / ICU 3rd Floor" 
+                                                            />
+                                                        </FormRow>
+                                                    </>
+                                                ) : (
+                                                    <FormRow label="Machine Model *">
+                                                        <AutoSuggest
+                                                            value={report.equipmentName || ''}
+                                                            onChange={(val) => setReport({ ...report, equipmentName: val })}
+                                                            onSelect={(prod) => setReport({ ...report, equipmentName: prod.name })}
+                                                            suggestions={products}
+                                                            filterKey="name"
+                                                            placeholder="Select equipment..."
+                                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
+                                                        />
+                                                    </FormRow>
+                                                )}
+
+                                                <FormRow label={report.serviceCategory === 'Pipeline' ? 'System Status' : 'Machine Status'}>
                                                     <div className="flex gap-2 p-1 bg-white rounded-[2rem] border border-slate-200">
                                                         {['Warranty', 'Out Of Warranty', 'AMC'].map(s => (
-                                                            <button key={s} onClick={() => setReport({...report, machineStatus: s as any})} className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${report.machineStatus === s ? 'bg-medical-600 text-white' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>{s}</button>
+                                                            <button type="button" key={s} onClick={() => setReport({...report, machineStatus: s as any})} className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${report.machineStatus === s ? (report.serviceCategory === 'Pipeline' ? 'bg-amber-600 text-white' : 'bg-medical-600 text-white') : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}>{s}</button>
                                                         ))}
                                                     </div>
                                                 </FormRow>
                                             </div>
                                             <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-200 space-y-4">
                                                 <FormRow label="Full Address">
-                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[120px] resize-none uppercase" value={report.customerAddress || ''} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Hospital location..." />
+                                                    <textarea className="w-full bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-medium outline-none h-[80px] resize-none uppercase" value={report.customerAddress || ''} onChange={e => setReport({...report, customerAddress: e.target.value})} placeholder="Hospital location..." />
                                                 </FormRow>
-                                                <FormRow label="Software Version">
-                                                    <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.softwareVersion || ''} onChange={e => setReport({...report, softwareVersion: e.target.value})} placeholder="V1.0.2" />
-                                                </FormRow>
+
+                                                {report.serviceCategory === 'Pipeline' ? (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <FormRow label="Gas / Line Type">
+                                                            <select
+                                                                value={report.gasType || ''}
+                                                                onChange={e => setReport({ ...report, gasType: e.target.value })}
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none cursor-pointer"
+                                                            >
+                                                                <option value="">Select Gas Type</option>
+                                                                {PIPELINE_GAS_TYPES.map(g => (
+                                                                    <option key={g} value={g}>{g}</option>
+                                                                ))}
+                                                            </select>
+                                                        </FormRow>
+                                                        <FormRow label="Pressure / Test Status">
+                                                            <select
+                                                                value={report.pressureTestStatus || ''}
+                                                                onChange={e => setReport({ ...report, pressureTestStatus: e.target.value })}
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-bold outline-none cursor-pointer"
+                                                            >
+                                                                <option value="">Select Status</option>
+                                                                {PIPELINE_TEST_STATUSES.map(st => (
+                                                                    <option key={st} value={st}>{st}</option>
+                                                                ))}
+                                                            </select>
+                                                        </FormRow>
+                                                    </div>
+                                                ) : (
+                                                    <FormRow label="Software Version">
+                                                        <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={report.softwareVersion || ''} onChange={e => setReport({...report, softwareVersion: e.target.value})} placeholder="V1.0.2" />
+                                                    </FormRow>
+                                                )}
                                             </div>
                                         </div>
                                     </section>
