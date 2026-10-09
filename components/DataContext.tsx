@@ -24,6 +24,8 @@ import {
 } from 'firebase/firestore';
 import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
@@ -531,9 +533,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // PDF Preview state & Download Helper
     const [pdfPreviewData, setPdfPreviewData] = useState<{ url: string; filename: string; blob: Blob } | null>(null);
 
-    const downloadPDF = (blob: Blob, filename: string) => {
+    const webDownloadPDF = (blob: Blob, filename: string) => {
         try {
-            // Convert Blob to Data URL for universal compatibility (Safari iOS, Android WebViews, PWAs)
             const reader = new FileReader();
             reader.onloadend = () => {
                 const dataUrl = reader.result as string;
@@ -565,21 +566,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const handleSharePDF = async (blob: Blob, filename: string) => {
+    const saveAndShareNativePDF = async (blob: Blob, filename: string, isShare: boolean = false) => {
         try {
-            const file = new File([blob], filename, { type: 'application/pdf' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: filename,
-                    text: filename
-                });
-                return;
-            }
-        } catch (e) {
-            console.warn('Native share cancelled or not supported', e);
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                try {
+                    const base64Data = (reader.result as string).split(',')[1];
+                    const savedFile = await Filesystem.writeFile({
+                        path: filename,
+                        data: base64Data,
+                        directory: Directory.Cache
+                    });
+
+                    await Share.share({
+                        title: filename,
+                        text: filename,
+                        url: savedFile.uri,
+                        dialogTitle: isShare ? `Share ${filename}` : `Save / Open ${filename}`
+                    });
+                } catch (fsErr) {
+                    console.error("Capacitor Native File Save failed:", fsErr);
+                    webDownloadPDF(blob, filename);
+                }
+            };
+            reader.readAsDataURL(blob);
+        } catch (err) {
+            console.error("Error reading blob for Capacitor Native Save:", err);
+            webDownloadPDF(blob, filename);
         }
-        downloadPDF(blob, filename);
+    };
+
+    const downloadPDF = async (blob: Blob, filename: string) => {
+        if (Capacitor.isNativePlatform()) {
+            await saveAndShareNativePDF(blob, filename, false);
+        } else {
+            webDownloadPDF(blob, filename);
+        }
+    };
+
+    const handleSharePDF = async (blob: Blob, filename: string) => {
+        if (Capacitor.isNativePlatform()) {
+            await saveAndShareNativePDF(blob, filename, true);
+        } else {
+            try {
+                const file = new File([blob], filename, { type: 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: filename,
+                        text: filename
+                    });
+                    return;
+                }
+            } catch (e) {
+                console.warn('Native share cancelled or not supported', e);
+            }
+            webDownloadPDF(blob, filename);
+        }
     };
 
     const handleOpenPDFInNewTab = (blob: Blob) => {
