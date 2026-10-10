@@ -131,6 +131,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     currentUser: activeUser,
     attendanceRecords,
     holidays,
+    prizePool = 0,
+    updatePrizePool,
     addPoints,
     addNotification
   } = useData();
