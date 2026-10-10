@@ -2307,9 +2307,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const updateServiceTask = async (id: string, u: Partial<ServiceTask>) => {
+        const existing = serviceTasks.find(t => t.id === id);
+        const newStatus = (u.status || '').toLowerCase();
+        const oldStatus = (existing?.status || '').toLowerCase();
+        const isNowDone = newStatus === 'completed' || newStatus === 'resolved' || newStatus === 'done' || newStatus === 'closed';
+        const wasDone = oldStatus === 'completed' || oldStatus === 'resolved' || oldStatus === 'done' || oldStatus === 'closed';
+
+        if (isNowDone && !wasDone && !(existing as any)?.pointsAwarded) {
+            const targetUser = u.assignedTo || (existing as any)?.assignedTo || (existing as any)?.assignedToId || (existing as any)?.serviceEngineer || (existing as any)?.technician || currentUser?.id;
+            if (targetUser) {
+                const taskTitle = existing?.title || (existing as any)?.equipment || existing?.customerName || 'Service Task';
+                await addPoints(10, 'ServiceTask', `Service Task Completed: ${taskTitle}`, targetUser);
+                u = { ...u, pointsAwarded: true } as any;
+            }
+        }
+
         setServiceTasks(prev => prev.map(t => t.id === id ? { ...t, ...u } as ServiceTask : t));
         await updateDoc(doc(db, "serviceTasks", id), sanitizeData(u));
-        const existing = serviceTasks.find(t => t.id === id);
         await addLog('Tasks', 'Updated Service Task', existing?.customerName || id, existing, { ...existing, ...u });
     };
 

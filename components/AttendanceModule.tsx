@@ -373,7 +373,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             isManualCheckOut: true // Protect from auto-close overwrite
         });
 
-        addPoints(50, 'Attendance', 'Daily Shift Completed');
+        addPoints(10, 'Attendance', 'Daily Attendance Completed');
         addNotification('Attendance Locked', 'Daily shift attendance has been locked successfully.', 'success');
         setShowConfirmModal(false);
         setShowEodModal(true);

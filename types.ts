@@ -694,9 +694,10 @@ export interface PointHistory {
   id: string;
   date: string;
   points: number;
-  category: 'Task' | 'Attendance' | 'Sales' | 'Lead';
+  category: 'Task' | 'Attendance' | 'Sales' | 'Lead' | 'ServiceTask' | 'Manual' | string;
   description: string;
   userId: string;
+  reason?: string;
 }
 
 export interface AppNotification {

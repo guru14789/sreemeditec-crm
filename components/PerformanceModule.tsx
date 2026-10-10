@@ -131,8 +131,8 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
     currentUser: activeUser,
     attendanceRecords,
     holidays,
-    prizePool,
-    updatePrizePool
+    addPoints,
+    addNotification
   } = useData();
 
   // Tab State: '360' for Employee Directory & Dashboard, 'leaderboard' for Gamification
@@ -143,13 +143,54 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
   const [departmentFilter, setDepartmentFilter] = useState<string>('ALL');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
-  // Leaderboard Modals
+  // Leaderboard Modals & Admin Point Award State
   const [showRules, setShowRules] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isEditingPrize, setIsEditingPrize] = useState(false);
   const [tempPrize, setTempPrize] = useState('');
 
+  // Admin Manual Point Award Form State
+  const [awardEmpId, setAwardEmpId] = useState<string>('');
+  const [awardPointsAmount, setAwardPointsAmount] = useState<number>(10);
+  const [isCustomPoints, setIsCustomPoints] = useState<boolean>(false);
+  const [awardReason, setAwardReason] = useState<string>('');
+  const [isSubmittingAward, setIsSubmittingAward] = useState<boolean>(false);
+
   const isAdmin = activeUser?.role === 'SYSTEM_ADMIN' || activeUser?.email === 'sreekumar.career@gmail.com';
+
+  const handleGivePoints = async () => {
+    if (!awardEmpId) {
+      addNotification('Selection Missing', 'Please select an employee to award points.', 'warning');
+      return;
+    }
+    if (!awardReason.trim()) {
+      addNotification('Reason Required', 'Please enter a reason for awarding points.', 'warning');
+      return;
+    }
+    if (awardPointsAmount <= 0) {
+      addNotification('Invalid Amount', 'Point value must be greater than zero.', 'warning');
+      return;
+    }
+
+    setIsSubmittingAward(true);
+    try {
+      const targetEmp = employees.find(e => e.id === awardEmpId);
+      const fullReason = awardReason.trim();
+      await addPoints(awardPointsAmount, 'Manual', fullReason, awardEmpId);
+      addNotification(
+        'Points Awarded!',
+        `Successfully gave ${awardPointsAmount} points to ${targetEmp?.name || 'employee'}.`,
+        'success'
+      );
+      setAwardReason('');
+      setAwardEmpId('');
+    } catch (err) {
+      console.error("Failed to award points:", err);
+      addNotification('Error', 'Failed to award points.', 'alert');
+    } finally {
+      setIsSubmittingAward(false);
+    }
+  };
 
   // ---------------------------------------------------------
   // Helper: Position-Based Dynamic Target Resolver
@@ -1937,37 +1978,145 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
             </div>
           </div>
 
-          {/* PERFORMANCE LOG & SCORING GUIDE */}
+          {/* PERFORMANCE LOG & ADMIN AWARD POINTS PANEL */}
           <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-80 lg:h-auto lg:flex-1 overflow-hidden">
+            {/* ADMIN MANUAL POINT AWARD CARD */}
+            {isAdmin && (
+              <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-amber-500/10 dark:from-amber-950/40 dark:to-orange-950/30 rounded-3xl p-4 md:p-5 border border-amber-400/40 dark:border-amber-700/50 shadow-md flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-xs text-amber-900 dark:text-amber-200 uppercase tracking-wider flex items-center gap-2">
+                    <Crown size={16} className="text-amber-500 fill-amber-500" /> Award Employee Points
+                  </h3>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-sm">
+                    Admin Tool
+                  </span>
+                </div>
+
+                {/* Employee Selection */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Select Employee</label>
+                  <select
+                    value={awardEmpId}
+                    onChange={e => setAwardEmpId(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/80 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">-- Choose Employee --</option>
+                    {employees.filter(e => e.status !== 'Resigned').map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Preset Points Selection */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Points Value</label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setAwardPointsAmount(5); setIsCustomPoints(false); }}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer ${awardPointsAmount === 5 && !isCustomPoints ? 'bg-amber-500 text-white border-amber-600 shadow' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'}`}
+                    >
+                      +5 Pts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAwardPointsAmount(10); setIsCustomPoints(false); }}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer ${awardPointsAmount === 10 && !isCustomPoints ? 'bg-amber-500 text-white border-amber-600 shadow' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'}`}
+                    >
+                      +10 Pts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setIsCustomPoints(true); }}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all border cursor-pointer ${isCustomPoints ? 'bg-amber-500 text-white border-amber-600 shadow' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'}`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                  {isCustomPoints && (
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      value={awardPointsAmount}
+                      onChange={e => setAwardPointsAmount(Math.max(1, parseInt(e.target.value) || 0))}
+                      placeholder="Enter custom points"
+                      className="w-full px-3 py-1.5 mt-1.5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/80 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none"
+                    />
+                  )}
+                </div>
+
+                {/* Reason Input */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">Reason / Description</label>
+                  <input
+                    type="text"
+                    value={awardReason}
+                    onChange={e => setAwardReason(e.target.value)}
+                    placeholder="Reason (e.g. Excellent teamwork, Overtime)..."
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/80 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Submit Award Button */}
+                <button
+                  type="button"
+                  disabled={isSubmittingAward}
+                  onClick={handleGivePoints}
+                  className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
+                >
+                  <Award size={15} /> Award {awardPointsAmount} Points
+                </button>
+              </div>
+            )}
+
+            {/* RECENT PERFORMANCE LOG CARD */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-96 lg:h-auto lg:flex-1 overflow-hidden">
               <h3 className="font-black text-xs text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-3 flex items-center gap-2">
                 <History size={15} className="text-indigo-500" /> Recent Performance Log
               </h3>
               <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
                 {pointHistory.length > 0 ? (
-                  pointHistory.slice(0, 15).map(item => {
+                  pointHistory.slice(0, 25).map(item => {
                     const emp = employees.find(e => e.id === item.userId);
-                    const empName = emp ? emp.name.split(' ')[0] : 'Unknown';
+                    const empName = emp ? emp.name : (item.userId || 'Staff');
+                    const reasonText = item.reason || item.description || 'Points awarded';
+                    const dateStr = item.date ? new Date(item.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : '';
+
+                    let badgeBg = 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800';
+                    if (item.category === 'Manual') badgeBg = 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:border-amber-800';
+                    if (item.category === 'Attendance') badgeBg = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800';
+                    if (item.category === 'ServiceTask') badgeBg = 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:border-purple-800';
+
                     return (
                       <div
                         key={item.id}
-                        className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs"
+                        className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs space-y-1.5 shadow-2xs"
                       >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-black text-indigo-600 dark:text-indigo-400 text-[10px] uppercase">
-                            {empName} • {item.category}
+                        <div className="flex justify-between items-center">
+                          <span className="font-extrabold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[170px]">
+                            {empName}
                           </span>
                           <span
-                            className={`font-black text-[10px] ${
-                              item.points > 0 ? 'text-emerald-600' : 'text-rose-500'
+                            className={`font-black text-xs ${
+                              item.points > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
                             }`}
                           >
                             {item.points > 0 ? '+' : ''}{item.points} Pts
                           </span>
                         </div>
-                        <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300 line-clamp-2">
-                          {item.description}
-                        </p>
+
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className={`px-2 py-0.5 rounded-full font-black uppercase border text-[9px] ${badgeBg}`}>
+                            {item.category || 'General'}
+                          </span>
+                          {dateStr && <span className="text-slate-400 font-mono text-[9px]">{dateStr}</span>}
+                        </div>
+
+                        <div className="pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">Reason: </span>
+                          <span>{reasonText}</span>
+                        </div>
                       </div>
                     );
                   })
@@ -1986,24 +2135,51 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <h4 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Info size={16} className="text-indigo-500" /> Scoring Rules
+                <Info size={16} className="text-indigo-500" /> Leaderboard Scoring Rules
               </h4>
               <button onClick={() => setShowRules(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={18} />
               </button>
             </div>
-            <div className="space-y-3 text-xs">
+            <div className="space-y-2.5 text-xs">
               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
-                <span className="font-bold text-slate-700 dark:text-slate-300">Base Task Completion</span>
-                <span className="font-black text-emerald-600">+10 Pts</span>
+                <div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-100">Daily Attendance</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">Awarded for each shift completed</div>
+                </div>
+                <span className="font-black text-indigo-600 text-sm">+10 Pts</span>
               </div>
+
               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
-                <span className="font-bold text-slate-700 dark:text-slate-300">High Priority Bonus</span>
-                <span className="font-black text-amber-500">+10 Pts</span>
+                <div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-100">Full Month Present Bonus</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">100% attendance (excl. Sundays & holidays)</div>
+                </div>
+                <span className="font-black text-emerald-600 text-sm">+30 Pts</span>
               </div>
+
               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
-                <span className="font-bold text-slate-700 dark:text-slate-300">Daily Attendance</span>
-                <span className="font-black text-indigo-600">+50 Pts</span>
+                <div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-100">General Task Completion</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">For each task completed</div>
+                </div>
+                <span className="font-black text-amber-500 text-sm">+10 Pts</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
+                <div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-100">Service Task Completion</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">For each field service task resolved</div>
+                </div>
+                <span className="font-black text-purple-600 text-sm">+10 Pts</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl flex justify-between items-center">
+                <div>
+                  <div className="font-extrabold text-slate-800 dark:text-slate-100">Admin Award Points</div>
+                  <div className="text-[10px] text-slate-500 font-semibold">Preset 5 or 10 Pts (with custom reason)</div>
+                </div>
+                <span className="font-black text-rose-500 text-sm">+5 / +10 Pts</span>
               </div>
             </div>
           </div>
