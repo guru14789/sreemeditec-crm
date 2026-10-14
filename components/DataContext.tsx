@@ -30,7 +30,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule, BankTransaction } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, LeadStatus, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule, BankTransaction } from '../types';
 
 const updateBrandModelStock = (product: Product, brandName: string | undefined, modelName: string | undefined, qty: number, type: 'In' | 'Out'): Product => {
     if (!brandName || !modelName || !product.brands) return product;
@@ -405,8 +405,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [pushedLeads, setPushedLeads] = useState<Lead[]>([]);
     const leads = useMemo(() => {
         const ids = new Set(leadSnap.map(l => l.id));
-        return [...leadSnap, ...pushedLeads.filter(l => !ids.has(l.id))].sort((a,b) => b.lastContact.localeCompare(a.lastContact));
-    }, [leadSnap, pushedLeads]);
+        const all = [...leadSnap, ...pushedLeads.filter(l => !ids.has(l.id))].sort((a,b) => (b.lastContact || '').localeCompare(a.lastContact || ''));
+        if (!currentUser) return [];
+        const isLeadAdmin = currentUser.role === 'SYSTEM_ADMIN' || 
+                            currentUser.email === 'sreekumar.career@gmail.com' || 
+                            currentUser.permissions?.[TabView.LEADS] === 'Admin';
+        if (isLeadAdmin) return all;
+
+        // Regular employee sees only leads registered or authorized for this employee
+        return all.filter(l => {
+            return l.employeeId === currentUser.id ||
+                   l.salesTakenById === currentUser.id ||
+                   (l.salesTakenBy && l.salesTakenBy.toLowerCase() === currentUser.name.toLowerCase()) ||
+                   (l.assignedTo && l.assignedTo.toLowerCase() === currentUser.name.toLowerCase()) ||
+                   l.createdById === currentUser.id ||
+                   (l.createdBy && l.createdBy.toLowerCase() === currentUser.name.toLowerCase());
+        });
+    }, [leadSnap, pushedLeads, currentUser]);
     const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
     const [deliveryChallans, setDeliveryChallans] = useState<DeliveryChallan[]>([]);
@@ -1624,7 +1639,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             limit(50)
         );
         const snap = await getDocs(q);
-        return snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
+        const rawDocs = snap.docs.map(d => ({ ...d.data(), id: d.id } as any));
+
+        if (collectionName === 'leads') {
+            const isLeadAdmin = currentUser?.role === 'SYSTEM_ADMIN' || 
+                                currentUser?.email === 'sreekumar.career@gmail.com' || 
+                                currentUser?.permissions?.[TabView.LEADS] === 'Admin';
+            if (!isLeadAdmin) {
+                // Filter only caller's authorized leads
+                const authorized = rawDocs.filter((l: Lead) => 
+                    l.employeeId === currentUser?.id || 
+                    l.salesTakenById === currentUser?.id || 
+                    l.salesTakenBy?.toLowerCase() === currentUser?.name?.toLowerCase() ||
+                    l.assignedTo?.toLowerCase() === currentUser?.name?.toLowerCase() ||
+                    l.createdById === currentUser?.id ||
+                    l.createdBy?.toLowerCase() === currentUser?.name?.toLowerCase()
+                );
+                return authorized as T[];
+            }
+        }
+        return rawDocs as T[];
     };
 
     const [lastDocs, setLastDocs] = useState<Record<string, any>>({});
@@ -1742,13 +1776,162 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updateServiceTemplate = async (id: string, u: Partial<ServiceTemplate>) => { await updateDoc(doc(db, "serviceTemplates", id), sanitizeData(u)); await addLog('Inventory', 'Updated Template', `${id}`); };
     const removeServiceTemplate = async (id: string) => { await deleteDoc(doc(db, "serviceTemplates", id)); await addLog('Inventory', 'Deleted Template', id); };
     const removeAttendance = async (id: string) => { await deleteDoc(doc(db, "attendance", id)); await addLog('Attendance', 'Deleted Record', `ID: ${id}`); };
-    const addLead = async (l: Lead) => { await setDoc(doc(db, "leads", l.id), sanitizeData(l)); await addLog('Leads', 'New Lead', `${l.name}`); };
+    const addLead = async (l: Lead) => {
+        if (!currentUser) throw new Error("Unauthorized: Please sign in to register a lead.");
+        const isLeadAdmin = currentUser?.role === 'SYSTEM_ADMIN' || 
+                            currentUser?.email === 'sreekumar.career@gmail.com' || 
+                            currentUser?.permissions?.[TabView.LEADS] === 'Admin';
+
+        // Enforce employee ownership
+        if (!isLeadAdmin) {
+            l.employeeId = currentUser.id;
+            l.salesTakenById = currentUser.id;
+            l.salesTakenBy = currentUser.name;
+            l.createdById = currentUser.id;
+            l.createdBy = currentUser.name;
+
+            // Verify quotation linkage and permission
+            if (!l.quotationId) {
+                throw new Error("Quotation is required: Every lead must be linked to an eligible quotation.");
+            }
+            const quote = invoices.find(inv => inv.id === l.quotationId && (inv.documentType === 'Quotation' || (inv.invoiceNumber && inv.invoiceNumber.startsWith('QT'))));
+            if (!quote) {
+                throw new Error("Invalid quotation: The selected quotation record does not exist.");
+            }
+            const qEmpId = (quote.handlingEmployee || '').trim().toLowerCase();
+            const qEmpName = (quote.handlingEmployeeName || '').trim().toLowerCase();
+            const myId = (currentUser.id || '').trim().toLowerCase();
+            const myName = (currentUser.name || '').trim().toLowerCase();
+            const isQuoteAuthorized = (myId && qEmpId === myId) ||
+                                      (myName && qEmpName === myName) ||
+                                      (myName && qEmpId === myName) ||
+                                      (myId && qEmpName === myId);
+            if (!isQuoteAuthorized) {
+                throw new Error("Access Denied: You are not authorized to register leads against this quotation. Only the employee assigned to handle this quotation (Handled By) can register this lead.");
+            }
+        } else {
+            if (!l.employeeId) l.employeeId = currentUser.id;
+            if (!l.salesTakenById) l.salesTakenById = l.employeeId;
+            if (!l.salesTakenBy) l.salesTakenBy = currentUser.name;
+        }
+
+        // Validate mandatory fields
+        if (!l.name?.trim()) throw new Error("Contact / Entity Name is required.");
+        if (!l.quotationId || !l.quotationNo?.trim()) throw new Error("Quote Number is required.");
+        if (!l.hospital?.trim()) throw new Error("Hospital / Organization is required.");
+        if (!l.address?.trim()) throw new Error("Geographical Location / Address is required.");
+        if (!l.source?.trim()) throw new Error("Acquisition Source is required.");
+        if (!l.status?.trim()) throw new Error("Pipeline Status is required.");
+        if (!l.productInterest?.trim()) throw new Error("Product Interest / Requirement is required.");
+        if (!l.phone?.trim()) throw new Error("Mobile / WhatsApp is required.");
+        const cleanPhone = l.phone.replace(/\D/g, '');
+        if (cleanPhone.length < 10) throw new Error("Mobile / WhatsApp must be a valid phone number with at least 10 digits.");
+        if (!l.contactPerson?.trim()) throw new Error("Primary Point of Contact is required.");
+
+        // Email validation (optional)
+        if (l.email?.trim()) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(l.email.trim())) {
+                throw new Error("Invalid email format for Email Address.");
+            }
+        }
+
+        // Lost Reason validation
+        if (l.status === 'Lost' || l.status === LeadStatus.LOST) {
+            if (!l.lostReason?.trim()) {
+                throw new Error("Lost Reason is mandatory when Pipeline Status is Lost.");
+            }
+        }
+
+        const now = new Date().toISOString();
+        const finalLead: Lead = {
+            ...l,
+            createdAt: l.createdAt || now,
+            updatedAt: now,
+            lastContact: l.lastContact || now.split('T')[0]
+        };
+
+        await setDoc(doc(db, "leads", finalLead.id), sanitizeData(finalLead));
+        await addLog('Leads', 'New Lead', `${finalLead.name} (${finalLead.quotationNo || 'Quoted'})`);
+    };
+
     const updateLead = async (id: string, u: Partial<Lead>) => {
+        if (!currentUser) throw new Error("Unauthorized: Please sign in to update a lead.");
+        const isLeadAdmin = currentUser?.role === 'SYSTEM_ADMIN' || 
+                            currentUser?.email === 'sreekumar.career@gmail.com' || 
+                            currentUser?.permissions?.[TabView.LEADS] === 'Admin';
+        
         const existing = leads.find(l => l.id === id);
-        await updateDoc(doc(db, "leads", id), sanitizeData(u));
+        if (!isLeadAdmin && existing) {
+            const isOwner = existing.employeeId === currentUser.id ||
+                            existing.salesTakenById === currentUser.id ||
+                            existing.salesTakenBy?.toLowerCase() === currentUser.name.toLowerCase() ||
+                            existing.createdBy?.toLowerCase() === currentUser.name.toLowerCase();
+            if (!isOwner) {
+                throw new Error("Access Denied: You can only update your own authorized leads.");
+            }
+            // Regular employees cannot forge or reassign lead ownership
+            delete u.employeeId;
+            delete u.salesTakenById;
+            delete u.salesTakenBy;
+        }
+
+        // Email validation if provided
+        if (u.email !== undefined && u.email.trim()) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(u.email.trim())) {
+                throw new Error("Invalid email format for Email Address.");
+            }
+        }
+
+        // Phone validation if provided
+        if (u.phone !== undefined) {
+            const cleanPhone = u.phone.replace(/\D/g, '');
+            if (cleanPhone.length < 10) {
+                throw new Error("Mobile / WhatsApp must be a valid phone number with at least 10 digits.");
+            }
+        }
+
+        // Lost Reason validation & status transition auditing
+        if (u.status === 'Lost' || u.status === LeadStatus.LOST) {
+            const reason = (u.lostReason ?? existing?.lostReason)?.trim();
+            if (!reason) {
+                throw new Error("Lost Reason is mandatory when Pipeline Status is Lost.");
+            }
+            const historyEntry = {
+                status: 'Lost',
+                reason,
+                date: new Date().toISOString(),
+                changedBy: currentUser.name
+            };
+            u.lostHistory = [...(existing?.lostHistory || []), historyEntry];
+            u.lostReason = reason;
+        } else if (existing?.status === 'Lost' && u.status && u.status !== 'Lost') {
+            const historyEntry = {
+                status: u.status,
+                reason: `Status changed from Lost to ${u.status}`,
+                date: new Date().toISOString(),
+                changedBy: currentUser.name
+            };
+            u.lostHistory = [...(existing?.lostHistory || []), historyEntry];
+        }
+
+        const now = new Date().toISOString();
+        await updateDoc(doc(db, "leads", id), sanitizeData({ ...u, updatedAt: now }));
         await addLog('Leads', 'Updated Lead', `Lead mod: ${existing?.name || id}`, existing, { ...existing, ...u });
     };
-    const removeLead = async (id: string) => { await deleteDoc(doc(db, "leads", id)); await addLog('Leads', 'Deleted Lead', id); };
+
+    const removeLead = async (id: string) => {
+        if (!currentUser) throw new Error("Unauthorized: Please sign in to delete a lead.");
+        const isLeadAdmin = currentUser?.role === 'SYSTEM_ADMIN' || 
+                            currentUser?.email === 'sreekumar.career@gmail.com' || 
+                            currentUser?.permissions?.[TabView.LEADS] === 'Admin';
+        if (!isLeadAdmin) {
+            throw new Error("Access Denied: Only administrators can delete lead records.");
+        }
+        await deleteDoc(doc(db, "leads", id));
+        await addLog('Leads', 'Deleted Lead', id);
+    };
 
     const seedDatabase = async () => { 
         await addLog('System', 'DB Seed', 'Sync triggered');

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Trophy, Star, Target, Award, Crown, Info, History, Medal, 
-  X, Edit2, Search, User, Filter, DollarSign, 
+  X, Edit2, Check, Search, User, Filter, DollarSign, 
   FileText, Wrench, PieChart, ChevronRight, Briefcase, CheckCircle2,
   ArrowLeft, Calendar, Clock, CheckCircle, Linkedin, TrendingUp
 } from 'lucide-react';
@@ -1866,17 +1866,76 @@ export const PerformanceModule: React.FC<PerformanceModuleProps> = ({
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-black shadow-md">
                   <Trophy size={14} />
-                  <span>Prize Pool: ₹{prizePool.toLocaleString('en-IN')}</span>
-                  {isAdmin && (
-                    <button
-                      onClick={() => {
-                        setTempPrize(prizePool.toString());
-                        setIsEditingPrize(true);
-                      }}
-                      className="ml-1 p-1 hover:bg-white/20 rounded"
-                    >
-                      <Edit2 size={12} />
-                    </button>
+                  {isEditingPrize ? (
+                    <div className="flex items-center gap-1">
+                      <span>Prize Pool: ₹</span>
+                      <input
+                        type="number"
+                        autoFocus
+                        className="bg-white/20 border-b border-white text-white text-xs font-black w-20 px-1 py-0.5 outline-none rounded"
+                        value={tempPrize}
+                        onChange={(e) => setTempPrize(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            const val = Number(tempPrize);
+                            if (!isNaN(val) && val >= 0) {
+                              try {
+                                await updatePrizePool(val);
+                                addNotification('Success', `Prize pool updated to ₹${val.toLocaleString('en-IN')}`, 'success');
+                              } catch (err: any) {
+                                addNotification('Error', err.message || 'Failed to update prize pool', 'error');
+                              }
+                            }
+                            setIsEditingPrize(false);
+                          }
+                          if (e.key === 'Escape') setIsEditingPrize(false);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const val = Number(tempPrize);
+                          if (!isNaN(val) && val >= 0) {
+                            try {
+                              await updatePrizePool(val);
+                              addNotification('Success', `Prize pool updated to ₹${val.toLocaleString('en-IN')}`, 'success');
+                            } catch (err: any) {
+                              addNotification('Error', err.message || 'Failed to update prize pool', 'error');
+                            }
+                          }
+                          setIsEditingPrize(false);
+                        }}
+                        className="p-1 hover:bg-white/20 rounded text-emerald-200"
+                        title="Save"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingPrize(false)}
+                        className="p-1 hover:bg-white/20 rounded text-red-200"
+                        title="Cancel"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Prize Pool: ₹{prizePool.toLocaleString('en-IN')}</span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTempPrize(prizePool.toString());
+                            setIsEditingPrize(true);
+                          }}
+                          className="ml-1 p-1 hover:bg-white/20 rounded"
+                          title="Edit Prize Pool"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
 

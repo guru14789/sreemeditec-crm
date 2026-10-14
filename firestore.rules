@@ -15,9 +15,42 @@ service cloud.firestore {
       );
     }
 
+    function getCallerEmployeeId() {
+      return exists(/databases/$(database)/documents/uid_maps/$(request.auth.uid)) ?
+        get(/databases/$(database)/documents/uid_maps/$(request.auth.uid)).data.employeeId :
+        request.auth.uid;
+    }
+
+    // Lead CRM access rules
+    match /leads/{leadId} {
+      allow read: if isAuthenticated() && (
+        isSystemAdmin() ||
+        resource.data.employeeId == request.auth.uid ||
+        resource.data.salesTakenById == request.auth.uid ||
+        resource.data.employeeId == getCallerEmployeeId() ||
+        resource.data.salesTakenById == getCallerEmployeeId() ||
+        !exists(/databases/$(database)/documents/uid_maps/$(request.auth.uid))
+      );
+      allow create: if isAuthenticated() && (
+        isSystemAdmin() ||
+        request.resource.data.employeeId == getCallerEmployeeId() ||
+        request.resource.data.salesTakenById == getCallerEmployeeId() ||
+        request.resource.data.employeeId == request.auth.uid ||
+        !exists(/databases/$(database)/documents/uid_maps/$(request.auth.uid))
+      );
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() ||
+        resource.data.employeeId == getCallerEmployeeId() ||
+        resource.data.salesTakenById == getCallerEmployeeId() ||
+        resource.data.employeeId == request.auth.uid ||
+        !exists(/databases/$(database)/documents/uid_maps/$(request.auth.uid))
+      );
+      allow delete: if isSystemAdmin();
+    }
+
     // Default catch-all for authenticated users
     match /{collectionName}/{docId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, create, update, delete: if isAuthenticated() && collectionName != 'leads' && collectionName != 'employees';
     }
 
     // Registry access rules

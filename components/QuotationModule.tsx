@@ -333,15 +333,22 @@ Sree Meditec`;
             name: inv.customerName || 'Unknown',
             hospital: inv.customerHospital || '',
             source: 'Quotation',
-            status: LeadStatus.NEW,
+            status: LeadStatus.QUOTED,
             value: inv.grandTotal || 0,
             lastContact: new Date().toISOString().split('T')[0],
             productInterest: inv.subject || inv.items?.[0]?.description || '',
-            phone: inv.phone,
-            email: inv.email,
-            address: inv.customerAddress,
+            phone: inv.phone || '',
+            email: inv.email || '',
+            address: inv.customerAddress || '',
+            contactPerson: inv.contactPerson || inv.customerName || 'Contact Person',
             followUps: [],
-            salesTakenBy: currentUser?.name
+            quotationId: inv.id,
+            quotationNo: inv.invoiceNumber || 'QUOTATION',
+            salesTakenBy: inv.handlingEmployeeName || currentUser?.name || '',
+            salesTakenById: inv.handlingEmployee || currentUser?.id || '',
+            employeeId: inv.handlingEmployee || currentUser?.id || '',
+            createdBy: currentUser?.name,
+            createdById: currentUser?.id
         };
         await addLead(newLead);
         addNotification('Lead Created', `Quotation ${inv.invoiceNumber} converted to lead for ${inv.customerName}.`, 'success');

@@ -57,10 +57,20 @@ export enum TabView {
 }
 
 export enum LeadStatus {
-  NEW = 'New',
-  ON_PROCESS = 'On process',
+  QUOTED = 'Quoted',
+  ON_PROGRESS = 'On Progress',
   WON = 'Won',
-  LOST = 'Lost'
+  LOST = 'Lost',
+  // Backward compatibility aliases
+  NEW = 'Quoted',
+  ON_PROCESS = 'On Progress'
+}
+
+export interface LostHistoryEntry {
+  status: string;
+  reason: string;
+  date: string;
+  changedBy: string;
 }
 
 export interface FollowUp {
@@ -76,7 +86,7 @@ export interface Lead {
   name: string;
   hospital: string;
   source: string;
-  status: LeadStatus;
+  status: LeadStatus | string;
   value: number;
   lastContact: string;
   productInterest: string;
@@ -86,7 +96,19 @@ export interface Lead {
   followUps: FollowUp[];
   contactPerson?: string;
   salesTakenBy?: string;
+  salesTakenById?: string;
+  employeeId?: string;
+  assignedTo?: string;
+  quotationId?: string;
+  quotationNo?: string;
+  lostReason?: string;
+  lostHistory?: LostHistoryEntry[];
   createdAt?: string;
+  createdBy?: string;
+  createdById?: string;
+  updatedAt?: string;
+  nextFollowUpDate?: string;
+  product?: string;
 }
 
 export interface Client {
@@ -106,6 +128,7 @@ export interface Client {
   dlNo?: string;
   udyamNo?: string;
   status?: 'Draft' | 'Finalized';
+  contactPerson?: string;
   advanceBalance?: number;
 }
 
@@ -522,10 +545,12 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+  invoiceDate?: string;
   date: string;
   items: InvoiceItem[];
   status: 'Pending' | 'Paid' | 'Completed' | 'Draft' | 'Finalized' | 'Cancelled';
   amountPaid?: number;
+  customerId?: string;
   customerName: string;
   customerHospital?: string;
   customerAddress?: string;
