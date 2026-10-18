@@ -25,6 +25,7 @@ export enum TabView {
   DASHBOARD = 'DASHBOARD',
   LEADS = 'LEADS',
   CLIENTS = 'CLIENTS',
+  EMPLOYEE_DATABASE = 'EMPLOYEE_DATABASE',
   VENDORS = 'VENDORS',
   INVENTORY = 'INVENTORY',
   BILLING = 'BILLING',
@@ -660,6 +661,15 @@ export interface ExpenseRecord {
   items?: ClaimItem[];
 }
 
+export interface PublicVisibilitySettings {
+  showBusinessPhone: boolean;
+  showBusinessEmail: boolean;
+  showQualifications: boolean;
+  showCompetencies: boolean;
+  showReportingManager: boolean;
+  showJoiningDate: boolean;
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -679,6 +689,61 @@ export interface Employee {
   lastSeenWinnerMonth?: string; // Format: YYYY-MM
   hideFromLeaderboard?: boolean;
   position?: string;
+
+  // Extended fields for Admin Employee Database & Permanent QR Code System
+  publicProfileId?: string;
+  displayName?: string;
+  professionalHeadline?: string;
+  fullLegalName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  nationality?: string;
+  profilePhoto?: string;
+  directPhone?: string;
+  personalEmail?: string;
+  personalPhone?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  designation?: string;
+  employmentStartDate?: string;
+  reportingManager?: string;
+  employeeType?: string;
+  workLocation?: string;
+  highestQualification?: string;
+  specialization?: string;
+  educationalInstitution?: string;
+  coreCompetencies?: string[];
+  technicalSkills?: string[];
+  certifications?: string[];
+  additionalNotes?: string;
+  publicVisibilitySettings?: PublicVisibilitySettings;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface PublicEmployeeProfile {
+  publicProfileId: string;
+  employeeId: string;
+  displayName: string;
+  professionalHeadline?: string;
+  designation: string;
+  department: string;
+  profilePhoto?: string;
+  employmentStatus: 'Active' | 'Inactive';
+  businessEmail?: string;
+  businessPhone?: string;
+  joiningDate?: string;
+  reportingManager?: string;
+  highestQualification?: string;
+  specialization?: string;
+  educationalInstitution?: string;
+  coreCompetencies?: string[];
+  technicalSkills?: string[];
+  certifications?: string[];
+  verifiedAt: string;
 }
 
 export interface UserStats {

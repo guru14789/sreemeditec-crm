@@ -41,6 +41,9 @@ import { ServiceTaskModule } from './components/ServiceTaskModule';
 import { EodReportsModule } from './components/EodReportsModule';
 import { BarcodeCreatorModule } from './components/BarcodeCreatorModule';
 import { PublicServiceForm } from './components/PublicServiceForm';
+import { PublicEmployeeProfile } from './components/PublicEmployeeProfile';
+import { getPublicProfileId } from './utils/publicRouting';
+import { EmployeeDatabaseModule } from './components/EmployeeDatabaseModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { SystemConfigModule } from './components/SystemConfigModule';
@@ -165,6 +168,8 @@ const AppContent: React.FC<{
     isSuperAdmin, currentUser
   } = props;
   
+  const isSystemAdmin = isSuperAdmin || currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
+
   const { showAlert, showConfirm, showPrompt } = useData();
   const [isAdminShowingEmployeeDashboard, setIsAdminShowingEmployeeDashboard] = React.useState(false);
 
@@ -249,6 +254,7 @@ const AppContent: React.FC<{
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
+      case TabView.EMPLOYEE_DATABASE: return isSystemAdmin ? <EmployeeDatabaseModule /> : <Dashboard />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
@@ -650,6 +656,12 @@ export const App: React.FC = () => {
     };
 
 
+  // PUBLIC EMPLOYEE PROFILE: Open without requiring CRM login when QR code is scanned
+  const publicProfileId = getPublicProfileId();
+  if (publicProfileId) {
+    return <PublicEmployeeProfile publicProfileId={publicProfileId} />;
+  }
+
   // PUBLIC FORM: If ?form=service param is present, show public service request form
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   if (searchParams.get('form') === 'service') {
@@ -681,6 +693,9 @@ export const App: React.FC = () => {
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
+    if (tab === TabView.EMPLOYEE_DATABASE) {
+      return isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN';
+    }
     if (isSuperAdmin) return true;
     // SYSTEM_ADMIN always has full sidebar access
     if (currentUser.role === 'SYSTEM_ADMIN') return true;
@@ -695,6 +710,7 @@ export const App: React.FC = () => {
         { tab: TabView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
         { tab: TabView.LEADS, icon: Users, label: 'Lead CRM' },
         { tab: TabView.CLIENTS, icon: Contact, label: 'Client Database' },
+        ...(isSystemAdmin ? [{ tab: TabView.EMPLOYEE_DATABASE, icon: Contact, label: 'Employee Database' }] : []),
         { tab: TabView.VENDORS, icon: Truck, label: 'Vendor Database' },
         { tab: TabView.INVENTORY, icon: Package, label: 'Inventory' },
         { tab: TabView.BARCODE_CREATOR, icon: QrCode, label: 'Barcode Creator' },

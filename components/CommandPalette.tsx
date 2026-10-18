@@ -25,8 +25,11 @@ interface PaletteItem {
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
     const { 
         clients, products, vendors, leads, 
-        setActiveTab, setPendingInvoiceData, setPendingSupplierPOData, setPendingServiceReportData, setPendingChallanData
+        setActiveTab, setPendingInvoiceData, setPendingSupplierPOData, setPendingServiceReportData, setPendingChallanData,
+        currentUser
     } = useData();
+
+    const isSystemAdmin = currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
 
     const [query, setQuery] = useState('');
     const [selectedTab, setSelectedTab] = useState<'all' | 'modules' | 'clients' | 'products' | 'vendors' | 'leads' | 'actions'>('all');
@@ -53,6 +56,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             { tab: TabView.DASHBOARD, label: 'Dashboard', icon: Compass, sub: 'Overview of key metrics and statistics' },
             { tab: TabView.LEADS, label: 'Lead CRM', icon: Users, sub: 'Manage hospital leads and follow-ups' },
             { tab: TabView.CLIENTS, label: 'Client Database', icon: ContactIcon, sub: 'CRM customer records and ledger mapping' },
+            ...(isSystemAdmin ? [{ tab: TabView.EMPLOYEE_DATABASE, label: 'Employee Database', icon: ContactIcon, sub: 'Admin personnel registry and permanent QR codes' }] : []),
             { tab: TabView.VENDORS, label: 'Vendor Database', icon: Briefcase, sub: 'Vendor directory and supplier mappings' },
             { tab: TabView.INVENTORY, icon: Package, label: 'Inventory', sub: 'Stock levels, batches, and item tracking' },
             { tab: TabView.CATALOG, icon: Sparkles, label: 'Product Catalog', sub: 'Item prices, specifications, and taxes' },

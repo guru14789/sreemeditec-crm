@@ -50,12 +50,27 @@ service cloud.firestore {
 
     // Default catch-all for authenticated users
     match /{collectionName}/{docId} {
-      allow read, create, update, delete: if isAuthenticated() && collectionName != 'leads' && collectionName != 'employees';
+      allow read, create, update, delete: if isAuthenticated() && 
+        collectionName != 'leads' && 
+        collectionName != 'employees' && 
+        collectionName != 'admin_secrets' && 
+        collectionName != 'publicEmployeeProfiles';
     }
 
     // Registry access rules
     match /employees/{employeeId} {
       allow read: if isAuthenticated();
+      allow create, update, delete: if isSystemAdmin();
+    }
+
+    // Protected admin secrets - strictly server-side verified for system admins
+    match /admin_secrets/{secretId} {
+      allow read, write: if isSystemAdmin();
+    }
+
+    // Public Employee Profiles - unauthenticated public read for QR scans, admin-only write
+    match /publicEmployeeProfiles/{publicProfileId} {
+      allow read: if true;
       allow create, update, delete: if isSystemAdmin();
     }
 

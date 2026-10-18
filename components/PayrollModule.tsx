@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Timer, CreditCard, ShieldCheck, User, Users, TrendingUp, Landmark, ChevronDown, X } from 'lucide-react';
 import { useData } from './DataContext';
 import { jsPDF } from 'jspdf';
@@ -27,11 +27,25 @@ export const PayrollModule: React.FC = () => {
 
     const [activePicker, setActivePicker] = useState<'month' | 'year' | 'employee' | null>(null);
 
+    const activeEmployees = useMemo(() => {
+        return (employees || []).filter(e => e.status !== 'Resigned' && (e.status || '').toLowerCase() !== 'resigned');
+    }, [employees]);
+
+    // Auto-fallback if currently selected employee is resigned or invalid
+    useEffect(() => {
+        if (isAdmin && selectedEmployeeId) {
+            const isStillActive = activeEmployees.some(e => e.id === selectedEmployeeId);
+            if (!isStillActive && activeEmployees.length > 0) {
+                setSelectedEmployeeId(activeEmployees[0].id);
+            }
+        }
+    }, [isAdmin, selectedEmployeeId, activeEmployees]);
+
     // Resolve the active target employee for payroll calculations
     const targetEmployee = useMemo(() => {
         if (!isAdmin) return me;
-        return employees.find(e => e.id === selectedEmployeeId) || me;
-    }, [isAdmin, employees, selectedEmployeeId, me]);
+        return activeEmployees.find(e => e.id === selectedEmployeeId) || (me && me.status !== 'Resigned' ? me : activeEmployees[0]) || null;
+    }, [isAdmin, activeEmployees, selectedEmployeeId, me]);
 
     // Format Helpers
     const monthName = new Date(selectedSalaryYear, selectedSalaryMonth).toLocaleString('en-US', { month: 'long' });
@@ -184,7 +198,7 @@ export const PayrollModule: React.FC = () => {
 
     const allEmployeesSalarySummary = useMemo(() => {
         if (!isAdmin) return [];
-        return employees.map(emp => {
+        return activeEmployees.map(emp => {
             const daysInMonth = new Date(selectedSalaryYear, selectedSalaryMonth + 1, 0).getDate();
             let presentDays = 0;
             let absentDays = 0;
@@ -311,7 +325,7 @@ export const PayrollModule: React.FC = () => {
                 netPay
             };
         });
-    }, [isAdmin, employees, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, invoices, serviceTasks, yearMonthStr]);
+    }, [isAdmin, activeEmployees, selectedSalaryMonth, selectedSalaryYear, attendanceRecords, holidays, expenses, pointHistory, invoices, serviceTasks, yearMonthStr]);
 
     const handleDownloadSalarySlip = () => {
         if (!targetEmployee || !salaryDetails) return;
@@ -447,7 +461,7 @@ export const PayrollModule: React.FC = () => {
                                         <span className="truncate">
                                             {selectedEmployeeId
                                                 ? (() => {
-                                                    const emp = employees.find(e => e.id === selectedEmployeeId);
+                                                    const emp = activeEmployees.find(e => e.id === selectedEmployeeId);
                                                     return emp ? `${emp.name} (${emp.department})` : '-- Select --';
                                                 })()
                                                 : '-- Select --'}
@@ -749,7 +763,7 @@ export const PayrollModule: React.FC = () => {
                                     >
                                         -- Select --
                                     </button>
-                                    {employees.map(emp => (
+                                    {activeEmployees.map(emp => (
                                         <button
                                             key={emp.id}
                                             onClick={() => { setSelectedEmployeeId(emp.id); setActivePicker(null); }}

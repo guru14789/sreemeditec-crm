@@ -358,8 +358,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [products, setProducts] = useState<Product[]>([]);
     const [invoiceSnap, setInvoiceSnap] = useState<Invoice[]>([]);
     const [pushedInvoices, setPushedInvoices] = useState<Invoice[]>([]);
-    const [allExpensesKpi, setAllExpensesKpi] = useState<Pick<ExpenseRecord, 'id' | 'date' | 'amount' | 'status'>[]>([]);
-    const [allPurchaseRecordsKpi, setAllPurchaseRecordsKpi] = useState<Pick<PurchaseRecord, 'id' | 'dateSupply' | 'materialReceivedDate' | 'total' | 'freightCharges' | 'freightGstPercent' | 'supplier'>[]>([]);
     const invoices = useMemo(() => {
         const ids = new Set(invoiceSnap.map(i => i.id));
         const numKeys = new Set(invoiceSnap.map(i => `${i.documentType}_${(i.invoiceNumber || '').trim().toLowerCase()}`));
@@ -387,6 +385,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const ids = new Set(expenseSnap.map(e => e.id));
         return [...expenseSnap, ...pushedExpenses.filter(e => !ids.has(e.id))].sort((a,b) => b.date.localeCompare(a.date));
     }, [expenseSnap, pushedExpenses]);
+
+    const allExpensesKpi = useMemo(() => expenses, [expenses]);
 
     const [voucherSnap, setVoucherSnap] = useState<AccountingVoucher[]>([]);
     const [pushedVouchers, setPushedVouchers] = useState<AccountingVoucher[]>([]);
@@ -435,6 +435,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const ids = new Set(purchaseRecordSnap.map(r => r.id));
         return [...purchaseRecordSnap, ...pushedPurchaseRecords.filter(r => !ids.has(r.id))].sort((a,b) => b.dateSupply.localeCompare(a.dateSupply));
     }, [purchaseRecordSnap, pushedPurchaseRecords]);
+    const allPurchaseRecordsKpi = useMemo(() => purchaseRecords, [purchaseRecords]);
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
     const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
     const [serviceTasks, setServiceTasks] = useState<ServiceTask[]>([]);
@@ -450,7 +451,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [bankStatements, setBankStatements] = useState<BankStatementEntry[]>([]);
     const [bankRules, setBankRules] = useState<BankRule[]>([]);
     const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
-    const [expenseStats, setExpenseStats] = useState({ approved: 0, pending: 0, rejected: 0 });
+    const expenseStats = useMemo(() => {
+        let approved = 0, pending = 0, rejected = 0;
+        const targetExpenses = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration')
+            ? expenses
+            : expenses.filter(e => (e.employeeName || '').toLowerCase() === (currentUser?.name || '').toLowerCase());
+
+        targetExpenses.forEach(e => {
+            const amt = Number(e.amount) || 0;
+            if (e.status === 'Approved') approved += amt;
+            else if (e.status === 'Rejected') rejected += amt;
+            else pending += amt;
+        });
+
+        return { approved, pending, rejected };
+    }, [expenses, currentUser]);
     const [kpiSummary, setKpiSummary] = useState<KpiSummaryData | null>(null);
 
     // Reads Pillar 1: Native Server-Side Aggregation Query
@@ -1063,28 +1078,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         const unsubServiceTemplates = onSnapshot(collection(db, "serviceTemplates"), (s) => setServiceTemplates(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTemplate)), (err) => console.warn("serviceTemplates listener:", err));
         
-        const qStats = (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.department === 'Administration') 
-            ? query(collection(db, "expenses"))
-            : query(collection(db, "expenses"), where("employeeName", "==", currentUser?.name || ''));
-
-        const unsubStats = onSnapshot(qStats, (snap) => {
-            let approved = 0, pending = 0, rejected = 0;
-            snap.docs.forEach(doc => {
-                const data = doc.data();
-                const amt = data.amount || 0;
-                if (data.status === 'Approved') approved += amt;
-                else if (data.status === 'Rejected') rejected += amt;
-                else pending += amt;
-            });
-            setExpenseStats({ approved, pending, rejected });
-        }, (err) => console.warn("stats listener:", err));
-
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
             unsubServiceTemplates();
             unsubProducts();
-            unsubStats();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
 
@@ -1099,51 +1097,49 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => unsubKpi();
     }, [firebaseUser?.uid, currentUser?.id]);
 
-    // ─── READS PILLAR 2: TAB-GATED HEAVY KPI LISTENERS ──────────────────────────
-    // Only subscribe to full expenses & purchase records when viewing financial/reports tabs
-    useEffect(() => {
-        if (!firebaseUser || !currentUser) return;
-        const isFinancialOrReportsTab = [
-            TabView.EXPENSES, TabView.PURCHASE_REGISTER,
-            TabView.REPORTS, TabView.ACCOUNTING, TabView.PERFORMANCE
-        ].includes(activeTab);
-
-        if (!isFinancialOrReportsTab) return;
-
-        const unsubAllExpenses = onSnapshot(
-            collection(db, "expenses"),
-            (snap) => {
-                setAllExpensesKpi(
-                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
-                );
-            },
-            (err) => console.warn("allExpensesKpi listener:", err)
-        );
-
-        const unsubAllPurchases = onSnapshot(
-            collection(db, "purchaseRecords"),
-            (snap) => {
-                setAllPurchaseRecordsKpi(
-                    snap.docs.map(d => ({ id: d.id, ...sanitizeData(d.data()) } as any))
-                );
-            },
-            (err) => console.warn("allPurchaseRecordsKpi listener:", err)
-        );
-
-        return () => {
-            unsubAllExpenses();
-            unsubAllPurchases();
-        };
-    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
-
     // ─── TAB-GATED LISTENERS ──────────────────────────────────────────────────
     // Only subscribe when their corresponding tab is active to reduce Firestore reads.
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
-        const unsub = onSnapshot(query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)), (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)), (err) => console.warn("attendance listener:", err));
-        return () => unsub();
-    }, [firebaseUser?.uid, currentUser?.id]);
+
+        const isAttendanceActive = [
+            TabView.ATTENDANCE, 
+            TabView.EOD_REPORTS, 
+            TabView.HR, 
+            TabView.PAYROLL, 
+            TabView.PERFORMANCE
+        ].includes(activeTab);
+
+        if (isAttendanceActive) {
+            const unsub = onSnapshot(
+                query(collection(db, "attendance"), orderBy('date', 'desc'), limit(2000)),
+                (s) => setAttendanceRecords(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord)),
+                (err) => console.warn("attendance listener:", err)
+            );
+            return () => unsub();
+        } else {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const qToday = query(
+                collection(db, "attendance"),
+                where("userId", "==", currentUser.id),
+                where("date", "==", todayStr),
+                limit(1)
+            );
+            const unsubToday = onSnapshot(
+                qToday,
+                (s) => {
+                    const todayRecs = s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as AttendanceRecord);
+                    setAttendanceRecords(prev => {
+                        const filtered = prev.filter(r => !(r.userId === currentUser.id && r.date === todayStr));
+                        return [...todayRecs, ...filtered];
+                    });
+                },
+                (err) => console.warn("attendance today listener:", err)
+            );
+            return () => unsubToday();
+        }
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.INVENTORY) return;
@@ -1185,12 +1181,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     useEffect(() => {
         if (!firebaseUser || !currentUser) return;
-        const q = query(collection(db, "eodReports"), orderBy('date', 'desc'), limit(1000));
-        const unsub = onSnapshot(q, (s) => {
-            setEodReports(s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id }) as EodReport));
-        }, (err) => console.warn("eodReports listener:", err));
-        return () => unsub();
-    }, [firebaseUser?.uid, currentUser?.id]);
+
+        const isEodActive = activeTab === TabView.EOD_REPORTS;
+
+        if (isEodActive) {
+            const unsub = onSnapshot(
+                query(collection(db, "eodReports"), orderBy('date', 'desc'), limit(1000)),
+                (s) => setEodReports(s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id }) as EodReport)),
+                (err) => console.warn("eodReports listener:", err)
+            );
+            return () => unsub();
+        } else {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const qToday = query(
+                collection(db, "eodReports"),
+                where("userId", "==", currentUser.id),
+                where("date", "==", todayStr),
+                limit(1)
+            );
+            const unsubToday = onSnapshot(
+                qToday,
+                (s) => {
+                    const todayRecs = s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id }) as EodReport);
+                    setEodReports(prev => {
+                        const filtered = prev.filter(r => !(r.userId === currentUser.id && r.date === todayStr));
+                        return [...todayRecs, ...filtered];
+                    });
+                },
+                (err) => console.warn("eodReports today listener:", err)
+            );
+            return () => unsubToday();
+        }
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
     useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.ACCOUNTING) return;

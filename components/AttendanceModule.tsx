@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, CheckCircle, Building2, Timer, ClipboardCheck, Lock, Download, Calendar, Trash2, X, Edit2, Activity, TrendingUp, Zap, FileText, ChevronRight, AlertCircle, MapPin } from 'lucide-react';
 import { Task, Employee, AttendanceRecord } from '../types';
 import { useData } from './DataContext';
@@ -21,6 +21,14 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         leaveRequests, addLeaveRequest, updateLeaveRequest, showAlert, showConfirm 
     } = useData();
     const [currentTime, setCurrentTime] = useState(new Date());
+
+    const activeEmployees = useMemo(() => {
+        return (employees || []).filter(e => e.status !== 'Resigned' && (e.status || '').toLowerCase() !== 'resigned');
+    }, [employees]);
+
+    const resignedUserIds = useMemo(() => {
+        return new Set((employees || []).filter(e => e.status === 'Resigned' || (e.status || '').toLowerCase() === 'resigned').map(e => e.id));
+    }, [employees]);
 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [showEodModal, setShowEodModal] = useState(false);
@@ -423,7 +431,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
         const currentMonth = now.getMonth();
         const currentDate = now.getDate();
         
-        const tableData = employees.map(emp => {
+        const tableData = activeEmployees.map(emp => {
             const currentYearMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
             const empRecords = attendanceRecords.filter(r => 
                 r.userId === emp.id && 
@@ -948,7 +956,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                         className="p-1 px-2.5 bg-indigo-600 text-white rounded-lg border border-indigo-500 hover:bg-indigo-700 transition-all flex items-center gap-1.5 text-[8px] md:text-[9px] font-black uppercase tracking-widest shadow-sm relative"
                                     >
                                         <FileText size={12} /> Requests
-                                        {leaveRequests.filter(r => r.status === 'Pending').length > 0 && (
+                                        {leaveRequests.filter(r => r.status === 'Pending' && !resignedUserIds.has(r.userId)).length > 0 && (
                                             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 border border-white rounded-full"></span>
                                         )}
                                     </button>
@@ -986,7 +994,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
-                                {employees.filter(e => filterStatus === 'All' || e.department === filterStatus).map((emp) => {
+                                {activeEmployees.filter(e => filterStatus === 'All' || e.department === filterStatus).map((emp) => {
                                     const rec = attendanceRecords.find(r => r.userId === emp.id && r.date === todayStr);
                                     return (
                                         <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group cursor-default border-b border-slate-50 last:border-b-0">
@@ -1294,7 +1302,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
                         <div className="max-h-[500px] overflow-y-auto p-6 custom-scrollbar">
                             <div className="space-y-3">
                                 {leaveRequests
-                                    .filter(r => isAdmin || r.userId === me?.id)
+                                    .filter(r => !resignedUserIds.has(r.userId) && (isAdmin || r.userId === me?.id))
                                     .map(req => (
                                     <div key={req.id} className="p-5 rounded-3xl bg-slate-50 border border-slate-200 hover:border-indigo-300 transition-all group">
                                         <div className="flex justify-between items-start mb-4">
