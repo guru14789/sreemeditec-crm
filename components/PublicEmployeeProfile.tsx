@@ -36,45 +36,43 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
           }
         }
 
-        // 1. Primary lookup: publicEmployeeProfiles by document ID (publicProfileId)
-        const ref = doc(db, 'publicEmployeeProfiles', publicProfileId);
-        const snap = await getDoc(ref);
-        if (!isMounted) return;
+        // Clean ID variants
+        const cleanId = publicProfileId.replace(/^smp_/i, '');
+        const idVariants = [
+          publicProfileId,
+          publicProfileId.toLowerCase(),
+          publicProfileId.toUpperCase(),
+          cleanId,
+          cleanId.toLowerCase(),
+          cleanId.toUpperCase()
+        ];
 
-        if (snap.exists()) {
-          setProfile(snap.data() as PublicProfileType);
-          setLoading(false);
-          return;
+        // 1. Primary lookup: publicEmployeeProfiles by document ID
+        for (const candidateId of idVariants) {
+          const ref = doc(db, 'publicEmployeeProfiles', candidateId);
+          const snap = await getDoc(ref);
+          if (!isMounted) return;
+          if (snap.exists()) {
+            setProfile(snap.data() as PublicProfileType);
+            setLoading(false);
+            return;
+          }
         }
 
-        // 2. Secondary lookup: publicEmployeeProfiles by employeeId field
-        const cleanId = publicProfileId.replace(/^smp_/, '');
-        const q1 = query(collection(db, 'publicEmployeeProfiles'), where('employeeId', '==', publicProfileId));
-        const q1Snap = await getDocs(q1);
-        if (!isMounted) return;
-        if (!q1Snap.empty) {
-          setProfile(q1Snap.docs[0].data() as PublicProfileType);
-          setLoading(false);
-          return;
+        // 2. Secondary lookup: publicEmployeeProfiles by employeeId query
+        for (const candidateId of [publicProfileId, cleanId, cleanId.toUpperCase(), cleanId.toLowerCase()]) {
+          const q = query(collection(db, 'publicEmployeeProfiles'), where('employeeId', '==', candidateId));
+          const qSnap = await getDocs(q);
+          if (!isMounted) return;
+          if (!qSnap.empty) {
+            setProfile(qSnap.docs[0].data() as PublicProfileType);
+            setLoading(false);
+            return;
+          }
         }
 
-        const q2 = query(collection(db, 'publicEmployeeProfiles'), where('employeeId', '==', cleanId));
-        const q2Snap = await getDocs(q2);
-        if (!isMounted) return;
-        if (!q2Snap.empty) {
-          setProfile(q2Snap.docs[0].data() as PublicProfileType);
-          setLoading(false);
-          return;
-        }
-
-        // 3. Fallback: Lookup in employees collection (via anonymous auth)
-        // Sanitizes and only takes safe public fields
-        const empDocRef = doc(db, 'employees', cleanId);
-        const empSnap = await getDoc(empDocRef);
-        if (!isMounted) return;
-
-        if (empSnap.exists()) {
-          const emp = empSnap.data() as Employee;
+        // Helper to construct public profile from raw employee record
+        const resolveFromEmployee = (empId: string, emp: Employee) => {
           const isEmpActive = emp.status === 'Active' || emp.isLoginEnabled !== false;
           const vis = emp.publicVisibilitySettings || {
             showBusinessPhone: true,
@@ -87,10 +85,10 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
 
           const dynamicPublicProfile: PublicProfileType = {
             publicProfileId: publicProfileId,
-            employeeId: emp.id,
+            employeeId: empId,
             displayName: emp.displayName || emp.name,
-            professionalHeadline: emp.professionalHeadline || '',
-            designation: emp.designation || emp.role || 'Staff',
+            professionalHeadline: emp.professionalHeadline || (emp.position || emp.role || 'Staff'),
+            designation: emp.designation || emp.position || emp.role || 'Staff',
             department: emp.department || 'General',
             profilePhoto: emp.profilePhoto || '',
             employmentStatus: isEmpActive ? 'Active' : 'Inactive',
@@ -109,6 +107,32 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
 
           setProfile(dynamicPublicProfile);
           setLoading(false);
+        };
+
+        // 3. Direct document lookup in employees collection (case variants)
+        for (const candidateId of [cleanId.toUpperCase(), cleanId, cleanId.toLowerCase(), publicProfileId]) {
+          const empDocRef = doc(db, 'employees', candidateId);
+          const empSnap = await getDoc(empDocRef);
+          if (!isMounted) return;
+          if (empSnap.exists()) {
+            resolveFromEmployee(empSnap.id, empSnap.data() as Employee);
+            return;
+          }
+        }
+
+        // 4. Exhaustive search across all employees by normalized alphanumeric ID
+        const allEmpSnap = await getDocs(collection(db, 'employees'));
+        if (!isMounted) return;
+        const targetNormalized = cleanId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matchedDoc = allEmpSnap.docs.find(d => {
+          const dData = d.data();
+          const idNorm = d.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const pubNorm = (dData.publicProfileId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return idNorm === targetNormalized || pubNorm === targetNormalized || d.id.toLowerCase() === cleanId.toLowerCase();
+        });
+
+        if (matchedDoc) {
+          resolveFromEmployee(matchedDoc.id, matchedDoc.data() as Employee);
           return;
         }
 
