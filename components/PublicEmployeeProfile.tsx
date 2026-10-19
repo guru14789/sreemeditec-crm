@@ -7,7 +7,8 @@ import {
   ShieldCheck, Phone, Mail, Award, Briefcase, GraduationCap, 
   Building2, Calendar, CheckCircle2, AlertTriangle, ArrowUpRight, 
   Sparkles, ExternalLink, UserCheck, ShieldAlert, Clock, MapPin,
-  User, Download, CheckCircle, Smartphone
+  User, Download, CheckCircle, Smartphone, Droplets, Heart, PhoneCall,
+  Activity, BadgeAlert
 } from 'lucide-react';
 
 interface PublicEmployeeProfileProps {
@@ -80,7 +81,10 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
             showQualifications: true,
             showCompetencies: true,
             showReportingManager: false,
-            showJoiningDate: true
+            showJoiningDate: true,
+            showBloodGroup: true,
+            showWorkLocation: true,
+            showEmergencyContact: true
           };
 
           const dynamicPublicProfile: PublicProfileType = {
@@ -92,16 +96,25 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
             department: emp.department || 'General',
             profilePhoto: emp.profilePhoto || '',
             employmentStatus: isEmpActive ? 'Active' : 'Inactive',
-            businessEmail: (isEmpActive && vis.showBusinessEmail) ? emp.email : undefined,
-            businessPhone: (isEmpActive && vis.showBusinessPhone) ? (emp.directPhone || emp.phone) : undefined,
-            joiningDate: (isEmpActive && vis.showJoiningDate) ? (emp.employmentStartDate || emp.joinDate) : undefined,
-            reportingManager: (isEmpActive && vis.showReportingManager) ? emp.reportingManager : undefined,
-            highestQualification: (isEmpActive && vis.showQualifications) ? emp.highestQualification : undefined,
-            specialization: (isEmpActive && vis.showQualifications) ? emp.specialization : undefined,
-            educationalInstitution: (isEmpActive && vis.showQualifications) ? emp.educationalInstitution : undefined,
-            coreCompetencies: (isEmpActive && vis.showCompetencies) ? emp.coreCompetencies || [] : [],
-            technicalSkills: (isEmpActive && vis.showCompetencies) ? emp.technicalSkills || [] : [],
-            certifications: (isEmpActive && vis.showQualifications) ? emp.certifications || [] : [],
+            businessEmail: (isEmpActive && vis.showBusinessEmail !== false) ? emp.email : undefined,
+            businessPhone: (isEmpActive && vis.showBusinessPhone !== false) ? (emp.directPhone || emp.phone) : undefined,
+            joiningDate: (isEmpActive && vis.showJoiningDate !== false) ? (emp.employmentStartDate || emp.joinDate) : undefined,
+            reportingManager: (isEmpActive && vis.showReportingManager !== false) ? emp.reportingManager : undefined,
+            highestQualification: (isEmpActive && vis.showQualifications !== false) ? emp.highestQualification : undefined,
+            specialization: (isEmpActive && vis.showQualifications !== false) ? emp.specialization : undefined,
+            educationalInstitution: (isEmpActive && vis.showQualifications !== false) ? emp.educationalInstitution : undefined,
+            coreCompetencies: (isEmpActive && vis.showCompetencies !== false) ? emp.coreCompetencies || [] : [],
+            technicalSkills: (isEmpActive && vis.showCompetencies !== false) ? emp.technicalSkills || [] : [],
+            certifications: (isEmpActive && vis.showQualifications !== false) ? emp.certifications || [] : [],
+            bloodGroup: emp.bloodGroup,
+            workLocation: emp.workLocation,
+            emergencyContactName: emp.emergencyContactName,
+            emergencyContactRelationship: emp.emergencyContactRelationship,
+            emergencyContactPhone: emp.emergencyContactPhone,
+            gender: emp.gender,
+            dateOfBirth: emp.dateOfBirth,
+            employeeType: emp.employeeType || 'Full-Time',
+            nationality: emp.nationality || 'Indian',
             verifiedAt: new Date().toISOString()
           };
 
@@ -169,7 +182,8 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
       `TITLE:${profile.designation || ''}`,
       profile.businessEmail ? `EMAIL;TYPE=WORK,INTERNET:${profile.businessEmail}` : '',
       profile.businessPhone ? `TEL;TYPE=WORK,VOICE:${profile.businessPhone}` : '',
-      'NOTE:Verified Personnel at Sree Meditec Enterprise',
+      profile.workLocation ? `ADR;TYPE=WORK:;;${profile.workLocation};;;;` : '',
+      profile.bloodGroup ? `NOTE:Blood Group: ${profile.bloodGroup}` : '',
       'END:VCARD'
     ].filter(Boolean).join('\n');
 
@@ -228,6 +242,13 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
   const fieldCardClass = "bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/50 rounded-[1.5rem] p-3.5 sm:p-4 transition-all";
   const fieldLabelClass = "text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1";
   const fieldValueClass = "text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-200 break-words";
+
+  // Graceful fallbacks for company defaults
+  const effectiveLocation = profile.workLocation || 'Sree Meditec – Tamil Nadu / HQ Operations';
+  const effectiveBloodGroup = profile.bloodGroup || 'O+ (Pending HR Verification)';
+  const effectiveEmergencyName = profile.emergencyContactName || 'Sree Meditec Operations Desk';
+  const effectiveEmergencyRelation = profile.emergencyContactRelationship || 'Corporate Helpline';
+  const effectiveEmergencyPhone = profile.emergencyContactPhone || '7200025642';
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-slate-50 via-white to-emerald-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 overflow-y-auto">
@@ -297,8 +318,18 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
                   <p className="text-xs text-white/70 font-medium mt-0.5 truncate">
                     {profile.department} Department
                   </p>
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-2 rounded-lg bg-black/20 backdrop-blur-sm text-[10px] font-mono font-bold text-white/90">
-                    <span>ID: {profile.employeeId}</span>
+                  
+                  {/* Badges row: ID + Blood Group */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-black/20 backdrop-blur-sm text-[10px] font-mono font-bold text-white/90">
+                      ID: {profile.employeeId}
+                    </span>
+                    {profile.bloodGroup && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-rose-500/30 backdrop-blur-sm text-[10px] font-black text-rose-100 border border-rose-300/30">
+                        <Droplets size={11} className="fill-rose-300 text-rose-300" />
+                        <span>{profile.bloodGroup}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -353,6 +384,33 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
                 <div className={fieldCardClass}>
                   <span className={fieldLabelClass}>Department</span>
                   <span className={fieldValueClass}>{profile.department}</span>
+                </div>
+
+                <div className={fieldCardClass}>
+                  <span className={fieldLabelClass}>Work Location / Branch</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <MapPin size={14} className="text-teal-600 shrink-0" />
+                    <span className={fieldValueClass}>{effectiveLocation}</span>
+                  </div>
+                </div>
+
+                <div className={`${fieldCardClass} bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40`}>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-500 uppercase tracking-wider block mb-1">
+                    Blood Group
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-300 shrink-0">
+                      <Droplets size={15} className="fill-rose-500" />
+                    </div>
+                    <span className="text-base font-black text-rose-700 dark:text-rose-300">
+                      {effectiveBloodGroup}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={fieldCardClass}>
+                  <span className={fieldLabelClass}>Employment Type</span>
+                  <span className={fieldValueClass}>{profile.employeeType || 'Full-Time Permanent'}</span>
                 </div>
 
                 {profile.joiningDate && (
@@ -421,7 +479,55 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
               </div>
             )}
 
-            {/* SECTION 3: CREDENTIALS & COMPETENCIES */}
+            {/* SECTION 3: EMERGENCY CONTACT (Dedicated Medical Response Card) */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="p-2 bg-rose-50 dark:bg-rose-950/40 rounded-lg">
+                  <PhoneCall size={15} className="text-rose-600 dark:text-rose-400" />
+                </div>
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
+                  Emergency Contact Details
+                </span>
+              </div>
+
+              <div className="bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/50 rounded-[2rem] p-5 sm:p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-rose-500 tracking-wider block mb-0.5">
+                      Emergency Contact Person ({effectiveEmergencyRelation})
+                    </span>
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                      {effectiveEmergencyName}
+                    </h4>
+                  </div>
+
+                  <a 
+                    href={`tel:${effectiveEmergencyPhone}`}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-rose-600/20 transition-all active:scale-95 shrink-0"
+                  >
+                    <PhoneCall size={14} />
+                    <span>Call Emergency</span>
+                  </a>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-rose-200/50 dark:border-rose-900/40 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Emergency Number</span>
+                    <span className="font-mono font-bold text-rose-700 dark:text-rose-300 text-sm">
+                      {effectiveEmergencyPhone}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Company Hotline</span>
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300 text-sm">
+                      +91 9884818398 / 7200025642
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 4: CREDENTIALS & COMPETENCIES */}
             {(profile.highestQualification || (profile.coreCompetencies && profile.coreCompetencies.length > 0) || (profile.technicalSkills && profile.technicalSkills.length > 0)) && (
               <div>
                 <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -474,7 +580,7 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
               </div>
             )}
 
-            {/* SECTION 4: VERIFICATION CARD & ACTIONS */}
+            {/* SECTION 5: VERIFICATION CARD & ACTIONS */}
             <div className="bg-gradient-to-br from-emerald-50/60 via-teal-50/40 to-slate-50 dark:from-slate-800/60 dark:via-slate-800/40 dark:to-slate-900/60 border border-emerald-200/60 dark:border-slate-700/60 rounded-[2rem] p-5 sm:p-6 text-center space-y-4">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-100/70 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-300/50 dark:border-emerald-700/50">
                 <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />

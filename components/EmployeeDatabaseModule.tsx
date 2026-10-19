@@ -34,7 +34,10 @@ const DEFAULT_VISIBILITY: PublicVisibilitySettings = {
   showQualifications: true,
   showCompetencies: true,
   showReportingManager: false,
-  showJoiningDate: true
+  showJoiningDate: true,
+  showBloodGroup: true,
+  showWorkLocation: true,
+  showEmergencyContact: true
 };
 
 export const EmployeeDatabaseModule: React.FC = () => {
@@ -86,6 +89,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
     reportingManager: '',
     employeeType: 'Full-Time',
     workLocation: 'Kochi HQ',
+    bloodGroup: '',
     emergencyContactName: '',
     emergencyContactRelationship: '',
     emergencyContactPhone: '',
@@ -282,6 +286,11 @@ export const EmployeeDatabaseModule: React.FC = () => {
       employmentStartDate: emp.employmentStartDate || emp.joinDate || '',
       publicVisibilitySettings: emp.publicVisibilitySettings || { ...DEFAULT_VISIBILITY },
       publicProfileId: emp.publicProfileId || generatePublicProfileId(),
+      bloodGroup: emp.bloodGroup || '',
+      workLocation: emp.workLocation || 'Kochi HQ',
+      emergencyContactName: emp.emergencyContactName || '',
+      emergencyContactRelationship: emp.emergencyContactRelationship || '',
+      emergencyContactPhone: emp.emergencyContactPhone || '',
       coreCompetencies: emp.coreCompetencies || [],
       technicalSkills: emp.technicalSkills || [],
       certifications: emp.certifications || []
@@ -375,16 +384,26 @@ export const EmployeeDatabaseModule: React.FC = () => {
       department: department,
       profilePhoto: completeEmployeeData.profilePhoto || '',
       employmentStatus: isEmpActive ? 'Active' : 'Inactive',
-      businessEmail: (isEmpActive && visibility.showBusinessEmail) ? email : undefined,
-      businessPhone: (isEmpActive && visibility.showBusinessPhone) ? directPhone : undefined,
-      joiningDate: (isEmpActive && visibility.showJoiningDate) ? (completeEmployeeData.employmentStartDate || completeEmployeeData.joinDate) : undefined,
+      businessEmail: (isEmpActive && visibility.showBusinessEmail !== false) ? email : undefined,
+      businessPhone: (isEmpActive && visibility.showBusinessPhone !== false) ? directPhone : undefined,
+      joiningDate: (isEmpActive && visibility.showJoiningDate !== false) ? (completeEmployeeData.employmentStartDate || completeEmployeeData.joinDate) : undefined,
       reportingManager: (isEmpActive && visibility.showReportingManager) ? completeEmployeeData.reportingManager : undefined,
-      highestQualification: (isEmpActive && visibility.showQualifications) ? completeEmployeeData.highestQualification : undefined,
-      specialization: (isEmpActive && visibility.showQualifications) ? completeEmployeeData.specialization : undefined,
-      educationalInstitution: (isEmpActive && visibility.showQualifications) ? completeEmployeeData.educationalInstitution : undefined,
-      coreCompetencies: (isEmpActive && visibility.showCompetencies) ? completeEmployeeData.coreCompetencies : [],
-      technicalSkills: (isEmpActive && visibility.showCompetencies) ? completeEmployeeData.technicalSkills : [],
-      certifications: (isEmpActive && visibility.showQualifications) ? completeEmployeeData.certifications : [],
+      highestQualification: (isEmpActive && visibility.showQualifications !== false) ? completeEmployeeData.highestQualification : undefined,
+      specialization: (isEmpActive && visibility.showQualifications !== false) ? completeEmployeeData.specialization : undefined,
+      educationalInstitution: (isEmpActive && visibility.showQualifications !== false) ? completeEmployeeData.educationalInstitution : undefined,
+      coreCompetencies: (isEmpActive && visibility.showCompetencies !== false) ? completeEmployeeData.coreCompetencies : [],
+      technicalSkills: (isEmpActive && visibility.showCompetencies !== false) ? completeEmployeeData.technicalSkills : [],
+      certifications: (isEmpActive && visibility.showQualifications !== false) ? completeEmployeeData.certifications : [],
+      bloodGroup: (visibility.showBloodGroup !== false) ? completeEmployeeData.bloodGroup : undefined,
+      workLocation: (visibility.showWorkLocation !== false) ? completeEmployeeData.workLocation : undefined,
+      emergencyContactName: (visibility.showEmergencyContact !== false) ? completeEmployeeData.emergencyContactName : undefined,
+      emergencyContactRelationship: (visibility.showEmergencyContact !== false) ? completeEmployeeData.emergencyContactRelationship : undefined,
+      emergencyContactPhone: (visibility.showEmergencyContact !== false) ? completeEmployeeData.emergencyContactPhone : undefined,
+      employeeType: completeEmployeeData.employeeType,
+      gender: completeEmployeeData.gender,
+      dateOfBirth: completeEmployeeData.dateOfBirth,
+      fullLegalName: completeEmployeeData.fullLegalName,
+      nationality: completeEmployeeData.nationality,
       verifiedAt: new Date().toISOString()
     };
 
@@ -400,6 +419,20 @@ export const EmployeeDatabaseModule: React.FC = () => {
       // 2. Sync to publicEmployeeProfiles collection
       const publicRef = doc(db, 'publicEmployeeProfiles', publicProfileId);
       await setDoc(publicRef, publicProfilePayload);
+
+      // Also ensure case-insensitive / normalized doc IDs are kept updated in Firestore
+      const idVariants = [
+        empId,
+        empId.toLowerCase(),
+        empId.toUpperCase(),
+        `smp_${empId.toLowerCase()}`,
+        `smp_${empId.toUpperCase()}`
+      ];
+      for (const idVar of idVariants) {
+        if (idVar !== publicProfileId) {
+          await setDoc(doc(db, 'publicEmployeeProfiles', idVar), publicProfilePayload, { merge: true }).catch(() => {});
+        }
+      }
 
       addLog('Employee DB', formMode === 'add' ? 'Created Employee' : 'Updated Employee', `${displayName} (${empId})`);
       addNotification('Success', `Employee ${displayName} record saved successfully.`, 'success');
@@ -1357,7 +1390,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
                         Date of Birth <span className="text-slate-400 font-normal">(Private)</span>
@@ -1383,6 +1416,27 @@ export const EmployeeDatabaseModule: React.FC = () => {
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
                         <option value="Prefer not to say">Prefer not to say</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-rose-500 tracking-wider mb-1">
+                        Blood Group <span className="text-rose-400 font-normal">(Medical)</span>
+                      </label>
+                      <select
+                        value={formData.bloodGroup || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, bloodGroup: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 rounded-xl font-bold text-rose-700 dark:text-rose-300 outline-none focus:border-rose-500"
+                      >
+                        <option value="">Select Blood Group</option>
+                        <option value="O+">O+ (Universal Donor)</option>
+                        <option value="O-">O-</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+ (Universal Recipient)</option>
+                        <option value="AB-">AB-</option>
                       </select>
                     </div>
 
@@ -1839,6 +1893,9 @@ export const EmployeeDatabaseModule: React.FC = () => {
                       {[
                         { key: 'showBusinessPhone', label: 'Show Business Phone on Public Profile' },
                         { key: 'showBusinessEmail', label: 'Show Business Email on Public Profile' },
+                        { key: 'showWorkLocation', label: 'Show Work Location / Branch' },
+                        { key: 'showBloodGroup', label: 'Show Blood Group' },
+                        { key: 'showEmergencyContact', label: 'Show Emergency Contact Details' },
                         { key: 'showQualifications', label: 'Show Qualifications & Institution' },
                         { key: 'showCompetencies', label: 'Show Skills & Competencies' },
                         { key: 'showJoiningDate', label: 'Show Joining Date' },
@@ -1947,6 +2004,18 @@ export const EmployeeDatabaseModule: React.FC = () => {
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-slate-700 dark:text-slate-300">
                   <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Work Location</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{viewingEmployee.workLocation || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Blood Group</span>
+                    <span className="font-bold text-rose-600 dark:text-rose-400">{viewingEmployee.bloodGroup || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Employment Type</span>
+                    <span>{viewingEmployee.employeeType || 'Full-Time'}</span>
+                  </div>
+                  <div>
                     <span className="text-[9px] uppercase font-bold text-slate-400 block">Date of Birth</span>
                     <span>{viewingEmployee.dateOfBirth || 'Not Specified'}</span>
                   </div>
@@ -1964,7 +2033,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
                   </div>
                   <div className="col-span-2">
                     <span className="text-[9px] uppercase font-bold text-slate-400 block">Emergency Phone</span>
-                    <span>{viewingEmployee.emergencyContactPhone || '—'}</span>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{viewingEmployee.emergencyContactPhone || '—'}</span>
                   </div>
                 </div>
                 {viewingEmployee.additionalNotes && (

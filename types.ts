@@ -668,6 +668,11 @@ export interface PublicVisibilitySettings {
   showCompetencies: boolean;
   showReportingManager: boolean;
   showJoiningDate: boolean;
+  showBloodGroup?: boolean;
+  showWorkLocation?: boolean;
+  showEmergencyContact?: boolean;
+  showDateOfBirth?: boolean;
+  showGender?: boolean;
 }
 
 export interface Employee {
@@ -697,6 +702,7 @@ export interface Employee {
   fullLegalName?: string;
   dateOfBirth?: string;
   gender?: string;
+  bloodGroup?: string;
   nationality?: string;
   profilePhoto?: string;
   directPhone?: string;
@@ -743,6 +749,16 @@ export interface PublicEmployeeProfile {
   coreCompetencies?: string[];
   technicalSkills?: string[];
   certifications?: string[];
+  bloodGroup?: string;
+  workLocation?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  employeeType?: string;
+  fullLegalName?: string;
+  nationality?: string;
   verifiedAt: string;
 }
 
