@@ -253,6 +253,7 @@ export interface DataContextType {
     updateServiceReport: (id: string, updates: Partial<ServiceReport>) => Promise<void>;
     removeServiceReport: (id: string) => Promise<void>;
     addHoliday: (holiday: Holiday) => Promise<void>;
+    updateHoliday: (id: string, updates: Partial<Holiday>) => Promise<void>;
     removeHoliday: (id: string) => Promise<void>;
     addLeaveRequest: (req: LeaveRequest) => Promise<void>;
     updateLeaveRequest: (id: string, updates: Partial<LeaveRequest>) => Promise<void>;
@@ -1077,11 +1078,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const unsubPoints = onSnapshot(query(collection(db, "pointHistory"), orderBy('date', 'desc'), limit(100)), (s) => setPointHistory(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as PointHistory)), (err) => console.warn("pointHistory listener:", err));
         
         const unsubServiceTemplates = onSnapshot(collection(db, "serviceTemplates"), (s) => setServiceTemplates(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTemplate)), (err) => console.warn("serviceTemplates listener:", err));
+        const unsubHolidays = onSnapshot(collection(db, "holidays"), (s) => setHolidays(s.docs.map(d => ({...d.data(), id: d.id}) as Holiday)), (err) => console.warn("holidays listener:", err));
         
         return () => {
             unsubLeads(); unsubInvoices(); unsubExpenses(); unsubTasks();
             unsubPurchases(); unsubVouchers(); unsubTickets(); unsubPoints();
             unsubServiceTemplates();
+            unsubHolidays();
             unsubProducts();
         };
     }, [firebaseUser?.uid, currentUser?.id]);
@@ -2850,8 +2853,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
-    const addHoliday = async (h: Holiday) => { await setDoc(doc(db, "holidays", h.id), sanitizeData(h)); await addLog('System', 'Added Holiday', h.name); };
-    const removeHoliday = async (id: string) => { await deleteDoc(doc(db, "holidays", id)); await addLog('System', 'Removed Holiday', id); };
+    const addHoliday = async (h: Holiday) => {
+        // Optimistic update: replace any existing holiday with same ID or same date to prevent name conflicts
+        setHolidays(prev => {
+            const filtered = prev.filter(item => item.id !== h.id && item.date !== h.date);
+            return [...filtered, h];
+        });
+        await setDoc(doc(db, "holidays", h.id), sanitizeData(h));
+        await addLog('System', 'Added Holiday', `${h.name} (${h.date})`);
+    };
+
+    const updateHoliday = async (id: string, updates: Partial<Holiday>) => {
+        setHolidays(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+        await updateDoc(doc(db, "holidays", id), sanitizeData(updates));
+        await addLog('System', 'Updated Holiday', updates.name ? `${updates.name}` : id);
+    };
+
+    const removeHoliday = async (id: string) => {
+        const target = holidays.find(h => h.id === id);
+        setHolidays(prev => prev.filter(item => item.id !== id));
+        await deleteDoc(doc(db, "holidays", id));
+        await addLog('System', 'Removed Holiday', target ? `${target.name} (${target.date})` : id);
+    };
 
     const addEodReport = async (report: EodReport) => {
         await setDoc(doc(db, "eodReports", report.id), sanitizeData(report));
@@ -5224,7 +5247,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addTask, removeTask, updateTaskRemote,
             dbError, authError, isAuthenticating,
             userStats, pointHistory, addPoints, addNotification, markNotificationRead, clearAllNotifications,
-            attendanceRecords, updateAttendance, removeAttendance, holidays, addHoliday, removeHoliday,
+            attendanceRecords, updateAttendance, removeAttendance, holidays, addHoliday, updateHoliday, removeHoliday,
             leaveRequests, addLeaveRequest, updateLeaveRequest,
             deliveryChallans, addDeliveryChallan, updateDeliveryChallan, removeDeliveryChallan,
             installationReports, addInstallationReport, updateInstallationReport, removeInstallationReport,

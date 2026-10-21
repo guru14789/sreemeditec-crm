@@ -17,7 +17,7 @@ type WorkMode = 'Office' | 'Field' | 'Remote' | 'Outstation';
 export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userRole = 'Employee' }) => {
     const { 
         addPoints, currentUser: me, attendanceRecords, updateAttendance, removeAttendance, 
-        employees, addNotification, holidays, addHoliday, removeHoliday, addLog,
+        employees, addNotification, holidays, addHoliday, updateHoliday, removeHoliday, addLog,
         leaveRequests, addLeaveRequest, updateLeaveRequest, showAlert, showConfirm 
     } = useData();
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -39,6 +39,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [newHolidayName, setNewHolidayName] = useState('');
     const [newHolidayDate, setNewHolidayDate] = useState('');
+    const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
+    const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+    const [deletingHolidayId, setDeletingHolidayId] = useState<string | null>(null);
 
     // Admin Overwrite States
     const [showEditAttendanceModal, setShowEditAttendanceModal] = useState(false);
@@ -75,7 +78,16 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
     };
     const todayStr = getTodayStr();
 
-    const todayHoliday = holidays.find(h => h.date === todayStr);
+    const todayHolidays = useMemo(() => {
+        return (holidays || []).filter(h => h.date === todayStr);
+    }, [holidays, todayStr]);
+
+    const todayHoliday = useMemo(() => {
+        if (todayHolidays.length === 0) return null;
+        const joinedNames = Array.from(new Set(todayHolidays.map(h => (h.name || '').trim()).filter(Boolean))).join(' / ');
+        return { ...todayHolidays[todayHolidays.length - 1], name: joinedNames };
+    }, [todayHolidays]);
+
     const isHolidayToday = !!todayHoliday;
 
     const todayRecord: AttendanceRecord | undefined = attendanceRecords.find(r => r.userId === me?.id && r.date === todayStr);
@@ -550,7 +562,8 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             const dateStr = `${currentYearMonth}-${String(i).padStart(2, '0')}`;
             const dateObj = new Date(currentYear, currentMonth, i);
             const dayRecord = empRecords.find(r => r.date === dateStr);
-            const isHoliday = holidays.find(h => h.date === dateStr);
+            const matchingHolidays = holidays.filter(h => h.date === dateStr);
+            const isHoliday = matchingHolidays.length > 0;
             const isSunday = dateObj.getDay() === 0;
 
             let status = 'Absent';
@@ -560,7 +573,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             if (isHoliday) {
                 status = 'Holiday';
                 duration = '8h 0m';
-                remarks = isHoliday.name;
+                remarks = Array.from(new Set(matchingHolidays.map(h => (h.name || '').trim()).filter(Boolean))).join(' / ');
                 totalWorkedMs += (8 * 3600000);
                 daysPresent++;
             } else if (isSunday) {
@@ -723,63 +736,234 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({ tasks, userR
             {/* Holiday Management Modal */}
             {showHolidayModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-300 animate-in fade-in zoom-in duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Organization Holidays</h3>
-                            <button onClick={() => setShowHolidayModal(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Holiday Name</label>
-                                <input 
-                                    className="p-3 bg-slate-50 border border-slate-200 rounded-[2rem] text-sm outline-none focus:border-medical-500 transition-all"
-                                    placeholder="e.g. Independence Day"
-                                    value={newHolidayName}
-                                    onChange={(e) => setNewHolidayName(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Date</label>
-                                <input 
-                                    type="date"
-                                    className="p-3 bg-slate-50 border border-slate-200 rounded-[2rem] text-sm outline-none focus:border-medical-500 transition-all font-mono"
-                                    value={newHolidayDate}
-                                    onChange={(e) => setNewHolidayDate(e.target.value)}
-                                />
+                    <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-300">
+                        <div className="flex justify-between items-center mb-5">
+                            <div>
+                                <h3 className="text-xl font-playfair font-bold tracking-tight text-slate-800 uppercase tracking-tight">Organization Holidays</h3>
+                                <p className="text-xs text-slate-400 mt-0.5">Manage official company holidays and off-days</p>
                             </div>
                             <button 
                                 onClick={() => {
-                                    if(!newHolidayName || !newHolidayDate) return;
-                                    addHoliday({ id: `HOL-${Date.now()}`, name: newHolidayName, date: newHolidayDate });
+                                    setShowHolidayModal(false);
+                                    setEditingHoliday(null);
                                     setNewHolidayName('');
                                     setNewHolidayDate('');
-                                    addNotification('Holiday Added', `${newHolidayName} has been scheduled.`, 'success');
-                                }}
-                                className="col-span-2 py-3.5 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
+                                }} 
+                                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-all"
                             >
-                                Schedule Holiday
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        {/* Add / Edit Form */}
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 mb-6 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                                    <Calendar size={14} className="text-indigo-600" />
+                                    <span>{editingHoliday ? 'Edit Holiday' : 'Schedule New Holiday'}</span>
+                                </span>
+                                {editingHoliday && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingHoliday(null);
+                                            setNewHolidayName('');
+                                            setNewHolidayDate('');
+                                        }}
+                                        className="text-[11px] font-bold text-slate-400 hover:text-slate-600 underline"
+                                    >
+                                        Cancel Edit
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Holiday Name</label>
+                                    <input 
+                                        className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all shadow-sm"
+                                        placeholder="e.g. Ayutha Pooja, Diwali"
+                                        value={newHolidayName}
+                                        onChange={(e) => setNewHolidayName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Date</label>
+                                    <input 
+                                        type="date"
+                                        className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-indigo-500 transition-all font-mono shadow-sm"
+                                        value={newHolidayDate}
+                                        onChange={(e) => setNewHolidayDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Existing Holiday Detection Warning */}
+                            {(() => {
+                                if (!newHolidayDate) return null;
+                                const existing = holidays.find(h => h.date === newHolidayDate && (!editingHoliday || h.id !== editingHoliday.id));
+                                if (!existing) return null;
+                                return (
+                                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-center gap-2">
+                                        <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                                        <span>
+                                            <strong>"{existing.name}"</strong> is already scheduled on {newHolidayDate}. Scheduling will update this holiday's name.
+                                        </span>
+                                    </div>
+                                );
+                            })()}
+
+                            <button 
+                                type="button"
+                                disabled={!newHolidayName.trim() || !newHolidayDate || isSavingHoliday}
+                                onClick={async () => {
+                                    if (!newHolidayName.trim() || !newHolidayDate) return;
+                                    setIsSavingHoliday(true);
+                                    try {
+                                        if (editingHoliday) {
+                                            await updateHoliday(editingHoliday.id, {
+                                                name: newHolidayName.trim(),
+                                                date: newHolidayDate
+                                            });
+                                            addNotification('Holiday Updated', `Updated holiday to "${newHolidayName.trim()}".`, 'success');
+                                            setEditingHoliday(null);
+                                        } else {
+                                            const existing = holidays.find(h => h.date === newHolidayDate);
+                                            if (existing) {
+                                                await updateHoliday(existing.id, {
+                                                    name: newHolidayName.trim()
+                                                });
+                                                addNotification('Holiday Updated', `Updated holiday on ${newHolidayDate} to "${newHolidayName.trim()}".`, 'success');
+                                            } else {
+                                                await addHoliday({ 
+                                                    id: `HOL-${Date.now()}`, 
+                                                    name: newHolidayName.trim(), 
+                                                    date: newHolidayDate 
+                                                });
+                                                addNotification('Holiday Added', `"${newHolidayName.trim()}" has been scheduled.`, 'success');
+                                            }
+                                        }
+                                        setNewHolidayName('');
+                                        setNewHolidayDate('');
+                                    } catch (err: any) {
+                                        addNotification('Error', err.message || 'Failed to save holiday', 'alert');
+                                    } finally {
+                                        setIsSavingHoliday(false);
+                                    }
+                                }}
+                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                {isSavingHoliday ? (
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <span>{editingHoliday ? 'Save Changes' : 'Schedule Holiday'}</span>
+                                )}
                             </button>
                         </div>
 
-                        <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
-                            {holidays.sort((a,b) => a.date.localeCompare(b.date)).map(h => (
-                                <div key={h.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-[2rem] border border-slate-200 group">
-                                    <div>
-                                        <div className="text-sm font-black text-slate-800">{h.name}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{new Date(h.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                        {/* Scheduled Holidays List */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between px-1">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Scheduled Holidays ({holidays.length})
+                                </span>
+                            </div>
+
+                            <div className="max-h-[260px] overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                                {[...holidays].sort((a,b) => a.date.localeCompare(b.date)).map(h => {
+                                    const isEditingThis = editingHoliday?.id === h.id;
+                                    const formattedDate = (() => {
+                                        const parts = (h.date || '').split('-');
+                                        if (parts.length === 3) {
+                                            const y = parseInt(parts[0], 10);
+                                            const m = parseInt(parts[1], 10) - 1;
+                                            const d = parseInt(parts[2], 10);
+                                            return new Date(y, m, d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                                        }
+                                        return h.date;
+                                    })();
+
+                                    return (
+                                        <div 
+                                            key={h.id} 
+                                            className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                                                isEditingThis 
+                                                    ? 'bg-indigo-50/70 border-indigo-300 ring-2 ring-indigo-500/20' 
+                                                    : 'bg-slate-50/80 hover:bg-slate-50 border-slate-200'
+                                            }`}
+                                        >
+                                            <div className="min-w-0 pr-3">
+                                                <div className="text-sm font-bold text-slate-800 truncate flex items-center gap-2">
+                                                    <span>{h.name}</span>
+                                                    {h.date === todayStr && (
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                            Today
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[11px] font-semibold text-slate-400 tracking-wide mt-0.5">
+                                                    {formattedDate}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button 
+                                                    type="button"
+                                                    title="Edit Holiday"
+                                                    onClick={() => {
+                                                        setEditingHoliday(h);
+                                                        setNewHolidayName(h.name);
+                                                        setNewHolidayDate(h.date);
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/50 rounded-xl transition-all"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    title="Delete Holiday"
+                                                    disabled={deletingHolidayId === h.id}
+                                                    onClick={() => {
+                                                        showConfirm(
+                                                            'Delete Holiday',
+                                                            `Are you sure you want to remove the holiday "${h.name}" scheduled for ${formattedDate}?`,
+                                                            async () => {
+                                                                setDeletingHolidayId(h.id);
+                                                                try {
+                                                                    await removeHoliday(h.id);
+                                                                    addNotification('Holiday Removed', `Holiday "${h.name}" removed successfully.`, 'success');
+                                                                    if (editingHoliday?.id === h.id) {
+                                                                        setEditingHoliday(null);
+                                                                        setNewHolidayName('');
+                                                                        setNewHolidayDate('');
+                                                                    }
+                                                                } catch (err: any) {
+                                                                    addNotification('Error', err.message || 'Failed to remove holiday', 'alert');
+                                                                } finally {
+                                                                    setDeletingHolidayId(null);
+                                                                }
+                                                            }
+                                                        );
+                                                    }}
+                                                    className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 rounded-xl transition-all"
+                                                >
+                                                    {deletingHolidayId === h.id ? (
+                                                        <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <Trash2 size={16} />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {holidays.length === 0 && (
+                                    <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                        No holidays scheduled
                                     </div>
-                                    <button 
-                                        onClick={() => removeHoliday(h.id)}
-                                        className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-[2rem] transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
-                            ))}
-                            {holidays.length === 0 && (
-                                <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest">No holidays scheduled</div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
