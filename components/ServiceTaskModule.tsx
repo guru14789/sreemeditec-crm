@@ -5,7 +5,8 @@ import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
-  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2, ListFilter
+  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2, ListFilter,
+  MessageCircle, CheckCircle2, Copy, Check, ExternalLink, Wrench, Sparkles
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useData } from './DataContext';
@@ -68,6 +69,9 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const [uploadCategory, setUploadCategory] = useState<'work_photo' | 'completion_proof'>('work_photo');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [claimedSuccessTask, setClaimedSuccessTask] = useState<ServiceTask | null>(null);
+  const [customClientPhone, setCustomClientPhone] = useState<string>('');
+  const [copiedMessage, setCopiedMessage] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({
     customerName: '', companyName: '', customerPhone: '', customerEmail: '',
     subject: '', equipment: '', serialNo: '', serviceCategory: '', issue: '', location: '',
@@ -169,11 +173,94 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     });
   };
 
+  const generateWhatsAppMessage = (task: ServiceTask) => {
+    const engineer = employees.find(e => e.id === task.assignedToId || e.name === task.assignedTo) || currentUser;
+    const engineerName = task.assignedTo || currentUser?.name || 'Assigned Engineer';
+    const engineerPhone = engineer?.phone || engineer?.directPhone || engineer?.personalPhone || currentUser?.phone || '';
+    const hospitalOrClient = task.companyName 
+      ? `${task.customerName} - ${task.companyName}` 
+      : task.customerName;
+
+    let text = `*SERVICE REQUEST UPDATE | SREEMEDITEC* 🛠️\n\n`;
+    text += `Dear *${task.customerName}*,\n\n`;
+    text += `Your service request (*${task.taskNumber}*) has been claimed and assigned to our service engineer.\n\n`;
+    text += `📋 *Service Request Details:*\n`;
+    text += `• *Ticket ID:* ${task.taskNumber}\n`;
+    text += `• *Client / Facility:* ${hospitalOrClient}\n`;
+    text += `• *Equipment:* ${task.equipment}\n`;
+    if (task.serialNo) text += `• *Serial No:* ${task.serialNo}\n`;
+    text += `• *Reported Issue:* ${task.issue}\n`;
+    if (task.location) text += `• *Location:* ${task.location}\n`;
+    text += `\n👨‍🔧 *Assigned Service Engineer:*\n`;
+    text += `• *Engineer:* ${engineerName}\n`;
+    if (engineerPhone) text += `• *Contact Phone:* ${engineerPhone}\n`;
+    text += `\nOur engineer will contact you shortly to coordinate the service visit.\n\n`;
+    text += `Thank you for choosing *Sreemeditec*!\n`;
+    text += `_For any immediate assistance, please reply directly to this message._`;
+
+    return text;
+  };
+
+  const handleShareInfoToClient = async () => {
+    if (!claimedSuccessTask) return;
+    const rawPhone = (customClientPhone || claimedSuccessTask.customerPhone || '').trim();
+    if (!rawPhone) {
+      addNotification('Phone Number Required', 'Please enter a valid client phone number to send WhatsApp.', 'error');
+      return;
+    }
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+      cleanPhone = '91' + cleanPhone.substring(1);
+    }
+
+    if (cleanPhone.length < 10) {
+      addNotification('Invalid Phone', 'Please provide a valid 10-digit or international mobile number.', 'error');
+      return;
+    }
+
+    const message = generateWhatsAppMessage(claimedSuccessTask);
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+
+    window.open(waUrl, '_blank');
+
+    await addActivity(
+      claimedSuccessTask.id,
+      'Shared Info to Client',
+      `Sent service claim details via WhatsApp to ${rawPhone} (${currentUser?.name || 'Engineer'})`
+    );
+    addNotification('WhatsApp Opened', `Service claim details ready for ${rawPhone}.`, 'success');
+    setClaimedSuccessTask(null);
+  };
+
+  const handleCopyWhatsAppMessage = async () => {
+    if (!claimedSuccessTask) return;
+    const message = generateWhatsAppMessage(claimedSuccessTask);
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopiedMessage(true);
+      addNotification('Copied', 'Predefined WhatsApp message copied to clipboard.', 'success');
+      setTimeout(() => setCopiedMessage(false), 2500);
+    } catch {
+      addNotification('Copy Failed', 'Unable to copy to clipboard.', 'error');
+    }
+  };
+
   const handleClaim = async (id: string) => {
     if (!currentUser) return;
+    const task = serviceTasks.find(t => t.id === id);
+    if (!task) return;
     const confirmed = await showConfirm(`Claim this service request as ${currentUser.name}?`);
     if (!confirmed) return;
     const now = new Date().toISOString();
+    const claimedTask: ServiceTask = {
+      ...task,
+      status: 'Claimed',
+      assignedTo: currentUser.name,
+      assignedToId: currentUser.id,
+      claimedAt: now
+    };
     await updateServiceTask(id, {
       status: 'Claimed',
       assignedTo: currentUser.name,
@@ -182,11 +269,16 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     });
     await addActivity(id, 'Task Claimed', `Claimed by ${currentUser.name}`);
     addNotification('Task Claimed', 'You are now the owner of this request.', 'success');
+
+    // Trigger popup card
+    setClaimedSuccessTask(claimedTask);
+    setCustomClientPhone(claimedTask.customerPhone || '');
   };
 
   const handleStatusChange = async (id: string, newStatus: ServiceTaskStatus) => {
     const task = serviceTasks.find(t => t.id === id);
     if (!task) return;
+    const isFromNewToClaimed = (task.status === 'New' || !task.status) && newStatus === 'Claimed';
     const updates: Partial<ServiceTask> = { status: newStatus };
     if (newStatus === 'Completed') {
       updates.completedAt = new Date().toISOString();
@@ -197,9 +289,25 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     if (newStatus === 'In Progress' && task.status === 'Claimed') {
       updates.claimedAt = task.claimedAt || new Date().toISOString();
     }
+    if (isFromNewToClaimed) {
+      updates.claimedAt = new Date().toISOString();
+      if (!task.assignedTo && currentUser) {
+        updates.assignedTo = currentUser.name;
+        updates.assignedToId = currentUser.id;
+      }
+    }
     await updateServiceTask(id, updates);
     await addActivity(id, `Status changed to ${newStatus}`, `From ${task.status} to ${newStatus} by ${currentUser?.name}`);
     addNotification('Status Updated', `Task moved to ${newStatus}.`, 'info');
+
+    if (isFromNewToClaimed) {
+      const claimedTask: ServiceTask = {
+        ...task,
+        ...updates
+      };
+      setClaimedSuccessTask(claimedTask);
+      setCustomClientPhone(claimedTask.customerPhone || '');
+    }
   };
 
   const handleCreateTask = async () => {
@@ -1106,6 +1214,171 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 md:p-8 flex justify-end gap-3">
               <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
               <button onClick={handleCreateTask} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95">Create Task</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claimed Successfully & Share Info to Client Popup Card */}
+      {claimedSuccessTask && (
+        <div className="fixed inset-0 z-[140] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2.5rem] border border-emerald-500/30 dark:border-emerald-500/20 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto flex flex-col">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-br from-emerald-950 via-teal-900 to-green-950 p-6 sm:p-7 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-36 h-36 bg-teal-400/20 rounded-full blur-2xl pointer-events-none"></div>
+
+              <button
+                onClick={() => setClaimedSuccessTask(null)}
+                className="absolute top-5 right-5 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-all z-10"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-start gap-4 relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-inner shrink-0">
+                  <CheckCircle2 size={32} className="text-emerald-400 animate-pulse" />
+                </div>
+                <div className="flex-1 pr-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                      <Sparkles size={11} className="text-emerald-400" /> Claimed Successfully
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-200/80">
+                      {claimedSuccessTask.taskNumber}
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">
+                    Task Assigned to You
+                  </h3>
+                  <p className="text-xs text-emerald-100/80 mt-1">
+                    You are now the owner of this request. Share the update directly with the client on WhatsApp.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Task Details Summary Card */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Client / Hospital</span>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100">
+                      {claimedSuccessTask.customerName}
+                    </h4>
+                    {claimedSuccessTask.companyName && (
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Building2 size={12} className="text-slate-400" />
+                        {claimedSuccessTask.companyName}
+                      </p>
+                    )}
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                    {claimedSuccessTask.priority}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Equipment</span>
+                    <p className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mt-0.5">
+                      <Wrench size={12} className="text-teal-500 shrink-0" />
+                      <span className="truncate">{claimedSuccessTask.equipment}</span>
+                    </p>
+                    {claimedSuccessTask.serialNo && (
+                      <p className="text-[10px] font-semibold text-slate-500 mt-0.5">
+                        S/N: {claimedSuccessTask.serialNo}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Assigned Engineer</span>
+                    <p className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mt-0.5">
+                      <User size={12} className="text-indigo-500 shrink-0" />
+                      <span className="truncate">{claimedSuccessTask.assignedTo || currentUser?.name || 'Assigned'}</span>
+                    </p>
+                    {claimedSuccessTask.location && (
+                      <p className="text-[10px] font-semibold text-slate-500 flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{claimedSuccessTask.location}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Reported Issue</span>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5 bg-white dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 line-clamp-3">
+                    {claimedSuccessTask.issue}
+                  </p>
+                </div>
+              </div>
+
+              {/* Client WhatsApp Number Input */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Phone size={13} className="text-emerald-500" />
+                    Client WhatsApp Number
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400">Pre-filled from request</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customClientPhone}
+                    onChange={(e) => setCustomClientPhone(e.target.value)}
+                    placeholder="Enter phone number (e.g. 9840012345)"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all pl-10"
+                  />
+                  <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Standard 10-digit Indian numbers will automatically be prefixed with +91.
+                </p>
+              </div>
+
+              {/* Predefined WhatsApp Message Preview */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <MessageCircle size={13} className="text-emerald-500" />
+                    Predefined WhatsApp Message Preview
+                  </label>
+                  <button
+                    onClick={handleCopyWhatsAppMessage}
+                    type="button"
+                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 transition-all active:scale-95"
+                  >
+                    {copiedMessage ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                    <span>{copiedMessage ? 'Copied!' : 'Copy Text'}</span>
+                  </button>
+                </div>
+                <div className="bg-slate-50 dark:bg-slate-900/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed max-h-40 overflow-y-auto">
+                  {generateWhatsAppMessage(claimedSuccessTask)}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer with "Share info to Client" button */}
+            <div className="p-5 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleShareInfoToClient}
+                className="flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:via-teal-500 hover:to-green-500 text-white font-black py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-900/25 hover:shadow-emerald-900/40 active:scale-95 transition-all text-xs uppercase tracking-wider group"
+              >
+                <MessageCircle size={18} className="fill-current text-white group-hover:scale-110 transition-transform" />
+                <span>Share info to Client</span>
+                <ExternalLink size={14} className="opacity-80" />
+              </button>
+              <button
+                onClick={() => setClaimedSuccessTask(null)}
+                className="px-6 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-center"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
