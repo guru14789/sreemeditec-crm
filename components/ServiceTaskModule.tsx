@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { ServiceTask, ServiceTaskStatus, ServiceTaskComment, ServiceTaskAttachment, ServiceTaskActivity } from '../types';
+import { ServiceTask, ServiceTaskStatus, ServiceTaskComment, ServiceTaskAttachment, ServiceTaskActivity, TabView } from '../types';
 import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
   Eye, Paperclip, Download, Plus, Building2, Mail, Trash2, ListFilter,
-  MessageCircle, CheckCircle2, Copy, Check, ExternalLink, Wrench, Sparkles
+  MessageCircle, CheckCircle2, Copy, Check, ExternalLink, Wrench, Sparkles,
+  Pencil, Save
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useData } from './DataContext';
@@ -69,6 +70,37 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
   const [uploadCategory, setUploadCategory] = useState<'work_photo' | 'completion_proof'>('work_photo');
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<ServiceTask | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState<{
+    customerName: string;
+    companyName: string;
+    customerPhone: string;
+    customerEmail: string;
+    subject: string;
+    equipment: string;
+    serialNo: string;
+    serviceCategory: string;
+    issue: string;
+    location: string;
+    priority: ServiceTask['priority'];
+    status: ServiceTaskStatus;
+    assignedToId: string;
+  }>({
+    customerName: '',
+    companyName: '',
+    customerPhone: '',
+    customerEmail: '',
+    subject: '',
+    equipment: '',
+    serialNo: '',
+    serviceCategory: '',
+    issue: '',
+    location: '',
+    priority: 'Medium',
+    status: 'New',
+    assignedToId: ''
+  });
   const [claimedSuccessTask, setClaimedSuccessTask] = useState<ServiceTask | null>(null);
   const [customClientPhone, setCustomClientPhone] = useState<string>('');
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -78,7 +110,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     priority: 'Medium' as ServiceTask['priority']
   });
 
-  const isAdmin = userRole === 'Admin';
+  const isAdmin = userRole === 'Admin' || currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com' || currentUser?.permissions?.[TabView.SERVICE_TASK] === 'Admin';
 
   const formUrl = 'https://sreemeditec-crm.vercel.app/?form=service';
 
@@ -346,6 +378,68 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
     setNewTaskForm({ customerName: '', companyName: '', customerPhone: '', customerEmail: '', subject: '', equipment: '', serialNo: '', serviceCategory: '', issue: '', location: '', priority: 'Medium' });
   };
 
+  const handleOpenEditModal = (task: ServiceTask) => {
+    setEditingTask(task);
+    setEditTaskForm({
+      customerName: task.customerName || '',
+      companyName: task.companyName || '',
+      customerPhone: task.customerPhone || '',
+      customerEmail: task.customerEmail || '',
+      subject: task.subject || '',
+      equipment: task.equipment || '',
+      serialNo: task.serialNo || '',
+      serviceCategory: task.serviceCategory || '',
+      issue: task.issue || '',
+      location: task.location || '',
+      priority: task.priority || 'Medium',
+      status: task.status || 'New',
+      assignedToId: task.assignedToId || (employees.find(e => e.name === task.assignedTo)?.id || '')
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditTask = async () => {
+    if (!editingTask) return;
+    const f = editTaskForm;
+    if (!f.customerName.trim() || !f.customerPhone.trim() || !f.equipment.trim() || !f.issue.trim()) {
+      addNotification('Validation', 'Please fill in all required fields (Customer, Phone, Equipment, Issue).', 'error');
+      return;
+    }
+
+    const assignedEmployee = employees.find(e => e.id === f.assignedToId);
+    const assignedToName = assignedEmployee ? assignedEmployee.name : (f.assignedToId === '' ? '' : editingTask.assignedTo);
+
+    const updates: Partial<ServiceTask> = {
+      customerName: f.customerName.trim(),
+      companyName: f.companyName.trim() || undefined,
+      customerPhone: f.customerPhone.trim(),
+      customerEmail: f.customerEmail.trim() || undefined,
+      subject: f.subject.trim() || undefined,
+      equipment: f.equipment.trim(),
+      serialNo: f.serialNo.trim() || undefined,
+      serviceCategory: f.serviceCategory || undefined,
+      issue: f.issue.trim(),
+      location: f.location.trim() || undefined,
+      priority: f.priority,
+      status: f.status,
+      assignedTo: assignedToName || undefined,
+      assignedToId: f.assignedToId || undefined
+    };
+
+    if (f.status === 'Completed' && editingTask.status !== 'Completed') {
+      updates.completedAt = new Date().toISOString();
+    }
+    if (f.status === 'Claimed' && editingTask.status !== 'Claimed') {
+      updates.claimedAt = new Date().toISOString();
+    }
+
+    await updateServiceTask(editingTask.id, updates);
+    await addActivity(editingTask.id, 'Task Edited', `Task details edited by ${currentUser?.name || 'Admin'}`);
+    addNotification('Task Updated', `Service task ${editingTask.taskNumber} has been updated.`, 'success');
+    setShowEditModal(false);
+    setEditingTask(null);
+  };
+
   const handleAddComment = async () => {
     if (!newComment.trim() || !selectedTask) return;
     const comment: ServiceTaskComment = {
@@ -444,14 +538,28 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             }`}>{task.priority}</span>
             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${cfg.color} text-white`}>{cfg.label}</span>
           </div>
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
-              <Clock size={10} />
-              {new Date(task.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
-            <span className="text-[8px] font-semibold text-slate-400">
-              {new Date(task.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-            </span>
+          <div className="flex items-center gap-1.5">
+            {isAdmin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenEditModal(task);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-all"
+                title="Edit Task Details"
+              >
+                <Pencil size={12} />
+              </button>
+            )}
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                <Clock size={10} />
+                {new Date(task.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <span className="text-[8px] font-semibold text-slate-400">
+                {new Date(task.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex items-start gap-2 mb-1">
@@ -661,6 +769,16 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 {selectedTask.companyName && <p className="text-[11px] font-bold text-slate-500 mt-1">{selectedTask.companyName}</p>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {isAdmin && (
+                  <button
+                    onClick={() => handleOpenEditModal(selectedTask)}
+                    className="p-2 text-teal-600 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/30 rounded-xl transition-all flex items-center gap-1.5 font-bold text-xs"
+                    title="Edit Task Details"
+                  >
+                    <Pencil size={18} />
+                    <span className="hidden sm:inline">Edit Task</span>
+                  </button>
+                )}
                 {isAdmin && (
                   <button 
                     onClick={async () => {
@@ -1216,6 +1334,185 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
             <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 md:p-8 flex justify-end gap-3">
               <button onClick={() => setShowCreateModal(false)} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
               <button onClick={handleCreateTask} className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95">Create Task</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Service Task Modal (Admin) */}
+      {showEditModal && editingTask && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center animate-in fade-in duration-200">
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => { setShowEditModal(false); setEditingTask(null); }}></div>
+          <div className="relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white dark:bg-slate-900 z-10 p-6 md:p-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[9px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded uppercase tracking-wider">{editingTask.taskNumber}</span>
+                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Admin Edit Mode</span>
+                </div>
+                <h3 className="text-lg font-playfair font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase tracking-tight">Edit Service Task</h3>
+              </div>
+              <button onClick={() => { setShowEditModal(false); setEditingTask(null); }} className="p-2 text-slate-400 hover:text-slate-800 transition-all"><X size={20} /></button>
+            </div>
+
+            {/* Modal Form */}
+            <div className="p-6 md:p-8 space-y-5">
+              {/* Task Subject / Title */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Task Title / Subject</label>
+                <input
+                  className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                  placeholder="E.g., Medical Equipment Calibration / Repair"
+                  value={editTaskForm.subject}
+                  onChange={e => setEditTaskForm(p => ({ ...p, subject: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Customer / Client Name <span className="text-rose-400">*</span></label>
+                  <input
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    placeholder="Customer Name"
+                    value={editTaskForm.customerName}
+                    onChange={e => setEditTaskForm(p => ({ ...p, customerName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Hospital / Company Name</label>
+                  <input
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    placeholder="Hospital / Facility Name"
+                    value={editTaskForm.companyName}
+                    onChange={e => setEditTaskForm(p => ({ ...p, companyName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Contact Phone <span className="text-rose-400">*</span></label>
+                  <input
+                    type="tel"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    placeholder="Mobile / Phone number"
+                    value={editTaskForm.customerPhone}
+                    onChange={e => setEditTaskForm(p => ({ ...p, customerPhone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Contact Email</label>
+                  <input
+                    type="email"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    placeholder="Email address (optional)"
+                    value={editTaskForm.customerEmail}
+                    onChange={e => setEditTaskForm(p => ({ ...p, customerEmail: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment Name <span className="text-rose-400">*</span></label>
+                  <input
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    placeholder="Equipment Name"
+                    value={editTaskForm.equipment}
+                    onChange={e => setEditTaskForm(p => ({ ...p, equipment: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Serial Number</label>
+                  <input
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all uppercase"
+                    placeholder="Serial Number"
+                    value={editTaskForm.serialNo}
+                    onChange={e => setEditTaskForm(p => ({ ...p, serialNo: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Service Category</label>
+                  <select
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none"
+                    value={editTaskForm.serviceCategory}
+                    onChange={e => setEditTaskForm(p => ({ ...p, serviceCategory: e.target.value }))}
+                  >
+                    <option value="">Select category</option>
+                    {SERVICE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Priority</label>
+                  <select
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none"
+                    value={editTaskForm.priority}
+                    onChange={e => setEditTaskForm(p => ({ ...p, priority: e.target.value as ServiceTask['priority'] }))}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Task Status</label>
+                  <select
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none"
+                    value={editTaskForm.status}
+                    onChange={e => setEditTaskForm(p => ({ ...p, status: e.target.value as ServiceTaskStatus }))}
+                  >
+                    {STATUS_FLOW.map(s => (
+                      <option key={s} value={s}>{STATUS_CONFIG[s]?.label || s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Assigned Engineer</label>
+                  <select
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all appearance-none"
+                    value={editTaskForm.assignedToId}
+                    onChange={e => setEditTaskForm(p => ({ ...p, assignedToId: e.target.value }))}
+                  >
+                    <option value="">-- Unassigned --</option>
+                    {employees.filter(e => e.status !== 'Resigned').map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.department || 'Staff'})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Service Location / Address</label>
+                <input
+                  className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                  placeholder="Full hospital address or location"
+                  value={editTaskForm.location}
+                  onChange={e => setEditTaskForm(p => ({ ...p, location: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Issue Description <span className="text-rose-400">*</span></label>
+                <textarea
+                  rows={4}
+                  className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none"
+                  placeholder="Describe the problem in detail..."
+                  value={editTaskForm.issue}
+                  onChange={e => setEditTaskForm(p => ({ ...p, issue: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 md:p-8 flex justify-end gap-3">
+              <button
+                onClick={() => { setShowEditModal(false); setEditingTask(null); }}
+                className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEditTask}
+                className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider bg-teal-600 text-white shadow-lg hover:bg-teal-700 transition-all active:scale-95 flex items-center gap-2"
+              >
+                <Save size={14} /> Save Changes
+              </button>
             </div>
           </div>
         </div>
