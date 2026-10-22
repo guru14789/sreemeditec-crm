@@ -181,22 +181,24 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
       ? `${task.customerName} - ${task.companyName}` 
       : task.customerName;
 
-    let text = `*SERVICE REQUEST UPDATE | SREEMEDITEC* 🛠️\n\n`;
+    let text = `*SERVICE REQUEST UPDATE | SREEMEDITEC*\n\n`;
     text += `Dear *${task.customerName}*,\n\n`;
-    text += `Your service request (*${task.taskNumber}*) has been claimed and assigned to our service engineer.\n\n`;
-    text += `📋 *Service Request Details:*\n`;
+    text += `This is to inform you that your service request (*Ticket ID: ${task.taskNumber}*) has been successfully assigned to our service engineer.\n\n`;
+    text += `*Service Request Details*\n`;
     text += `• *Ticket ID:* ${task.taskNumber}\n`;
     text += `• *Client / Facility:* ${hospitalOrClient}\n`;
     text += `• *Equipment:* ${task.equipment}\n`;
-    if (task.serialNo) text += `• *Serial No:* ${task.serialNo}\n`;
+    text += `• *Serial Number:* ${task.serialNo || 'N/A'}\n`;
     text += `• *Reported Issue:* ${task.issue}\n`;
-    if (task.location) text += `• *Location:* ${task.location}\n`;
-    text += `\n👨‍🔧 *Assigned Service Engineer:*\n`;
-    text += `• *Engineer:* ${engineerName}\n`;
-    if (engineerPhone) text += `• *Contact Phone:* ${engineerPhone}\n`;
-    text += `\nOur engineer will contact you shortly to coordinate the service visit.\n\n`;
-    text += `Thank you for choosing *Sreemeditec*!\n`;
-    text += `_For any immediate assistance, please reply directly to this message._`;
+    text += `• *Service Location:* ${task.location || 'On-site'}\n\n`;
+    text += `*Assigned Service Engineer*\n`;
+    text += `• *Name:* ${engineerName}\n`;
+    text += `• *Contact Number:* ${engineerPhone || 'Support Desk'}\n\n`;
+    text += `Our service engineer will contact you shortly to coordinate the visit and discuss the next steps.\n\n`;
+    text += `Thank you for choosing *Sreemeditec*. We appreciate your trust in our service and support.\n\n`;
+    text += `For any queries or further assistance, please reply to this message.\n\n`;
+    text += `*Regards,*\n`;
+    text += `*Service Team | Sreemeditec*`;
 
     return text;
   };
