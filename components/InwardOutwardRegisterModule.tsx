@@ -737,161 +737,183 @@ export const InwardOutwardRegisterModule: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-100/60 dark:bg-slate-950 p-2 md:p-4 gap-4 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 relative p-0 md:p-1 gap-4 overflow-hidden">
       
-      {/* Module Header Banner */}
-      <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 rounded-[2rem] p-5 md:p-6 text-white shadow-xl relative overflow-hidden shrink-0 border border-indigo-900/50">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+      {/* Module Header Banner (ERP Emerald & Gold Theme) */}
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-4 md:p-5 pt-6 rounded-none rounded-b-[1.5rem] md:rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group m-0 md:m-3 lg:m-4">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none"></div>
 
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative z-10">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-teal-300 shadow-inner shrink-0">
-              <ArrowLeftRight size={24} className="text-teal-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-300 bg-teal-950/80 border border-teal-500/30 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                  <ShieldCheck size={11} className="text-teal-400" /> Admin Master
-                </span>
-                <span className="text-[10px] font-bold text-slate-400">Logistics & Material Movement</span>
-              </div>
-              <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white leading-tight">
+        <div className="flex items-center gap-5 relative z-10 w-full lg:w-auto">
+          <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
+            <ArrowLeftRight size={22} className="hidden xl:block" />
+            <ArrowLeftRight size={18} className="xl:hidden" />
+          </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">
                 Inward / Outward Register
-              </h1>
+              </h2>
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Admin Live</span>
+              </div>
+            </div>
+
+            {/* Quick Type Pill Filter Switcher */}
+            <div className="flex bg-emerald-900/40 border border-emerald-700/50 p-1 rounded-full w-fit">
+              {(['All', 'Inward', 'Outward'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                    typeFilter === type
+                      ? 'bg-white text-emerald-900 shadow-md'
+                      : 'text-emerald-100/70 hover:text-white'
+                  }`}
+                >
+                  {type === 'All' ? 'All Movements' : type}
+                </button>
+              ))}
             </div>
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-            <button
-              onClick={() => handleOpenCreate('Inward')}
-              className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider py-3 px-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 hover:shadow-emerald-900/50 active:scale-95 transition-all"
-            >
-              <ArrowDownLeft size={16} />
-              <span>New Inward Entry</span>
-            </button>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-3 relative z-10 w-full lg:w-auto">
+          <button
+            onClick={() => handleOpenCreate('Inward')}
+            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-950/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowDownLeft size={14} />
+            <span>New Inward Entry</span>
+          </button>
 
-            <button
-              onClick={() => handleOpenCreate('Outward')}
-              className="flex-1 sm:flex-none bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider py-3 px-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/40 hover:shadow-indigo-900/50 active:scale-95 transition-all"
-            >
-              <ArrowUpRight size={16} />
-              <span>New Outward Entry</span>
-            </button>
+          <button
+            onClick={() => handleOpenCreate('Outward')}
+            className="flex-1 sm:flex-none bg-[#c5a059] hover:bg-[#b38f48] text-white py-3 px-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-950/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowUpRight size={14} />
+            <span>New Outward Entry</span>
+          </button>
 
-            <button
-              onClick={handleExportCSV}
-              className="bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700 font-bold text-xs py-3 px-4 rounded-2xl flex items-center gap-1.5 transition-all active:scale-95"
-              title="Export to CSV"
-            >
-              <Download size={15} />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
-          </div>
+          <button
+            onClick={handleExportCSV}
+            className="bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-100 border border-emerald-700/50 py-3 px-4 rounded-[2rem] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95"
+            title="Export to CSV"
+          >
+            <Download size={14} />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
         </div>
       </div>
 
-      {/* Top Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 shrink-0">
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-black uppercase tracking-wider">Total Records</span>
-            <Layers size={16} className="text-indigo-500" />
+      {/* Top Summary Cards (Signature ERP Theme Colors) */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 mx-0 md:mx-3 lg:mx-4 shrink-0">
+        {/* Total Records - Deep Forest Emerald */}
+        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+          <div className="flex items-center justify-between text-emerald-100/80">
+            <span className="text-[9px] font-black uppercase tracking-wider">Total Movements</span>
+            <div className="p-2 rounded-xl bg-emerald-900/50 text-emerald-100">
+              <Layers size={14} />
+            </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-slate-800 dark:text-slate-100">{metrics.total}</div>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">All-time movements</p>
+          <div className="my-2">
+            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.total}</div>
+            <p className="text-[10px] font-semibold text-emerald-200/70 uppercase tracking-tighter mt-0.5">All-time register logs</p>
           </div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-emerald-300/80">Active Ledger</div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Inward Received</span>
-            <ArrowDownLeft size={16} className="text-emerald-500" />
+        {/* Inward Received - Bright Emerald */}
+        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 text-white relative overflow-hidden">
+          <div className="flex items-center justify-between text-emerald-100/90">
+            <span className="text-[9px] font-black uppercase tracking-wider">Inward Received</span>
+            <div className="p-2 rounded-xl bg-emerald-900/40 text-emerald-100">
+              <ArrowDownLeft size={14} />
+            </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{metrics.inwardTotal}</div>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Today: +{metrics.inwardToday} | Month: {metrics.inwardMonth}</p>
+          <div className="my-2">
+            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.inwardTotal}</div>
+            <p className="text-[10px] font-bold text-emerald-100/90 uppercase tracking-tight mt-0.5">
+              Today: +{metrics.inwardToday} • Month: {metrics.inwardMonth}
+            </p>
           </div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-emerald-100/80">Received Items</div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Outward Dispatched</span>
-            <ArrowUpRight size={16} className="text-blue-500" />
+        {/* Outward Dispatched - Deep Slate */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+          <div className="flex items-center justify-between text-slate-300">
+            <span className="text-[9px] font-black uppercase tracking-wider">Outward Dispatched</span>
+            <div className="p-2 rounded-xl bg-slate-800/60 text-slate-200">
+              <ArrowUpRight size={14} />
+            </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{metrics.outwardTotal}</div>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Today: +{metrics.outwardToday} | Month: {metrics.outwardMonth}</p>
+          <div className="my-2">
+            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.outwardTotal}</div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight mt-0.5">
+              Today: +{metrics.outwardToday} • Month: {metrics.outwardMonth}
+            </p>
           </div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">Dispatched Goods</div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">In Transit / Active</span>
-            <Truck size={16} className="text-amber-500" />
+        {/* In Transit / Active - Gold Amber */}
+        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 text-amber-950 relative overflow-hidden">
+          <div className="flex items-center justify-between text-amber-950/80">
+            <span className="text-[9px] font-black uppercase tracking-wider">In Transit / Active</span>
+            <div className="p-2 rounded-xl bg-amber-900/15 text-amber-950">
+              <Truck size={14} />
+            </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{metrics.inTransit}</div>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Pending receipt/delivery</p>
+          <div className="my-2">
+            <div className="text-2xl font-playfair font-bold tracking-tight text-amber-950">{metrics.inTransit}</div>
+            <p className="text-[10px] font-black text-amber-950/70 uppercase tracking-tight mt-0.5">Pending Arrival / Delivery</p>
           </div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-amber-950/70">Live Logistics</div>
         </div>
 
-        <div className="col-span-2 lg:col-span-1 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">Concluded / Done</span>
-            <CheckCircle2 size={16} className="text-teal-500" />
+        {/* Concluded / Delivered - Medical Teal */}
+        <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-teal-900 to-emerald-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(13,148,136,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(13,148,136,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+          <div className="flex items-center justify-between text-teal-200/80">
+            <span className="text-[9px] font-black uppercase tracking-wider">Concluded / Done</span>
+            <div className="p-2 rounded-xl bg-teal-800/40 text-teal-200">
+              <CheckCircle2 size={14} />
+            </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-teal-600 dark:text-teal-400">{metrics.deliveredOrReceived}</div>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Successfully concluded</p>
+          <div className="my-2">
+            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.deliveredOrReceived}</div>
+            <p className="text-[10px] font-semibold text-teal-200/70 uppercase tracking-tight mt-0.5">Received or Delivered</p>
           </div>
+          <div className="text-[8px] font-black uppercase tracking-widest text-teal-300/80">Completed Movements</div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-3 md:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-3 shrink-0">
+      <div className="bg-white dark:bg-slate-900 p-3 md:p-4 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-3 shrink-0 mx-0 md:mx-3 lg:mx-4">
         <div className="flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center justify-between">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Entry ID, Hospital/Party, Item, Serial No, Docket, Ref #..."
-              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-9 pr-8 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] pl-10 pr-8 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                 <X size={14} />
               </button>
             )}
-          </div>
-
-          {/* Quick Type Filter Buttons */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl self-start lg:self-auto">
-            {(['All', 'Inward', 'Outward'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setTypeFilter(type)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                  typeFilter === type
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                {type}
-              </button>
-            ))}
           </div>
 
           {/* Status Dropdown */}
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none"
+            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
           >
             <option value="All">All Statuses</option>
             {STATUS_OPTIONS.map(s => (
@@ -903,7 +925,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
           <select
             value={purposeFilter}
             onChange={e => setPurposeFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none"
+            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
           >
             <option value="All">All Purposes</option>
             {PURPOSE_OPTIONS.map(p => (
@@ -915,7 +937,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
           <select
             value={dateRangeFilter}
             onChange={e => setDateRangeFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none"
+            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
           >
             <option value="All">All Dates</option>
             <option value="Today">Today</option>
@@ -933,14 +955,14 @@ export const InwardOutwardRegisterModule: React.FC = () => {
               type="date"
               value={customStartDate}
               onChange={e => setCustomStartDate(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700"
+              className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
             />
             <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
             <input
               type="date"
               value={customEndDate}
               onChange={e => setCustomEndDate(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700"
+              className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
             />
             <button
               onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setDateRangeFilter('All'); }}
@@ -953,7 +975,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
       </div>
 
       {/* Main Table */}
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-0 mx-0 md:mx-3 lg:mx-4 mb-3">
         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 z-10 backdrop-blur-sm">
@@ -1012,7 +1034,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${
                         entry.type === 'Inward'
                           ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                          : 'bg-[#c5a059]/15 text-[#9a7833] dark:text-[#c5a059] border border-[#c5a059]/30'
                       }`}>
                         {entry.type === 'Inward' ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
                         {entry.type}
@@ -1041,7 +1063,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                           <div className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[220px]">
                             {firstItem.name}
                             {entry.items.length > 1 && (
-                              <span className="ml-1 text-[10px] text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                              <span className="ml-1 text-[10px] text-teal-600 font-bold bg-teal-50 dark:bg-teal-950/40 px-1.5 py-0.5 rounded">
                                 +{entry.items.length - 1} more
                               </span>
                             )}
@@ -1066,7 +1088,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                             {entry.courierCompany || entry.transportMode || 'Courier'}
                           </p>
                           {entry.docketNo && (
-                            <p className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-semibold truncate max-w-[130px]">
+                            <p className="text-[10px] font-mono text-teal-600 dark:text-teal-400 font-semibold truncate max-w-[130px]">
                               #{entry.docketNo}
                             </p>
                           )}
@@ -1101,7 +1123,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleTriggerPrint(entry)}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-all"
+                          className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-all"
                           title="Print Material Slip"
                         >
                           <Printer size={15} />
@@ -1146,37 +1168,30 @@ export const InwardOutwardRegisterModule: React.FC = () => {
           <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]">
             
             {/* Modal Header */}
-            <div className={`p-5 sm:p-6 text-white relative overflow-hidden flex items-center justify-between shrink-0 ${
-              formData.type === 'Inward'
-                ? 'bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900'
-                : 'bg-gradient-to-r from-indigo-950 via-blue-900 to-slate-900'
-            }`}>
-              <div className="flex items-center gap-3 relative z-10">
-                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border shadow-inner ${
-                  formData.type === 'Inward'
-                    ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'
-                    : 'bg-indigo-500/20 border-indigo-400/30 text-indigo-300'
-                }`}>
-                  {formData.type === 'Inward' ? <ArrowDownLeft size={22} /> : <ArrowUpRight size={22} />}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-6 md:p-8 text-white relative overflow-hidden flex items-center justify-between shrink-0 border-b border-emerald-800/40">
+              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none"></div>
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-12 h-12 rounded-[1.5rem] flex items-center justify-center text-[#c5a059] bg-white/10 border border-white/10 shadow-inner shrink-0">
+                  {formData.type === 'Inward' ? <ArrowDownLeft size={24} /> : <ArrowUpRight size={24} />}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 bg-black/30 rounded-md">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 bg-emerald-400/20 text-emerald-300 border border-emerald-500/20 rounded-full">
                       {formMode === 'create' ? 'New Transaction' : 'Edit Transaction'}
                     </span>
-                    <span className="text-xs font-mono font-bold opacity-90">{formData.entryNumber}</span>
+                    <span className="text-xs font-mono font-bold text-emerald-100/90">{formData.entryNumber}</span>
                   </div>
-                  <h2 className="text-lg sm:text-xl font-black uppercase tracking-tight">
+                  <h3 className="text-lg sm:text-xl font-playfair font-bold uppercase tracking-tight text-white">
                     {formData.type === 'Inward' ? 'Material Inward Register' : 'Material Outward Register'}
-                  </h2>
+                  </h3>
                 </div>
               </div>
 
               <button
                 onClick={() => setShowFormModal(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+                className="p-2 text-white/70 hover:text-white transition-all z-10"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
@@ -1211,7 +1226,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
               {/* SECTION A: Transaction Details */}
               <div className="space-y-3">
                 <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                  <span className="w-5 h-5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center text-[10px]">A</span>
+                  <span className="w-5 h-5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center text-[10px]">A</span>
                   Transaction Basics
                 </h3>
 
@@ -1421,7 +1436,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
               {/* SECTION C: Courier & Transport Details */}
               <div className="space-y-3">
                 <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                  <span className="w-5 h-5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center text-[10px]">C</span>
+                  <span className="w-5 h-5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center text-[10px]">C</span>
                   Courier & Logistics
                 </h3>
 
@@ -1530,7 +1545,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleAddItem}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded-[2rem] flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                   >
                     <Plus size={13} /> Add Another Item
                   </button>
@@ -1671,7 +1686,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                             {item.serialNumbers.map(sn => (
                               <span
                                 key={sn}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-mono font-bold"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-mono font-bold"
                               >
                                 {sn}
                                 <button type="button" onClick={() => handleRemoveSerialTag(idx, sn)} className="hover:text-rose-500">
@@ -1744,7 +1759,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest px-4 py-2 rounded-[2rem] flex items-center gap-2 shadow-sm transition-all"
                   >
                     <Upload size={14} /> Attach File
                   </button>
@@ -1779,7 +1794,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                   value={formData.remarks || ''}
                   onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))}
                   placeholder="Additional dispatch instructions, security check notes, receiver remarks..."
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs outline-none focus:border-indigo-500 transition-all resize-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[2rem] p-3.5 text-xs outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all resize-none"
                 />
               </div>
             </div>
@@ -1789,14 +1804,14 @@ export const InwardOutwardRegisterModule: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowFormModal(false)}
-                className="px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                className="px-6 py-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveEntry(false)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider px-6 py-2.5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest px-8 py-3 rounded-[2rem] shadow-lg shadow-emerald-950/40 active:scale-95 transition-all flex items-center gap-2"
               >
                 <Check size={16} /> Save Register Entry
               </button>
@@ -1811,48 +1826,49 @@ export const InwardOutwardRegisterModule: React.FC = () => {
           <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowDetailDrawer(false)}></div>
           
           <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 h-full shadow-2xl z-10 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
-            {/* Drawer Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/70 dark:bg-slate-800/40 shrink-0">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+            {/* Drawer Header (ERP Emerald/Gold Theme) */}
+            <div className="bg-gradient-to-br from-emerald-950 to-green-900 text-white p-6 border-b border-emerald-800/40 flex items-start justify-between shrink-0 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-15 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                     selectedEntry.type === 'Inward'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-[#c5a059]/20 text-[#e5c185] border border-[#c5a059]/40'
                   }`}>
-                    {selectedEntry.type === 'Inward' ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
-                    {selectedEntry.type}
+                    {selectedEntry.type === 'Inward' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
+                    {selectedEntry.type} Entry
                   </span>
-                  <span className="font-mono text-xs font-black text-slate-800 dark:text-slate-100">{selectedEntry.entryNumber}</span>
+                  <span className="font-mono text-xs font-black text-emerald-200/90">{selectedEntry.entryNumber}</span>
                 </div>
-                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                <h3 className="text-xl font-playfair font-bold text-white uppercase tracking-tight">
                   {selectedEntry.partyName}
                 </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[11px] text-emerald-200/70 mt-0.5">
                   {selectedEntry.entryDate} at {selectedEntry.entryTime} • {selectedEntry.purpose}
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 relative z-10">
                 <button
                   onClick={() => handleTriggerPrint(selectedEntry)}
-                  className="p-2 text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  className="p-2 text-emerald-200 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-all"
                   title="Print Slip"
                 >
-                  <Printer size={18} />
+                  <Printer size={16} />
                 </button>
                 <button
                   onClick={() => { setShowDetailDrawer(false); handleOpenEdit(selectedEntry); }}
-                  className="p-2 text-slate-400 hover:text-teal-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  className="p-2 text-emerald-200 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-all"
                   title="Edit Entry"
                 >
-                  <Edit3 size={18} />
+                  <Edit3 size={16} />
                 </button>
                 <button
                   onClick={() => setShowDetailDrawer(false)}
-                  className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  className="p-2 text-white/70 hover:text-white rounded-full hover:bg-white/10 transition-all"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
@@ -1926,7 +1942,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                   {selectedEntry.docketNo && (
                     <div>
                       <span className="text-slate-400 block">Docket / AWB:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{selectedEntry.docketNo}</span>
+                      <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{selectedEntry.docketNo}</span>
                     </div>
                   )}
                   {selectedEntry.lrNo && (
@@ -1959,7 +1975,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                         href={selectedEntry.trackingUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-indigo-600 hover:underline flex items-center gap-1 font-bold"
+                        className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 font-bold"
                       >
                         <ExternalLink size={12} /> Open Tracking Portal
                       </a>
@@ -1983,7 +1999,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                             <p className="text-[10px] text-slate-400">{item.brand} {item.model}</p>
                           )}
                         </div>
-                        <span className="font-black text-indigo-600 dark:text-indigo-400">
+                        <span className="font-black text-emerald-700 dark:text-emerald-400">
                           {item.quantity} {item.unit}
                         </span>
                       </div>
@@ -2021,9 +2037,9 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                         key={att.id}
                         href={att.data}
                         download={att.name}
-                        className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 hover:border-indigo-400 transition-colors"
+                        className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2 hover:border-emerald-500 transition-colors"
                       >
-                        <FileText size={16} className="text-indigo-500 shrink-0" />
+                        <FileText size={16} className="text-emerald-600 shrink-0" />
                         <div className="min-w-0 flex-1">
                           <p className="font-bold truncate text-[11px]">{att.name}</p>
                           <p className="text-[9px] text-slate-400 capitalize">{att.category?.replace(/_/g, ' ')}</p>
@@ -2057,13 +2073,13 @@ export const InwardOutwardRegisterModule: React.FC = () => {
             {/* Top Toolbar (Hidden during print) */}
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 print:hidden">
               <div className="flex items-center gap-2">
-                <Printer size={18} className="text-indigo-600" />
-                <span className="font-black text-sm uppercase tracking-wider">Print Official Document</span>
+                <Printer size={18} className="text-emerald-700" />
+                <span className="font-playfair font-bold text-sm uppercase tracking-wider text-slate-900">Print Official Movement Slip</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={executePrint}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider px-5 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-[2rem] flex items-center gap-2 shadow-sm active:scale-95 transition-all"
                 >
                   <Printer size={14} /> Print Now
                 </button>
