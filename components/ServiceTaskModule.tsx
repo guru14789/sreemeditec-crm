@@ -5,12 +5,13 @@ import {
   QrCode, User, Clock, Phone, MapPin,
   X, CheckCircle, Play, Search, BarChart3, Package, MessageSquare,
   FileText, Image, Upload, Send, AlertCircle, MoreHorizontal, ChevronDown,
-  Eye, Paperclip, Download, Plus, Building2, Mail, Trash2, ListFilter,
+  Eye, Paperclip, Download, Plus, Trash2, ListFilter,
   MessageCircle, CheckCircle2, Copy, Check, ExternalLink, Wrench, Sparkles,
   Pencil, Save
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useData } from './DataContext';
+import { AutoSuggest } from './AutoSuggest';
 
 interface ServiceTaskModuleProps {
   userRole?: 'Admin' | 'Employee';
@@ -56,7 +57,7 @@ const getNextStatuses = (current: ServiceTaskStatus, isAdmin: boolean = false): 
 };
 
 export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }) => {
-  const { serviceTasks, employees, addServiceTask, updateServiceTask, removeServiceTask, currentUser, showConfirm, addNotification } = useData();
+  const { serviceTasks, employees, addServiceTask, updateServiceTask, removeServiceTask, currentUser, showConfirm, addNotification, clients, products } = useData();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [viewState, setViewState] = useState<'registry' | 'turnover'>('registry');
   const [selectedEmployeeForTurnover, setSelectedEmployeeForTurnover] = useState<string | null>(null);
@@ -1279,27 +1280,69 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
               <div className="grid sm:grid-cols-2 gap-5">
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Customer Name <span className="text-rose-400">*</span></label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Rajesh Kumar" value={newTaskForm.customerName} onChange={e => setNewTaskForm(p => ({ ...p, customerName: e.target.value }))} />
+                  <AutoSuggest
+                    value={newTaskForm.customerName}
+                    onChange={val => setNewTaskForm(p => ({ ...p, customerName: val }))}
+                    onSelect={client => setNewTaskForm(p => ({
+                      ...p,
+                      customerName: client.name || client.hospital || '',
+                      companyName: client.hospital || client.name || p.companyName,
+                      customerPhone: client.phone || client.contactPhone || p.customerPhone,
+                      customerEmail: client.email || p.customerEmail,
+                      location: client.address || p.location
+                    }))}
+                    suggestions={clients}
+                    filterKey="name"
+                    placeholder="Rajesh Kumar (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
+                  />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Company</label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Sree Meditech" value={newTaskForm.companyName} onChange={e => setNewTaskForm(p => ({ ...p, companyName: e.target.value }))} />
+                  <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Company / Hospital</label>
+                  <AutoSuggest
+                    value={newTaskForm.companyName}
+                    onChange={val => setNewTaskForm(p => ({ ...p, companyName: val }))}
+                    onSelect={client => setNewTaskForm(p => ({
+                      ...p,
+                      companyName: client.hospital || client.name || '',
+                      customerName: p.customerName || client.name || client.hospital || '',
+                      customerPhone: client.phone || client.contactPhone || p.customerPhone,
+                      customerEmail: client.email || p.customerEmail,
+                      location: client.address || p.location
+                    }))}
+                    suggestions={clients}
+                    filterKey="hospital"
+                    placeholder="Sree Meditech / Hospital (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Phone <span className="text-rose-400">*</span></label>
-                  <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
+                  <input type="tel" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100" placeholder="9876543210" value={newTaskForm.customerPhone} onChange={e => setNewTaskForm(p => ({ ...p, customerPhone: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Email <span className="text-[9px] text-slate-400 font-normal">(Optional)</span></label>
-                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="rajesh@hospital.com (optional)" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
+                  <input type="email" className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100" placeholder="rajesh@hospital.com (optional)" value={newTaskForm.customerEmail} onChange={e => setNewTaskForm(p => ({ ...p, customerEmail: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Subject</label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="Service request title" value={newTaskForm.subject} onChange={e => setNewTaskForm(p => ({ ...p, subject: e.target.value }))} />
+                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100" placeholder="Service request title" value={newTaskForm.subject} onChange={e => setNewTaskForm(p => ({ ...p, subject: e.target.value }))} />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment <span className="text-rose-400">*</span></label>
-                  <input className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all" placeholder="X-Ray Machine" value={newTaskForm.equipment} onChange={e => setNewTaskForm(p => ({ ...p, equipment: e.target.value }))} />
+                  <AutoSuggest
+                    value={newTaskForm.equipment}
+                    onChange={val => setNewTaskForm(p => ({ ...p, equipment: val }))}
+                    onSelect={prod => setNewTaskForm(p => ({
+                      ...p,
+                      equipment: prod.name,
+                      serviceCategory: prod.category && SERVICE_CATEGORIES.includes(prod.category) ? prod.category : (p.serviceCategory || 'Medical Equipment')
+                    }))}
+                    suggestions={products}
+                    filterKey="name"
+                    placeholder="X-Ray Machine (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3 py-1.5 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Serial No <span className="text-rose-400">*</span></label>
@@ -1372,27 +1415,47 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
               <div className="grid sm:grid-cols-2 gap-5">
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Customer / Client Name <span className="text-rose-400">*</span></label>
-                  <input
-                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
-                    placeholder="Customer Name"
+                  <AutoSuggest
                     value={editTaskForm.customerName}
-                    onChange={e => setEditTaskForm(p => ({ ...p, customerName: e.target.value }))}
+                    onChange={val => setEditTaskForm(p => ({ ...p, customerName: val }))}
+                    onSelect={client => setEditTaskForm(p => ({
+                      ...p,
+                      customerName: client.name || client.hospital || '',
+                      companyName: client.hospital || client.name || p.companyName,
+                      customerPhone: client.phone || client.contactPhone || p.customerPhone,
+                      customerEmail: client.email || p.customerEmail,
+                      location: client.address || p.location
+                    }))}
+                    suggestions={clients}
+                    filterKey="name"
+                    placeholder="Customer Name (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Hospital / Company Name</label>
-                  <input
-                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
-                    placeholder="Hospital / Facility Name"
+                  <AutoSuggest
                     value={editTaskForm.companyName}
-                    onChange={e => setEditTaskForm(p => ({ ...p, companyName: e.target.value }))}
+                    onChange={val => setEditTaskForm(p => ({ ...p, companyName: val }))}
+                    onSelect={client => setEditTaskForm(p => ({
+                      ...p,
+                      companyName: client.hospital || client.name || '',
+                      customerName: p.customerName || client.name || client.hospital || '',
+                      customerPhone: client.phone || client.contactPhone || p.customerPhone,
+                      customerEmail: client.email || p.customerEmail,
+                      location: client.address || p.location
+                    }))}
+                    suggestions={clients}
+                    filterKey="hospital"
+                    placeholder="Hospital / Facility Name (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Contact Phone <span className="text-rose-400">*</span></label>
                   <input
                     type="tel"
-                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
                     placeholder="Mobile / Phone number"
                     value={editTaskForm.customerPhone}
                     onChange={e => setEditTaskForm(p => ({ ...p, customerPhone: e.target.value }))}
@@ -1402,7 +1465,7 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Contact Email</label>
                   <input
                     type="email"
-                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
                     placeholder="Email address (optional)"
                     value={editTaskForm.customerEmail}
                     onChange={e => setEditTaskForm(p => ({ ...p, customerEmail: e.target.value }))}
@@ -1410,11 +1473,18 @@ export const ServiceTaskModule: React.FC<ServiceTaskModuleProps> = ({ userRole }
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-500 ml-0.5 mb-1.5 block">Equipment Name <span className="text-rose-400">*</span></label>
-                  <input
-                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
-                    placeholder="Equipment Name"
+                  <AutoSuggest
                     value={editTaskForm.equipment}
-                    onChange={e => setEditTaskForm(p => ({ ...p, equipment: e.target.value }))}
+                    onChange={val => setEditTaskForm(p => ({ ...p, equipment: val }))}
+                    onSelect={prod => setEditTaskForm(p => ({
+                      ...p,
+                      equipment: prod.name,
+                      serviceCategory: prod.category && SERVICE_CATEGORIES.includes(prod.category) ? prod.category : (p.serviceCategory || 'Medical Equipment')
+                    }))}
+                    suggestions={products}
+                    filterKey="name"
+                    placeholder="Equipment Name (auto-suggest on type)"
+                    className="w-full bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-[2rem] px-3.5 py-2 text-sm font-medium outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>

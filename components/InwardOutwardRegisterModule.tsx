@@ -17,6 +17,7 @@ import {
   Info, Sparkles, RefreshCw, Layers, CheckCircle2, AlertCircle, Upload
 } from 'lucide-react';
 import { useData } from './DataContext';
+import { AutoSuggest } from './AutoSuggest';
 
 const PURPOSE_OPTIONS: InwardOutwardPurpose[] = [
   'Purchase', 'Sales', 'Service', 'Repair', 'Demo',
@@ -1324,11 +1325,24 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                       {formData.type === 'Inward' ? 'Sender / Entity Name *' : 'Recipient / Hospital Name *'}
                     </label>
-                    <input
-                      type="text"
+                    <AutoSuggest
                       value={formData.partyName}
-                      onChange={e => setFormData(p => ({ ...p, partyName: e.target.value }))}
-                      placeholder={formData.type === 'Inward' ? 'Vendor / Sender Name' : 'Client / Hospital Name'}
+                      onChange={val => setFormData(p => ({ ...p, partyName: val }))}
+                      onSelect={party => setFormData(p => ({
+                        ...p,
+                        partyName: party.hospital || party.name || '',
+                        contactPerson: party.contactPerson || (party.name !== party.hospital ? party.name : '') || p.contactPerson,
+                        contactPhone: party.phone || party.mobile || p.contactPhone,
+                        partyAddress: party.address || p.partyAddress
+                      }))}
+                      suggestions={
+                        formData.partyType === 'Vendor' ? vendors :
+                        (formData.partyType === 'Hospital' || formData.partyType === 'Customer') ? clients :
+                        formData.partyType === 'Service Engineer' ? employees.map(e => ({ name: e.name, hospital: e.name, phone: e.phone, address: e.location })) :
+                        [...clients, ...vendors]
+                      }
+                      filterKey={formData.partyType === 'Hospital' ? 'hospital' : 'name'}
+                      placeholder={formData.type === 'Inward' ? 'Vendor / Sender Name (auto-suggest on type)' : 'Client / Hospital Name (auto-suggest on type)'}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold outline-none"
                     />
                   </div>
@@ -1543,11 +1557,17 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div className="sm:col-span-2">
                           <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Item / Product Name *</label>
-                          <input
-                            type="text"
+                          <AutoSuggest
                             value={item.name}
-                            onChange={e => handleUpdateItem(idx, { name: e.target.value })}
-                            placeholder="E.g., Philips Patient Monitor / Suction Apparatus"
+                            onChange={val => handleUpdateItem(idx, { name: val })}
+                            onSelect={prod => handleUpdateItem(idx, {
+                              name: prod.name,
+                              brand: prod.brand || item.brand,
+                              model: prod.model || item.model
+                            })}
+                            suggestions={products}
+                            filterKey="name"
+                            placeholder="E.g., Philips Patient Monitor / Suction Apparatus (auto-suggest on type)"
                             className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold outline-none"
                           />
                         </div>
