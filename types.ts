@@ -54,7 +54,8 @@ export enum TabView {
   COMPLIANCE = 'COMPLIANCE',
   COMPANIES = 'COMPANIES',
   SERVICE_TASK = 'SERVICE_TASK',
-  EOD_REPORTS = 'EOD_REPORTS'
+  EOD_REPORTS = 'EOD_REPORTS',
+  INWARD_OUTWARD_REGISTER = 'INWARD_OUTWARD_REGISTER'
 }
 
 export enum LeadStatus {
@@ -1322,5 +1323,139 @@ export const SALARY_SCALE: SalaryScaleRule[] = [
   { position: 'Junior Accounts Executive', department: 'Finance', monthlySalary: 12000, annualCtc: 216000 },
   { position: 'Accounts Assistant', department: 'Finance', monthlySalary: 10000, annualCtc: 180000 },
 ];
+
+// --- INWARD / OUTWARD REGISTER TYPES ---
+export type InwardOutwardType = 'Inward' | 'Outward';
+
+export type InwardOutwardPurpose = 
+  | 'Purchase' 
+  | 'Sales' 
+  | 'Service' 
+  | 'Repair' 
+  | 'Demo' 
+  | 'Return' 
+  | 'Replacement' 
+  | 'Loan' 
+  | 'Transfer' 
+  | 'Other';
+
+export type InwardOutwardStatus = 
+  | 'Received' 
+  | 'Dispatched' 
+  | 'In Transit' 
+  | 'Delivered' 
+  | 'Returned' 
+  | 'Cancelled';
+
+export type InwardOutwardPartyType = 
+  | 'Vendor' 
+  | 'Hospital' 
+  | 'Customer' 
+  | 'Courier' 
+  | 'Service Engineer' 
+  | 'Other';
+
+export type InwardOutwardTransportMode = 
+  | 'Courier' 
+  | 'Road Transport' 
+  | 'Hand Delivery' 
+  | 'Company Vehicle' 
+  | 'Other';
+
+export interface InwardOutwardItem {
+  id: string;
+  name: string;
+  brand?: string;
+  model?: string;
+  serialNumbers?: string[];
+  barcode?: string;
+  quantity: number;
+  unit: string;
+  condition: 'New' | 'Good' | 'Damaged' | 'Under Repair' | 'Other';
+  accessories?: string;
+  reason?: string;
+  remarks?: string;
+}
+
+export interface InwardOutwardAttachment {
+  id: string;
+  name: string;
+  data: string;
+  type: string;
+  size: number;
+  category: 
+    | 'delivery_challan' 
+    | 'purchase_order' 
+    | 'sales_invoice' 
+    | 'service_sheet' 
+    | 'courier_receipt' 
+    | 'handover_form' 
+    | 'item_photo' 
+    | 'other';
+  uploadedAt: string;
+}
+
+export interface InwardOutwardActivity {
+  id: string;
+  action: string;
+  user: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface InwardOutwardEntry {
+  id: string;
+  entryNumber: string;
+  type: InwardOutwardType;
+  entryDate: string;
+  entryTime: string;
+  referenceNo?: string;
+  purpose: InwardOutwardPurpose;
+  status: InwardOutwardStatus;
+
+  // Party details
+  partyType: InwardOutwardPartyType;
+  partyName: string;
+  partyAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  locationAt: string;
+  handledBy: string;
+  handledById?: string;
+
+  // Courier & Transport
+  courierCompany?: string;
+  docketNo?: string;
+  lrNo?: string;
+  transportMode?: InwardOutwardTransportMode;
+  dispatchDate?: string;
+  expectedDeliveryDate?: string;
+  actualDeliveryDate?: string;
+  trackingUrl?: string;
+  freightCharges?: number;
+  podAttachment?: {
+    name: string;
+    data: string;
+    type: string;
+    size: number;
+  };
+
+  // Items & attachments
+  items: InwardOutwardItem[];
+  attachments: InwardOutwardAttachment[];
+  remarks?: string;
+
+  // Audit
+  createdAt: string;
+  createdBy: string;
+  createdById?: string;
+  lastModifiedAt?: string;
+  lastModifiedBy?: string;
+  isCancelled?: boolean;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
+  activityLog?: InwardOutwardActivity[];
+}
 
 

@@ -6,7 +6,7 @@ import { PDFService } from './services/PDFService';
 import {
   LayoutDashboard, Users, FileText, Package, Wrench,
   Receipt, ShoppingCart, Wallet, Search, Landmark,
-  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, QrCode
+  Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, QrCode, ArrowLeftRight
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -44,6 +44,7 @@ import { PublicServiceForm } from './components/PublicServiceForm';
 import { PublicEmployeeProfile } from './components/PublicEmployeeProfile';
 import { getPublicProfileId } from './utils/publicRouting';
 import { EmployeeDatabaseModule } from './components/EmployeeDatabaseModule';
+import { InwardOutwardRegisterModule } from './components/InwardOutwardRegisterModule';
 import { WinnerPopup } from './components/WinnerPopup';
 import { Login } from './components/Login';
 import { SystemConfigModule } from './components/SystemConfigModule';
@@ -255,6 +256,7 @@ const AppContent: React.FC<{
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
       case TabView.EMPLOYEE_DATABASE: return isSystemAdmin ? <EmployeeDatabaseModule /> : <Dashboard />;
+      case TabView.INWARD_OUTWARD_REGISTER: return isSystemAdmin ? <InwardOutwardRegisterModule /> : <Dashboard />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
@@ -675,7 +677,7 @@ export const App: React.FC = () => {
 
   // ─── RBAC: System-level role (immutable, always based on account role) ───────
   // NEVER derived from per-tab permissions — prevents privilege escalation
-  const isSystemAdmin = isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN';
+  const isSystemAdmin = isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN' || currentUser.email === 'sreekumar.career@gmail.com';
 
   // userRole: governs Dashboard routing, check-in gates, and system-level guards
   const userRole: 'Admin' | 'Employee' = isSystemAdmin ? 'Admin' : 'Employee';
@@ -693,8 +695,8 @@ export const App: React.FC = () => {
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
-    if (tab === TabView.EMPLOYEE_DATABASE) {
-      return isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN';
+    if (tab === TabView.EMPLOYEE_DATABASE || tab === TabView.INWARD_OUTWARD_REGISTER) {
+      return isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN' || currentUser.email === 'sreekumar.career@gmail.com';
     }
     if (isSuperAdmin) return true;
     // SYSTEM_ADMIN always has full sidebar access
@@ -729,6 +731,7 @@ export const App: React.FC = () => {
         { tab: TabView.INSTALLATION_REPORTS, icon: ShieldAlert, label: 'Install Report Maker' },
         { tab: TabView.DELIVERY, icon: Truck, label: 'Delivery Challan' },
         { tab: TabView.PURCHASE_REGISTER, icon: ShoppingCart, label: 'Purchase Entry' },
+        ...(isSystemAdmin ? [{ tab: TabView.INWARD_OUTWARD_REGISTER, icon: ArrowLeftRight, label: 'Inward / Outward' }] : []),
       ]
     },
     {

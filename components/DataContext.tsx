@@ -30,7 +30,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { db, auth, googleProvider } from '../firebase';
 import { auditBatcher } from '../services/AuditBatcher';
 import { Archiver } from '../services/Archiver';
-import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, LeadStatus, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule, BankTransaction } from '../types';
+import { Client, Vendor, Product, Invoice, StockMovement, ExpenseRecord, Employee, TabView, UserStats, PointHistory, Task, Lead, LeadStatus, ServiceTask, ServiceTicket, AttendanceRecord, DeliveryChallan, ServiceReport, Holiday, MonthlyWinner, LogEntry, LeaveRequest, PurchaseRecord, StockBatch, Ledger, AccountGroup, AccountingVoucher, StockTransfer, BankDetails, CompanyProfile, AuditLogEntry, CostCentre, FixedAsset, DepreciationScheduleEntry, BankStatementEntry, AutoVoucherDraft, BankRule, BankTransaction, InwardOutwardEntry } from '../types';
 
 const updateBrandModelStock = (product: Product, brandName: string | undefined, modelName: string | undefined, qty: number, type: 'In' | 'Out'): Product => {
     if (!brandName || !modelName || !product.brands) return product;
@@ -117,6 +117,10 @@ export interface DataContextType {
     monthlyWinners: MonthlyWinner[];
     purchaseRecords: PurchaseRecord[];
     serviceTasks: ServiceTask[];
+    inwardOutwardEntries: InwardOutwardEntry[];
+    addInwardOutwardEntry: (entry: InwardOutwardEntry) => Promise<void>;
+    updateInwardOutwardEntry: (id: string, updates: Partial<InwardOutwardEntry>) => Promise<void>;
+    removeInwardOutwardEntry: (id: string) => Promise<void>;
     eodReports: EodReport[];
     addEodReport: (report: EodReport) => Promise<void>;
     updateEodReport: (id: string, updates: Partial<EodReport>) => Promise<void>;
@@ -440,6 +444,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [stockBatches, setStockBatches] = useState<StockBatch[]>([]);
     const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
     const [serviceTasks, setServiceTasks] = useState<ServiceTask[]>([]);
+    const [inwardOutwardEntries, setInwardOutwardEntries] = useState<InwardOutwardEntry[]>([]);
     const [eodReports, setEodReports] = useState<EodReport[]>([]);
     
     // Accounting States
@@ -1179,6 +1184,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         if (!firebaseUser || !currentUser || activeTab !== TabView.SERVICE_TASK) return;
         const unsub = onSnapshot(query(collection(db, "serviceTasks"), orderBy('createdAt', 'desc'), limit(200)), (s) => setServiceTasks(s.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as ServiceTask)), (err) => console.warn("serviceTasks listener:", err));
+        return () => unsub();
+    }, [firebaseUser?.uid, currentUser?.id, activeTab]);
+
+    useEffect(() => {
+        if (!firebaseUser || !currentUser || activeTab !== TabView.INWARD_OUTWARD_REGISTER) return;
+        const unsub = onSnapshot(
+            query(collection(db, "inwardOutwardRegister"), orderBy('createdAt', 'desc'), limit(500)),
+            (s) => setInwardOutwardEntries(s.docs.map(d => ({ ...sanitizeData(d.data()), id: d.id }) as InwardOutwardEntry)),
+            (err) => console.warn("inwardOutwardRegister listener:", err)
+        );
         return () => unsub();
     }, [firebaseUser?.uid, currentUser?.id, activeTab]);
 
@@ -2539,6 +2554,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setServiceTasks(prev => prev.filter(t => t.id !== id));
         await deleteDoc(doc(db, "serviceTasks", id));
         await addLog('Tasks', 'Deleted Service Task', id);
+    };
+
+    const addInwardOutwardEntry = async (e: InwardOutwardEntry) => {
+        setInwardOutwardEntries(prev => [e, ...prev]);
+        await setDoc(doc(db, "inwardOutwardRegister", e.id), sanitizeData(e));
+        await addLog('System', `New ${e.type} Register Entry`, `${e.entryNumber} - ${e.partyName}`);
+    };
+
+    const updateInwardOutwardEntry = async (id: string, u: Partial<InwardOutwardEntry>) => {
+        const existing = inwardOutwardEntries.find(e => e.id === id);
+        setInwardOutwardEntries(prev => prev.map(e => e.id === id ? { ...e, ...u } as InwardOutwardEntry : e));
+        await updateDoc(doc(db, "inwardOutwardRegister", id), sanitizeData(u));
+        await addLog('System', `Updated ${existing?.type || 'Register'} Entry`, existing?.entryNumber || id, existing, { ...existing, ...u });
+    };
+
+    const removeInwardOutwardEntry = async (id: string) => {
+        setInwardOutwardEntries(prev => prev.filter(e => e.id !== id));
+        await deleteDoc(doc(db, "inwardOutwardRegister", id));
+        await addLog('System', 'Deleted Register Entry', id);
     };
 
     const autoPostExpenseVoucher = async (e: ExpenseRecord) => {
@@ -5241,6 +5275,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             addClient, updateClient, removeClient, addVendor, updateVendor, removeVendor,
             addProduct, updateProduct, removeProduct, addLead, updateLead, removeLead, addServiceTicket, updateServiceTicket,
             serviceTasks, addServiceTask, updateServiceTask, removeServiceTask,
+            inwardOutwardEntries, addInwardOutwardEntry, updateInwardOutwardEntry, removeInwardOutwardEntry,
             serviceTemplates, addServiceTemplate, updateServiceTemplate, removeServiceTemplate,
             addInvoice, updateInvoice, removeInvoice, recordStockMovement, addExpense, updateExpense, removeExpense, updateExpenseStatus,
             addEmployee, updateEmployee, removeEmployee,
