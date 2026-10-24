@@ -5,7 +5,7 @@ import {
   ShieldCheck, Search, MapPin,
   X, Plus, Trash2, Edit2, CreditCard,
 } from 'lucide-react';
-import { TabView } from '../types';
+import { TabView, SALARY_SCALE } from '../types';
 import { useData } from './DataContext';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
@@ -823,7 +823,6 @@ export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showA
     const unsub = onSnapshot(collection(db, "salaryScaleRules"), async (snap) => {
       if (snap.empty && isAdmin) {
         // Seed default SALARY_SCALE rules from types if Firestore collection is empty
-        const { SALARY_SCALE } = await import('../types');
         for (const item of SALARY_SCALE) {
           const docId = item.position.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
           await setDoc(doc(db, "salaryScaleRules", docId), item);
@@ -948,7 +947,6 @@ export const DesignationsTab: React.FC<DesignationsTabProps> = ({ isAdmin, showA
                   if (window.confirm("Are you sure you want to reset all positions to their default salary scale configurations? This will overwrite custom edits.")) {
                     setIsLoading(true);
                     try {
-                      const { SALARY_SCALE } = await import('../types');
                       for (const item of SALARY_SCALE) {
                         const docId = item.position.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
                         await setDoc(doc(db, "salaryScaleRules", docId), item);
