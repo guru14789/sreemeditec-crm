@@ -255,8 +255,8 @@ const AppContent: React.FC<{
       case TabView.HR: return <HRModule />;
       case TabView.PROFILE: return <ProfileModule userRole={userRole} setUserRole={() => { }} currentUser={currentUserName} />;
       case TabView.CLIENTS: return <ClientModule />;
-      case TabView.EMPLOYEE_DATABASE: return isSystemAdmin ? <EmployeeDatabaseModule /> : <Dashboard />;
-      case TabView.INWARD_OUTWARD_REGISTER: return isSystemAdmin ? <InwardOutwardRegisterModule /> : <Dashboard />;
+      case TabView.EMPLOYEE_DATABASE: return (isSystemAdmin || hasAccess(TabView.EMPLOYEE_DATABASE)) ? <EmployeeDatabaseModule /> : <Dashboard />;
+      case TabView.INWARD_OUTWARD_REGISTER: return (isSystemAdmin || hasAccess(TabView.INWARD_OUTWARD_REGISTER)) ? <InwardOutwardRegisterModule userRole={tabRole} /> : <Dashboard />;
       case TabView.VENDORS: return <VendorModule />;
       case TabView.DELIVERY: return <DeliveryChallanModule />;
       case TabView.PURCHASE_REGISTER: return <PurchaseRecordModule />;
@@ -695,9 +695,6 @@ export const App: React.FC = () => {
   const currentUserName = currentUser.name;
 
   const hasAccess = (tab: TabView) => {
-    if (tab === TabView.EMPLOYEE_DATABASE || tab === TabView.INWARD_OUTWARD_REGISTER) {
-      return isSuperAdmin || currentUser.role === 'SYSTEM_ADMIN' || currentUser.email === 'sreekumar.career@gmail.com';
-    }
     if (isSuperAdmin) return true;
     // SYSTEM_ADMIN always has full sidebar access
     if (currentUser.role === 'SYSTEM_ADMIN') return true;
@@ -712,7 +709,7 @@ export const App: React.FC = () => {
         { tab: TabView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
         { tab: TabView.LEADS, icon: Users, label: 'Lead CRM' },
         { tab: TabView.CLIENTS, icon: Contact, label: 'Client Database' },
-        ...(isSystemAdmin ? [{ tab: TabView.EMPLOYEE_DATABASE, icon: Contact, label: 'Employee Database' }] : []),
+        { tab: TabView.EMPLOYEE_DATABASE, icon: Contact, label: 'Employee Database' },
         { tab: TabView.VENDORS, icon: Truck, label: 'Vendor Database' },
         { tab: TabView.INVENTORY, icon: Package, label: 'Inventory' },
         { tab: TabView.BARCODE_CREATOR, icon: QrCode, label: 'Barcode Creator' },
@@ -731,7 +728,7 @@ export const App: React.FC = () => {
         { tab: TabView.INSTALLATION_REPORTS, icon: ShieldAlert, label: 'Install Report Maker' },
         { tab: TabView.DELIVERY, icon: Truck, label: 'Delivery Challan' },
         { tab: TabView.PURCHASE_REGISTER, icon: ShoppingCart, label: 'Purchase Entry' },
-        ...(isSystemAdmin ? [{ tab: TabView.INWARD_OUTWARD_REGISTER, icon: ArrowLeftRight, label: 'Inward / Outward' }] : []),
+        { tab: TabView.INWARD_OUTWARD_REGISTER, icon: ArrowLeftRight, label: 'Inward / Outward' },
       ]
     },
     {

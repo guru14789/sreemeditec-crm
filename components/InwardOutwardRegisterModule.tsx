@@ -7,7 +7,8 @@ import {
   InwardOutwardPurpose,
   InwardOutwardStatus,
   InwardOutwardPartyType,
-  InwardOutwardTransportMode
+  InwardOutwardTransportMode,
+  TabView
 } from '../types';
 import {
   ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Search, Plus, Filter,
@@ -66,7 +67,11 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export const InwardOutwardRegisterModule: React.FC = () => {
+interface InwardOutwardRegisterModuleProps {
+  userRole?: 'Admin' | 'Employee';
+}
+
+export const InwardOutwardRegisterModule: React.FC<InwardOutwardRegisterModuleProps> = ({ userRole }) => {
   const {
     inwardOutwardEntries,
     addInwardOutwardEntry,
@@ -83,7 +88,18 @@ export const InwardOutwardRegisterModule: React.FC = () => {
     addNotification
   } = useData();
 
-  const isAdmin = isSystemAdmin || currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.email === 'sreekumar.career@gmail.com';
+  const canAccess = isSystemAdmin ||
+    currentUser?.role === 'SYSTEM_ADMIN' ||
+    currentUser?.email === 'sreekumar.career@gmail.com' ||
+    userRole === 'Admin' ||
+    userRole === 'Employee' ||
+    !!(currentUser?.permissions?.[TabView.INWARD_OUTWARD_REGISTER]);
+
+  const isAdmin = isSystemAdmin ||
+    currentUser?.role === 'SYSTEM_ADMIN' ||
+    currentUser?.email === 'sreekumar.career@gmail.com' ||
+    userRole === 'Admin' ||
+    currentUser?.permissions?.[TabView.INWARD_OUTWARD_REGISTER] === 'Admin';
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -598,6 +614,10 @@ export const InwardOutwardRegisterModule: React.FC = () => {
 
   // Delete / Soft Cancel
   const handleDeleteEntry = async (entry: InwardOutwardEntry) => {
+    if (!isAdmin) {
+      addNotification('Action Denied', 'Only administrators can delete register entries.', 'alert');
+      return;
+    }
     const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete register entry ${entry.entryNumber}? This action cannot be undone.`);
     if (!confirmed) return;
 
@@ -721,8 +741,8 @@ export const InwardOutwardRegisterModule: React.FC = () => {
     email: 'support@sreemeditec.com'
   };
 
-  // Non-admin block
-  if (!isAdmin) {
+  // Non-authorized block
+  if (!canAccess) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 dark:bg-slate-950">
         <div className="w-16 h-16 rounded-3xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 border border-rose-200 dark:border-rose-800 flex items-center justify-center mb-4">
@@ -730,7 +750,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
         </div>
         <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Access Restricted</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md">
-          The Inward / Outward Register is strictly restricted to authorized Admin users. Please contact system management for access privileges.
+          The Inward / Outward Register is strictly restricted to authorized users. Please contact system management for access privileges.
         </p>
       </div>
     );
@@ -755,7 +775,7 @@ export const InwardOutwardRegisterModule: React.FC = () => {
               </h2>
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">Admin Live</span>
+                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">{isAdmin ? 'Admin Live' : 'Staff Access'}</span>
               </div>
             </div>
 
@@ -1135,13 +1155,15 @@ export const InwardOutwardRegisterModule: React.FC = () => {
                         >
                           <Edit3 size={15} />
                         </button>
-                        <button
-                          onClick={() => handleDeleteEntry(entry)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all"
-                          title="Delete Entry"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteEntry(entry)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all"
+                            title="Delete Entry"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
