@@ -14,7 +14,7 @@ import {
   ArrowLeftRight, ArrowDownLeft, ArrowUpRight, Search, Plus, Filter,
   Download, Printer, Eye, Edit3, Trash2, X, Check, AlertTriangle,
   Calendar, Clock, Truck, Package, User, Building2, Phone, MapPin,
-  FileText, Paperclip, ExternalLink, ShieldCheck, ChevronDown, Copy,
+  FileText, Paperclip, ExternalLink, ShieldCheck, ChevronDown, ChevronRight, Copy,
   Info, Sparkles, RefreshCw, Layers, CheckCircle2, AlertCircle, Upload
 } from 'lucide-react';
 import { useData } from './DataContext';
@@ -109,6 +109,7 @@ export const InwardOutwardRegisterModule: React.FC<InwardOutwardRegisterModulePr
   const [dateRangeFilter, setDateRangeFilter] = useState<'All' | 'Today' | 'ThisWeek' | 'ThisMonth' | 'Custom'>('All');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Modals & Drawers
   const [showFormModal, setShowFormModal] = useState(false);
@@ -757,236 +758,321 @@ export const InwardOutwardRegisterModule: React.FC<InwardOutwardRegisterModulePr
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 relative p-0 md:p-1 gap-4 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 relative p-0 md:p-1 gap-2.5 sm:gap-3.5 overflow-y-auto lg:overflow-hidden custom-scrollbar">
       
-      {/* Module Header Banner (ERP Emerald & Gold Theme) */}
-      <div className="bg-gradient-to-br from-emerald-950 to-green-900 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-4 md:p-5 pt-6 rounded-none rounded-b-[1.5rem] md:rounded-[2rem] shadow-[0_30px_60px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group m-0 md:m-3 lg:m-4">
+      {/* Module Header Banner (ERP Emerald & Gold Theme - Compact on Mobile, Rich on Desktop) */}
+      <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-3 sm:p-4 md:p-5 pt-3.5 sm:pt-4 md:pt-6 rounded-b-[1.25rem] md:rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(6,78,59,0.55),_inset_0_2px_3px_rgba(255,255,255,0.1)] shrink-0 relative overflow-hidden group m-0 md:m-3 lg:m-4 space-y-2.5 sm:space-y-3">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none"></div>
 
-        <div className="flex items-center gap-5 relative z-10 w-full lg:w-auto">
-          <div className="w-10 h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0">
-            <ArrowLeftRight size={22} className="hidden xl:block" />
-            <ArrowLeftRight size={18} className="xl:hidden" />
-          </div>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">
-                Inward / Outward Register
-              </h2>
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-                <span className="text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">{isAdmin ? 'Admin Live' : 'Staff Access'}</span>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 relative z-10 w-full">
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 xl:w-12 xl:h-12 flex items-center justify-center text-[#c5a059] drop-shadow-md transition-transform group-hover:scale-110 shrink-0 bg-emerald-900/40 border border-emerald-700/40 rounded-xl sm:rounded-2xl">
+              <ArrowLeftRight size={17} className="sm:hidden" />
+              <ArrowLeftRight size={22} className="hidden sm:block" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm sm:text-lg xl:text-xl font-playfair font-bold tracking-tight text-white uppercase leading-none whitespace-nowrap">
+                  Inward / Outward
+                </h2>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-400/20 border border-emerald-500/20 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
+                  <span className="text-[7px] sm:text-[7.5px] font-black text-emerald-300 uppercase tracking-widest">{isAdmin ? 'Admin' : 'Staff'}</span>
+                </div>
               </div>
+              <p className="text-[10px] text-emerald-200/70 font-semibold mt-0.5 hidden sm:block">
+                Movement Register & Gate Pass Logistics ({filteredEntries.length} items)
+              </p>
             </div>
+          </div>
 
-            {/* Quick Type Pill Filter Switcher */}
-            <div className="flex bg-emerald-900/40 border border-emerald-700/50 p-1 rounded-full w-fit">
-              {(['All', 'Inward', 'Outward'] as const).map(type => (
-                <button
-                  key={type}
-                  onClick={() => setTypeFilter(type)}
-                  className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                    typeFilter === type
-                      ? 'bg-white text-emerald-900 shadow-md'
-                      : 'text-emerald-100/70 hover:text-white'
-                  }`}
-                >
-                  {type === 'All' ? 'All Movements' : type}
-                </button>
-              ))}
-            </div>
+          {/* Quick Type Pill Filter Switcher */}
+          <div className="flex items-center bg-emerald-900/40 border border-emerald-700/50 p-0.5 sm:p-1 rounded-full w-full sm:w-fit justify-between sm:justify-start">
+            {(['All', 'Inward', 'Outward'] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => setTypeFilter(type)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${
+                  typeFilter === type
+                    ? 'bg-white text-emerald-900 shadow-md'
+                    : 'text-emerald-100/70 hover:text-white'
+                }`}
+              >
+                {type === 'All' ? 'All Movements' : type}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3 relative z-10 w-full lg:w-auto">
+        {/* Action Buttons Row */}
+        <div className="flex items-center gap-2 relative z-10 w-full">
           <button
             onClick={() => handleOpenCreate('Inward')}
-            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-950/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 sm:py-2.5 px-3 sm:px-4 rounded-[2rem] text-[10px] font-black uppercase tracking-wider shadow-md shadow-emerald-950/40 active:scale-95 transition-all flex items-center justify-center gap-1.5"
           >
-            <ArrowDownLeft size={14} />
-            <span>New Inward Entry</span>
+            <ArrowDownLeft size={13} />
+            <span>+ Inward</span>
           </button>
 
           <button
             onClick={() => handleOpenCreate('Outward')}
-            className="flex-1 sm:flex-none bg-[#c5a059] hover:bg-[#b38f48] text-white py-3 px-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg shadow-amber-950/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="flex-1 bg-[#c5a059] hover:bg-[#b38f48] text-white py-2 sm:py-2.5 px-3 sm:px-4 rounded-[2rem] text-[10px] font-black uppercase tracking-wider shadow-md shadow-amber-950/40 active:scale-95 transition-all flex items-center justify-center gap-1.5"
           >
-            <ArrowUpRight size={14} />
-            <span>New Outward Entry</span>
+            <ArrowUpRight size={13} />
+            <span>+ Outward</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-100 border border-emerald-700/50 py-3 px-4 rounded-[2rem] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95"
+            className="bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-100 border border-emerald-700/50 p-2 sm:py-2.5 sm:px-3 rounded-[2rem] text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 shrink-0"
             title="Export to CSV"
           >
             <Download size={14} />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span className="hidden sm:inline">CSV</span>
           </button>
         </div>
       </div>
 
-      {/* Top Summary Cards (Signature ERP Theme Colors) */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 mx-0 md:mx-3 lg:mx-4 shrink-0">
+      {/* Top Summary Cards (Signature ERP Theme Colors - Mobile Carousel / Desktop 5-Col Grid) */}
+      <div className="flex lg:grid lg:grid-cols-5 gap-2 sm:gap-2.5 lg:gap-3.5 overflow-x-auto lg:overflow-visible pb-1.5 lg:pb-0 px-2 sm:px-3 lg:px-4 shrink-0 snap-x snap-mandatory lg:snap-none custom-scrollbar">
         {/* Total Records - Deep Forest Emerald */}
-        <div className="bg-gradient-to-br from-emerald-950 to-green-900 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(6,78,59,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+        <div className="w-[140px] sm:w-[160px] lg:w-auto shrink-0 snap-start bg-gradient-to-br from-emerald-950 to-green-900 p-3.5 sm:p-4 lg:p-5 rounded-2xl lg:rounded-[28px] shadow-[0_12px_28px_-8px_rgba(6,78,59,0.4)] lg:shadow-[0_20px_40px_-10px_rgba(6,78,59,0.5)] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300 text-white relative overflow-hidden">
           <div className="flex items-center justify-between text-emerald-100/80">
-            <span className="text-[9px] font-black uppercase tracking-wider">Total Movements</span>
-            <div className="p-2 rounded-xl bg-emerald-900/50 text-emerald-100">
-              <Layers size={14} />
+            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider truncate">Total Movements</span>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-900/50 text-emerald-100 shrink-0">
+              <Layers size={13} />
             </div>
           </div>
-          <div className="my-2">
-            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.total}</div>
-            <p className="text-[10px] font-semibold text-emerald-200/70 uppercase tracking-tighter mt-0.5">All-time register logs</p>
+          <div className="my-1.5 sm:my-2">
+            <div className="text-xl sm:text-2xl font-playfair font-bold tracking-tight text-white">{metrics.total}</div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-200/70 uppercase tracking-tighter mt-0.5 truncate">All-time register logs</p>
           </div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-emerald-300/80">Active Ledger</div>
+          <div className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-emerald-300/80 truncate">Active Ledger</div>
         </div>
 
         {/* Inward Received - Bright Emerald */}
-        <div className="bg-gradient-to-br from-emerald-800 to-emerald-600 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(16,185,129,0.5)] transition-all duration-300 text-white relative overflow-hidden">
+        <div className="w-[140px] sm:w-[160px] lg:w-auto shrink-0 snap-start bg-gradient-to-br from-emerald-800 to-emerald-600 p-3.5 sm:p-4 lg:p-5 rounded-2xl lg:rounded-[28px] shadow-[0_12px_28px_-8px_rgba(16,185,129,0.35)] lg:shadow-[0_20px_40px_-10px_rgba(16,185,129,0.4)] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300 text-white relative overflow-hidden">
           <div className="flex items-center justify-between text-emerald-100/90">
-            <span className="text-[9px] font-black uppercase tracking-wider">Inward Received</span>
-            <div className="p-2 rounded-xl bg-emerald-900/40 text-emerald-100">
-              <ArrowDownLeft size={14} />
+            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider truncate">Inward Received</span>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-emerald-900/40 text-emerald-100 shrink-0">
+              <ArrowDownLeft size={13} />
             </div>
           </div>
-          <div className="my-2">
-            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.inwardTotal}</div>
-            <p className="text-[10px] font-bold text-emerald-100/90 uppercase tracking-tight mt-0.5">
-              Today: +{metrics.inwardToday} • Month: {metrics.inwardMonth}
+          <div className="my-1.5 sm:my-2">
+            <div className="text-xl sm:text-2xl font-playfair font-bold tracking-tight text-white">{metrics.inwardTotal}</div>
+            <p className="text-[9px] sm:text-[10px] font-bold text-emerald-100/90 uppercase tracking-tight mt-0.5 truncate">
+              Today: +{metrics.inwardToday} • Mo: {metrics.inwardMonth}
             </p>
           </div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-emerald-100/80">Received Items</div>
+          <div className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-emerald-100/80 truncate">Received Items</div>
         </div>
 
         {/* Outward Dispatched - Deep Slate */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(15,23,42,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+        <div className="w-[140px] sm:w-[160px] lg:w-auto shrink-0 snap-start bg-gradient-to-br from-slate-900 to-slate-800 p-3.5 sm:p-4 lg:p-5 rounded-2xl lg:rounded-[28px] shadow-[0_12px_28px_-8px_rgba(15,23,42,0.4)] lg:shadow-[0_20px_40px_-10px_rgba(15,23,42,0.5)] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300 text-white relative overflow-hidden">
           <div className="flex items-center justify-between text-slate-300">
-            <span className="text-[9px] font-black uppercase tracking-wider">Outward Dispatched</span>
-            <div className="p-2 rounded-xl bg-slate-800/60 text-slate-200">
-              <ArrowUpRight size={14} />
+            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider truncate">Outward Dispatched</span>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-slate-800/60 text-slate-200 shrink-0">
+              <ArrowUpRight size={13} />
             </div>
           </div>
-          <div className="my-2">
-            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.outwardTotal}</div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight mt-0.5">
-              Today: +{metrics.outwardToday} • Month: {metrics.outwardMonth}
+          <div className="my-1.5 sm:my-2">
+            <div className="text-xl sm:text-2xl font-playfair font-bold tracking-tight text-white">{metrics.outwardTotal}</div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-tight mt-0.5 truncate">
+              Today: +{metrics.outwardToday} • Mo: {metrics.outwardMonth}
             </p>
           </div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-slate-400">Dispatched Goods</div>
+          <div className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-slate-400 truncate">Dispatched Goods</div>
         </div>
 
         {/* In Transit / Active - Gold Amber */}
-        <div className="bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(197,160,89,0.6)] transition-all duration-300 text-amber-950 relative overflow-hidden">
+        <div className="w-[140px] sm:w-[160px] lg:w-auto shrink-0 snap-start bg-gradient-to-br from-[#c5a059] to-[#e5c185] p-3.5 sm:p-4 lg:p-5 rounded-2xl lg:rounded-[28px] shadow-[0_12px_28px_-8px_rgba(197,160,89,0.4)] lg:shadow-[0_20px_40px_-10px_rgba(197,160,89,0.5)] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300 text-amber-950 relative overflow-hidden">
           <div className="flex items-center justify-between text-amber-950/80">
-            <span className="text-[9px] font-black uppercase tracking-wider">In Transit / Active</span>
-            <div className="p-2 rounded-xl bg-amber-900/15 text-amber-950">
-              <Truck size={14} />
+            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider truncate">In Transit</span>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-amber-900/15 text-amber-950 shrink-0">
+              <Truck size={13} />
             </div>
           </div>
-          <div className="my-2">
-            <div className="text-2xl font-playfair font-bold tracking-tight text-amber-950">{metrics.inTransit}</div>
-            <p className="text-[10px] font-black text-amber-950/70 uppercase tracking-tight mt-0.5">Pending Arrival / Delivery</p>
+          <div className="my-1.5 sm:my-2">
+            <div className="text-xl sm:text-2xl font-playfair font-bold tracking-tight text-amber-950">{metrics.inTransit}</div>
+            <p className="text-[9px] sm:text-[10px] font-black text-amber-950/70 uppercase tracking-tight mt-0.5 truncate">Pending Delivery</p>
           </div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-amber-950/70">Live Logistics</div>
+          <div className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-amber-950/70 truncate">Live Logistics</div>
         </div>
 
         {/* Concluded / Delivered - Medical Teal */}
-        <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-teal-900 to-emerald-950 p-5 rounded-[28px] shadow-[0_20px_40px_-10px_rgba(13,148,136,0.5)] flex flex-col justify-between group hover:scale-[1.02] hover:shadow-[0_25px_45px_-5px_rgba(13,148,136,0.6)] transition-all duration-300 text-white relative overflow-hidden">
+        <div className="w-[140px] sm:w-[160px] lg:w-auto shrink-0 snap-start bg-gradient-to-br from-teal-900 to-emerald-950 p-3.5 sm:p-4 lg:p-5 rounded-2xl lg:rounded-[28px] shadow-[0_12px_28px_-8px_rgba(13,148,136,0.4)] lg:shadow-[0_20px_40px_-10px_rgba(13,148,136,0.5)] flex flex-col justify-between group hover:scale-[1.02] transition-all duration-300 text-white relative overflow-hidden">
           <div className="flex items-center justify-between text-teal-200/80">
-            <span className="text-[9px] font-black uppercase tracking-wider">Concluded / Done</span>
-            <div className="p-2 rounded-xl bg-teal-800/40 text-teal-200">
-              <CheckCircle2 size={14} />
+            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider truncate">Concluded</span>
+            <div className="p-1.5 sm:p-2 rounded-xl bg-teal-800/40 text-teal-200 shrink-0">
+              <CheckCircle2 size={13} />
             </div>
           </div>
-          <div className="my-2">
-            <div className="text-2xl font-playfair font-bold tracking-tight text-white">{metrics.deliveredOrReceived}</div>
-            <p className="text-[10px] font-semibold text-teal-200/70 uppercase tracking-tight mt-0.5">Received or Delivered</p>
+          <div className="my-1.5 sm:my-2">
+            <div className="text-xl sm:text-2xl font-playfair font-bold tracking-tight text-white">{metrics.deliveredOrReceived}</div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-teal-200/70 uppercase tracking-tight mt-0.5 truncate">Received / Done</p>
           </div>
-          <div className="text-[8px] font-black uppercase tracking-widest text-teal-300/80">Completed Movements</div>
+          <div className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-teal-300/80 truncate">Completed</div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-3 md:p-4 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-3 shrink-0 mx-0 md:mx-3 lg:mx-4">
-        <div className="flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 p-2.5 sm:p-3 md:p-4 rounded-2xl sm:rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col gap-2 sm:gap-3 shrink-0 mx-0 md:mx-3 lg:mx-4">
+        <div className="flex items-center gap-2">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Entry ID, Hospital/Party, Item, Serial No, Docket, Ref #..."
-              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] pl-10 pr-8 py-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl sm:rounded-[2rem] pl-9 sm:pl-10 pr-8 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-500/10 transition-all"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={14} />
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={13} />
               </button>
             )}
           </div>
 
-          {/* Status Dropdown */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
+          {/* Mobile Filter Toggle Button */}
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className={`lg:hidden p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+              showAdvancedFilters || statusFilter !== 'All' || purposeFilter !== 'All' || dateRangeFilter !== 'All'
+                ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500/40 text-teal-700 dark:text-teal-300'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+            }`}
+            title="Filter options"
           >
-            <option value="All">All Statuses</option>
-            {STATUS_OPTIONS.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+            <Filter size={14} />
+            <span className="text-[10px]">Filter</span>
+            {(statusFilter !== 'All' || purposeFilter !== 'All' || dateRangeFilter !== 'All') && (
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+            )}
+          </button>
 
-          {/* Purpose Dropdown */}
-          <select
-            value={purposeFilter}
-            onChange={e => setPurposeFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
-          >
-            <option value="All">All Purposes</option>
-            {PURPOSE_OPTIONS.map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+          {/* Desktop Filter Dropdowns */}
+          <div className="hidden lg:flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value as any)}
+              className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400"
+            >
+              <option value="All">All Statuses</option>
+              {STATUS_OPTIONS.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
 
-          {/* Date Range Dropdown */}
-          <select
-            value={dateRangeFilter}
-            onChange={e => setDateRangeFilter(e.target.value as any)}
-            className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-500/10 transition-all"
-          >
-            <option value="All">All Dates</option>
-            <option value="Today">Today</option>
-            <option value="ThisWeek">This Week</option>
-            <option value="ThisMonth">This Month</option>
-            <option value="Custom">Custom Date Range</option>
-          </select>
+            <select
+              value={purposeFilter}
+              onChange={e => setPurposeFilter(e.target.value as any)}
+              className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400"
+            >
+              <option value="All">All Purposes</option>
+              {PURPOSE_OPTIONS.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+
+            <select
+              value={dateRangeFilter}
+              onChange={e => setDateRangeFilter(e.target.value as any)}
+              className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-[2rem] px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400"
+            >
+              <option value="All">All Dates</option>
+              <option value="Today">Today</option>
+              <option value="ThisWeek">This Week</option>
+              <option value="ThisMonth">This Month</option>
+              <option value="Custom">Custom Date Range</option>
+            </select>
+          </div>
         </div>
+
+        {/* Quick Horizontal Status Chips on Mobile */}
+        <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar text-[10px]">
+          {(['All', 'In Transit', 'Received', 'Dispatched', 'Delivered'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(statusFilter === status ? 'All' : (status as any))}
+              className={`px-2.5 py-1 rounded-full font-bold whitespace-nowrap shrink-0 transition-all ${
+                statusFilter === status
+                  ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60'
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile Expandable Filters Panel */}
+        {showAdvancedFilters && (
+          <div className="lg:hidden grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-150">
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as any)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200"
+              >
+                <option value="All">All Statuses</option>
+                {STATUS_OPTIONS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Purpose</label>
+              <select
+                value={purposeFilter}
+                onChange={e => setPurposeFilter(e.target.value as any)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200"
+              >
+                <option value="All">All Purposes</option>
+                {PURPOSE_OPTIONS.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Date Period</label>
+              <select
+                value={dateRangeFilter}
+                onChange={e => setDateRangeFilter(e.target.value as any)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200"
+              >
+                <option value="All">All Dates</option>
+                <option value="Today">Today</option>
+                <option value="ThisWeek">This Week</option>
+                <option value="ThisMonth">This Month</option>
+                <option value="Custom">Custom Date Range</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Custom Date Range Picker */}
         {dateRangeFilter === 'Custom' && (
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
             <span className="text-[10px] font-bold text-slate-400 uppercase">From:</span>
             <input
               type="date"
               value={customStartDate}
               onChange={e => setCustomStartDate(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
+              className="bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
             />
             <span className="text-[10px] font-bold text-slate-400 uppercase">To:</span>
             <input
               type="date"
               value={customEndDate}
               onChange={e => setCustomEndDate(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
+              className="bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700 outline-none focus:border-teal-400"
             />
             <button
               onClick={() => { setCustomStartDate(''); setCustomEndDate(''); setDateRangeFilter('All'); }}
-              className="text-[10px] font-bold text-rose-500 hover:underline ml-2"
+              className="text-[10px] font-bold text-rose-500 hover:underline ml-auto"
             >
               Reset
             </button>
@@ -994,8 +1080,161 @@ export const InwardOutwardRegisterModule: React.FC<InwardOutwardRegisterModulePr
         )}
       </div>
 
-      {/* Main Table */}
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-0 mx-0 md:mx-3 lg:mx-4 mb-3">
+      {/* MOBILE ENTRIES CARD FEED (lg:hidden) */}
+      <div className="lg:hidden flex flex-col gap-2.5 mx-0 sm:mx-2 pb-24">
+        {filteredEntries.map(entry => {
+          const totalQty = (entry.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+          const firstItem = entry.items?.[0];
+          const cfg = STATUS_CONFIG[entry.status] || STATUS_CONFIG['Received'];
+
+          return (
+            <div
+              key={entry.id}
+              onClick={() => { setSelectedEntry(entry); setShowDetailDrawer(true); }}
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm active:scale-[0.99] transition-all cursor-pointer flex flex-col gap-2.5 relative overflow-hidden"
+            >
+              {/* Type Accent Strip */}
+              <div className={`absolute top-0 left-0 right-0 h-1 ${entry.type === 'Inward' ? 'bg-emerald-500' : 'bg-[#c5a059]'}`}></div>
+
+              {/* Top Row: Type Pill, Entry ID, and Status */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                    entry.type === 'Inward'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                      : 'bg-[#c5a059]/15 text-[#9a7833] dark:text-[#c5a059] border border-[#c5a059]/30'
+                  }`}>
+                    {entry.type === 'Inward' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
+                    {entry.type}
+                  </span>
+                  <span className="font-mono font-black text-xs text-slate-900 dark:text-slate-100">
+                    {entry.entryNumber}
+                  </span>
+                  {entry.referenceNo && (
+                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[90px]">
+                      Ref:{entry.referenceNo}
+                    </span>
+                  )}
+                </div>
+
+                {/* Status Pill */}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border shrink-0 ${cfg.bg} ${cfg.text}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}></span>
+                  {cfg.label}
+                </span>
+              </div>
+
+              {/* Middle Row: Party Name & Meta */}
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 leading-snug">
+                    {entry.partyName}
+                  </h4>
+                  <ChevronRight size={15} className="text-slate-400 shrink-0 mt-0.5" />
+                </div>
+
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap">
+                  <span className="font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[9px]">
+                    {entry.partyType}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">
+                    {entry.purpose}
+                  </span>
+                  <div className="flex items-center gap-1 ml-auto">
+                    <Calendar size={10} className="text-slate-400" />
+                    <span>{entry.entryDate}</span>
+                    <Clock size={10} className="text-slate-400 ml-1" />
+                    <span>{entry.entryTime}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Summary Box */}
+              {firstItem && (
+                <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-slate-700 dark:text-slate-200 truncate">
+                      {firstItem.name}
+                    </div>
+                    {entry.items.length > 1 && (
+                      <span className="text-[9px] text-teal-600 dark:text-teal-400 font-bold bg-teal-50 dark:bg-teal-950/40 px-1.5 py-0.5 rounded shrink-0">
+                        +{entry.items.length - 1} more
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Quantity: <strong className="text-slate-700 dark:text-slate-200">{totalQty} {firstItem.unit || ''}</strong></span>
+                    {firstItem.condition && (
+                      <span className="italic">({firstItem.condition})</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Logistics / Courier Row (if any) */}
+              {(entry.courierCompany || entry.docketNo || entry.transportMode) && (
+                <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Truck size={12} className="text-teal-600 shrink-0" />
+                    <span className="truncate">{entry.courierCompany || entry.transportMode || 'Courier'}</span>
+                    {entry.docketNo && (
+                      <span className="font-mono text-teal-600 dark:text-teal-400 font-semibold truncate">
+                        #{entry.docketNo}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-slate-400 shrink-0">
+                    By: {entry.handledBy?.split(' ')[0] || 'Admin'}
+                  </span>
+                </div>
+              )}
+
+              {/* Mobile Actions Bottom Bar */}
+              <div
+                className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => handleTriggerPrint(entry)}
+                  className="flex-1 py-1.5 px-2 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-200 border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Printer size={13} />
+                  <span>Print Slip</span>
+                </button>
+
+                <button
+                  onClick={() => handleOpenEdit(entry)}
+                  className="flex-1 py-1.5 px-2 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 text-teal-800 dark:text-teal-200 border border-teal-200/60 dark:border-teal-800/60 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <Edit3 size={13} />
+                  <span>Edit</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => handleDeleteEntry(entry)}
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl active:scale-95 transition-all shrink-0"
+                    title="Delete Entry"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredEntries.length === 0 && (
+          <div className="py-12 px-4 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
+            <Package size={32} className="mx-auto mb-2 opacity-40" />
+            <p className="font-bold text-xs text-slate-600 dark:text-slate-300">No Register Entries Found</p>
+            <p className="text-[10px] opacity-70 mt-0.5">Try adjusting search or tap "+ Inward" or "+ Outward" above.</p>
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP TABLE VIEW (hidden lg:flex) */}
+      <div className="hidden lg:flex flex-1 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden flex-col min-h-0 mx-0 md:mx-3 lg:mx-4 mb-3">
         <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 z-10 backdrop-blur-sm">
