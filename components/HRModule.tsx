@@ -239,6 +239,18 @@ export const HRModule: React.FC = () => {
         emp.department.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const activeEmployees = employees.filter(emp =>
+        emp.status !== 'Resigned' &&
+        emp.status !== 'Inactive' &&
+        emp.isLoginEnabled !== false
+    );
+
+    const activeGridEmployees = filteredEmployees.filter(emp =>
+        emp.status !== 'Resigned' &&
+        emp.status !== 'Inactive' &&
+        emp.isLoginEnabled !== false
+    );
+
     return (
         <div className="h-full flex flex-col gap-2 overflow-hidden p-0 md:p-1">
             {/* Header Toolbar */}
@@ -265,7 +277,7 @@ export const HRModule: React.FC = () => {
                         <div className="flex flex-col truncate">
                             <p className="text-[8px] font-black text-amber-950/70 uppercase tracking-widest leading-none mb-1 truncate">Active Staff</p>
                             <p className="text-lg font-playfair font-bold tracking-tight text-amber-950 leading-none tabular-nums">
-                                {employees.length}
+                                {activeEmployees.length}
                             </p>
                         </div>
                     </div>
@@ -358,6 +370,10 @@ export const HRModule: React.FC = () => {
                             <div className="w-3 h-3 rounded bg-white border border-slate-300"></div>
                             <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">None — Module locked</span>
                         </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-[2rem]">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Active Staff ({activeGridEmployees.length})</span>
+                        </div>
                         <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-[2rem] px-3 py-1.5 ml-auto">
                             <ShieldAlert size={12} className="text-amber-500" />
                             <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Admin access here ≠ System Admin. Change Enterprise Role for full admin.</span>
@@ -369,7 +385,14 @@ export const HRModule: React.FC = () => {
                                 <tr><th className="px-4 md:px-8 py-2.5 w-48 md:w-64">Identity</th><th className="px-4 md:px-8 py-2.5">Permission Array Configuration</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 block md:table-row-group">
-                                {filteredEmployees.map(emp => {
+                                {activeGridEmployees.length === 0 ? (
+                                    <tr className="block md:table-row">
+                                        <td colSpan={2} className="px-4 py-8 text-center text-slate-400 font-bold uppercase text-xs block md:table-cell">
+                                            No active staff found matching your search.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    activeGridEmployees.map(emp => {
                                     const isAdmin = emp.role === 'SYSTEM_ADMIN';
                                     return (
                                         <tr key={emp.id} className={`hover:bg-slate-50 transition-colors ${isAdmin ? 'bg-indigo-50/10' : ''} block md:table-row p-4 md:p-0`}>
@@ -432,7 +455,7 @@ export const HRModule: React.FC = () => {
                                             </td>
                                         </tr>
                                     );
-                                })}
+                                }))}
                             </tbody>
                         </table>
                     </div>
