@@ -33,6 +33,13 @@ const formatCompactIndianNumber = (num: number) => {
 const formatCurrency = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const getInvoiceParentGroup = (inv: any, clientsList: any[], clientToParentMap?: Map<string, string>) => {
+  if (inv.customerId) {
+    const clientById = (clientsList || []).find(c => c.id === inv.customerId);
+    if (clientById) {
+      return (clientById.parentClientName || clientById.hospital || clientById.name).trim();
+    }
+  }
+
   const custName = (inv.customerName || (inv as any).clientName || '').trim();
   const custHosp = ((inv as any).customerHospital || '').trim();
 
@@ -53,7 +60,8 @@ const getInvoiceParentGroup = (inv: any, clientsList: any[], clientToParentMap?:
   const clientObj = (clientsList || []).find(c => {
     const cName = (c.name || '').trim().toLowerCase();
     const cHosp = (c.hospital || '').trim().toLowerCase();
-    return (cName && (cName === lowCustName || cName === lowCustHosp)) ||
+    const hasPrev = (c.previousNames || []).some(pn => pn.trim().toLowerCase() === lowCustName);
+    return hasPrev || (cName && (cName === lowCustName || cName === lowCustHosp)) ||
            (cHosp && (cHosp === lowCustName || cHosp === lowCustHosp));
   });
 
@@ -743,10 +751,12 @@ export const ReportsModule: React.FC = () => {
       const parentGroupName = getInvoiceParentGroup(inv, clients, clientToParentMap);
       const name = inv.customerName || (inv as any).clientName || 'Unknown Customer';
       const clientObj = (clients || []).find(c => {
+        if (inv.customerId && c.id === inv.customerId) return true;
         const cName = c.name?.trim().toLowerCase() || '';
         const cHosp = c.hospital?.trim().toLowerCase() || '';
         const lowName = name.trim().toLowerCase();
-        return (cName && (cName === lowName || lowName.includes(cName))) ||
+        const hasPrev = (c.previousNames || []).some(pn => pn.trim().toLowerCase() === lowName);
+        return hasPrev || (cName && (cName === lowName || lowName.includes(cName))) ||
                (cHosp && (cHosp === lowName || lowName.includes(cHosp)));
       });
       const branchIdentifier = (clientObj?.branchName || name).trim();

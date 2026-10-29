@@ -132,6 +132,7 @@ export interface Client {
   status?: 'Draft' | 'Finalized';
   contactPerson?: string;
   advanceBalance?: number;
+  previousNames?: string[];
 }
 
 export interface Vendor {
@@ -961,6 +962,8 @@ export interface ServiceReport {
   visitType?: string;
   referenceOrderNumber?: string;
   referenceOrderId?: string;
+  referenceTaskId?: string;
+  referenceTaskNumber?: string;
 }
 
 export type ServiceTaskStatus = 'New' | 'Claimed' | 'In Progress' | 'Completed' | 'Non Billed' | 'On Hold' | 'Waiting for Customer' | 'Cancelled' | 'Reopened' | 'Billed';
@@ -1022,6 +1025,8 @@ export interface ServiceTask {
   overdueAt?: string;
   reopenedAt?: string;
   serialNo?: string;
+  serviceReportId?: string;
+  serviceReportNumber?: string;
 }
 
 export interface SupportMessage {
@@ -1099,6 +1104,7 @@ export interface DeliveryChallan {
   id: string;
   challanNumber: string;
   date: string;
+  customerId?: string;
   customerName: string;
   customerAddress: string;
   items: ChallanItem[];

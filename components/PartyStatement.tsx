@@ -17,7 +17,7 @@ export const PartyStatement: React.FC = () => {
 
   if (selectedParty) {
     if (partyType === 'Client') {
-      const pendingInvoices = invoices.filter(i => (i.customerName === selectedParty.name || i.customerId === selectedPartyId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+      const pendingInvoices = invoices.filter(i => (i.customerId === selectedPartyId || i.customerName === selectedParty.name || (selectedParty.previousNames && selectedParty.previousNames.includes(i.customerName))) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
       pendingBalance = pendingInvoices.reduce((acc, i) => acc + (i.grandTotal - (i.amountPaid || 0)), 0);
     } else {
       const pendingBills = purchaseRecords.filter(p => p.supplier === selectedParty.name && (p.status === 'Pending' || p.status === 'Partially Paid' || !p.status));

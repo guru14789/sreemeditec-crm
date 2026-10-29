@@ -1743,13 +1743,55 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const updateClient = async (id: string, c: Partial<Client>) => {
         const existing = clients.find(cl => cl.id === id);
-        if (existing) setClients(prev => prev.map(cl => cl.id === id ? { ...cl, ...c } as Client : cl).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-        updateDoc(doc(db, "clients", id), sanitizeData(c)).catch(err => console.error("updateClient DB error:", err));
-        addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...c }).catch(err => {});
         
+        // Track previous names so historical transactions retain their link
+        let updatedPreviousNames: string[] = [...(c.previousNames || existing?.previousNames || [])];
+        if (existing && c.name && c.name.trim().toLowerCase() !== existing.name?.trim().toLowerCase()) {
+            const oldName = existing.name.trim();
+            if (!updatedPreviousNames.some(p => p.trim().toLowerCase() === oldName.toLowerCase())) {
+                updatedPreviousNames.push(oldName);
+            }
+        }
+        const finalUpdates: Partial<Client> = {
+            ...c,
+            previousNames: updatedPreviousNames
+        };
+
+        if (existing) setClients(prev => prev.map(cl => cl.id === id ? { ...cl, ...finalUpdates } as Client : cl).sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        updateDoc(doc(db, "clients", id), sanitizeData(finalUpdates)).catch(err => console.error("updateClient DB error:", err));
+        addLog('System', 'Updated Client', `Client updated: ${existing?.name || id}`, existing, { ...existing, ...finalUpdates }).catch(err => {});
+        
+        // Link all existing invoices that were under this client's old name(s) by attaching customerId without touching their historical customerName
+        if (existing) {
+            try {
+                const namesToLink = new Set([
+                    existing.name.trim().toLowerCase(),
+                    ...updatedPreviousNames.map(p => p.trim().toLowerCase())
+                ]);
+                const invoicesToLink = (invoices || []).filter(inv => {
+                    const invCustName = (inv.customerName || (inv as any).clientName || '').trim().toLowerCase();
+                    return namesToLink.has(invCustName) && (!inv.customerId || inv.customerId !== id);
+                });
+
+                if (invoicesToLink.length > 0) {
+                    const batch = writeBatch(db);
+                    invoicesToLink.forEach(inv => {
+                        batch.update(doc(db, "invoices", inv.id), { customerId: id });
+                    });
+                    await batch.commit();
+                    setPushedInvoices(prev => prev.map(inv => {
+                        const invCustName = (inv.customerName || (inv as any).clientName || '').trim().toLowerCase();
+                        return namesToLink.has(invCustName) ? { ...inv, customerId: id } : inv;
+                    }));
+                }
+            } catch (err) {
+                console.warn("Backlinking invoices to client ID failed:", err);
+            }
+        }
+
         if (c.name && existing && c.name !== existing.name) {
             try {
-                const ldg = ledgers.find(l => l.name === existing.name && l.groupId === 'GRP-DEBTORS');
+                const ldg = ledgers.find(l => (l.name === existing.name || (existing.previousNames || []).includes(l.name)) && l.groupId === 'GRP-DEBTORS');
                 if (ldg) await updateLedger(ldg.id, { name: c.name });
             } catch (err) { console.warn('Ledger name update failed:', err); }
         }
@@ -4797,7 +4839,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const client = clients.find(c => c.id === clientId);
         if (!client) throw new Error("Client not found");
 
-        let clientInvoices = invoices.filter(i => (i.customerName === client.name || i.customerId === clientId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+        let clientInvoices = invoices.filter(i => (i.customerId === clientId || i.customerName === client.name || (client.previousNames && client.previousNames.includes(i.customerName))) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
         
         if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
             clientInvoices = clientInvoices.filter(i => selectedInvoiceIds.includes(i.id));
@@ -5061,7 +5103,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const client = clients.find(c => c.id === tx.partyId);
             if (!client) throw new Error("Client not found");
 
-            let clientInvoices = simulatedInvoices.filter(i => (i.customerName === client.name || i.customerId === client.id) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
+            let clientInvoices = simulatedInvoices.filter(i => (i.customerId === client.id || i.customerName === client.name || (client.previousNames && client.previousNames.includes(i.customerName))) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status));
             
             if (selectedInvoiceIds && selectedInvoiceIds.length > 0) {
                 clientInvoices = clientInvoices.filter(i => selectedInvoiceIds.includes(i.id));

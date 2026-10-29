@@ -79,8 +79,22 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const freight = Number(invoice.freightAmount) || 0;
     const freightTax = (freight * (Number(invoice.freightTaxRate) || 0)) / 100;
     
-    const itemsTaxable = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
-    const itemsTax = items.reduce((sum, p) => sum + (((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)) * ((Number(p.taxRate) || 0) / 100)), 0);
+    const grossSubtotal = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
+    const totalRowDiscount = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        return sum + ((qty * price) * (discPct / 100));
+    }, 0);
+
+    const itemsTaxable = grossSubtotal - totalRowDiscount;
+    const itemsTax = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        const taxableLine = (qty * price) * (1 - (discPct / 100));
+        return sum + (taxableLine * ((Number(p.taxRate) || 0) / 100));
+    }, 0);
     
     const taxableValue = itemsTaxable + freight;
     const taxTotal = itemsTax + freightTax;
@@ -99,7 +113,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
     
-    return { taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount };
+    return { grossSubtotal, totalRowDiscount, itemsTaxable, taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount };
 };
 
 import { AutoSuggest } from './AutoSuggest';
@@ -286,6 +300,7 @@ Email: sreemeditec@gmail.com`;
         if (pendingInvoiceData) {
             setInvoice(prev => ({
                 ...prev,
+                customerId: pendingInvoiceData.customerId || '',
                 customerName: pendingInvoiceData.customerName || '',
                 customerHospital: pendingInvoiceData.customerHospital || '',
                 customerGstin: pendingInvoiceData.customerGstin || '',
@@ -395,17 +410,28 @@ Email: sreemeditec@gmail.com`;
                 }
             }
 
-            // Fallback: check all loaded invoices locally for descriptions, specs, or serial numbers
-            const localMatches = invoices.filter(i => 
-                (i.invoiceNumber || '').toLowerCase().includes(queryText) ||
-                (i.customerName || '').toLowerCase().includes(queryText) ||
-                (i.customerHospital || '').toLowerCase().includes(queryText) ||
-                (i.items || []).some(item => 
+            // Fallback: check all loaded invoices locally for descriptions, specs, or client names (including previous names)
+            const localMatches = invoices.filter(i => {
+                if ((i.invoiceNumber || '').toLowerCase().includes(queryText)) return true;
+                if ((i.customerName || '').toLowerCase().includes(queryText)) return true;
+                if ((i.customerHospital || '').toLowerCase().includes(queryText)) return true;
+                const client = (clients || []).find(c => 
+                    (i.customerId && c.id === i.customerId) ||
+                    c.name.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase() ||
+                    c.previousNames?.some(pn => pn.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase())
+                );
+                if (client) {
+                    if ((client.name || '').toLowerCase().includes(queryText)) return true;
+                    if ((client.branchName || '').toLowerCase().includes(queryText)) return true;
+                    if ((client.hospital || '').toLowerCase().includes(queryText)) return true;
+                    if (client.previousNames?.some(pn => pn.toLowerCase().includes(queryText))) return true;
+                }
+                return (i.items || []).some(item => 
                     (item.description || '').toLowerCase().includes(queryText) ||
                     (item.features || '').toLowerCase().includes(queryText) ||
                     (item.hsn || '').toLowerCase().includes(queryText)
-                )
-            );
+                );
+            });
 
             // Merge unique matches
             const mergedResultsMap = new Map<string, Invoice>();
@@ -441,16 +467,21 @@ Email: sreemeditec@gmail.com`;
                     const qty = Number(item.quantity) || 0;
                     const price = Number(item.unitPrice) || 0;
                     const gst = Number(item.taxRate) || 0;
-                    const taxableVal = qty * price;
+                    const discPct = Number(item.discountPercent) || 0;
+                    const rawBase = qty * price;
+                    const discAmt = rawBase * (discPct / 100);
+                    const taxableVal = rawBase - discAmt;
                     const gstVal = taxableVal * (gst / 100);
                     return {
                         ...item,
                         quantity: qty,
                         unitPrice: price,
+                        discountPercent: discPct,
+                        discountAmount: item.discountAmount ?? discAmt,
                         taxRate: gst,
                         amount: item.amount ?? taxableVal,
                         gstValue: item.gstValue ?? gstVal,
-                        priceWithGst: item.priceWithGst ?? (price * (1 + gst / 100))
+                        priceWithGst: item.priceWithGst ?? (taxableVal + gstVal)
                     };
                 })
             };
@@ -468,20 +499,41 @@ Email: sreemeditec@gmail.com`;
             return;
         }
 
+        // Ensure permanent client ID is linked
+        let resolvedCustomerId = invoice.customerId;
+        if (!resolvedCustomerId && invoice.customerName) {
+            const matchedClient = (clients || []).find(c => 
+                c.name.trim().toLowerCase() === invoice.customerName?.trim().toLowerCase() ||
+                c.previousNames?.some(pn => pn.trim().toLowerCase() === invoice.customerName?.trim().toLowerCase())
+            );
+            if (matchedClient) resolvedCustomerId = matchedClient.id;
+        }
+
         const invTotals = calculateDetailedTotals(invoice);
         const finalData: Invoice = {
             ...invoice as Invoice,
             id: editingId || `INV-${Date.now()}`,
+            customerId: resolvedCustomerId,
             items: (invoice.items || []).map(item => {
                 const isConverted = !!invoice.refQuotationNo;
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.unitPrice) || 0;
+                const discPct = Number(item.discountPercent) || 0;
+                const rawBase = qty * price;
+                const discAmt = rawBase * (discPct / 100);
+                const taxableVal = rawBase - discAmt;
+                const taxRate = Number(item.taxRate) || 0;
+                const gstVal = taxableVal * (taxRate / 100);
                 return {
                     ...item,
-                    quantity: Number(item.quantity) || 0,
-                    unitPrice: Number(item.unitPrice) || 0,
-                    taxRate: Number(item.taxRate) || 0,
-                    amount: Number(item.amount) || 0,
-                    gstValue: Number(item.gstValue) || 0,
-                    priceWithGst: Number(item.priceWithGst) || 0,
+                    quantity: qty,
+                    unitPrice: price,
+                    discountPercent: discPct,
+                    discountAmount: Number(item.discountAmount) || discAmt,
+                    taxRate: taxRate,
+                    amount: item.amount !== undefined ? Number(item.amount) : taxableVal,
+                    gstValue: item.gstValue !== undefined ? Number(item.gstValue) : gstVal,
+                    priceWithGst: item.priceWithGst !== undefined ? Number(item.priceWithGst) : (taxableVal + gstVal),
                     productId: isConverted ? undefined : item.productId,
                     sku: isConverted ? undefined : item.sku,
                     barcode: isConverted ? undefined : item.barcode
@@ -568,17 +620,22 @@ Email: sreemeditec@gmail.com`;
     };
 
     const handleAddItem = (prod?: any, index?: number) => {
+        const taxRate = prod?.taxRate || 18;
+        const sellingPrice = prod?.sellingPrice || 0;
+        const gstVal = sellingPrice * (taxRate / 100);
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
             hsn: prod?.hsn || '',
             features: prod?.description || '',
             quantity: 1,
-            unitPrice: prod?.sellingPrice || 0,
-            taxRate: prod?.taxRate || 18,
-            amount: prod?.sellingPrice || 0,
-            gstValue: (prod?.sellingPrice || 0) * 0.18,
-            priceWithGst: (prod?.sellingPrice || 0) * 1.18,
+            unitPrice: sellingPrice,
+            discountPercent: 0,
+            discountAmount: 0,
+            taxRate: taxRate,
+            amount: sellingPrice,
+            gstValue: gstVal,
+            priceWithGst: sellingPrice + gstVal,
             productId: prod?.id,
             sku: prod?.sku || '',
             barcode: prod?.barcode || ''
@@ -829,11 +886,24 @@ Email: sreemeditec@gmail.com`;
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {(serverInvoices.length > 0 ? serverInvoices : invoices.filter(i => 
-                                    (i.invoiceNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                    (i.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                    (i.items || []).some(item => (item.description || '').toLowerCase().includes(searchQuery.toLowerCase()))
-                                ))
+                                {(serverInvoices.length > 0 ? serverInvoices : invoices.filter(i => {
+                                    const low = searchQuery.toLowerCase();
+                                    if ((i.invoiceNumber || '').toLowerCase().includes(low)) return true;
+                                    if ((i.customerName || '').toLowerCase().includes(low)) return true;
+                                    if ((i.customerHospital || '').toLowerCase().includes(low)) return true;
+                                    const client = (clients || []).find(c => 
+                                        (i.customerId && c.id === i.customerId) ||
+                                        c.name.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase() ||
+                                        c.previousNames?.some(pn => pn.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase())
+                                    );
+                                    if (client) {
+                                        if ((client.name || '').toLowerCase().includes(low)) return true;
+                                        if ((client.branchName || '').toLowerCase().includes(low)) return true;
+                                        if ((client.hospital || '').toLowerCase().includes(low)) return true;
+                                        if (client.previousNames?.some(pn => pn.toLowerCase().includes(low))) return true;
+                                    }
+                                    return (i.items || []).some(item => (item.description || '').toLowerCase().includes(low));
+                                }))
                                     .filter(i => (i.invoiceNumber || '').startsWith('SM/'))
                                     .filter(i => {
                                         if (showOverdueOnly) {
@@ -1170,6 +1240,7 @@ Email: sreemeditec@gmail.com`;
                                                             onSelect={client => {
                                                                 setInvoice(prev => ({
                                                                     ...prev,
+                                                                    customerId: client.id,
                                                                     customerName: client.name,
                                                                     customerAddress: client.address || prev.customerAddress,
                                                                     customerGstin: client.gstin ? client.gstin.toUpperCase() : prev.customerGstin,
@@ -1571,7 +1642,10 @@ Email: sreemeditec@gmail.com`;
                                             </thead>
                                             <tbody>
                                                 {(invoice.items || []).map((it, idx) => {
-                                                    const base = (it.quantity || 0) * (it.unitPrice || 0);
+                                                    const rawBase = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
+                                                    const discPct = Number(it.discountPercent) || 0;
+                                                    const discAmt = rawBase * (discPct / 100);
+                                                    const lineTaxable = rawBase - discAmt;
                                                     return (
                                                         <tr key={`${idx}-m`} className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] border-b border-slate-300">
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center">{idx + 1}</td>
@@ -1597,8 +1671,8 @@ Email: sreemeditec@gmail.com`;
                                                             <td className="border-r border-black p-1.5 text-center font-bold flex items-center justify-center text-[10px]">{(it.quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {it.unit || 'nos'}</td>
                                                             <td className="border-r border-black p-1.5 text-right flex items-center justify-end text-[10px]">{(it.unitPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                             <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px]">{it.unit || 'nos'}</td>
-                                                            <td className="border-r border-black p-1.5 flex items-center justify-center"></td>
-                                                            <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            <td className="border-r border-black p-1.5 flex items-center justify-center text-[9px] font-bold">{discPct > 0 ? `${discPct}%` : ''}</td>
+                                                            <td className="p-1.5 text-right font-black flex items-center justify-end pr-2 text-[10px]">₹ {lineTaxable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                         </tr>
                                                     );
                                                 })}

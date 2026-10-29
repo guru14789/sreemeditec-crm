@@ -466,7 +466,11 @@ export const LeadsModule: React.FC<{ onNavigate?: (tab: TabView) => void }> = ({
 
                 // Auto-convert to Client when status is Won
                 if (updates.status === LeadStatus.WON || updates.status === 'Won') {
-                    const alreadyExists = clients.find(c => c.name.toUpperCase() === (updates.name || '').toUpperCase());
+                    const leadTargetName = (updates.name || lead.name || '').trim().toUpperCase();
+                    const alreadyExists = clients.find(c => 
+                        c.name.trim().toUpperCase() === leadTargetName ||
+                        (c.previousNames || []).some(pn => pn.trim().toUpperCase() === leadTargetName)
+                    );
                     if (!alreadyExists) {
                         const newClient = {
                             id: `CLT-${Date.now()}`,

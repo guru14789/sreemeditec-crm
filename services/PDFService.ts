@@ -54,14 +54,15 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     const discount = Number(data.discount) || 0;
 
     // Split GST into CGST/SGST halves (intra-state) for the tax breakdown table
-    const cgst = itemGstTotal / 2;
-    const sgst = itemGstTotal / 2;
+    const totalTax = itemGstTotal + freightGst;
+    const cgst = totalTax / 2;
+    const sgst = totalTax / 2;
 
     // Sum of quantities across all line items
     const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
 
     // Taxable value = subtotal before GST, after discount
-    const taxableValue = subtotal - discount;
+    const taxableValue = subtotal + freight - discount;
 
     const grandTotalRaw = subtotal + itemGstTotal + freight + freightGst - discount;
     let roundOff = 0;
@@ -200,6 +201,12 @@ export const PDFService = {
             ['', { content: 'Output CGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
             ['', { content: 'Output SGST', styles: { fontStyle: 'italic', textColor: [100, 100, 100] } as any }, '', '', '', '', '', '', (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })]
         );
+
+        if (docTotals.discount > 0) {
+            itemsBody.push(
+                ['', { content: 'Discount', styles: { fontStyle: 'italic', textColor: [220, 38, 38] } as any }, '', '', '', '', '', '', `-${(Number(docTotals.discount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]
+            );
+        }
 
         if (data.isRoundOff && docTotals.roundOff !== 0) {
             itemsBody.push(
@@ -372,8 +379,13 @@ export const PDFService = {
             startY: currentY,
             head: [['Product', 'Model', 'Features', 'Qty', 'Rate', 'GST%', 'GST Amt', 'Amount']],
             body: (data.items || []).map(it => {
-                const gstAmt = (Number(it.unitPrice) * Number(it.quantity)) * (Number(it.taxRate) / 100);
-                const lineTotal = (Number(it.unitPrice) * Number(it.quantity)) + gstAmt;
+                const qty = Number(it.quantity) || 0;
+                const price = Number(it.unitPrice) || 0;
+                const discPct = Number(it.discountPercent) || 0;
+                const rawBase = qty * price;
+                const lineTaxable = rawBase * (1 - (discPct / 100));
+                const gstAmt = lineTaxable * ((Number(it.taxRate) || 0) / 100);
+                const lineTotal = lineTaxable + gstAmt;
                 return [
                     { content: `${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}`, styles: { halign: 'left', textColor: [0, 0, 0] } },
                     { content: it.model || '-', styles: { halign: 'left', textColor: [0, 0, 0] } },
@@ -901,7 +913,11 @@ export const PDFService = {
             body: [
                 [
                     { content: `Customer: ${(data.customerName || '').toUpperCase()}` },
-                    { content: `${isPipeline ? 'Pipeline System' : 'Machine'}: ${(data.equipmentName || '').toUpperCase()}` }
+                    { 
+                        content: `${isPipeline ? 'Pipeline System' : 'Machine'}: ${(data.equipmentName || '').toUpperCase()}${
+                            (data.serialNumber || (data as any).serialNo) ? `\nS/N: ${data.serialNumber || (data as any).serialNo}` : ''
+                        }${data.model ? ` | Model: ${data.model}` : ''}` 
+                    }
                 ]
             ]
         });
@@ -910,9 +926,10 @@ export const PDFService = {
         const status = data.machineStatus || 'Warranty';
         const checkboxSize = 3;
         const statusTitle = isPipeline ? 'System Status:' : 'Machine Status:';
+        const serialNoDisplay = (data.serialNumber || (data as any).serialNo) ? `Serial No (S/N): ${data.serialNumber || (data as any).serialNo}\n` : '';
         const detailInfoText = isPipeline 
             ? `Location / Ward: ${data.pipelineLocation || '---'}\nGas / Pressure Status: ${data.gasType ? data.gasType + ' | ' : ''}${data.pressureTestStatus || '---'}`
-            : `Software version: ${data.softwareVersion || '---'}`;
+            : `${serialNoDisplay}Software version: ${data.softwareVersion || '---'}`;
         
         autoTable(doc, {
             startY: (doc as any).lastAutoTable.finalY,

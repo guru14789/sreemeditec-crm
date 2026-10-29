@@ -74,8 +74,8 @@ const PIPELINE_TEST_STATUSES = [
 ];
 
 export const ServiceReportModule: React.FC = () => {
-    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin, pendingServiceReportData, setPendingServiceReportData, showConfirm, previewPDF } = useData();
-    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SERVICE_REPORT] === 'Admin';
+    const { clients, products, addNotification, serviceReports, addServiceReport, updateServiceReport, removeServiceReport, financialYear, currentUser, companyProfiles, isSystemAdmin, pendingServiceReportData, setPendingServiceReportData, showConfirm, previewPDF, updateServiceTask, setActiveTab } = useData();
+    const isAdmin = isSystemAdmin || currentUser?.permissions?.[TabView.SERVICE_REPORTS] === 'Admin';
 
     const handleDelete = async (id: string, num: string) => {
         const confirmed = await showConfirm(`Are you sure you want to PERMANENTLY delete Service Report ${num}? This action cannot be undone.`);
@@ -104,6 +104,7 @@ export const ServiceReportModule: React.FC = () => {
         customerName: '',
         customerAddress: '',
         equipmentName: '',
+        serialNumber: '',
         pipelineLocation: '',
         gasType: '',
         pressureTestStatus: '',
@@ -141,8 +142,22 @@ export const ServiceReportModule: React.FC = () => {
                 department: pendingServiceReportData.department || '',
                 engineerName: pendingServiceReportData.engineerName || prev.engineerName,
                 problemReported: pendingServiceReportData.problemReported || '',
+                actionTaken: pendingServiceReportData.actionTaken || prev.actionTaken || '',
+                engineerObservations: pendingServiceReportData.engineerObservations || prev.engineerObservations || '',
+                machineStatus: (pendingServiceReportData.machineStatus as any) || prev.machineStatus,
+                serviceCategory: (pendingServiceReportData.serviceCategory as any) || prev.serviceCategory,
                 visitType: pendingServiceReportData.visitType || 'Breakdown',
-                poWoNumber: pendingServiceReportData.referenceOrderNumber || '',
+                poWoNumber: pendingServiceReportData.poWoNumber || pendingServiceReportData.referenceTaskNumber || pendingServiceReportData.referenceOrderNumber || '',
+                referenceOrderId: pendingServiceReportData.referenceOrderId,
+                referenceOrderNumber: pendingServiceReportData.referenceOrderNumber,
+                referenceTaskId: pendingServiceReportData.referenceTaskId || pendingServiceReportData.referenceOrderId,
+                referenceTaskNumber: pendingServiceReportData.referenceTaskNumber || pendingServiceReportData.referenceOrderNumber,
+                itemsUsed: pendingServiceReportData.itemsUsed || prev.itemsUsed || [],
+                visitCharges: pendingServiceReportData.visitCharges !== undefined ? pendingServiceReportData.visitCharges : prev.visitCharges,
+                sparesCharges: pendingServiceReportData.sparesCharges !== undefined ? pendingServiceReportData.sparesCharges : prev.sparesCharges,
+                amountReceived: pendingServiceReportData.amountReceived !== undefined ? pendingServiceReportData.amountReceived : prev.amountReceived,
+                memoNumber: pendingServiceReportData.memoNumber || prev.memoNumber,
+                queriesRemarks: pendingServiceReportData.queriesRemarks || prev.queriesRemarks || '',
             }));
             setEditingId(null);
             setViewState('builder');
@@ -257,6 +272,16 @@ export const ServiceReportModule: React.FC = () => {
             } else {
                 await addServiceReport(finalData);
             }
+            if (finalData.referenceTaskId) {
+                try {
+                    await updateServiceTask(finalData.referenceTaskId, {
+                        serviceReportId: finalData.id,
+                        serviceReportNumber: finalData.reportNumber
+                    });
+                } catch (taskErr) {
+                    console.warn("Could not link service task to report:", taskErr);
+                }
+            }
             setViewState('history');
             setEditingId(null);
             addNotification('Registry Updated', `Service Report ${finalData.reportNumber} archived.`, 'success');
@@ -288,7 +313,7 @@ export const ServiceReportModule: React.FC = () => {
 
             <div className="grid grid-cols-2 border-x border-b border-black text-[11px] font-bold">
                 <div className="border-r border-black p-2 flex gap-2"><span>Customer:</span><span className="font-black uppercase">{data.customerName}</span></div>
-                <div className="p-2 flex gap-2"><span>{data.serviceCategory === 'Pipeline' ? 'Pipeline System:' : 'Machine:'}</span><span className="font-black uppercase">{data.equipmentName}</span></div>
+                <div className="p-2 flex gap-2"><span>{data.serviceCategory === 'Pipeline' ? 'Pipeline System:' : 'Machine:'}</span><span className="font-black uppercase">{data.equipmentName}{data.serialNumber ? ` (S/N: ${data.serialNumber})` : ''}</span></div>
             </div>
 
             <div className="grid grid-cols-2 border-x border-b border-black text-[11px]">
@@ -314,9 +339,15 @@ export const ServiceReportModule: React.FC = () => {
                             <p className="font-bold"><span className="uppercase">Gas / Test Status:</span> <span className="font-black">{data.gasType ? data.gasType + ' | ' : ''}{data.pressureTestStatus || '---'}</span></p>
                         </div>
                     ) : (
-                        <div className="p-2 flex items-center gap-2">
-                            <p className="font-bold text-[10px] uppercase">Software version:</p>
-                            <span className="font-black">{data.softwareVersion || '---'}</span>
+                        <div className="p-2 flex items-center gap-4 flex-wrap text-[10px]">
+                            <div className="flex items-center gap-1.5">
+                                <p className="font-bold uppercase">Serial No (S/N):</p>
+                                <span className="font-black font-mono">{data.serialNumber || '---'}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <p className="font-bold uppercase">Software version:</p>
+                                <span className="font-black">{data.softwareVersion || '---'}</span>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -450,7 +481,7 @@ export const ServiceReportModule: React.FC = () => {
                         <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <History size={16} /> Registry
                         </button>
-                        <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed', machineStatus: 'Warranty', pastBalance: 0, visitCharges: 0, sparesCharges: 0, amountReceived: 0, itemsUsed: [], isRoundOff: false }); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                        <button onClick={() => { setViewState('builder'); setEditingId(null); setReport({ date: new Date().toISOString().split('T')[0], engineerName: currentUser?.name || 'S. Suresh Kumar', status: 'Completed', machineStatus: 'Warranty', pastBalance: 0, visitCharges: 0, sparesCharges: 0, amountReceived: 0, itemsUsed: [], isRoundOff: false, serialNumber: '' }); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <PenTool size={16} /> New Visit
                         </button>
                     </div>
@@ -484,6 +515,7 @@ export const ServiceReportModule: React.FC = () => {
                                             (r.reportNumber || '').toLowerCase().includes(query) ||
                                             (r.customerName || '').toLowerCase().includes(query) ||
                                             (r.equipmentName || '').toLowerCase().includes(query) ||
+                                            (r.serialNumber || '').toLowerCase().includes(query) ||
                                             (r.engineerName || '').toLowerCase().includes(query) ||
                                             (r.itemsUsed || []).some((item: any) => (item.description || '').toLowerCase().includes(query))
                                         );
@@ -498,7 +530,21 @@ export const ServiceReportModule: React.FC = () => {
                                     <tr key={r.id} onClick={() => { setReport(r); setEditingId(r.id!); setViewState('builder'); setBuilderTab('form'); }} className="hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <td className="px-4 py-3">
                                             <div className="font-black text-slate-800 leading-tight">{r.date || '—'}</div>
-                                            <div className="text-slate-400 font-bold text-[10px] mt-0.5 font-inter tracking-wide">#{r.reportNumber}</div>
+                                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                <span className="text-slate-400 font-bold text-[10px] font-inter tracking-wide">#{r.reportNumber}</span>
+                                                {r.referenceTaskNumber && (
+                                                    <span 
+                                                        title="Linked Service Task (Click to switch)" 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveTab(TabView.SERVICE_TASK);
+                                                        }}
+                                                        className="inline-flex items-center gap-1 text-[8px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded-full cursor-pointer transition-all"
+                                                    >
+                                                        <Wrench size={9} /> {r.referenceTaskNumber}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-2 font-bold text-slate-700 uppercase">{r.customerName}</td>
                                         <td className="px-4 py-2 hidden md:table-cell">
@@ -506,7 +552,14 @@ export const ServiceReportModule: React.FC = () => {
                                                 {r.engineerName?.charAt(0) || 'E'}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-slate-500 font-bold uppercase text-[10px] tracking-tight truncate max-w-[150px] hidden md:table-cell">{r.equipmentName}</td>
+                                        <td className="px-4 py-2 text-slate-500 font-bold uppercase text-[10px] tracking-tight max-w-[170px] hidden md:table-cell">
+                                            <div className="truncate">{r.equipmentName}</div>
+                                            {r.serialNumber && (
+                                                <div className="font-mono text-[9px] text-teal-700 dark:text-teal-400 font-semibold tracking-normal normal-case">
+                                                    S/N: {r.serialNumber}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-2 text-center hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                                             <FiledStatusIndicator 
                                                 id={r.id!}
@@ -666,17 +719,28 @@ export const ServiceReportModule: React.FC = () => {
                                                         </FormRow>
                                                     </>
                                                 ) : (
-                                                    <FormRow label="Machine Model *">
-                                                        <AutoSuggest
-                                                            value={report.equipmentName || ''}
-                                                            onChange={(val) => setReport({ ...report, equipmentName: val })}
-                                                            onSelect={(prod) => setReport({ ...report, equipmentName: prod.name })}
-                                                            suggestions={products}
-                                                            filterKey="name"
-                                                            placeholder="Select equipment..."
-                                                            className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
-                                                        />
-                                                    </FormRow>
+                                                    <>
+                                                        <FormRow label="Machine Model *">
+                                                            <AutoSuggest
+                                                                value={report.equipmentName || ''}
+                                                                onChange={(val) => setReport({ ...report, equipmentName: val })}
+                                                                onSelect={(prod) => setReport({ ...report, equipmentName: prod.name })}
+                                                                suggestions={products}
+                                                                filterKey="name"
+                                                                placeholder="Select equipment..."
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none"
+                                                            />
+                                                        </FormRow>
+                                                        <FormRow label="Serial Number (S/N)">
+                                                            <input
+                                                                type="text"
+                                                                className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-mono font-bold outline-none uppercase"
+                                                                value={report.serialNumber || ''}
+                                                                onChange={e => setReport({ ...report, serialNumber: e.target.value })}
+                                                                placeholder="e.g. SN-8921-X4"
+                                                            />
+                                                        </FormRow>
+                                                    </>
                                                 )}
 
                                                 <FormRow label={report.serviceCategory === 'Pipeline' ? 'System Status' : 'Machine Status'}>

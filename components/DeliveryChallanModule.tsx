@@ -495,6 +495,7 @@ export const DeliveryChallanModule: React.FC = () => {
                                                         onSelect={(client) => {
                                                             setChallan(prev => ({
                                                                 ...prev,
+                                                                customerId: client.id,
                                                                 customerName: client.hospital || client.name,
                                                                 customerAddress: client.address || ''
                                                             }));

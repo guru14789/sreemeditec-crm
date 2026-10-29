@@ -18,7 +18,6 @@ const MODULE_OPTIONS = [
     { value: TabView.QUOTES, label: 'Quotation Maker' },
     { value: TabView.PO_BUILDER, label: 'Customer PO Maker' },
     { value: TabView.SUPPLIER_PO, label: 'Supplier PO Maker' },
-    { value: TabView.SERVICE_ORDERS, label: 'Service Order Maker' },
     { value: TabView.SERVICE_REPORTS, label: 'Service Report Maker' },
     { value: TabView.INSTALLATION_REPORTS, label: 'Install Report Maker' },
     { value: TabView.DELIVERY, label: 'Delivery Challan' },

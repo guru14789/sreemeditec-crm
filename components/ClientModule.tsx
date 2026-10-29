@@ -55,7 +55,8 @@ export const ClientModule: React.FC = () => {
         panNo: '',
         dlNo: '',
         udyamNo: '',
-        status: 'Finalized'
+        status: 'Finalized',
+        previousNames: []
     };
 
     const [client, setClient] = useState<Partial<Client>>(DEFAULT_CLIENT);
@@ -67,19 +68,35 @@ export const ClientModule: React.FC = () => {
     };
 
     // 1. Fast O(1) Map for lookup of Parent Hospital Group by client/hospital name
+    // 1. Fast O(1) Map for lookup of Parent Hospital Group by client/hospital name & client ID
     const clientToParentMap = useMemo(() => {
         const map = new Map<string, string>();
         (clients || []).forEach(c => {
             const parentName = (c.parentClientName || c.hospital || c.name || '').trim();
             if (!parentName) return;
+            if (c.id) map.set(c.id.toLowerCase().trim(), parentName);
             if (c.name) map.set(c.name.toLowerCase().trim(), parentName);
             if (c.hospital) map.set(c.hospital.toLowerCase().trim(), parentName);
             if (c.parentClientName) map.set(c.parentClientName.toLowerCase().trim(), parentName);
+            (c.previousNames || []).forEach(pn => {
+                if (pn) map.set(pn.toLowerCase().trim(), parentName);
+            });
         });
         return map;
     }, [clients]);
 
     const getInvoiceParentGroup = (inv: any) => {
+        if (inv.customerId) {
+            const clientById = (clients || []).find(c => c.id === inv.customerId);
+            if (clientById) {
+                return (clientById.parentClientName || clientById.hospital || clientById.name).trim();
+            }
+            const lowCustId = inv.customerId.toLowerCase().trim();
+            if (clientToParentMap.has(lowCustId)) {
+                return clientToParentMap.get(lowCustId)!;
+            }
+        }
+
         const custName = (inv.customerName || (inv as any).clientName || '').trim();
         const custHosp = ((inv as any).customerHospital || '').trim();
 
@@ -99,7 +116,9 @@ export const ClientModule: React.FC = () => {
             const cParent = (c.parentClientName || '').trim().toLowerCase();
             const cName = (c.name || '').trim().toLowerCase();
             const cHosp = (c.hospital || '').trim().toLowerCase();
-            return (cParent && (cParent === lowCustName || cParent === lowCustHosp || lowCustName.includes(cParent))) ||
+            const hasPrev = (c.previousNames || []).some(pn => pn.trim().toLowerCase() === lowCustName);
+            return hasPrev ||
+                   (cParent && (cParent === lowCustName || cParent === lowCustHosp || lowCustName.includes(cParent))) ||
                    (cName && lowCustName.includes(cName)) ||
                    (cHosp && lowCustName.includes(cHosp));
         });
@@ -111,11 +130,25 @@ export const ClientModule: React.FC = () => {
         return (custHosp || custName).trim();
     };
 
-    // 2. Pre-aggregate client revenue, branch invoices, and group invoices in a SINGLE linear pass (SM/ bills only)
-    const { clientRevenueMap, branchInvoicesMap, groupInvoicesMap } = useMemo(() => {
-        const revMap = new Map<string, number>();
-        const branchInvMap = new Map<string, any[]>();
+    // 2. Pre-aggregate client revenue, branch invoices, and group invoices linked by PERMANENT CLIENT ID
+    const { clientRevenueById, branchInvoicesById, groupInvoicesMap } = useMemo(() => {
+        const revById = new Map<string, number>();
+        const branchInvById = new Map<string, any[]>();
         const groupInvMap = new Map<string, any[]>();
+
+        // Fast lookup maps for resolving client entity
+        const clientByIdMap = new Map<string, Client>();
+        const clientByNameMap = new Map<string, Client>();
+
+        (clients || []).forEach(c => {
+            if (!c.id) return;
+            clientByIdMap.set(c.id, c);
+            if (c.name) clientByNameMap.set(c.name.trim().toLowerCase(), c);
+            if (c.hospital) clientByNameMap.set(c.hospital.trim().toLowerCase(), c);
+            (c.previousNames || []).forEach(pn => {
+                if (pn) clientByNameMap.set(pn.trim().toLowerCase(), c);
+            });
+        });
 
         (invoices || []).forEach(inv => {
             const invNum = inv.invoiceNumber || inv.id || '';
@@ -123,18 +156,43 @@ export const ClientModule: React.FC = () => {
             if (inv.documentType === 'Quotation') return;
             const grandTotal = inv.grandTotal || 0;
 
-            const custName = (inv.customerName || (inv as any).clientName || '').trim();
-            const lowCustName = custName.toLowerCase();
-            if (lowCustName) {
-                revMap.set(lowCustName, (revMap.get(lowCustName) || 0) + grandTotal);
-
-                if (!branchInvMap.has(lowCustName)) {
-                    branchInvMap.set(lowCustName, []);
+            // Resolve client: 1st by permanent customerId, 2nd by exact/previous name, 3rd by partial match
+            let matchedClient: Client | undefined = undefined;
+            if (inv.customerId && clientByIdMap.has(inv.customerId)) {
+                matchedClient = clientByIdMap.get(inv.customerId);
+            } else {
+                const custName = (inv.customerName || (inv as any).clientName || '').trim().toLowerCase();
+                const custHosp = ((inv as any).customerHospital || '').trim().toLowerCase();
+                if (custName && clientByNameMap.has(custName)) {
+                    matchedClient = clientByNameMap.get(custName);
+                } else if (custHosp && clientByNameMap.has(custHosp)) {
+                    matchedClient = clientByNameMap.get(custHosp);
+                } else if (custName) {
+                    matchedClient = (clients || []).find(c => {
+                        const cName = (c.name || '').trim().toLowerCase();
+                        const cHosp = (c.hospital || '').trim().toLowerCase();
+                        const hasPrev = (c.previousNames || []).some(pn => pn.trim().toLowerCase() === custName);
+                        return hasPrev || (cName && (cName === custName || custName.includes(cName))) ||
+                               (cHosp && (cHosp === custName || custName.includes(cHosp)));
+                    });
                 }
-                branchInvMap.get(lowCustName)!.push(inv);
             }
 
-            const parentGroup = getInvoiceParentGroup(inv);
+            // Target key: use permanent client id when resolved, otherwise fallback to customerId or customerName
+            const targetKey = matchedClient?.id || inv.customerId || (inv.customerName || '').trim().toLowerCase();
+
+            if (targetKey) {
+                revById.set(targetKey, (revById.get(targetKey) || 0) + grandTotal);
+
+                if (!branchInvById.has(targetKey)) {
+                    branchInvById.set(targetKey, []);
+                }
+                branchInvById.get(targetKey)!.push(inv);
+            }
+
+            const parentGroup = matchedClient 
+                ? (matchedClient.parentClientName || matchedClient.hospital || matchedClient.name).trim()
+                : getInvoiceParentGroup(inv);
             const parentKey = parentGroup.toLowerCase().trim();
 
             if (!groupInvMap.has(parentKey)) {
@@ -144,21 +202,67 @@ export const ClientModule: React.FC = () => {
         });
 
         groupInvMap.forEach(list => list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
-        branchInvMap.forEach(list => list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
+        branchInvById.forEach(list => list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
 
         return {
-            clientRevenueMap: revMap,
-            branchInvoicesMap: branchInvMap,
+            clientRevenueById: revById,
+            branchInvoicesById: branchInvById,
             groupInvoicesMap: groupInvMap
         };
     }, [invoices, clientToParentMap, clients]);
 
-    const getClientTotalRevenue = (clientName: string) => {
-        return clientRevenueMap.get((clientName || '').toLowerCase().trim()) || 0;
+    // LTV linked by permanent Client ID with fallback to current/previous names
+    const getClientTotalRevenue = (target: Client | string) => {
+        if (!target) return 0;
+        if (typeof target === 'object') {
+            if (target.id && clientRevenueById.has(target.id)) {
+                return clientRevenueById.get(target.id) || 0;
+            }
+            const fallbackKey = (target.name || '').trim().toLowerCase();
+            return clientRevenueById.get(fallbackKey) || 0;
+        }
+
+        if (clientRevenueById.has(target)) {
+            return clientRevenueById.get(target) || 0;
+        }
+
+        const foundClient = clients.find(c => 
+            c.id === target || 
+            c.name.trim().toLowerCase() === target.trim().toLowerCase() ||
+            c.previousNames?.some(pn => pn.trim().toLowerCase() === target.trim().toLowerCase())
+        );
+        if (foundClient && foundClient.id && clientRevenueById.has(foundClient.id)) {
+            return clientRevenueById.get(foundClient.id) || 0;
+        }
+
+        return clientRevenueById.get(target.trim().toLowerCase()) || 0;
     };
 
-    const getBranchInvoices = (clientName: string) => {
-        return branchInvoicesMap.get((clientName || '').toLowerCase().trim()) || [];
+    // Invoices linked by permanent Client ID with fallback to current/previous names
+    const getBranchInvoices = (target: Client | string) => {
+        if (!target) return [];
+        if (typeof target === 'object') {
+            if (target.id && branchInvoicesById.has(target.id)) {
+                return branchInvoicesById.get(target.id) || [];
+            }
+            const fallbackKey = (target.name || '').trim().toLowerCase();
+            return branchInvoicesById.get(fallbackKey) || [];
+        }
+
+        if (branchInvoicesById.has(target)) {
+            return branchInvoicesById.get(target) || [];
+        }
+
+        const foundClient = clients.find(c => 
+            c.id === target || 
+            c.name.trim().toLowerCase() === target.trim().toLowerCase() ||
+            c.previousNames?.some(pn => pn.trim().toLowerCase() === target.trim().toLowerCase())
+        );
+        if (foundClient && foundClient.id && branchInvoicesById.has(foundClient.id)) {
+            return branchInvoicesById.get(foundClient.id) || [];
+        }
+
+        return branchInvoicesById.get(target.trim().toLowerCase()) || [];
     };
 
     const getGroupInvoices = (parentName: string, branches: Client[]) => {
@@ -166,11 +270,20 @@ export const ClientModule: React.FC = () => {
         const groupList = groupInvoicesMap.get(parentKey);
         if (groupList && groupList.length > 0) return groupList;
 
-        const branchNamesSet = new Set(branches.map(b => (b.name || '').toLowerCase().trim()));
+        const branchIdsSet = new Set(branches.map(b => b.id).filter(Boolean));
+        const branchNamesSet = new Set<string>();
+        branches.forEach(b => {
+            if (b.name) branchNamesSet.add(b.name.toLowerCase().trim());
+            (b.previousNames || []).forEach(pn => {
+                if (pn) branchNamesSet.add(pn.toLowerCase().trim());
+            });
+        });
+
         return (invoices || []).filter(inv => {
             const invNum = inv.invoiceNumber || inv.id || '';
             if (!invNum.startsWith('SM/')) return false;
             if (inv.documentType === 'Quotation') return false;
+            if (inv.customerId && branchIdsSet.has(inv.customerId)) return true;
             const custName = (inv.customerName || '').toLowerCase().trim();
             return branchNamesSet.has(custName);
         }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -210,15 +323,16 @@ export const ClientModule: React.FC = () => {
                 (c.id || '').toLowerCase().includes(lowQuery) ||
                 (c.hospital || '').toLowerCase().includes(lowQuery) ||
                 (c.parentClientName || '').toLowerCase().includes(lowQuery) ||
-                (c.branchName || '').toLowerCase().includes(lowQuery)
+                (c.branchName || '').toLowerCase().includes(lowQuery) ||
+                (c.previousNames || []).some(pn => (pn || '').toLowerCase().includes(lowQuery))
             )
             .sort((a, b) => {
-                const ltvA = getClientTotalRevenue(a.name);
-                const ltvB = getClientTotalRevenue(b.name);
+                const ltvA = getClientTotalRevenue(a);
+                const ltvB = getClientTotalRevenue(b);
                 if (ltvB !== ltvA) return ltvB - ltvA;
                 return (a.name || '').localeCompare(b.name || '');
             });
-    }, [clients, searchQuery, clientRevenueMap]);
+    }, [clients, searchQuery, clientRevenueById]);
 
     // Group clients by Parent Hospital / Organization
     const groupedClients = useMemo(() => {
@@ -273,7 +387,7 @@ export const ClientModule: React.FC = () => {
             `"${(c.dlNo || '').replace(/"/g, '""')}"`,
             `"${(c.udyamNo || '').replace(/"/g, '""')}"`,
             `"${(c.status || 'Finalized').replace(/"/g, '""')}"`,
-            getClientTotalRevenue(c.name).toFixed(2)
+            getClientTotalRevenue(c).toFixed(2)
         ]);
 
         const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -308,22 +422,34 @@ export const ClientModule: React.FC = () => {
             return;
         }
 
+        const existing = editingId ? clients.find(c => c.id === editingId) : undefined;
+        let updatedPreviousNames: string[] = [...(client.previousNames || existing?.previousNames || [])];
+
+        if (existing && client.name && existing.name && client.name.trim().toLowerCase() !== existing.name.trim().toLowerCase()) {
+            const oldName = existing.name.trim();
+            if (!updatedPreviousNames.some(p => p.trim().toLowerCase() === oldName.toLowerCase())) {
+                updatedPreviousNames.push(oldName);
+            }
+        }
+
         const finalData: Client = {
             ...client as Client,
             id: editingId || `CLI-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
             status: client.status || 'Finalized',
             parentClientName: client.parentClientName || client.hospital || client.name,
-            branchName: client.branchName || 'Main'
+            branchName: client.branchName || 'Main',
+            previousNames: updatedPreviousNames
         };
 
-        // Duplicate detection (safe against undefined/null name or phone values)
+        // Duplicate detection (checking against other clients' current name, previous names, and phone)
         const isDuplicate = clients.some(c => 
             (c.id !== finalData.id) && 
             ((finalData.phone && c.phone && c.phone === finalData.phone) || 
-             (finalData.name && c.name && c.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()))
+             (finalData.name && c.name && c.name.toLowerCase().trim() === finalData.name.toLowerCase().trim()) ||
+             (finalData.name && c.previousNames && c.previousNames.some(pn => pn.toLowerCase().trim() === finalData.name.toLowerCase().trim())))
         );
         if (isDuplicate) {
-            const confirmed = await showConfirm(`A client with name "${finalData.name}" or phone "${finalData.phone}" already exists. Save anyway?`, "Duplicate Detected");
+            const confirmed = await showConfirm(`A client with name "${finalData.name}" or matching phone/previous name already exists. Save anyway?`, "Duplicate Detected");
             if (!confirmed) return;
         }
 
@@ -482,7 +608,7 @@ export const ClientModule: React.FC = () => {
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {group.branches.map((c, idx) => {
-                                                            const branchInvoices = getBranchInvoices(c.name);
+                                                            const branchInvoices = getBranchInvoices(c);
 
                                                             return (
                                                                 <tr key={c.id} className="hover:bg-emerald-50/40 transition-colors group cursor-pointer" onClick={() => { setClient(c); setEditingId(c.id); setViewState('builder'); setBuilderMode('edit'); }}>
@@ -498,6 +624,11 @@ export const ClientModule: React.FC = () => {
                                                                                     {c.branchName && <span className="text-[8px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">BRANCH: {c.branchName}</span>}
                                                                                 </div>
                                                                                 <div className="text-[8px] text-slate-400 font-medium uppercase tracking-widest mt-0.5">{c.id}</div>
+                                                                                {c.previousNames && c.previousNames.length > 0 && (
+                                                                                    <div className="text-[8px] text-amber-700 font-bold uppercase tracking-wider mt-0.5 flex items-center gap-1">
+                                                                                        <span className="text-slate-400">Formerly:</span> {c.previousNames.join(', ')}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -507,7 +638,7 @@ export const ClientModule: React.FC = () => {
                                                                             {c.gstin && <span className="text-[8px] font-mono font-bold text-emerald-700 uppercase">GST: {c.gstin}</span>}
                                                                         </div>
                                                                     </td>
-                                                                    <td className="px-4 py-3 text-right font-black text-emerald-700 text-[13px]">₹{formatIndianNumber(getClientTotalRevenue(c.name))}</td>
+                                                                    <td className="px-4 py-3 text-right font-black text-emerald-700 text-[13px]">₹{formatIndianNumber(getClientTotalRevenue(c))}</td>
                                                                     <td className="px-4 py-3 text-right">
                                                                         <span className={`text-[8px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-lg border ${c.status === 'Draft' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>{c.status || 'Finalized'}</span>
                                                                     </td>
@@ -563,6 +694,12 @@ export const ClientModule: React.FC = () => {
                                 <div className="sm:col-span-2">
                                     <FormRow label="Client / Branch Name *">
                                         <input type="text" className="w-full h-[32px] md:h-[36px] bg-slate-50 border border-slate-300 rounded-xl md:rounded-[2rem] px-3 text-[10px] md:text-xs font-semibold outline-none focus:ring-4 focus:ring-emerald-500/5 uppercase" placeholder="E.G. KMCH PEELAMEDU BRANCH" value={client.name || ''} onChange={e => setClient({...client, name: e.target.value.toUpperCase()})} />
+                                        {client.previousNames && client.previousNames.length > 0 && (
+                                            <p className="text-[9px] text-amber-700 font-semibold px-2 mt-1">
+                                                <span className="text-slate-400 font-bold uppercase">Previously:</span> {client.previousNames.join(', ')}
+                                                <span className="text-slate-400 font-normal ml-1">(Past transactions remain linked to Client ID {client.id})</span>
+                                            </p>
+                                        )}
                                     </FormRow>
                                 </div>
                                 <div className="sm:col-span-2">
@@ -705,10 +842,17 @@ export const ClientModule: React.FC = () => {
                             {(() => {
                                 const filtered = selectedBillModal.invoices.filter(inv => {
                                     const q = billModalSearch.toLowerCase();
-                                    return (inv.invoiceNumber || '').toLowerCase().includes(q) ||
-                                           (inv.date || '').toLowerCase().includes(q) ||
-                                           (inv.customerName || '').toLowerCase().includes(q) ||
-                                           (inv.grandTotal || 0).toString().includes(q);
+                                    if ((inv.invoiceNumber || '').toLowerCase().includes(q)) return true;
+                                    if ((inv.date || '').toLowerCase().includes(q)) return true;
+                                    if ((inv.customerName || '').toLowerCase().includes(q)) return true;
+                                    if ((inv.grandTotal || 0).toString().includes(q)) return true;
+                                    const client = clients.find(c => (inv.customerId && c.id === inv.customerId) || c.name.toLowerCase() === (inv.customerName || '').toLowerCase());
+                                    if (client) {
+                                        if ((client.name || '').toLowerCase().includes(q)) return true;
+                                        if ((client.branchName || '').toLowerCase().includes(q)) return true;
+                                        if ((client.previousNames || []).some(pn => pn.toLowerCase().includes(q))) return true;
+                                    }
+                                    return false;
                                 });
 
                                 if (filtered.length === 0) {

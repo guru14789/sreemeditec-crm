@@ -64,7 +64,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             { tab: TabView.QUOTES, icon: Clipboard, label: 'Quotation Maker', sub: 'Generate sales quotations and proposals' },
             { tab: TabView.PO_BUILDER, icon: Clipboard, label: 'Customer PO Maker', sub: 'Raise client purchase orders' },
             { tab: TabView.SUPPLIER_PO, icon: Clipboard, label: 'Supplier PO Maker', sub: 'Draft external purchase orders to suppliers' },
-            { tab: TabView.SERVICE_ORDERS, icon: Clipboard, label: 'Service Order Maker', sub: 'Record engineering service requests' },
             { tab: TabView.SERVICE_REPORTS, icon: Clipboard, label: 'Service Report Maker', sub: 'Document breakdown and maintenance calls' },
             { tab: TabView.INSTALLATION_REPORTS, icon: Clipboard, label: 'Install Report Maker', sub: 'Generate site commissioning certificates' },
             { tab: TabView.DELIVERY, icon: Clipboard, label: 'Delivery Challan', sub: 'Raise challans and goods dispatch records' },

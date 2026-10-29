@@ -4,7 +4,7 @@ import { db } from './firebase';
 import { collection, getDocs, query, updateDoc, doc } from 'firebase/firestore';
 import { PDFService } from './services/PDFService';
 import {
-  LayoutDashboard, Users, FileText, Package, Wrench,
+  LayoutDashboard, Users, FileText, Package,
   Receipt, ShoppingCart, Wallet, Search, Landmark,
   Menu, LogOut, Clock, CheckSquare, Truck, Contact, Trophy, ShieldCheck, ShoppingBag, ClipboardList, ShieldAlert, CheckCircle2, Activity, Building2, User, AlertCircle, XCircle, Zap, Target, Edit2, CheckCircle, Lock, Settings, QrCode, ArrowLeftRight
 } from 'lucide-react';
@@ -21,7 +21,6 @@ import { BillingModule } from './components/BillingModule';
 import { QuotationModule } from './components/QuotationModule';
 import { PurchaseOrderModule } from './components/PurchaseOrderModule';
 import { SupplierPOModule } from './components/SupplierPOModule';
-import { ServiceOrderModule } from './components/ServiceOrderModule';
 import { ServiceReportModule } from './components/ServiceReportModule';
 import { InstallationReportModule } from './components/InstallationReportModule';
 import { DeliveryChallanModule } from './components/DeliveryChallanModule';
@@ -246,7 +245,6 @@ const AppContent: React.FC<{
       case TabView.QUOTES: return <QuotationModule />;
       case TabView.PO_BUILDER: return <PurchaseOrderModule />;
       case TabView.SUPPLIER_PO: return <SupplierPOModule />;
-      case TabView.SERVICE_ORDERS: return <ServiceOrderModule />;
       case TabView.SERVICE_REPORTS: return <ServiceReportModule />;
       case TabView.INSTALLATION_REPORTS: return <InstallationReportModule />;
       case TabView.INVENTORY: return <InventoryModule />;
@@ -723,7 +721,6 @@ export const App: React.FC = () => {
         { tab: TabView.QUOTES, icon: FileText, label: 'Quotation Maker' },
         { tab: TabView.PO_BUILDER, icon: ShoppingCart, label: 'Customer PO Maker' },
         { tab: TabView.SUPPLIER_PO, icon: ShoppingBag, label: 'Supplier PO Maker' },
-        { tab: TabView.SERVICE_ORDERS, icon: Wrench, label: 'Service Order Maker' },
         { tab: TabView.SERVICE_REPORTS, icon: ClipboardList, label: 'Service Report Maker' },
         { tab: TabView.INSTALLATION_REPORTS, icon: ShieldAlert, label: 'Install Report Maker' },
         { tab: TabView.DELIVERY, icon: Truck, label: 'Delivery Challan' },

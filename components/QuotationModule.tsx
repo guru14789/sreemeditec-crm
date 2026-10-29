@@ -92,8 +92,21 @@ const getQuoteNumberParts = (ref: string) => {
 
 const calculateDetailedTotals = (quote: Partial<Invoice>) => {
     const items = quote.items || [];
-    const subtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
-    const itemGstTotal = items.reduce((sum, p) => sum + ((Number(p.quantity) * Number(p.unitPrice)) * (Number(p.taxRate) / 100)), 0);
+    const grossSubtotal = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
+    const totalRowDiscount = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        return sum + ((qty * price) * (discPct / 100));
+    }, 0);
+    const subtotal = grossSubtotal - totalRowDiscount;
+    const itemGstTotal = items.reduce((sum, p) => {
+        const qty = Number(p.quantity) || 0;
+        const price = Number(p.unitPrice) || 0;
+        const discPct = Number(p.discountPercent) || 0;
+        const taxableLine = (qty * price) * (1 - (discPct / 100));
+        return sum + (taxableLine * ((Number(p.taxRate) || 0) / 100));
+    }, 0);
     
     const freight = Number(quote.freightAmount) || 0;
     const freightGst = freight * ((Number(quote.freightTaxRate) || 0) / 100);
@@ -106,7 +119,7 @@ const calculateDetailedTotals = (quote: Partial<Invoice>) => {
         grandTotal = Math.round(grandTotalRaw);
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
-    return { subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, roundOff, grandTotalRaw };
+    return { grossSubtotal, totalRowDiscount, subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, roundOff, grandTotalRaw };
 };
 
 import { AutoSuggest } from './AutoSuggest';
@@ -377,10 +390,15 @@ Sree Meditec`;
     };
 
     const handleClientSelect = (inputValue: string) => {
-        const client = clients.find(c => c.name.toUpperCase() === inputValue.toUpperCase() || (c.hospital && c.hospital.toUpperCase() === inputValue.toUpperCase()));
+        const client = clients.find(c => 
+            c.name.toUpperCase() === inputValue.toUpperCase() || 
+            (c.hospital && c.hospital.toUpperCase() === inputValue.toUpperCase()) ||
+            c.previousNames?.some(pn => pn.toUpperCase() === inputValue.toUpperCase())
+        );
         if (client) {
             setQuote(prev => ({
                 ...prev,
+                customerId: client.id,
                 customerName: client.name.toUpperCase(),
                 customerHospital: (client.hospital || '').toUpperCase(),
                 customerAddress: client.address || '',
@@ -513,10 +531,20 @@ Sree Meditec`;
             await showAlert("Please fill customer details and add at least one item.", "Validation Error");
             return null;
         }
+        let resolvedCustomerId = quote.customerId;
+        if (!resolvedCustomerId && quote.customerName) {
+            const matchedClient = (clients || []).find(c => 
+                c.name.trim().toLowerCase() === quote.customerName?.trim().toLowerCase() ||
+                c.previousNames?.some(pn => pn.trim().toLowerCase() === quote.customerName?.trim().toLowerCase())
+            );
+            if (matchedClient) resolvedCustomerId = matchedClient.id;
+        }
+
         const totals = calculateDetailedTotals(quote);
         const finalData: Invoice = {
             ...quote as Invoice,
             id: editingId || quote.id || `QT-${Date.now()}`,
+            customerId: resolvedCustomerId,
             subtotal: totals.subtotal,
             taxTotal: totals.itemGstTotal + totals.freightGst,
             grandTotal: totals.grandTotal,
@@ -577,13 +605,26 @@ Sree Meditec`;
         
         if (quoteSearch) {
             const lowSearch = quoteSearch.toLowerCase();
-            filtered = filtered.filter(i => 
-                i.invoiceNumber.toLowerCase().includes(lowSearch) ||
-                (i.customerName || '').toLowerCase().includes(lowSearch) ||
-                (i.subject || '').toLowerCase().includes(lowSearch) ||
-                (i.createdBy || '').toLowerCase().includes(lowSearch) ||
-                (i.items || []).some(item => (item.description || '').toLowerCase().includes(lowSearch))
-            );
+            filtered = filtered.filter(i => {
+                if (i.invoiceNumber.toLowerCase().includes(lowSearch)) return true;
+                if ((i.customerName || '').toLowerCase().includes(lowSearch)) return true;
+                const client = (clients || []).find(c => 
+                    (i.customerId && c.id === i.customerId) ||
+                    c.name.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase() ||
+                    c.previousNames?.some(pn => pn.trim().toLowerCase() === (i.customerName || '').trim().toLowerCase())
+                );
+                if (client) {
+                    if ((client.name || '').toLowerCase().includes(lowSearch)) return true;
+                    if ((client.branchName || '').toLowerCase().includes(lowSearch)) return true;
+                    if ((client.hospital || '').toLowerCase().includes(lowSearch)) return true;
+                    if (client.previousNames?.some(pn => pn.toLowerCase().includes(lowSearch))) return true;
+                }
+                return (
+                    (i.subject || '').toLowerCase().includes(lowSearch) ||
+                    (i.createdBy || '').toLowerCase().includes(lowSearch) ||
+                    (i.items || []).some(item => (item.description || '').toLowerCase().includes(lowSearch))
+                );
+            });
         }
 
         if (filingFilter !== 'All') {
@@ -1016,6 +1057,7 @@ Sree Meditec`;
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
                                                                 setPendingInvoiceData({
+                                                                    customerId: inv.customerId,
                                                                     customerName: inv.customerName,
                                                                     customerGstin: inv.customerGstin,
                                                                     customerAddress: inv.customerAddress,
@@ -1365,8 +1407,13 @@ Sree Meditec`;
                                             </thead>
                                             <tbody>
                                                 {(quote.items || []).map(it => { 
-                                                    const rowGst = (it.unitPrice * it.quantity) * (it.taxRate / 100); 
-                                                    const rowTotal = (it.unitPrice * it.quantity) + rowGst; 
+                                                    const qty = Number(it.quantity) || 0;
+                                                    const price = Number(it.unitPrice) || 0;
+                                                    const discPct = Number(it.discountPercent) || 0;
+                                                    const rawBase = qty * price;
+                                                    const lineTaxable = rawBase * (1 - (discPct / 100));
+                                                    const rowGst = lineTaxable * ((Number(it.taxRate) || 0) / 100); 
+                                                    const rowTotal = lineTaxable + rowGst; 
                                                     return (
                                                         <tr key={it.id} className="border-b border-black align-top">
                                                             <td className="border-r border-black p-1 font-bold" style={{ textAlign: 'left' }}>{`${it.brand && !it.hideBrand ? it.brand + ' ' : ''}${it.description}`}</td>

@@ -117,6 +117,7 @@ export const ServiceOrderModule: React.FC = () => {
     const handleClientSelect = (client: Client) => {
         setOrder(prev => ({
             ...prev,
+            customerId: client.id,
             customerName: client.name,
             customerHospital: client.hospital || client.name || '',
             customerAddress: client.address || '',

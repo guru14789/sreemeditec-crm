@@ -88,7 +88,7 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
 
   // Client Details Calc
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const selectedClientPendingInvoices = selectedClient ? invoices.filter(i => (i.customerName === selectedClient.name || i.customerId === selectedClientId) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status)).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()) : [];
+  const selectedClientPendingInvoices = selectedClient ? invoices.filter(i => (i.customerId === selectedClientId || i.customerName === selectedClient.name || (selectedClient.previousNames && selectedClient.previousNames.includes(i.customerName))) && i.invoiceNumber && i.invoiceNumber.startsWith('SM/') && (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status)).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()) : [];
   const selectedClientPending = selectedClientPendingInvoices.reduce((acc, i) => acc + (i.grandTotal - (i.amountPaid || 0)), 0);
   const selectedClientAdvance = selectedClient?.advanceBalance || 0;
 
@@ -222,8 +222,9 @@ export const BankLedger: React.FC<Props> = ({ bankId, onBack }) => {
 
   let editEligibleInvoices: any[] = [];
   if (editingTransaction?.partyType === 'Client') {
+    const editParty = clients.find(c => c.id === editingTransaction.partyId);
     editEligibleInvoices = invoices.filter(i => 
-      (i.customerId === editingTransaction.partyId || i.customerName === editingTransaction.partyName) &&
+      (i.customerId === editingTransaction.partyId || i.customerName === editingTransaction.partyName || (editParty?.previousNames && editParty.previousNames.includes(i.customerName))) &&
       i.invoiceNumber && i.invoiceNumber.startsWith('SM/') &&
       (i.status === 'Pending' || i.status === 'Partially Paid' || !i.status || editingTransaction.allocations?.some(a => a.documentId === i.id))
     ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
