@@ -429,9 +429,9 @@ Sree Meditec`;
                         if (matchedProduct) {
                             updated.productId = matchedProduct.id;
                             updated.unitPrice = matchedProduct.sellingPrice || 0;
-                            updated.taxRate = matchedProduct.taxRate || 12;
+                            updated.taxRate = matchedProduct.taxRate ?? matchedProduct.brands?.[0]?.models?.[0]?.vendors?.[0]?.gstRate ?? 12;
                             updated.features = matchedProduct.description || '';
-                            updated.hsn = matchedProduct.hsn || '';
+                            updated.hsn = matchedProduct.hsn || matchedProduct.brands?.[0]?.models?.[0]?.hsnCode || '';
                             updated.sku = matchedProduct.sku || '';
                         }
                     } else if (field === 'brand') {
@@ -452,15 +452,15 @@ Sree Meditec`;
                                 } else {
                                     updated.features = matchedProduct.description || '';
                                 }
-                                updated.hsn = matchedProduct.hsn || updated.hsn || '';
+                                updated.hsn = modelObj.hsnCode || matchedProduct.hsn || updated.hsn || '';
                                 if (modelObj.vendors && modelObj.vendors.length > 0) {
                                     const primaryVendor = modelObj.vendors[0];
                                     updated.unitPrice = primaryVendor.sellingPrice || matchedProduct.sellingPrice || 0;
-                                    updated.taxRate = primaryVendor.gstRate || matchedProduct.taxRate || 12;
+                                    updated.taxRate = primaryVendor.gstRate ?? matchedProduct.taxRate ?? 12;
                                     updated.sku = primaryVendor.sku || matchedProduct.sku || '';
                                 } else {
                                     updated.unitPrice = matchedProduct.sellingPrice || updated.unitPrice || 0;
-                                    updated.taxRate = matchedProduct.taxRate || updated.taxRate || 12;
+                                    updated.taxRate = matchedProduct.taxRate ?? updated.taxRate ?? 12;
                                 }
                                 if (modelObj.barcode) updated.barcode = modelObj.barcode;
                             }
@@ -1454,7 +1454,7 @@ Sree Meditec`;
                                                 <span className="font-bold">Banking details:</span>
                                                 <div className="pl-1">
                                                     : Bank name: {quote.selectedBank?.bankName || quote.sellerProfile?.bankName || 'ICICI Bank'}<br/>
-                                                    Branch name: {quote.selectedBank?.branchIfsc || quote.sellerProfile?.branchIfsc || 'Selaiyur'}<br/>
+                                                    Branch name: {(quote.selectedBank?.branchIfsc || quote.sellerProfile?.branchIfsc || 'Selaiyur & ICIC0006037').replace(/ICIC[O0]{3}6037/gi, 'ICIC0006037')}<br/>
                                                     A/C No: {quote.selectedBank?.accountNo || quote.sellerProfile?.accountNo || '603705016939'}
                                                 </div>
                                                 <span className="font-bold">Delivery:</span><span>: {quote.deliveryTerms}</span>

@@ -29,9 +29,20 @@ const numberToWords = (num: number): string => {
     return result ? '(' + result.trim().charAt(0).toUpperCase() + result.trim().slice(1) + ' only)' : '';
 };
 
+export interface TaxBreakdownItem {
+    hsn: string;
+    taxRate: number;
+    taxableValue: number;
+    cgstRate: number;
+    cgstAmount: number;
+    sgstRate: number;
+    sgstAmount: number;
+    totalTaxAmount: number;
+}
+
 export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     const items = data.items || [];
-    const grossSubtotal = items.reduce((sum, p) => sum + (Number(p.quantity) * Number(p.unitPrice)), 0);
+    const grossSubtotal = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
     const totalRowDiscount = items.reduce((sum, p) => {
         const qty = Number(p.quantity) || 0;
         const price = Number(p.unitPrice) || 0;
@@ -41,16 +52,65 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     
     const subtotal = grossSubtotal - totalRowDiscount;
 
+    const breakdownMap = new Map<string, TaxBreakdownItem>();
+
     const itemGstTotal = items.reduce((sum, p) => {
         const qty = Number(p.quantity) || 0;
         const price = Number(p.unitPrice) || 0;
         const discPct = Number(p.discountPercent) || 0;
         const taxableLine = (qty * price) * (1 - (discPct / 100));
-        return sum + (taxableLine * ((Number(p.taxRate) || 0) / 100));
+        const taxRate = Number(p.taxRate) || 0;
+        const lineTax = taxableLine * (taxRate / 100);
+        const hsn = String(p.hsn || '').trim() || '-';
+        const key = `${hsn}__${taxRate}`;
+        const existing = breakdownMap.get(key);
+        if (existing) {
+            existing.taxableValue += taxableLine;
+            existing.cgstAmount += lineTax / 2;
+            existing.sgstAmount += lineTax / 2;
+            existing.totalTaxAmount += lineTax;
+        } else {
+            breakdownMap.set(key, {
+                hsn,
+                taxRate,
+                taxableValue: taxableLine,
+                cgstRate: taxRate / 2,
+                cgstAmount: lineTax / 2,
+                sgstRate: taxRate / 2,
+                sgstAmount: lineTax / 2,
+                totalTaxAmount: lineTax
+            });
+        }
+        return sum + lineTax;
     }, 0);
     
     const freight = Number(data.freightAmount) || 0;
-    const freightGst = freight * ((Number(data.freightTaxRate) || 0) / 100);
+    const freightTaxRate = Number(data.freightTaxRate) || 0;
+    const freightGst = freight * (freightTaxRate / 100);
+    if (freight > 0) {
+        const hsn = 'Freight';
+        const key = `${hsn}__${freightTaxRate}`;
+        const existing = breakdownMap.get(key);
+        if (existing) {
+            existing.taxableValue += freight;
+            existing.cgstAmount += freightGst / 2;
+            existing.sgstAmount += freightGst / 2;
+            existing.totalTaxAmount += freightGst;
+        } else {
+            breakdownMap.set(key, {
+                hsn,
+                taxRate: freightTaxRate,
+                taxableValue: freight,
+                cgstRate: freightTaxRate / 2,
+                cgstAmount: freightGst / 2,
+                sgstRate: freightTaxRate / 2,
+                sgstAmount: freightGst / 2,
+                totalTaxAmount: freightGst
+            });
+        }
+    }
+
+    const taxBreakdown = Array.from(breakdownMap.values());
     const discount = Number(data.discount) || 0;
 
     // Split GST into CGST/SGST halves (intra-state) for the tax breakdown table
@@ -61,8 +121,8 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
     // Sum of quantities across all line items
     const totalQty = items.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
 
-    // Taxable value = subtotal before GST, after discount
-    const taxableValue = subtotal + freight - discount;
+    // Taxable value = subtotal + freight before GST
+    const taxableValue = subtotal + freight;
 
     const grandTotalRaw = subtotal + itemGstTotal + freight + freightGst - discount;
     let roundOff = 0;
@@ -71,7 +131,7 @@ export const calculateDetailedTotals = (data: Partial<Invoice>) => {
         grandTotal = Math.round(grandTotalRaw);
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
-    return { grossSubtotal, totalRowDiscount, subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue, roundOff, grandTotalRaw };
+    return { grossSubtotal, totalRowDiscount, subtotal, itemGstTotal, freight, freightGst, discount, grandTotal, cgst, sgst, totalQty, taxableValue, roundOff, grandTotalRaw, taxBreakdown };
 };
 
 
@@ -91,7 +151,8 @@ export const PDFService = {
         doc.text(isQuotation ? 'Quotation' : 'Tax Invoice', midX, 10, { align: 'center' });
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
+        const copyLabel = String((data as any).copyType || 'ORIGINAL FOR RECIPIENT').trim().replace(/^\(|\)$/g, '');
+        doc.text(`(${copyLabel})`, pageWidth - margin, 10, { align: 'right' });
 
         doc.setLineWidth(0.1);
         const startY = 12;
@@ -257,8 +318,22 @@ export const PDFService = {
         let currentY = wordsY + 6;
 
         if (!isQuotation) {
+            const breakdownRows = (docTotals.taxBreakdown && docTotals.taxBreakdown.length > 0)
+                ? docTotals.taxBreakdown.map(row => [
+                    row.hsn,
+                    (Number(row.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    `${Number(row.cgstRate.toFixed(2))}%`,
+                    (Number(row.cgstAmount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    `${Number(row.sgstRate.toFixed(2))}%`,
+                    (Number(row.sgstAmount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    (Number(row.totalTaxAmount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                ])
+                : [
+                    ['-', '0.00', '0%', '0.00', '0%', '0.00', '0.00']
+                ];
+
             const taxBreakdownBody = [
-                ['9402', (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), '9%', (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })],
+                ...breakdownRows,
                 [{ content: 'Total', styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, { content: (Number(docTotals.taxableValue) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, '', { content: (Number(docTotals.cgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, '', { content: (Number(docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }, { content: (Number(docTotals.cgst + docTotals.sgst) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold', halign: 'right' , textColor: [0, 0, 0] } as any }]
             ];
 
@@ -310,7 +385,8 @@ export const PDFService = {
         const displayBank = bankDetails || data.selectedBank || (isQuotation ? BANK_DETAILS.icici : BANK_DETAILS.kvb);
         doc.text('Bank Name', midX + 2, bottomY + 10); doc.text(`: ${displayBank?.bankName || ''}`, midX + 30, bottomY + 10);
         doc.text('A/c No.', midX + 2, bottomY + 14); doc.text(`: ${displayBank?.accountNo || ''}`, midX + 30, bottomY + 14);
-        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${displayBank?.branchIfsc || ((displayBank as any)?.branch && (displayBank as any)?.ifsc ? (displayBank as any)?.branch + ' & ' + (displayBank as any)?.ifsc : '')}`, midX + 30, bottomY + 18);
+        const resolvedBranchIfsc = String(displayBank?.branchIfsc || ((displayBank as any)?.branch && (displayBank as any)?.ifsc ? (displayBank as any)?.branch + ' & ' + (displayBank as any)?.ifsc : '')).replace(/ICIC[O0]{3}6037/gi, 'ICIC0006037');
+        doc.text('Branch & IFS Code', midX + 2, bottomY + 18); doc.text(`: ${resolvedBranchIfsc}`, midX + 30, bottomY + 18);
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
@@ -455,7 +531,7 @@ export const PDFService = {
             ['Validity', `: The above price is valid up to 30 days from the date of submission of the Quotation.`],
             ['Taxes', `: GST is applicable to the price mentioned as per item-wise rates.`],
             ['Payment', `: ${data.paymentTerms}`],
-            ['Banking details', `: Bank name: ${displayBank.bankName}, Branch & IFS Code: ${displayBank.branchIfsc || ((displayBank as any).branch && (displayBank as any).ifsc ? (displayBank as any).branch + ' & ' + (displayBank as any).ifsc : 'Selaiyur & ICIC0006037')},\n  A/C No: ${displayBank.accountNo}, A/C name: Sreemeditec, A/C type: CA`],
+            ['Banking details', `: Bank name: ${displayBank.bankName}, Branch & IFS Code: ${String(displayBank.branchIfsc || ((displayBank as any).branch && (displayBank as any).ifsc ? (displayBank as any).branch + ' & ' + (displayBank as any).ifsc : 'Selaiyur & ICIC0006037')).replace(/ICIC[O0]{3}6037/gi, 'ICIC0006037')},\n  A/C No: ${displayBank.accountNo}, A/C name: Sreemeditec, A/C type: CA`],
             ['Delivery', `: ${data.deliveryTerms}`],
             ['Warranty', `: ${data.warrantyTerms}`]
         ];
@@ -1109,7 +1185,8 @@ export const PDFService = {
         doc.text('Delivery Challan', midX, 10, { align: 'center' });
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text('(ORIGINAL FOR RECIPIENT)', pageWidth - margin, 10, { align: 'right' });
+        const copyLabel = String((data as any).copyType || 'ORIGINAL FOR RECIPIENT').trim().replace(/^\(|\)$/g, '');
+        doc.text(`(${copyLabel})`, pageWidth - margin, 10, { align: 'right' });
 
         doc.setLineWidth(0.1);
         doc.rect(margin, 12, pageWidth - (margin * 2), 78);

@@ -158,7 +158,7 @@ export interface DataContextType {
     showAlert: (message: string, title?: string) => Promise<void>;
     showConfirm: (message: string, title?: string) => Promise<boolean>;
     showPrompt: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
-    previewPDF: (blob: Blob, filename: string) => void;
+    previewPDF: (blob: Blob, filename: string, options?: { copyType?: string; onChangeCopyType?: (newCopyType: string) => void; skipAutoNativeOpen?: boolean }) => void;
     downloadPDF: (blob: Blob, filename: string) => void;
 
     currentUser: Employee | null;
@@ -310,13 +310,17 @@ export interface DataContextType {
     setAllowNegativeStock: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+const GLOBAL_DATA_CONTEXT_KEY = '__NIRVA_DATA_CONTEXT__';
+const DataContext: React.Context<DataContextType | undefined> =
+    ((globalThis as any)[GLOBAL_DATA_CONTEXT_KEY] as React.Context<DataContextType | undefined>) ||
+    ((globalThis as any)[GLOBAL_DATA_CONTEXT_KEY] = createContext<DataContextType | undefined>(undefined));
 
 const sanitizeData = (data: any): any => {
     // Immediate escape for simple null/undefined
     if (data === null || data === undefined) return null;
     
     // Handle Primitive types
+    if (typeof data === 'string') return data.replace(/ICIC[O0]{3}6037/gi, 'ICIC0006037');
     if (typeof data !== 'object') return data;
     
     // Handle Firestore Timestamps / Dates
@@ -567,7 +571,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     // PDF Preview state & Download Helper
-    const [pdfPreviewData, setPdfPreviewData] = useState<{ url: string; filename: string; blob: Blob } | null>(null);
+    const [pdfPreviewData, setPdfPreviewData] = useState<{ url: string; filename: string; blob: Blob; copyType?: string; onChangeCopyType?: (newCopyType: string) => void } | null>(null);
 
     const webDownloadPDF = (blob: Blob, filename: string) => {
         try {
@@ -696,12 +700,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         reader.readAsDataURL(blob);
     };
 
-    const previewPDF = (blob: Blob, filename: string) => {
+    const previewPDF = (blob: Blob, filename: string, options?: { copyType?: string; onChangeCopyType?: (newCopyType: string) => void; skipAutoNativeOpen?: boolean }) => {
         const safeFilename = filename.replace(/[/\\?%*:|"<>]/g, '_');
         const url = URL.createObjectURL(blob);
-        setPdfPreviewData({ url, filename: safeFilename, blob });
+        setPdfPreviewData(prev => {
+            if (prev?.url) URL.revokeObjectURL(prev.url);
+            return {
+                url,
+                filename: safeFilename,
+                blob,
+                copyType: options?.copyType,
+                onChangeCopyType: options?.onChangeCopyType
+            };
+        });
         addLog('System', 'Generated/Viewed Document', `Previewed/Downloaded PDF: ${safeFilename}`);
-        if (Capacitor.isNativePlatform()) {
+        if (Capacitor.isNativePlatform() && !options?.skipAutoNativeOpen) {
             saveAndShareNativePDF(blob, safeFilename, false);
         }
     };
@@ -1019,7 +1032,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     if (data.prizePool) setPrizePool(data.prizePool);
                     if (data.financialYear) setFinancialYear(data.financialYear);
                     if (data.bankDetails) {
-                        let banks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                        const rawBanks = Array.isArray(data.bankDetails) ? data.bankDetails : [data.bankDetails];
+                        const hadTypo = JSON.stringify(rawBanks).toUpperCase().includes('ICICOOO6037');
+                        let banks = sanitizeData(rawBanks);
                         if (!banks.some((b: any) => b.id === 'cash-account' || b.accountType === 'Cash')) {
                             banks = [...banks, {
                                 id: 'cash-account',
@@ -1032,6 +1047,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                             }];
                         }
                         setBankDetailsList(banks);
+                        if (hadTypo) {
+                            setDoc(doc(db, "settings", "system"), { bankDetails: banks }, { merge: true }).catch(() => {});
+                        }
                     } else {
                         setBankDetailsList([{
                             id: 'cash-account',
@@ -1046,7 +1064,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     if (data.bankRules) {
                         setBankRules(data.bankRules);
                     }
-                    if (data.companyProfiles) setCompanyProfiles(data.companyProfiles);
+                    if (data.companyProfiles) setCompanyProfiles(sanitizeData(data.companyProfiles));
                 }
 
                 setClients(cSnap.docs.map(d => ({...sanitizeData(d.data()), id: d.id}) as Client));
@@ -5414,6 +5432,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+                            {/* COPY TYPE SELECTOR FOR TAX INVOICES */}
+                            {pdfPreviewData.onChangeCopyType && (
+                                <select
+                                    value={pdfPreviewData.copyType || 'ORIGINAL FOR RECIPIENT'}
+                                    onChange={(e) => pdfPreviewData.onChangeCopyType?.(e.target.value)}
+                                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs sm:text-sm font-black transition-all border border-amber-500/40 outline-none cursor-pointer"
+                                    title="Select Invoice Copy Type"
+                                >
+                                    <option value="ORIGINAL FOR RECIPIENT">ORIGINAL FOR RECIPIENT</option>
+                                    <option value="DUPLICATE FOR TRANSPORTER">DUPLICATE FOR TRANSPORTER</option>
+                                    <option value="TRIPLICATE FOR SUPPLIER">TRIPLICATE FOR SUPPLIER</option>
+                                </select>
+                            )}
+
                             {/* DOWNLOAD BUTTON */}
                             <button
                                 onClick={() => downloadPDF(pdfPreviewData.blob, pdfPreviewData.filename)}
@@ -5470,6 +5502,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useData = () => {
     const context = useContext(DataContext);
-    if (context === undefined) throw new Error('useData must be used within a DataProvider');
+    if (context === undefined) {
+        if (typeof window !== 'undefined' && (import.meta as any).hot) {
+            window.location.reload();
+        }
+        throw new Error('useData must be used within a DataProvider');
+    }
     return context;
 };

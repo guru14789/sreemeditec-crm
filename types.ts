@@ -564,6 +564,7 @@ export interface Invoice {
   isRoundOff?: boolean;
   roundOff?: number;
   incentivePercentage?: number;
+  copyType?: string;
   documentType?: 'Invoice' | 'PO' | 'Quotation' | 'SupplierPO' | 'ServiceOrder' | 'ServiceReport' | 'InstallationReport';
   createdBy?: string;
   closedBy?: string;
@@ -1104,6 +1105,7 @@ export interface DeliveryChallan {
   id: string;
   challanNumber: string;
   date: string;
+  copyType?: string;
   customerId?: string;
   customerName: string;
   customerAddress: string;

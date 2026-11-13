@@ -12,16 +12,69 @@ import {
 } from 'lucide-react';
 
 interface PublicEmployeeProfileProps {
-  publicProfileId: string;
+  publicProfileId?: string;
+  previewData?: Partial<Employee>;
 }
 
-export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ publicProfileId }) => {
+export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ publicProfileId = '', previewData }) => {
   const [profile, setProfile] = useState<PublicProfileType | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+
+    // Instant local preview without cloud query
+    if (previewData) {
+      const pEmp = previewData as Employee;
+      const fakeId = pEmp.id || 'PREVIEW';
+      const isEmpActive = pEmp.status === 'Active' || pEmp.isLoginEnabled !== false;
+      const vis = pEmp.publicVisibilitySettings || {
+        showBusinessPhone: true,
+        showBusinessEmail: true,
+        showQualifications: true,
+        showCompetencies: true,
+        showReportingManager: false,
+        showJoiningDate: true,
+        showBloodGroup: true,
+        showWorkLocation: true,
+        showEmergencyContact: true
+      };
+
+      setProfile({
+        publicProfileId: pEmp.publicProfileId || `smp_${fakeId.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}`,
+        employeeId: fakeId,
+        displayName: pEmp.displayName || pEmp.name || 'Preview Personnel',
+        professionalHeadline: pEmp.professionalHeadline || (pEmp.position || pEmp.role || 'Staff Member'),
+        designation: pEmp.designation || pEmp.position || pEmp.role || 'Personnel',
+        department: pEmp.department || 'Service',
+        profilePhoto: pEmp.profilePhoto || '',
+        employmentStatus: isEmpActive ? 'Active' : 'Inactive',
+        businessEmail: (isEmpActive && vis.showBusinessEmail !== false) ? pEmp.email : undefined,
+        businessPhone: (isEmpActive && vis.showBusinessPhone !== false) ? (pEmp.directPhone || pEmp.phone) : undefined,
+        joiningDate: (isEmpActive && vis.showJoiningDate !== false) ? (pEmp.employmentStartDate || pEmp.joinDate) : undefined,
+        reportingManager: (isEmpActive && vis.showReportingManager !== false) ? pEmp.reportingManager : undefined,
+        highestQualification: (isEmpActive && vis.showQualifications !== false) ? pEmp.highestQualification : undefined,
+        specialization: (isEmpActive && vis.showQualifications !== false) ? pEmp.specialization : undefined,
+        educationalInstitution: (isEmpActive && vis.showQualifications !== false) ? pEmp.educationalInstitution : undefined,
+        coreCompetencies: (isEmpActive && vis.showCompetencies !== false) ? pEmp.coreCompetencies || [] : [],
+        technicalSkills: (isEmpActive && vis.showCompetencies !== false) ? pEmp.technicalSkills || [] : [],
+        certifications: (isEmpActive && vis.showQualifications !== false) ? pEmp.certifications || [] : [],
+        bloodGroup: vis.showBloodGroup !== false ? pEmp.bloodGroup : undefined,
+        workLocation: vis.showWorkLocation !== false ? pEmp.workLocation : undefined,
+        emergencyContactName: vis.showEmergencyContact !== false ? pEmp.emergencyContactName : undefined,
+        emergencyContactRelationship: vis.showEmergencyContact !== false ? pEmp.emergencyContactRelationship : undefined,
+        emergencyContactPhone: vis.showEmergencyContact !== false ? pEmp.emergencyContactPhone : undefined,
+        gender: pEmp.gender,
+        dateOfBirth: pEmp.dateOfBirth,
+        employeeType: pEmp.employeeType || 'Full-Time',
+        nationality: pEmp.nationality || 'Indian',
+        verifiedAt: new Date().toISOString()
+      });
+      setLoading(false);
+      setNotFound(false);
+      return;
+    }
 
     const fetchProfile = async () => {
       try {
@@ -38,15 +91,19 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
         }
 
         // Clean ID variants
-        const cleanId = publicProfileId.replace(/^smp_/i, '');
+        const cleanId = (publicProfileId || '').replace(/^smp_/i, '').trim();
+        const cleanIdLower = cleanId.toLowerCase();
+        const cleanIdUpper = cleanId.toUpperCase();
         const idVariants = [
           publicProfileId,
           publicProfileId.toLowerCase(),
           publicProfileId.toUpperCase(),
           cleanId,
-          cleanId.toLowerCase(),
-          cleanId.toUpperCase()
-        ];
+          cleanIdLower,
+          cleanIdUpper,
+          `smp_${cleanIdLower}`,
+          `smp_${cleanIdUpper}`
+        ].filter(Boolean);
 
         // 1. Primary lookup: publicEmployeeProfiles by document ID
         for (const candidateId of idVariants) {
@@ -61,8 +118,20 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
         }
 
         // 2. Secondary lookup: publicEmployeeProfiles by employeeId query
-        for (const candidateId of [publicProfileId, cleanId, cleanId.toUpperCase(), cleanId.toLowerCase()]) {
+        for (const candidateId of [publicProfileId, cleanId, cleanIdUpper, cleanIdLower].filter(Boolean)) {
           const q = query(collection(db, 'publicEmployeeProfiles'), where('employeeId', '==', candidateId));
+          const qSnap = await getDocs(q);
+          if (!isMounted) return;
+          if (!qSnap.empty) {
+            setProfile(qSnap.docs[0].data() as PublicProfileType);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 3. Lookup: publicEmployeeProfiles by publicProfileId field
+        for (const candidateId of [publicProfileId, cleanId, `smp_${cleanIdLower}`, `smp_${cleanIdUpper}`].filter(Boolean)) {
+          const q = query(collection(db, 'publicEmployeeProfiles'), where('publicProfileId', '==', candidateId));
           const qSnap = await getDocs(q);
           if (!isMounted) return;
           if (!qSnap.empty) {
@@ -88,7 +157,7 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
           };
 
           const dynamicPublicProfile: PublicProfileType = {
-            publicProfileId: publicProfileId,
+            publicProfileId: emp.publicProfileId || publicProfileId || `smp_${empId.toLowerCase()}`,
             employeeId: empId,
             displayName: emp.displayName || emp.name,
             professionalHeadline: emp.professionalHeadline || (emp.position || emp.role || 'Staff'),
@@ -122,8 +191,8 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
           setLoading(false);
         };
 
-        // 3. Direct document lookup in employees collection (case variants)
-        for (const candidateId of [cleanId.toUpperCase(), cleanId, cleanId.toLowerCase(), publicProfileId]) {
+        // 4. Direct document lookup in employees collection (case variants)
+        for (const candidateId of [cleanIdUpper, cleanId, cleanIdLower, publicProfileId].filter(Boolean)) {
           const empDocRef = doc(db, 'employees', candidateId);
           const empSnap = await getDoc(empDocRef);
           if (!isMounted) return;
@@ -133,15 +202,22 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
           }
         }
 
-        // 4. Exhaustive search across all employees by normalized alphanumeric ID
+        // 5. Exhaustive search across all employees
         const allEmpSnap = await getDocs(collection(db, 'employees'));
         if (!isMounted) return;
-        const targetNormalized = cleanId.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetNormalized = cleanIdLower.replace(/[^a-z0-9]/g, '');
+        const targetFullNormalized = (publicProfileId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const matchedDoc = allEmpSnap.docs.find(d => {
           const dData = d.data();
           const idNorm = d.id.toLowerCase().replace(/[^a-z0-9]/g, '');
           const pubNorm = (dData.publicProfileId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-          return idNorm === targetNormalized || pubNorm === targetNormalized || d.id.toLowerCase() === cleanId.toLowerCase();
+          const pubCleanNorm = (dData.publicProfileId || '').replace(/^smp_/i, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return (
+            (targetNormalized && (idNorm === targetNormalized || pubCleanNorm === targetNormalized)) ||
+            (targetFullNormalized && (idNorm === targetFullNormalized || pubNorm === targetFullNormalized)) ||
+            d.id.toLowerCase() === cleanIdLower ||
+            (dData.publicProfileId && publicProfileId && dData.publicProfileId.toLowerCase() === publicProfileId.toLowerCase())
+          );
         });
 
         if (matchedDoc) {
@@ -169,7 +245,7 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
     return () => {
       isMounted = false;
     };
-  }, [publicProfileId]);
+  }, [publicProfileId, previewData]);
 
   // Download vCard (.vcf) helper
   const handleDownloadVCard = () => {
@@ -215,6 +291,8 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
   }
 
   if (notFound || !profile) {
+    const cleanId = (publicProfileId || '').replace(/^smp_/i, '').trim();
+    const isIdRecognized = cleanId && (cleanId.toLowerCase().startsWith('sm_emp') || cleanId.toLowerCase().startsWith('sm-emp'));
     return (
       <div className="h-dvh bg-gradient-to-b from-slate-50 via-white to-emerald-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-6">
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl max-w-md w-full p-8 sm:p-10 text-center border border-slate-100 dark:border-slate-800">
@@ -225,11 +303,13 @@ export const PublicEmployeeProfile: React.FC<PublicEmployeeProfileProps> = ({ pu
             Record Not Found
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-            The requested personnel record could not be found or may have been unassigned.
+            {isIdRecognized 
+              ? `The personnel record for ${cleanId.toUpperCase()} has not been registered or may have been unassigned.`
+              : 'The requested personnel record could not be found or may have been unassigned.'}
           </p>
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3.5 mb-6 border border-slate-100 dark:border-slate-800">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Scanned ID</p>
-            <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 break-all">{publicProfileId}</p>
+            <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 break-all">{publicProfileId || 'N/A'}</p>
           </div>
           <p className="text-xs text-slate-400 font-medium">Please contact Sree Meditec Administration for assistance.</p>
         </div>

@@ -53,6 +53,7 @@ export const DeliveryChallanModule: React.FC = () => {
     const [challan, setChallan] = useState<Partial<DeliveryChallan>>({
         challanNumber: '',
         date: new Date().toISOString().split('T')[0],
+        copyType: 'ORIGINAL FOR RECIPIENT',
         items: [],
         status: 'Draft',
         customerName: '',
@@ -97,10 +98,25 @@ export const DeliveryChallanModule: React.FC = () => {
         return () => window.removeEventListener('click', handleGlobalClick);
     }, []);
 
-    const handleDownloadPDF = async (data: Partial<DeliveryChallan>) => {
+    const handleDownloadPDF = async (data: Partial<DeliveryChallan>, overrideCopyType?: string, skipAutoNativeOpen?: boolean) => {
         try {
-            const blob = await PDFService.generateDeliveryChallanPDF(data as DeliveryChallan);
-            previewPDF(blob, `${data.challanNumber || 'DeliveryChallan'}.pdf`);
+            const activeCopyType = overrideCopyType || data.copyType || challan.copyType || 'ORIGINAL FOR RECIPIENT';
+            const fullChallanData: DeliveryChallan = {
+                ...(data as DeliveryChallan),
+                copyType: activeCopyType
+            };
+            const blob = await PDFService.generateDeliveryChallanPDF(fullChallanData);
+            previewPDF(blob, `${fullChallanData.challanNumber || 'DeliveryChallan'}.pdf`, {
+                copyType: activeCopyType,
+                skipAutoNativeOpen,
+                onChangeCopyType: (newType: string) => {
+                    setChallan(prev => ({ ...prev, copyType: newType }));
+                    if (fullChallanData.id) {
+                        updateDeliveryChallan(fullChallanData.id, { copyType: newType }).catch(() => {});
+                    }
+                    handleDownloadPDF({ ...data, copyType: newType }, newType, true);
+                }
+            });
         } catch (err) {
             console.error("Failed to download PDF", err);
             addNotification('Download Failed', 'Could not generate PDF file.', 'alert');
@@ -261,7 +277,7 @@ export const DeliveryChallanModule: React.FC = () => {
                         <button onClick={() => setViewState('history')} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'history' ? 'bg-emerald-600 text-white shadow-[0_10px_20px_-5px_rgba(5,150,105,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <History size={16} /> Registry
                         </button>
-                        <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
+                        <button onClick={() => { setEditingId(null); setChallan({ challanNumber: '', date: new Date().toISOString().split('T')[0], copyType: 'ORIGINAL FOR RECIPIENT', items: [], status: 'Draft', customerName: '', customerAddress: '', terms: '1. Goods once sold will not be taken back.\n2. Our responsibility ceases as soon as the goods leave our premises.\n3. Recipient acknowledges condition of goods upon arrival.', remarks: '', subject: '', sellerProfile: undefined }); setViewState('builder'); setBuilderTab('form'); }} className={`flex-1 sm:flex-none px-6 py-2 text-[10px] font-black uppercase tracking-widest rounded-[2rem] transition-all flex items-center justify-center gap-2 ${viewState === 'builder' ? 'bg-gradient-to-r from-[#c5a059] to-[#e5c185] text-amber-950 shadow-[0_10px_20px_-5px_rgba(197,160,89,0.5)] scale-100' : 'text-emerald-100/70 hover:text-white hover:bg-emerald-800/50 scale-95'}`}>
                             <PenTool size={16} /> New Challan
                         </button>
                     </div>
@@ -478,6 +494,17 @@ export const DeliveryChallanModule: React.FC = () => {
                                                     <input type="text" className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-sm font-bold outline-none" value={challan.subject || ''} onChange={e => setChallan({...challan, subject: e.target.value})} placeholder="e.g. Service Exchange / Installation" />
                                                 </FormRow>
                                             </div>
+                                            <FormRow label="Challan Copy Type">
+                                                <select
+                                                    className="w-full h-[36px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700 appearance-none"
+                                                    value={challan.copyType || 'ORIGINAL FOR RECIPIENT'}
+                                                    onChange={e => setChallan({ ...challan, copyType: e.target.value })}
+                                                >
+                                                    <option value="ORIGINAL FOR RECIPIENT">ORIGINAL FOR RECIPIENT</option>
+                                                    <option value="DUPLICATE FOR TRANSPORTER">DUPLICATE FOR TRANSPORTER</option>
+                                                    <option value="TRIPLICATE FOR SUPPLIER">TRIPLICATE FOR SUPPLIER</option>
+                                                </select>
+                                            </FormRow>
                                         </div>
                                     </section>
 
@@ -680,11 +707,44 @@ export const DeliveryChallanModule: React.FC = () => {
                             </div>
                         )}
                         {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50 print:bg-white print:p-0">
+                            <div className="h-full overflow-y-auto p-4 md:p-10 flex flex-col items-center custom-scrollbar bg-slate-100/50 print:bg-white print:p-0 gap-4">
+                                <div className="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Copy Type:</span>
+                                        {(['ORIGINAL FOR RECIPIENT', 'DUPLICATE FOR TRANSPORTER', 'TRIPLICATE FOR SUPPLIER'] as const).map(type => {
+                                            const active = (challan.copyType || 'ORIGINAL FOR RECIPIENT') === type;
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    type="button"
+                                                    onClick={() => setChallan(prev => ({ ...prev, copyType: type }))}
+                                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                                                        active
+                                                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    {type}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDownloadPDF(challan)}
+                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm transition-all"
+                                    >
+                                        <Download size={14} /> Print / PDF
+                                    </button>
+                                </div>
                                 <div className={`bg-white w-[210mm] min-h-[297mm] shrink-0 shadow-2xl p-8 md:p-12 font-sans leading-relaxed text-slate-800 border border-slate-200 print:shadow-none print:border-none print:m-0 print:p-8 flex flex-col justify-between ${
                                     (challan.items?.length ?? 0) <= 4 ? 'space-y-12' : 'space-y-6'
                                 }`}>
                                     <div className="space-y-8 flex-1">
+                                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">Delivery Challan</span>
+                                            <span className="text-[10px] font-bold italic text-slate-500">({challan.copyType || 'ORIGINAL FOR RECIPIENT'})</span>
+                                        </div>
                                         <div className="text-center space-y-2">
                                             <h2 className="text-4xl font-playfair font-bold tracking-tighter uppercase">{challan.sellerProfile?.companyName || 'SREE MEDITEC'}</h2>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">{challan.sellerProfile?.companyName ? 'Execution & Delivery' : 'Execution & Delivery Division'}</p>

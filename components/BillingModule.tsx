@@ -77,7 +77,8 @@ const numberToWords = (num: number): string => {
 const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
     const items = invoice.items || [];
     const freight = Number(invoice.freightAmount) || 0;
-    const freightTax = (freight * (Number(invoice.freightTaxRate) || 0)) / 100;
+    const freightTaxRate = Number(invoice.freightTaxRate) || 0;
+    const freightTax = (freight * freightTaxRate) / 100;
     
     const grossSubtotal = items.reduce((sum, p) => sum + ((Number(p.quantity) || 0) * (Number(p.unitPrice) || 0)), 0);
     const totalRowDiscount = items.reduce((sum, p) => {
@@ -87,14 +88,72 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
         return sum + ((qty * price) * (discPct / 100));
     }, 0);
 
+    const breakdownMap = new Map<string, {
+        hsn: string;
+        taxRate: number;
+        taxableValue: number;
+        cgstRate: number;
+        cgstAmount: number;
+        sgstRate: number;
+        sgstAmount: number;
+        totalTaxAmount: number;
+    }>();
+
     const itemsTaxable = grossSubtotal - totalRowDiscount;
     const itemsTax = items.reduce((sum, p) => {
         const qty = Number(p.quantity) || 0;
         const price = Number(p.unitPrice) || 0;
         const discPct = Number(p.discountPercent) || 0;
         const taxableLine = (qty * price) * (1 - (discPct / 100));
-        return sum + (taxableLine * ((Number(p.taxRate) || 0) / 100));
+        const taxRate = Number(p.taxRate) || 0;
+        const lineTax = taxableLine * (taxRate / 100);
+        const hsn = String(p.hsn || '').trim() || '-';
+        const key = `${hsn}__${taxRate}`;
+        const existing = breakdownMap.get(key);
+        if (existing) {
+            existing.taxableValue += taxableLine;
+            existing.cgstAmount += lineTax / 2;
+            existing.sgstAmount += lineTax / 2;
+            existing.totalTaxAmount += lineTax;
+        } else {
+            breakdownMap.set(key, {
+                hsn,
+                taxRate,
+                taxableValue: taxableLine,
+                cgstRate: taxRate / 2,
+                cgstAmount: lineTax / 2,
+                sgstRate: taxRate / 2,
+                sgstAmount: lineTax / 2,
+                totalTaxAmount: lineTax
+            });
+        }
+        return sum + lineTax;
     }, 0);
+
+    if (freight > 0) {
+        const hsn = 'Freight';
+        const key = `${hsn}__${freightTaxRate}`;
+        const existing = breakdownMap.get(key);
+        if (existing) {
+            existing.taxableValue += freight;
+            existing.cgstAmount += freightTax / 2;
+            existing.sgstAmount += freightTax / 2;
+            existing.totalTaxAmount += freightTax;
+        } else {
+            breakdownMap.set(key, {
+                hsn,
+                taxRate: freightTaxRate,
+                taxableValue: freight,
+                cgstRate: freightTaxRate / 2,
+                cgstAmount: freightTax / 2,
+                sgstRate: freightTaxRate / 2,
+                sgstAmount: freightTax / 2,
+                totalTaxAmount: freightTax
+            });
+        }
+    }
+
+    const taxBreakdown = Array.from(breakdownMap.values());
     
     const taxableValue = itemsTaxable + freight;
     const taxTotal = itemsTax + freightTax;
@@ -113,7 +172,7 @@ const calculateDetailedTotals = (invoice: Partial<Invoice>) => {
         roundOff = Number((grandTotal - grandTotalRaw).toFixed(2));
     }
     
-    return { grossSubtotal, totalRowDiscount, itemsTaxable, taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount };
+    return { grossSubtotal, totalRowDiscount, itemsTaxable, taxableValue, taxTotal, cgst, sgst, grandTotal, grandTotalRaw, totalQty, freight, freightTax, itemsTax, freightTotal, roundOff, discount, taxBreakdown };
 };
 
 import { AutoSuggest } from './AutoSuggest';
@@ -265,7 +324,7 @@ Email: sreemeditec@gmail.com`;
                                 sku: sku || '',
                                 barcode: m.barcode || '',
                                 sellingPrice: selling || 0,
-                                hsn: p.hsn || '',
+                                hsn: m.hsnCode || p.hsn || '',
                                 taxRate: gst || 18,
                                 features: m.specs ? m.specs.map(sp => `${sp.key}: ${sp.value}`).join(', ') : (p.description || '')
                             });
@@ -312,12 +371,21 @@ Email: sreemeditec@gmail.com`;
                 phone: pendingInvoiceData.phone || '',
                 email: pendingInvoiceData.email || '',
                 contactPerson: pendingInvoiceData.contactPerson || '',
-                items: (pendingInvoiceData.items || []).map(item => ({
-                    ...item,
-                    productId: undefined,
-                    sku: undefined,
-                    barcode: undefined
-                })),
+                items: (pendingInvoiceData.items || []).map(item => {
+                    const matchedProd = item.productId
+                        ? products.find(p => p.id === item.productId)
+                        : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                    const matchedBrand = matchedProd?.brands?.find(b => (b.name || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase());
+                    const matchedModel = matchedBrand?.models?.find(m => (m.name || '').trim().toLowerCase() === (item.model || '').trim().toLowerCase());
+                    const resolvedHsn = item.hsn || matchedModel?.hsnCode || matchedProd?.hsn || matchedProd?.brands?.[0]?.models?.[0]?.hsnCode || '';
+                    return {
+                        ...item,
+                        hsn: resolvedHsn,
+                        productId: undefined,
+                        sku: undefined,
+                        barcode: undefined
+                    };
+                }),
                 discount: pendingInvoiceData.discount || 0,
                 freight: pendingInvoiceData.freight || 0,
                 freightAmount: pendingInvoiceData.freightAmount || 0,
@@ -453,13 +521,15 @@ Email: sreemeditec@gmail.com`;
 
     const totals = useMemo(() => calculateDetailedTotals(invoice), [invoice]);
 
-    const handleDownloadPDF = async (data: Partial<Invoice>) => {
+    const handleDownloadPDF = async (data: Partial<Invoice>, overrideCopyType?: string, skipAutoNativeOpen?: boolean) => {
         addLog('Billing', 'Downloaded PDF', `Exported document ${data.invoiceNumber || 'New'} as PDF`);
         try {
             const isQuotation = data.documentType === 'Quotation';
+            const activeCopyType = overrideCopyType || data.copyType || invoice.copyType || 'ORIGINAL FOR RECIPIENT';
             const compiledTotals = calculateDetailedTotals(data);
             const fullInvoiceData: Partial<Invoice> = {
                 ...data,
+                copyType: activeCopyType,
                 subtotal: data.subtotal ?? compiledTotals.taxableValue,
                 taxTotal: data.taxTotal ?? compiledTotals.taxTotal,
                 grandTotal: data.grandTotal ?? compiledTotals.grandTotal,
@@ -472,8 +542,15 @@ Email: sreemeditec@gmail.com`;
                     const discAmt = rawBase * (discPct / 100);
                     const taxableVal = rawBase - discAmt;
                     const gstVal = taxableVal * (gst / 100);
+                    const matchedProd = item.productId
+                        ? products.find(p => p.id === item.productId)
+                        : products.find(p => p.name.toUpperCase() === (item.description || '').toUpperCase());
+                    const matchedBrand = matchedProd?.brands?.find(b => (b.name || '').trim().toLowerCase() === (item.brand || '').trim().toLowerCase());
+                    const matchedModel = matchedBrand?.models?.find(m => (m.name || '').trim().toLowerCase() === (item.model || '').trim().toLowerCase());
+                    const resolvedHsn = item.hsn || matchedModel?.hsnCode || matchedProd?.hsn || matchedProd?.brands?.[0]?.models?.[0]?.hsnCode || '';
                     return {
                         ...item,
+                        hsn: resolvedHsn,
                         quantity: qty,
                         unitPrice: price,
                         discountPercent: discPct,
@@ -486,7 +563,14 @@ Email: sreemeditec@gmail.com`;
                 })
             };
             const blob = await PDFService.generateInvoicePDF(fullInvoiceData, isQuotation, fullInvoiceData.selectedBank);
-            previewPDF(blob, `${fullInvoiceData.invoiceNumber || 'Document'}.pdf`);
+            previewPDF(blob, `${fullInvoiceData.invoiceNumber || 'Document'}.pdf`, {
+                copyType: activeCopyType,
+                skipAutoNativeOpen,
+                onChangeCopyType: !isQuotation ? (newType: string) => {
+                    setInvoice(prev => ({ ...prev, copyType: newType }));
+                    handleDownloadPDF({ ...data, copyType: newType }, newType, true);
+                } : undefined
+            });
         } catch (err) {
             console.error("Failed to download PDF", err);
             await showAlert("Error generating PDF.", "Error");
@@ -620,13 +704,13 @@ Email: sreemeditec@gmail.com`;
     };
 
     const handleAddItem = (prod?: any, index?: number) => {
-        const taxRate = prod?.taxRate || 18;
-        const sellingPrice = prod?.sellingPrice || 0;
+        const taxRate = prod?.taxRate ?? prod?.brands?.[0]?.models?.[0]?.vendors?.[0]?.gstRate ?? 18;
+        const sellingPrice = prod?.sellingPrice || prod?.brands?.[0]?.models?.[0]?.vendors?.[0]?.sellingPrice || 0;
         const gstVal = sellingPrice * (taxRate / 100);
         const newItem: InvoiceItem = {
             id: `ITEM-${Date.now()}`,
             description: prod?.name || '',
-            hsn: prod?.hsn || '',
+            hsn: prod?.hsn || prod?.brands?.[0]?.models?.[0]?.hsnCode || '',
             features: prod?.description || '',
             quantity: 1,
             unitPrice: sellingPrice,
@@ -672,8 +756,8 @@ Email: sreemeditec@gmail.com`;
                         updated.model = '';
                         if (matchedProduct) {
                             updated.productId = matchedProduct.id;
-                            updated.hsn = matchedProduct.hsn || '';
-                            updated.taxRate = matchedProduct.taxRate || 18;
+                            updated.hsn = matchedProduct.hsn || matchedProduct.brands?.[0]?.models?.[0]?.hsnCode || '';
+                            updated.taxRate = matchedProduct.taxRate ?? matchedProduct.brands?.[0]?.models?.[0]?.vendors?.[0]?.gstRate ?? 18;
                             updated.unitPrice = matchedProduct.sellingPrice || 0;
                             updated.features = matchedProduct.description || '';
                             updated.sku = matchedProduct.sku || '';
@@ -697,15 +781,15 @@ Email: sreemeditec@gmail.com`;
                                 } else {
                                     updated.features = matchedProduct.description || '';
                                 }
-                                updated.hsn = matchedProduct.hsn || updated.hsn || '';
+                                updated.hsn = modelObj.hsnCode || matchedProduct.hsn || updated.hsn || '';
                                 if (modelObj.vendors && modelObj.vendors.length > 0) {
                                     const primaryVendor = modelObj.vendors[0];
                                     updated.unitPrice = primaryVendor.sellingPrice || matchedProduct.sellingPrice || 0;
-                                    updated.taxRate = primaryVendor.gstRate || matchedProduct.taxRate || 18;
+                                    updated.taxRate = primaryVendor.gstRate ?? matchedProduct.taxRate ?? 18;
                                     updated.sku = primaryVendor.sku || matchedProduct.sku || '';
                                 } else {
                                     updated.unitPrice = matchedProduct.sellingPrice || updated.unitPrice || 0;
-                                    updated.taxRate = matchedProduct.taxRate || updated.taxRate || 18;
+                                    updated.taxRate = matchedProduct.taxRate ?? updated.taxRate ?? 18;
                                 }
                                 if (modelObj.barcode) updated.barcode = modelObj.barcode;
                             }
@@ -1223,6 +1307,16 @@ Email: sreemeditec@gmail.com`;
                                                 ))}
                                             </select>
                                         </FormRow>
+                                        <FormRow label="Invoice Copy Type">
+                                            <select className="w-full h-[46px] bg-white border border-slate-300 rounded-[2rem] px-3 py-1.5 text-xs font-black outline-none cursor-pointer focus:ring-4 focus:ring-medical-500/10 transition-all text-slate-700 appearance-none"
+                                                value={invoice.copyType || 'ORIGINAL FOR RECIPIENT'}
+                                                onChange={e => setInvoice({ ...invoice, copyType: e.target.value })}
+                                            >
+                                                <option value="ORIGINAL FOR RECIPIENT">ORIGINAL FOR RECIPIENT</option>
+                                                <option value="DUPLICATE FOR TRANSPORTER">DUPLICATE FOR TRANSPORTER</option>
+                                                <option value="TRIPLICATE FOR SUPPLIER">TRIPLICATE FOR SUPPLIER</option>
+                                            </select>
+                                        </FormRow>
                                     </div>
                                 </section>
 
@@ -1557,12 +1651,41 @@ Email: sreemeditec@gmail.com`;
                         )}
 
                         {builderTab === 'preview' && (
-                            <div className="h-full overflow-y-auto p-12 flex flex-col items-center custom-scrollbar bg-slate-100/50">
+                            <div className="h-full overflow-y-auto p-4 md:p-8 flex flex-col items-center custom-scrollbar bg-slate-100/50 gap-4">
+                                <div className="w-full max-w-4xl bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3 shrink-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Copy Type:</span>
+                                        {(['ORIGINAL FOR RECIPIENT', 'DUPLICATE FOR TRANSPORTER', 'TRIPLICATE FOR SUPPLIER'] as const).map(type => {
+                                            const active = (invoice.copyType || 'ORIGINAL FOR RECIPIENT') === type;
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    type="button"
+                                                    onClick={() => setInvoice(prev => ({ ...prev, copyType: type }))}
+                                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                                                        active
+                                                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    {type}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDownloadPDF(invoice)}
+                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm transition-all"
+                                    >
+                                        <Download size={14} /> Print / PDF
+                                    </button>
+                                </div>
                                 <div className="shadow-2xl h-fit transition-all duration-300 origin-top scale-[0.4] sm:scale-[0.55] md:scale-[0.65] lg:scale-[0.7] xl:scale-[0.8] 2xl:scale-[0.95]" style={{ width: '210mm' }}>
                                     <div className="bg-white p-[10mm] text-black w-full min-h-[297mm] flex flex-col border border-slate-300 mx-auto overflow-hidden text-[10px] leading-tight" style={{ fontFamily: 'Arial, sans-serif' }}>
                                         <div className="flex justify-between items-center border-b border-black pb-1 mb-1 font-bold">
                                             <span className="uppercase text-xs tracking-tighter">Tax Invoice</span>
-                                            <span className="italic text-[8px]">(ORIGINAL FOR RECIPIENT)</span>
+                                            <span className="italic text-[8px]">({invoice.copyType || 'ORIGINAL FOR RECIPIENT'})</span>
                                         </div>
                                         <div className="grid grid-cols-[1.5fr_1fr] border border-black overflow-hidden">
                                             {/* LEFT COLUMN */}
@@ -1696,13 +1819,13 @@ Email: sreemeditec@gmail.com`;
                                                  )}
                                                  <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
-                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output CGST (9%)</td>
+                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output CGST</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
                                                      <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                  </tr>
                                                  <tr className="grid grid-cols-[8mm_1fr_15mm_12mm_18mm_26mm_10mm_8mm_28mm] h-5 italic border-b border-slate-50">
                                                      <td className="border-r border-black"></td>
-                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output SGST (9%)</td>
+                                                     <td className="border-r border-black p-1 text-left flex items-center font-bold">Output SGST</td>
                                                      <td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td><td className="border-r border-black"></td>
                                                      <td className="p-1 text-right flex items-center justify-end font-bold pr-2">{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                  </tr>
@@ -1757,15 +1880,29 @@ Email: sreemeditec@gmail.com`;
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr className="border-b border-black">
-                                                        <td className="border-r border-black p-1 text-center">9402</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                        <td className="border-r border-black p-1 text-center">9%</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.cgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                        <td className="border-r border-black p-1 text-center">9%</td>
-                                                        <td className="border-r border-black p-1 text-right">{totals.sgst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                        <td className="p-1 text-right">{(totals.cgst + totals.sgst).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                    </tr>
+                                                    {(totals.taxBreakdown && totals.taxBreakdown.length > 0) ? (
+                                                        totals.taxBreakdown.map((row, rIdx) => (
+                                                            <tr key={rIdx} className="border-b border-black">
+                                                                <td className="border-r border-black p-1 text-center">{row.hsn}</td>
+                                                                <td className="border-r border-black p-1 text-right">{row.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                                <td className="border-r border-black p-1 text-center">{Number(row.cgstRate.toFixed(2))}%</td>
+                                                                <td className="border-r border-black p-1 text-right">{row.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                                <td className="border-r border-black p-1 text-center">{Number(row.sgstRate.toFixed(2))}%</td>
+                                                                <td className="border-r border-black p-1 text-right">{row.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                                <td className="p-1 text-right">{row.totalTaxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr className="border-b border-black">
+                                                            <td className="border-r border-black p-1 text-center">-</td>
+                                                            <td className="border-r border-black p-1 text-right">0.00</td>
+                                                            <td className="border-r border-black p-1 text-center">0%</td>
+                                                            <td className="border-r border-black p-1 text-right">0.00</td>
+                                                            <td className="border-r border-black p-1 text-center">0%</td>
+                                                            <td className="border-r border-black p-1 text-right">0.00</td>
+                                                            <td className="p-1 text-right">0.00</td>
+                                                        </tr>
+                                                    )}
                                                     <tr className="font-bold bg-slate-50/50">
                                                         <td className="border-r border-black p-1 text-right">Total</td>
                                                         <td className="border-r border-black p-1 text-right">{totals.taxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -1791,7 +1928,7 @@ Email: sreemeditec@gmail.com`;
                                                     <div className="grid grid-cols-[80px_1fr] text-[8px]">
                                                         <span>Bank Name</span><span className="font-bold">: {invoice.selectedBank?.bankName || (invoice.documentType === 'Quotation' ? 'ICICI Bank' : 'KVB Bank')}</span>
                                                         <span>A/c No.</span><span className="font-bold">: {invoice.selectedBank?.accountNo || (invoice.documentType === 'Quotation' ? '603705016939' : '1617135000000754')}</span>
-                                                        <span>Branch & IFS Code</span><span className="font-bold">: {invoice.selectedBank ? (invoice.selectedBank.branchIfsc || `${invoice.selectedBank.accountType || ''}`) : (invoice.documentType === 'Quotation' ? 'Selaiyur & ICIC0006037' : 'Selaiyur & KVBL0001617')}</span>
+                                                        <span>Branch & IFS Code</span><span className="font-bold">: {(invoice.selectedBank ? (invoice.selectedBank.branchIfsc || `${invoice.selectedBank.accountType || ''}`) : (invoice.documentType === 'Quotation' ? 'Selaiyur & ICIC0006037' : 'Selaiyur & KVBL0001617')).replace(/ICIC[O0]{3}6037/gi, 'ICIC0006037')}</span>
                                                     </div>
                                                 </div>
                                             </div>

@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useData } from './DataContext';
 import { Employee, PublicVisibilitySettings, PublicEmployeeProfile } from '../types';
+import { PublicEmployeeProfile as PublicEmployeeProfileView } from './PublicEmployeeProfile';
 import { 
   Users, Search, ShieldCheck, QrCode, Lock, Plus, Edit2, 
   Trash2, X, Download, Printer, Copy, Check, Eye, AlertTriangle, 
@@ -20,9 +21,13 @@ async function sha256(str: string): Promise<string> {
   return hashArr.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Generate unique non-guessable public profile id
-function generatePublicProfileId(): string {
-  const rnd = Array.from(crypto.getRandomValues(new Uint8Array(10)))
+// Generate predictable, permanent public profile ID tied to employee ID
+export function generatePublicProfileId(empId?: string): string {
+  if (empId && empId.trim()) {
+    const clean = empId.trim().replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    return `smp_${clean}`;
+  }
+  const rnd = Array.from(crypto.getRandomValues(new Uint8Array(8)))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
   return `smp_${rnd}`;
@@ -63,6 +68,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
   const [activeFormTab, setActiveFormTab] = useState<'technical' | 'basic' | 'contact' | 'employment' | 'education' | 'qr'>('technical');
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
   const [qrModalEmployee, setQrModalEmployee] = useState<Employee | null>(null);
+  const [previewModalEmployee, setPreviewModalEmployee] = useState<Partial<Employee> | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -234,7 +240,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
   // Open Add Modal
   const handleOpenAdd = () => {
     const newId = generateNextEmployeeId();
-    const newPublicId = generatePublicProfileId();
+    const newPublicId = generatePublicProfileId(newId);
     setFormData({
       id: newId,
       name: '',
@@ -285,7 +291,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
       directPhone: emp.directPhone || emp.phone || '',
       employmentStartDate: emp.employmentStartDate || emp.joinDate || '',
       publicVisibilitySettings: emp.publicVisibilitySettings || { ...DEFAULT_VISIBILITY },
-      publicProfileId: emp.publicProfileId || generatePublicProfileId(),
+      publicProfileId: emp.publicProfileId || generatePublicProfileId(emp.id),
       bloodGroup: emp.bloodGroup || '',
       workLocation: emp.workLocation || 'Kochi HQ',
       emergencyContactName: emp.emergencyContactName || '',
@@ -343,7 +349,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
     }
 
     // Ensure permanent publicProfileId
-    const publicProfileId = formData.publicProfileId || generatePublicProfileId();
+    const publicProfileId = formData.publicProfileId || generatePublicProfileId(empId);
     const isEmpActive = formData.status === 'Active';
 
     const completeEmployeeData: Employee = {
@@ -421,10 +427,12 @@ export const EmployeeDatabaseModule: React.FC = () => {
       await setDoc(publicRef, publicProfilePayload);
 
       // Also ensure case-insensitive / normalized doc IDs are kept updated in Firestore
+      const cleanEmpId = empId.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
       const idVariants = [
         empId,
         empId.toLowerCase(),
         empId.toUpperCase(),
+        `smp_${cleanEmpId}`,
         `smp_${empId.toLowerCase()}`,
         `smp_${empId.toUpperCase()}`
       ];
@@ -458,7 +466,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const publicProfileId = emp.publicProfileId || generatePublicProfileId();
+      const publicProfileId = emp.publicProfileId || generatePublicProfileId(emp.id);
       await updateEmployee(emp.id, {
         status: newStatus,
         isLoginEnabled: !isCurrentlyActive,
@@ -545,7 +553,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
     const syncMissing = async () => {
       for (const emp of employees) {
         if (!emp.publicProfileId) {
-          const generatedId = `smp_${emp.id.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}`;
+          const generatedId = generatePublicProfileId(emp.id);
           const payload = createPublicProfilePayload(emp, generatedId);
           try {
             await setDoc(doc(db, 'publicEmployeeProfiles', generatedId), payload);
@@ -567,7 +575,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
   const getPublicProfileUrl = (empOrId?: Employee | Partial<Employee> | string, targetOrigin?: string) => {
     let id = '';
     if (typeof empOrId === 'object' && empOrId !== null) {
-      id = empOrId.publicProfileId || (empOrId.id ? `smp_${empOrId.id.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}` : '');
+      id = empOrId.publicProfileId || (empOrId.id ? generatePublicProfileId(empOrId.id) : '');
     } else if (typeof empOrId === 'string' && empOrId.trim()) {
       id = empOrId.trim();
     }
@@ -587,7 +595,7 @@ export const EmployeeDatabaseModule: React.FC = () => {
   const handleOpenQrModal = async (emp: Employee) => {
     let activeEmp = { ...emp };
     if (!activeEmp.publicProfileId) {
-      const generatedId = `smp_${emp.id.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()}`;
+      const generatedId = generatePublicProfileId(emp.id);
       activeEmp.publicProfileId = generatedId;
       const payload = createPublicProfilePayload(activeEmp, generatedId);
       try {
@@ -1308,7 +1316,14 @@ export const EmployeeDatabaseModule: React.FC = () => {
                         type="text"
                         value={formData.id}
                         disabled={formMode === 'edit'}
-                        onChange={(e) => setFormData(prev => ({ ...prev, id: e.target.value }))}
+                        onChange={(e) => {
+                          const newIdVal = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            id: newIdVal,
+                            publicProfileId: generatePublicProfileId(newIdVal)
+                          }));
+                        }}
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-800 dark:text-white outline-none focus:border-emerald-500 disabled:opacity-60"
                       />
                       <p className="text-[10px] text-slate-400 mt-1">Unique organization personnel identifier.</p>
@@ -1851,12 +1866,29 @@ export const EmployeeDatabaseModule: React.FC = () => {
                       />
                     </div>
                     <div className="flex-1 space-y-2 text-center sm:text-left">
-                      <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                      <div className="flex items-center justify-center sm:justify-start gap-1.5 flex-wrap">
                         <Sparkles size={14} className="text-emerald-600 dark:text-[#83E7DD]" />
                         <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">Permanent QR Identity</h4>
+                        {formMode === 'add' ? (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            Activates on Register
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                            Active & Live
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
-                        This QR code encodes only the public profile URL. It remains permanent and will never break even if employee details are modified.
+                        {formMode === 'add' ? (
+                          <>
+                            This QR code is permanently assigned to <strong className="text-slate-700 dark:text-slate-200">{formData.id}</strong> ({generatePublicProfileId(formData.id)}). It activates publicly worldwide immediately upon clicking <strong className="text-emerald-600">Register Employee</strong> below. Click <strong>Preview Profile</strong> to view the live card now.
+                          </>
+                        ) : (
+                          <>
+                            This QR code encodes the permanent public profile URL for <strong className="text-slate-700 dark:text-slate-200">{formData.id}</strong>. It remains permanent and will never break even if employee details are modified.
+                          </>
+                        )}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 pt-1 justify-center sm:justify-start">
                         <button
@@ -1867,15 +1899,25 @@ export const EmployeeDatabaseModule: React.FC = () => {
                           {copiedLink ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                           <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
                         </button>
-                        <a
-                          href={getPublicProfileUrl(formData, typeof window !== 'undefined' ? window.location.origin : undefined)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-xs flex items-center gap-1.5 hover:bg-slate-50 text-slate-700 dark:text-slate-200"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewModalEmployee(formData)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
                         >
                           <ExternalLink size={14} />
                           <span>Preview Profile</span>
-                        </a>
+                        </button>
+                        {formMode === 'edit' && (
+                          <a
+                            href={getPublicProfileUrl(formData, typeof window !== 'undefined' ? window.location.origin : undefined)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-xs flex items-center gap-1.5 hover:bg-slate-50 text-slate-700 dark:text-slate-200"
+                          >
+                            <ExternalLink size={14} />
+                            <span>Open URL</span>
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2146,6 +2188,36 @@ export const EmployeeDatabaseModule: React.FC = () => {
                   <span>Print Card</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── LIVE PROFILE CARD PREVIEW MODAL ────────────────────────────────────── */}
+      {previewModalEmployee && (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="relative w-full max-w-xl bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800 my-auto animate-in zoom-in-95">
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800/80 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-[#83E7DD]" />
+                <span className="text-xs font-black uppercase tracking-wider text-white">Live Profile Card Preview</span>
+                {formMode === 'add' && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                    Draft Preview
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalEmployee(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-700 transition-colors"
+                title="Close Preview"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="max-h-[82vh] overflow-y-auto">
+              <PublicEmployeeProfileView previewData={previewModalEmployee} />
             </div>
           </div>
         </div>

@@ -932,13 +932,19 @@ export const ReportsModule: React.FC = () => {
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [selectedEmployeeForClosures, allSmInvoicesKpi, dateRange, employees]);
 
-  const handleViewInvoicePDF = async (invId: string) => {
+  const handleViewInvoicePDF = async (invId: string, overrideCopyType?: string, skipAutoNativeOpen?: boolean) => {
     const fullInvoice = (allSmInvoicesKpi || []).find(i => i.id === invId || i.invoiceNumber === invId);
     if (fullInvoice) {
       try {
         const isQuotation = fullInvoice.documentType === 'Quotation';
-        const blob = await PDFService.generateInvoicePDF(fullInvoice, isQuotation, fullInvoice.selectedBank);
-        previewPDF(blob, `${fullInvoice.invoiceNumber || 'Document'}.pdf`);
+        const activeCopyType = overrideCopyType || fullInvoice.copyType || 'ORIGINAL FOR RECIPIENT';
+        const invWithCopy = { ...fullInvoice, copyType: activeCopyType };
+        const blob = await PDFService.generateInvoicePDF(invWithCopy, isQuotation, fullInvoice.selectedBank);
+        previewPDF(blob, `${fullInvoice.invoiceNumber || 'Document'}.pdf`, {
+          copyType: activeCopyType,
+          skipAutoNativeOpen,
+          onChangeCopyType: !isQuotation ? (newType: string) => handleViewInvoicePDF(invId, newType, true) : undefined
+        });
       } catch (err) {
         console.error("Failed to generate PDF:", err);
         alert("Error generating PDF.");

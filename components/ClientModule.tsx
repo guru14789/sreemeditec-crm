@@ -289,15 +289,21 @@ export const ClientModule: React.FC = () => {
         }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     };
 
-    const handleViewInvoicePDF = async (inv: any) => {
+    const handleViewInvoicePDF = async (inv: any, overrideCopyType?: string, skipAutoNativeOpen?: boolean) => {
         try {
+            const activeCopyType = overrideCopyType || inv.copyType || 'ORIGINAL FOR RECIPIENT';
             const fullInvoiceData = {
                 ...inv,
+                copyType: activeCopyType,
                 companyDetails: inv.companyDetails || companyProfiles?.[0]
             };
             const isQuotation = inv.documentType === 'Quotation';
             const blob = await PDFService.generateInvoicePDF(fullInvoiceData, isQuotation, fullInvoiceData.selectedBank);
-            previewPDF(blob, `${fullInvoiceData.invoiceNumber || 'Document'}.pdf`);
+            previewPDF(blob, `${fullInvoiceData.invoiceNumber || 'Document'}.pdf`, {
+                copyType: activeCopyType,
+                skipAutoNativeOpen,
+                onChangeCopyType: !isQuotation ? (newType: string) => handleViewInvoicePDF(inv, newType, true) : undefined
+            });
         } catch (err: any) {
             console.error("PDF generation failed:", err);
             addNotification("PDF Error", "Could not generate invoice PDF document.", "alert");
