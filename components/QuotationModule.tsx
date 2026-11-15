@@ -1390,7 +1390,7 @@ Sree Meditec`;
                                             <p className="text-sm whitespace-pre-wrap leading-snug">{quote.customerAddress}</p>
                                             {quote.customerGstin && <p className="text-sm font-bold">GST: {quote.customerGstin}</p>}
                                         </div>
-                                        <div className="mt-6 mb-4 text-sm font-bold italic">Sub: Reg. Price Quotation for {quote.subject || 'Medical Equipment'}.</div>
+                                        <div className="mt-6 mb-4 text-sm font-bold italic">Sub: Reg. Quotation for {quote.subject || 'Medical Equipment'}.</div>
                                         <div className="mb-6 text-sm">Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.</div>
                                         <table className="w-full border-collapse border border-black text-[10px] mb-8">
                                             <thead>

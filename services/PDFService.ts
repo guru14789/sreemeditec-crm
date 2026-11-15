@@ -446,7 +446,7 @@ export const PDFService = {
 
         currentY += 8;
         doc.setFont('helvetica', 'bold');
-        doc.text(`Sub: Reg. Price Quotation for ${data.subject || '---'}.`, 15, currentY);
+        doc.text(`Sub: Reg. Quotation for ${data.subject || '---'}.`, 15, currentY);
         doc.setFont('helvetica', 'normal');
         doc.text('Sir, this is with ref to the discussion we had with you we are happy in submitting our quotation for the same.', 15, currentY + 6, { maxWidth: pageWidth - 30 });
         currentY += 14;
